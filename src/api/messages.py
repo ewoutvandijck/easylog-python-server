@@ -5,16 +5,17 @@ from fastapi.responses import StreamingResponse
 from prisma.models import Messages
 from pydantic import ValidationError
 
-from src.agents.agent_loader import agent_loader
 from src.db.prisma import prisma
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
+from src.services.message_service import AgentNotFoundError, MessageService
+from src.utils.sse import pydantic_to_sse_stream
 
 router = APIRouter()
 
 
 @router.get(
-    "/v1/threads/{thread_id}/messages",
+    "/threads/{thread_id}/messages",
     tags=["messages"],
     response_model=Pagination[Messages],
     description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
@@ -44,10 +45,11 @@ async def get_messages(
 
 
 @router.post(
-    "/v1/threads/{thread_id}/messages",
+    "/threads/{thread_id}/messages",
     tags=["messages"],
     response_model=MessageContent,
     response_description="A stream of JSON-encoded message chunks. See the `MessageContent` schema for the structure of the message chunks.",
+    description="Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.",
 )
 async def create_message(
     message: MessageCreateInput,
@@ -68,69 +70,23 @@ async def create_message(
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
 
-    agent = agent_loader.get_agent(message.agent_config.agent_class)
-
-    if not agent:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Agent '{message.agent_config.agent_class}' is not a valid agent. Available agents: {', '.join(map(lambda agent: agent.__class__.__name__, agent_loader.agents))}",
-        )
-
     config = message.agent_config.model_dump()
     del config["agent_class"]
 
-    async def stream(thread_id: str):
-        chunks: list[MessageContent] = []
-        for chunk in agent.forward(message.content[0].content, config):
-            last_chunk = chunks[-1] if chunks else None
-
-            if last_chunk and last_chunk.type == "text":
-                last_chunk.content += chunk.content
-            else:
-                chunks.append(chunk)
-
-            yield chunk.model_dump_json() + "\n"
-
-        await prisma.messages.create(
-            data={
-                "thread": {"connect": {"id": thread_id}},
-                "agent_class": message.agent_config.agent_class,
-                "role": "user",
-                "contents": {
-                    "create": [
-                        {
-                            "content": content.content,
-                            "message_type": content.type,
-                        }
-                        for content in message.content
-                    ]
-                },
-            },
-        )
-
-        # Insert agent response
-        await prisma.messages.create(
-            data={
-                "thread": {"connect": {"id": thread_id}},
-                "agent_class": message.agent_config.agent_class,
-                "role": "assistant",
-                "contents": {
-                    "create": [
-                        {
-                            "content": chunk.content,
-                            "message_type": chunk.type,
-                        }
-                        for chunk in chunks
-                    ],
-                },
-            },
-        )
+    forward_message_generator = MessageService.forward_message(
+        thread_id=thread.id,
+        agent_class=message.agent_config.agent_class,
+        agent_config=config,
+        content=message.content,
+    )
 
     try:
         return StreamingResponse(
-            stream(thread.id),
-            media_type="application/x-ndjson",
+            pydantic_to_sse_stream("delta", forward_message_generator),
+            media_type="text/event-stream",
         )
+    except AgentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -138,7 +94,7 @@ async def create_message(
 
 
 @router.delete(
-    "/v1/threads/{thread_id}/messages/{message_id}",
+    "/threads/{thread_id}/messages/{message_id}",
     tags=["messages"],
 )
 async def delete_message(

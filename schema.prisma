@@ -19,7 +19,7 @@ model Threads {
 
 model Messages {
     id          String            @id @default(cuid())
-    thread      Threads           @relation(fields: [thread_id], references: [id])
+    thread      Threads           @relation(fields: [thread_id], references: [id], onDelete: Cascade)
     thread_id   String
     role        String            @default("user")
     contents    MessageContents[]
@@ -32,7 +32,7 @@ model Messages {
 
 model MessageContents {
     id           String   @id @default(cuid())
-    message      Messages @relation(fields: [message_id], references: [id])
+    message      Messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
     message_id   String
     message_type String   @default("text")
     content      String

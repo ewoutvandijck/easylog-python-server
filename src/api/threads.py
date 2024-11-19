@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/v1/threads",
+    "/threads",
     tags=["threads"],
     response_model=Pagination[Threads],
     description="Retrieves all threads. Returns a list of all threads with their messages by default in descending chronological order (newest first). Each message includes its full content.",
@@ -42,7 +42,7 @@ async def get_threads(
 
 
 @router.get(
-    "/v1/threads/{id}",
+    "/threads/{id}",
     tags=["threads"],
     response_model=Threads,
     responses={
@@ -80,7 +80,7 @@ async def get_thread_by_id(
 
 
 @router.post(
-    "/v1/threads",
+    "/threads",
     tags=["threads"],
     response_model=Threads,
     description="Creates a new thread or returns the existing thread if it already exists.",
@@ -97,15 +97,31 @@ async def create_thread(thread: ChatCreateInput):
                 },
                 "update": {},
             },
+            include={
+                "messages": {
+                    "include": {
+                        "contents": True,
+                    },
+                }
+            },
         )
 
-    return await prisma.threads.create(data={"external_id": thread.external_id})
+    return await prisma.threads.create(
+        data={"external_id": thread.external_id},
+        include={
+            "messages": {
+                "include": {
+                    "contents": True,
+                },
+            }
+        },
+    )
 
 
 @router.delete(
-    "/v1/threads/{id}",
+    "/threads/{id}",
     tags=["threads"],
-    description="Deletes a thread by its unique ID. Returns the number of threads deleted.",
+    description="Deletes a thread by its internal or external ID.",
 )
 async def delete_thread(
     id: str = Path(

@@ -19,6 +19,15 @@ class MessageContent(BaseModel):
     content: str = Field(..., description="The content of the message.")
 
 
+class Message(BaseModel):
+    role: Literal["assistant", "user"] = Field(
+        default="assistant", description="The role of the message."
+    )
+    content: List[MessageContent] = Field(
+        ..., description="The content of the message."
+    )
+
+
 class MessageCreateInput(BaseModel):
     content: List[MessageContent] = Field(
         ..., description="The content of the message."
@@ -41,3 +50,7 @@ class MessageCreateInput(BaseModel):
             ]
         }
     }
+
+
+class MessageChunkContent(MessageContent):
+    chunk_index: int
