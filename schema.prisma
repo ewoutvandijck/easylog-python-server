@@ -7,31 +7,38 @@ generator client {
     provider = "prisma-client-py"
 }
 
-model Chat {
-    id        String    @id @default(cuid())
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
-    messages  Message[]
+model Threads {
+    id          String     @id @default(cuid())
+    external_id String?    @unique
+    created_at  DateTime   @default(now())
+    updated_at  DateTime   @updatedAt
+    messages    Messages[]
+
+    @@map("threads")
 }
 
-model Message {
-    id         String           @id @default(cuid())
-    chat       Chat             @relation(fields: [chatId], references: [id])
-    chatId     String
-    role       String           @default("user")
-    content    MessageContent[]
-    agentClass String
-    createdAt  DateTime         @default(now())
-    updatedAt  DateTime         @updatedAt
+model Messages {
+    id          String            @id @default(cuid())
+    thread      Threads           @relation(fields: [thread_id], references: [id])
+    thread_id   String
+    role        String            @default("user")
+    contents    MessageContents[]
+    agent_class String
+    created_at  DateTime          @default(now())
+    updated_at  DateTime          @updatedAt
+
+    @@map("messages")
 }
 
-model MessageContent {
-    id          String   @id @default(cuid())
-    message     Message  @relation(fields: [messageId], references: [id])
-    messageId   String
-    messageType String   @default("text")
-    content     String
-    contentType String?
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+model MessageContents {
+    id           String   @id @default(cuid())
+    message      Messages @relation(fields: [message_id], references: [id])
+    message_id   String
+    message_type String   @default("text")
+    content      String
+    content_type String?
+    created_at   DateTime @default(now())
+    updated_at   DateTime @updatedAt
+
+    @@map("message_contents")
 }

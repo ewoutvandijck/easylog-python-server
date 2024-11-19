@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.api.v1 import chats
+from src.api.v1 import messages, threads
 from src.db.prisma import prisma
 
 
@@ -15,4 +15,6 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(chats.router)
+
+app.include_router(threads.router)
+app.include_router(messages.router)
