@@ -4,7 +4,4 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "fastapi[standard]>=0.115.5",
-    "prisma>=0.15.0",
-]
+dependencies = ["fastapi[standard]>=0.115.5", "prisma>=0.15.0"]

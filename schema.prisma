@@ -15,10 +15,23 @@ model Chat {
 }
 
 model Message {
-    id        String   @id @default(cuid())
-    chat      Chat     @relation(fields: [chatId], references: [id])
-    chatId    String
-    content   String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    id         String           @id @default(cuid())
+    chat       Chat             @relation(fields: [chatId], references: [id])
+    chatId     String
+    role       String           @default("user")
+    content    MessageContent[]
+    agentClass String
+    createdAt  DateTime         @default(now())
+    updatedAt  DateTime         @updatedAt
+}
+
+model MessageContent {
+    id          String   @id @default(cuid())
+    message     Message  @relation(fields: [messageId], references: [id])
+    messageId   String
+    messageType String   @default("text")
+    content     String
+    contentType String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 }
