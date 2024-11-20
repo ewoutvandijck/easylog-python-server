@@ -6,14 +6,34 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-openapi-client": "docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i http://host.docker.internal:8000/api/v1/openapi.json -g typescript-fetch -o /local/src/lib/generated/generated-client"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-dropdown-menu": "^2.1.2",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-separator": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-tooltip": "^1.1.4",
+    "@tabler/icons-react": "^3.22.0",
+    "@tanstack/react-query": "^5.60.6",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "jotai": "^2.10.3",
+    "lucide-react": "^0.460.0",
     "next": "15.0.3",
     "react": "19.0.0-rc-66855b96-20241106",
-    "react-dom": "19.0.0-rc-66855b96-20241106"
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "react-hook-form": "^7.53.2",
+    "sonner": "^1.7.0",
+    "tailwind-merge": "^2.5.4",
+    "tailwind-variants": "^0.3.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.15.3",
     "@tailwindcss/typography": "^0.5.15",
     "@types/node": "^20",
     "@types/react": "^18",

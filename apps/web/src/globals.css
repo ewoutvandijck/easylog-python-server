@@ -4,113 +4,81 @@
 
 @layer base {
   :root {
-    --background-primary: 230 30% 100%;
-    --background-secondary: 230 30% 98%;
-    --background-tertiary: 230 30% 97%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
 
-    --fill-primary: 230 10% 100%;
-    --fill-primary-hover: 230 10% 93%;
-    --fill-primary-active: 230 10% 90%;
-    --fill-primary-selected: 230 10% 97%;
-
-    --fill-secondary: 230 30% 88%;
-    --fill-secondary-hover: 230 30% 96%;
-    --fill-secondary-active: 230 30% 94%;
-    --fill-secondary-selected: 230 30% 94%;
-
-    --fill-brand: 230 97% 55%;
-    --fill-brand-hover: 230 97% 48%;
-    --fill-brand-active: 230 97% 42%;
-    --fill-brand-selected: 230 97% 42%;
-
-    --fill-danger: 0 97% 45%;
-    --fill-danger-hover: 0 97% 50%;
-    --fill-danger-active: 0 97% 55%;
-    --fill-danger-selected: 0 97% 55%;
-
-    --fill-success: 138 38% 60%;
-    --fill-success-hover: 138 38% 45%;
-    --fill-success-active: 138 38% 40%;
-    --fill-success-selected: 138 38% 40%;
-
-    --fill-info: 208 100% 78%;
-    --fill-warning: 40 100% 50%;
-
-    --text-primary: 230 10% 10%;
-    --text-primary-hover: 230 10% 18%;
-    --text-primary-active: 230 10% 24%;
-    --text-primary-on-fill: 230 10% 98%;
-
-    --text-secondary: 230 10% 45%;
-    --text-secondary-hover: 230 10% 50%;
-    --text-secondary-active: 230 10% 55%;
-    --text-secondary-on-fill: 230 10% 98%;
-
-    --text-brand: 230 97% 55%;
-    --text-brand-hover: 230 97% 35%;
-    --text-brand-active: 230 97% 30%;
-    --text-brand-on-fill: 230 3% 98%;
-
-    --text-bold: 230 30% 14%;
-    --text-bold-hover: 230 30% 18%;
-    --text-bold-active: 230 30% 24%;
-    --text-bold-on-fill: 230 30% 94%;
-
-    --text-bold-inverse: 230 30% 98%;
-    --text-bold-inverse-hover: 230 30% 94%;
-    --text-bold-inverse-active: 230 30% 88%;
-
-    --text-info: 208 52% 25%;
-    --text-info-on-fill: 208 100% 15%;
-
-    --text-success: 138 38% 25%;
-    --text-success-on-fill: 138 38% 97%;
-
-    --text-danger: 0 97% 25%;
-    --text-danger-hover: 0 97% 55%;
-    --text-danger-active: 0 97% 60%;
-    --text-danger-on-fill: 0 97% 99%;
-
-    --text-warning: 21 97% 25%;
-    --text-warning-hover: 21 97% 55%;
-    --text-warning-active: 21 97% 60%;
-    --text-warning-on-fill: 21 97% 15%;
-
-    --border-primary: 230 10% 90%;
-    --border-primary-hover: 230 10% 83%;
-    --border-primary-active: 230 10% 75%;
-    --border-primary-selected: 230 10% 75%;
-
-    --border-secondary: 230 3% 93%;
-    --border-secondary-hover: 230 3% 88%;
-    --border-secondary-active: 230 3% 83%;
-    --border-secondary-selected: 230 3% 83%;
-
-    --border-brand: 230 97% 50%;
-    --border-brand-hover: 230 97% 42%;
-    --border-brand-active: 230 97% 36%;
-    --border-brand-selected: 230 97% 80%;
-
-    --border-info: 230 97% 80%;
-    --border-info-hover: 230 97% 75%;
-    --border-info-active: 230 97% 70%;
-    --border-info-selected: 230 97% 70%;
-
-    --border-danger: 0 97% 40%;
-    --border-danger-hover: 0 97% 38%;
-    --border-danger-active: 0 97% 36%;
-    --border-danger-selected: 0 97% 36%;
-
-    --surface-primary: 230 30% 100%;
-    --surface-primary-hover: 230 30% 98%;
-    --surface-primary-active: 230 30% 96%;
-    --surface-primary-selected: 230 30% 95%;
-
-    --surface-secondary: 230 30% 98%;
-
-    --surface-info: 208 93% 95%;
-    --surface-success: 138 90% 92%;
-    --surface-warning: 40 100% 92%;
-    --surface-danger: 0 97% 96%;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

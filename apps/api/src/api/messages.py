@@ -101,7 +101,7 @@ async def create_message(
 )
 async def delete_message(
     # TODO: Validate the user has permission to delete the message
-    _: str = Path(
+    thread_id: str = Path(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
