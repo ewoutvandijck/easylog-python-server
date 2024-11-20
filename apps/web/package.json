@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-openapi-client": "docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i http://host.docker.internal:8000/api/v1/openapi.json -g typescript-fetch -o /local/src/lib/generated/generated-client"
+    "generate-openapi-client": "docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i http://host.docker.internal:8000/api/v1/openapi.json -g typescript-fetch -o /local/src/lib/api/generated-client"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
