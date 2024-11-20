@@ -121,7 +121,7 @@ data: {"type": "text", "text": "!", "chunk_index": 0}
 
 These chunks are grouped by `chunk_index` and consolidated into the final message content:
 
-```
+```json
 {
     "type": "text",
     "content": "Hello, world!"
