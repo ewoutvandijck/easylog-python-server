@@ -1,20 +1,9 @@
 # Installation
 
+If you're running on MacOS, you can install the dependencies and virtual environment by running the following command:
+
 ```sh
-# Install git-lfs
-brew install git-lfs
-
-# Install pnpm
-curl -fsSL https://get.pnpm.io/install.sh | sh -
-
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Sync the dependencies and virtual environment
-uv sync
-
-# Sync the database schema
-uv run prisma db push
+$ ./install.sh
 ```
 
 # How This API Works
