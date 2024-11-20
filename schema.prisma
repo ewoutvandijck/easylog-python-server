@@ -36,7 +36,6 @@ model MessageContents {
     message_id   String
     content_type String   @default("text")
     content      String
-    content_type String?
     created_at   DateTime @default(now())
     updated_at   DateTime @updatedAt
 
