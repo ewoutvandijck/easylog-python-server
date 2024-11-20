@@ -1,9 +1,29 @@
 # Installation
 
+## Automatic Installation
+
 If you're running on MacOS, you can install the dependencies and virtual environment by running the following command:
 
 ```sh
 $ ./install.sh
+```
+
+## Manual Installation
+
+Requirements:
+
+- [Homebrew](https://brew.sh/)
+- [Git LFS](https://git-lfs.github.com/)
+- [pnpm](https://pnpm.io/)
+- [uv](https://astral.sh/uv/)
+
+```sh
+$ cd api
+$ uv sync
+$ uv run prisma db push
+$ cd ..
+$ pnpm install
+$ pnpm run dev
 ```
 
 # How This API Works
