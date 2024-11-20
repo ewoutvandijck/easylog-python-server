@@ -31,9 +31,15 @@ cd apps/api && uv sync && cd ../..
 echo "Syncing database schema..."
 cd apps/api && uv run prisma db push && cd ../..
 
-echo "Copying .env.example to .env..."
-cd apps/api && cp .env.example .env && cd ../..
-cd apps/web && cp .env.example .env && cd ../..
+if [ ! -f apps/api/.env ]; then
+    echo "Copying .env.example to .env for the API..."
+    cd apps/api && cp .env.example .env && cd ../..
+fi
+
+if [ ! -f apps/web/.env ]; then
+    echo "Copying .env.example to .env for the Web App..."
+    cd apps/web && cp .env.example .env && cd ../..
+fi
 
 # Installing pnpm dependencies
 echo "Installing pnpm dependencies..."
