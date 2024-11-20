@@ -19,7 +19,7 @@ class AgentLoader:
         )
 
     def load_agents(self):
-        agents_dir = Path("src/agents/agents")
+        agents_dir = Path("src/agents/implementations")
 
         # Get all Python files in the agents directory
         for file in agents_dir.glob("*.py"):
@@ -27,7 +27,7 @@ class AgentLoader:
                 continue
 
             # Import the module
-            module_path = f"src.agents.agents.{file.stem}"
+            module_path = f"src.agents.implementations.{file.stem}"
             module = importlib.import_module(module_path)
 
             # Find all classes in the module that inherit from BaseAgent
