@@ -50,7 +50,7 @@ class MessageService:
                     role=message.role,  # type: ignore
                     content=[
                         MessageContent(
-                            type=message_content.message_type,  # type: ignore
+                            type=message_content.content_type,  # type: ignore
                             content=message_content.content,
                         )
                         for message_content in message.contents or []
@@ -141,7 +141,7 @@ class MessageService:
                     "create": [
                         {
                             "content": message_content.content,
-                            "message_type": message_content.type,
+                            "content_type": message_content.type,
                         }
                         for message_content in message.content
                     ]

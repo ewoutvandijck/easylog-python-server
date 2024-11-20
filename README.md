@@ -31,7 +31,7 @@ For example, a thread with a user message and an assistant message might look li
         {
           "id": "cm3pmxjf20001sic5oa0ihzc1",
           "message_id": "cm3pmxjf20000sic5g3o87zvd",
-          "message_type": "text",
+          "content_type": "text",
           "content": "Hello, how are you?",
           "created_at": "2024-11-20T08:42:07.886000Z",
           "updated_at": "2024-11-20T08:42:07.886000Z"
@@ -49,7 +49,7 @@ For example, a thread with a user message and an assistant message might look li
         {
           "id": "cm3pmxjf50003sic5eo5b8m0d",
           "message_id": "cm3pmxjf50002sic56pdp359d",
-          "message_type": "text",
+          "content_type": "text",
           "content": "Hello! I'm doing well, thank you. How can I assist you today?",
           "created_at": "2024-11-20T08:42:07.890000Z",
           "updated_at": "2024-11-20T08:42:07.890000Z"

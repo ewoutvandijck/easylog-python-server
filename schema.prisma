@@ -34,7 +34,7 @@ model MessageContents {
     id           String   @id @default(cuid())
     message      Messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
     message_id   String
-    message_type String   @default("text")
+    content_type String   @default("text")
     content      String
     content_type String?
     created_at   DateTime @default(now())
