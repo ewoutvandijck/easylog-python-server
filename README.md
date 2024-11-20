@@ -4,6 +4,9 @@
 # Install git-lfs
 brew install git-lfs
 
+# Install pnpm
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
