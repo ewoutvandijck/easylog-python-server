@@ -1,15 +1,16 @@
+import json
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 from prisma.models import Messages
-from pydantic import ValidationError
 
 from src.db.prisma import prisma
+from src.logging import logger
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
-from src.services.message_service import AgentNotFoundError, MessageService
-from src.utils.sse import pydantic_to_sse_stream
+from src.services.message_service import MessageService
+from src.utils.sse import create_sse_event
 
 router = APIRouter()
 
@@ -48,7 +49,7 @@ async def get_messages(
     "/threads/{thread_id}/messages",
     tags=["messages"],
     response_model=MessageContent,
-    response_description="A stream of JSON-encoded message chunks. See the `MessageContent` schema for the structure of the message chunks.",
+    response_description="A stream of JSON-encoded message chunks",
     description="Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.",
 )
 async def create_message(
@@ -70,27 +71,28 @@ async def create_message(
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
 
-    config = message.agent_config.model_dump()
-    del config["agent_class"]
+    agent_config = message.agent_config.model_dump()
+    del agent_config["agent_class"]
 
     forward_message_generator = MessageService.forward_message(
         thread_id=thread.id,
         agent_class=message.agent_config.agent_class,
-        agent_config=config,
+        agent_config=agent_config,
         content=message.content,
     )
 
-    try:
-        return StreamingResponse(
-            pydantic_to_sse_stream("delta", forward_message_generator),
-            media_type="text/event-stream",
-        )
-    except AgentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    async def stream():
+        try:
+            async for chunk in forward_message_generator:
+                yield create_sse_event("delta", chunk.model_dump_json())
+        except Exception as e:
+            logger.error(f"Error in SSE stream: {e}")
+            yield create_sse_event("error", json.dumps({"detail": str(e)}))
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+    )
 
 
 @router.delete(

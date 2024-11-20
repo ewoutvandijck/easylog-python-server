@@ -64,8 +64,6 @@ class MessageService:
             ),
         ]
 
-        print(thread_history)
-
         # Chunks are "compressed" so we don't have to store every single token in the database.
         compressed_chunks: list[MessageChunkContent] = []
 

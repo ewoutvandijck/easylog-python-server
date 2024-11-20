@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from inspect import signature
 from typing import Generator, List
 
 from pydantic import BaseModel
@@ -12,6 +13,8 @@ class AgentConfig(BaseModel):
 
 
 class BaseAgent:
+    """Base class for all agents."""
+
     def __init__(self):
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
@@ -38,7 +41,9 @@ class BaseAgent:
         logger.info(
             f"Forwarding message to agent: {self.__class__.__name__} with config: {config}"
         )
+
         agent_config = self._get_config_class().model_validate(config)
+
         return self.on_message(messages, agent_config)
 
     def _get_config_class(self) -> type[AgentConfig]:
@@ -48,8 +53,6 @@ class BaseAgent:
         Returns:
             The config class.
         """
-
-        from inspect import signature
 
         sig = signature(self.on_message)
         config_param = sig.parameters["config"]
