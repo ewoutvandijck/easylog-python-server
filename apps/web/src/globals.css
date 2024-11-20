@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background-primary: 230 30% 100%;
+    --background-secondary: 230 30% 98%;
+    --background-tertiary: 230 30% 97%;
+
+    --fill-primary: 230 10% 100%;
+    --fill-primary-hover: 230 10% 93%;
+    --fill-primary-active: 230 10% 90%;
+    --fill-primary-selected: 230 10% 97%;
+
+    --fill-secondary: 230 30% 88%;
+    --fill-secondary-hover: 230 30% 96%;
+    --fill-secondary-active: 230 30% 94%;
+    --fill-secondary-selected: 230 30% 94%;
+
+    --fill-brand: 230 97% 55%;
+    --fill-brand-hover: 230 97% 48%;
+    --fill-brand-active: 230 97% 42%;
+    --fill-brand-selected: 230 97% 42%;
+
+    --fill-danger: 0 97% 45%;
+    --fill-danger-hover: 0 97% 50%;
+    --fill-danger-active: 0 97% 55%;
+    --fill-danger-selected: 0 97% 55%;
+
+    --fill-success: 138 38% 60%;
+    --fill-success-hover: 138 38% 45%;
+    --fill-success-active: 138 38% 40%;
+    --fill-success-selected: 138 38% 40%;
+
+    --fill-info: 208 100% 78%;
+    --fill-warning: 40 100% 50%;
+
+    --text-primary: 230 10% 10%;
+    --text-primary-hover: 230 10% 18%;
+    --text-primary-active: 230 10% 24%;
+    --text-primary-on-fill: 230 10% 98%;
+
+    --text-secondary: 230 10% 45%;
+    --text-secondary-hover: 230 10% 50%;
+    --text-secondary-active: 230 10% 55%;
+    --text-secondary-on-fill: 230 10% 98%;
+
+    --text-brand: 230 97% 55%;
+    --text-brand-hover: 230 97% 35%;
+    --text-brand-active: 230 97% 30%;
+    --text-brand-on-fill: 230 3% 98%;
+
+    --text-bold: 230 30% 14%;
+    --text-bold-hover: 230 30% 18%;
+    --text-bold-active: 230 30% 24%;
+    --text-bold-on-fill: 230 30% 94%;
+
+    --text-bold-inverse: 230 30% 98%;
+    --text-bold-inverse-hover: 230 30% 94%;
+    --text-bold-inverse-active: 230 30% 88%;
+
+    --text-info: 208 52% 25%;
+    --text-info-on-fill: 208 100% 15%;
+
+    --text-success: 138 38% 25%;
+    --text-success-on-fill: 138 38% 97%;
+
+    --text-danger: 0 97% 25%;
+    --text-danger-hover: 0 97% 55%;
+    --text-danger-active: 0 97% 60%;
+    --text-danger-on-fill: 0 97% 99%;
+
+    --text-warning: 21 97% 25%;
+    --text-warning-hover: 21 97% 55%;
+    --text-warning-active: 21 97% 60%;
+    --text-warning-on-fill: 21 97% 15%;
+
+    --border-primary: 230 10% 90%;
+    --border-primary-hover: 230 10% 83%;
+    --border-primary-active: 230 10% 75%;
+    --border-primary-selected: 230 10% 75%;
+
+    --border-secondary: 230 3% 93%;
+    --border-secondary-hover: 230 3% 88%;
+    --border-secondary-active: 230 3% 83%;
+    --border-secondary-selected: 230 3% 83%;
+
+    --border-brand: 230 97% 50%;
+    --border-brand-hover: 230 97% 42%;
+    --border-brand-active: 230 97% 36%;
+    --border-brand-selected: 230 97% 80%;
+
+    --border-info: 230 97% 80%;
+    --border-info-hover: 230 97% 75%;
+    --border-info-active: 230 97% 70%;
+    --border-info-selected: 230 97% 70%;
+
+    --border-danger: 0 97% 40%;
+    --border-danger-hover: 0 97% 38%;
+    --border-danger-active: 0 97% 36%;
+    --border-danger-selected: 0 97% 36%;
+
+    --surface-primary: 230 30% 100%;
+    --surface-primary-hover: 230 30% 98%;
+    --surface-primary-active: 230 30% 96%;
+    --surface-primary-selected: 230 30% 95%;
+
+    --surface-secondary: 230 30% 98%;
+
+    --surface-info: 208 93% 95%;
+    --surface-success: 138 90% 92%;
+    --surface-warning: 40 100% 92%;
+    --surface-danger: 0 97% 96%;
+  }
+}
