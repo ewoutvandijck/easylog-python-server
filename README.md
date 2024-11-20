@@ -1,10 +1,41 @@
-## SSE
+# How This API Works
 
-Similar to [OpenAI](https://platform.openai.com/docs/api-reference/streaming) the `/threads/{thread_id}/messages` endpoint only supports Server-Sent Events (SSE).
+This API allows users to initiate and manage chat sessions by creating a new thread through the `/threads` endpoint. A thread serves as a container for the chat history. You can associate a thread with your own identifier by providing an `external_id`, which can be used for future interactions with that thread.
 
-An SSE stream is simply a stream of message chunks with an `event` and `data` field.
+Each thread includes a `messages` property, which is a list of messages. Every message has a `role` property (`user` or `assistant`) and a `content` property, which contains the message data. Assistant messages can include multiple content types, such as `text` and `image`.
 
-For example:
+When using streaming (explained below), the `/threads/{thread_id}/messages` endpoint delivers a stream of message chunks. Once the stream completes, the full message is added to the thread's `messages` list.
+
+## Understanding Message Streams
+The streaming process does not immediately provide the full message content. Instead, it sends a series of events, each representing a small piece (chunk) of the assistant's response. These chunks are aggregated and stored in the `content` property once the stream finishes.
+
+For example, if the assistant responds with "Hello, world!", the stream might emit three events like this:
+
+```
+event: delta
+data: {"type": "text", "text": "Hello", "chunk_index": 0}
+
+event: delta
+data: {"type": "text", "text": "world", "chunk_index": 0}
+
+event: delta
+data: {"type": "text", "text": "!", "chunk_index": 0}
+```
+
+These chunks are grouped by `chunk_index` and consolidated into the final message content:
+
+```
+{
+    "type": "text",
+    "content": "Hello, world!"
+}
+```
+
+## Chatting with the API
+
+The `/threads/{thread_id}/messages` endpoint supports **Server-Sent Events (SSE)**, similar to [OpenAI's streaming API](https://platform.openai.com/docs/api-reference/streaming).
+
+An SSE stream sends a sequence of message chunks, each containing an `event` and `data` field. Here's an example of SSE output:
 
 ```
 event: delta
@@ -14,4 +45,4 @@ event: delta
 data: {"content": "Hello, world! How are you?"}
 ```
 
-See [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#examples) for examples.
+For more information on Server-Sent Events and implementation examples, visit [MDN's SSE documentation](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#examples).
