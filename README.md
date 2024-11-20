@@ -20,7 +20,6 @@ For example, a thread with a user message and an assistant message might look li
       "contents": [
         {
           "id": "cm3pmxjf20001sic5oa0ihzc1",
-          "message": null,
           "message_id": "cm3pmxjf20000sic5g3o87zvd",
           "message_type": "text",
           "content": "Hello, how are you?",
@@ -39,7 +38,6 @@ For example, a thread with a user message and an assistant message might look li
       "contents": [
         {
           "id": "cm3pmxjf50003sic5eo5b8m0d",
-          "message": null,
           "message_id": "cm3pmxjf50002sic56pdp359d",
           "message_type": "text",
           "content": "Hello! I'm doing well, thank you. How can I assist you today?",
