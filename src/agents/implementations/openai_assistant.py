@@ -3,7 +3,6 @@ from typing import Generator, List
 
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
-from typing_extensions import override
 
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.models.messages import Message, MessageContent
@@ -21,7 +20,6 @@ class OpenAIAssistant(BaseAgent):
             api_key=os.getenv("OPENAI_API_KEY"),
         )
 
-    @override
     def on_message(
         self, messages: List[Message], config: OpenAIAssistantConfig
     ) -> Generator[MessageContent, None, None]:
