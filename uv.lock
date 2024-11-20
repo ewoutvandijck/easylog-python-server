@@ -37,6 +37,7 @@ dependencies = [
     { name = "openai" },
     { name = "prisma" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
 ]
 
 [package.metadata]
@@ -46,6 +47,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.54.4" },
     { name = "prisma", specifier = ">=0.15.0" },
     { name = "pydantic", specifier = ">=2.9.2" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
 
 [[package]]

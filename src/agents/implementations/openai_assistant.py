@@ -1,3 +1,4 @@
+import os
 from typing import Generator, List
 
 from openai import OpenAI
@@ -17,7 +18,7 @@ class OpenAIAssistant(BaseAgent):
 
     def __init__(self):
         self.client = OpenAI(
-            api_key="sk-svcacct-URp2x1KVCIDYyYwiqoOuTCe7I2R_RgJ04lyaISPedQep0IK8U2DV4lAT2Vh4J4ATMT3BlbkFJxNo8JF8KQViwfS_POlx8OenLuwlFVRr3LsXGqL5w4-sJDXOj-eS2rY4R4YTLeNWIgA"
+            api_key=os.getenv("OPENAI_API_KEY"),
         )
 
     @override
