@@ -4,6 +4,57 @@ This API allows users to initiate and manage chat sessions by creating a new thr
 
 Each thread includes a `messages` property, which is a list of messages. Every message has a `role` property (`user` or `assistant`) and a `content` property, which contains the message data. Assistant messages can include multiple content types, such as `text` and `image`.
 
+For example, a thread with a user message and an assistant message might look like this:
+
+```json
+{
+  "id": "cm3oo3qjn0000hhxabjc25i6i",
+  "external_id": "example-external-id",
+  "created_at": "2024-11-19T16:27:10.499000Z",
+  "updated_at": "2024-11-19T16:27:10.499000Z",
+  "messages": [
+    {
+      "id": "cm3pmxjf20000sic5g3o87zvd",
+      "thread_id": "cm3oo3qjn0000hhxabjc25i6i",
+      "role": "user",
+      "contents": [
+        {
+          "id": "cm3pmxjf20001sic5oa0ihzc1",
+          "message": null,
+          "message_id": "cm3pmxjf20000sic5g3o87zvd",
+          "message_type": "text",
+          "content": "Hello, how are you?",
+          "created_at": "2024-11-20T08:42:07.886000Z",
+          "updated_at": "2024-11-20T08:42:07.886000Z"
+        }
+      ],
+      "agent_class": "OpenAIAssistant",
+      "created_at": "2024-11-20T08:42:07.886000Z",
+      "updated_at": "2024-11-20T08:42:07.886000Z"
+    },
+    {
+      "id": "cm3pmxjf50002sic56pdp359d",
+      "thread_id": "cm3oo3qjn0000hhxabjc25i6i",
+      "role": "assistant",
+      "contents": [
+        {
+          "id": "cm3pmxjf50003sic5eo5b8m0d",
+          "message": null,
+          "message_id": "cm3pmxjf50002sic56pdp359d",
+          "message_type": "text",
+          "content": "Hello! I'm doing well, thank you. How can I assist you today?",
+          "created_at": "2024-11-20T08:42:07.890000Z",
+          "updated_at": "2024-11-20T08:42:07.890000Z"
+        }
+      ],
+      "agent_class": "OpenAIAssistant",
+      "created_at": "2024-11-20T08:42:07.890000Z",
+      "updated_at": "2024-11-20T08:42:07.890000Z"
+    }
+  ]
+}
+```
+
 ## Message Routing and Agent Configuration
 
 When creating a message, you can specify an `agent_config` property that determines which agent will handle the response generation. The message will be automatically routed to the appropriate agent based on this configuration. The agent then processes the message and generates a response according to its capabilities and settings.
