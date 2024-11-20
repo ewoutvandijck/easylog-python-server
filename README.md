@@ -1,3 +1,13 @@
+# Installation
+
+```sh
+# Install git-lfs
+brew install git-lfs
+
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 # How This API Works
 
 This API allows users to initiate and manage chat sessions by creating a new thread through the `/threads` endpoint. A thread serves as a container for the chat history. You can associate a thread with your own identifier by providing an `external_id`, which can be used for future interactions with that thread.
@@ -116,6 +126,17 @@ These chunks are grouped by `chunk_index` and consolidated into the final messag
     "type": "text",
     "content": "Hello, world!"
 }
+```
+
+> Currently, we only support text deltas, but this might change in the future. For example, we might support image deltas.
+
+When an error occurs, the stream will emit an `error` event with the error message.
+
+For example:
+
+```
+event: error
+data: {"details": "The agent failed to generate a response"}
 ```
 
 Once the stream is complete, the message is added to the thread's `messages` list. You can retrieve the full message content by calling the `/threads/{thread_id}/messages` endpoint.
