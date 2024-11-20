@@ -53,6 +53,8 @@ For example, a thread with a user message and an assistant message might look li
 }
 ```
 
+You can find the full API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+
 ## Message Routing and Agent Configuration
 
 When creating a message, you can specify an `agent_config` property that determines which agent will handle the response generation. The message will be automatically routed to the appropriate agent based on this configuration. The agent then processes the message and generates a response according to its capabilities and settings.
