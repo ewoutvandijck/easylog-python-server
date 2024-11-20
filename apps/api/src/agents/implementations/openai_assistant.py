@@ -1,9 +1,7 @@
-import os
 from typing import Generator, List
 
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
-
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.models.messages import Message, MessageContent
 
@@ -17,7 +15,8 @@ class OpenAIAssistant(BaseAgent):
 
     def __init__(self):
         self.client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
+            # Make sure to set the OPENAI_API_KEY environment variable
+            api_key=self.get_env("OPENAI_API_KEY"),
         )
 
     def on_message(

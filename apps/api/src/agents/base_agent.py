@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from inspect import signature
+import os
 from typing import Generator, List
 
 from pydantic import BaseModel
@@ -23,6 +24,18 @@ class BaseAgent:
         self, messages: List[Message], config: AgentConfig
     ) -> Generator[MessageContent, None, None]:
         raise NotImplementedError()
+
+    def get_env(self, key: str) -> str:
+        """A convenience method to get an environment variable."""
+
+        env = os.getenv(key)
+
+        if env is None:
+            raise ValueError(
+                f"Environment variable {key} is not found. Make sure .env file exists and {key} is set."
+            )
+
+        return env
 
     def forward(
         self, messages: List[Message], config: dict
