@@ -25,12 +25,15 @@ fi
 
 # Sync the dependencies and virtual environment
 echo "Syncing dependencies and virtual environment..."
-cd api && uv sync && cd ..
+cd apps/api && uv sync && cd ../..
 
 # Sync the database schema
 echo "Syncing database schema..."
-cd api && uv run prisma db push && cd ..
+cd apps/api && uv run prisma db push && cd ../..
 
 # Installing pnpm dependencies
 echo "Installing pnpm dependencies..."
-cd web && pnpm install && cd ..
+pnpm install
+
+echo ""
+echo "Done! You can now start the development server with 'pnpm turbo run dev'"
