@@ -6,6 +6,12 @@ brew install git-lfs
 
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Sync the dependencies and virtual environment
+uv sync
+
+# Sync the database schema
+uv run prisma db push
 ```
 
 # How This API Works
