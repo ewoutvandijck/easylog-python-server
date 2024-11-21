@@ -12,6 +12,7 @@ router = APIRouter()
 
 @router.get(
     "/threads",
+    name="get_threads",
     tags=["threads"],
     response_model=Pagination[Threads],
     description="Retrieves all threads. Returns a list of all threads with their messages by default in descending chronological order (newest first). Each message includes its full content.",
@@ -43,6 +44,7 @@ async def get_threads(
 
 @router.get(
     "/threads/{id}",
+    name="get_thread_by_id",
     tags=["threads"],
     response_model=Threads,
     responses={
@@ -81,6 +83,7 @@ async def get_thread_by_id(
 
 @router.post(
     "/threads",
+    name="create_thread",
     tags=["threads"],
     response_model=Threads,
     description="Creates a new thread or returns the existing thread if it already exists.",
@@ -120,6 +123,7 @@ async def create_thread(thread: ChatCreateInput):
 
 @router.delete(
     "/threads/{id}",
+    name="delete_thread",
     tags=["threads"],
     description="Deletes a thread by its internal or external ID.",
 )

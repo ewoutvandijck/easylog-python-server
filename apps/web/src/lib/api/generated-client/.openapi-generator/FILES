@@ -1,3 +1,4 @@
+apis/HealthApi.ts
 apis/MessagesApi.ts
 apis/ThreadsApi.ts
 apis/index.ts
@@ -5,6 +6,7 @@ index.ts
 models/AgentConfig.ts
 models/ChatCreateInput.ts
 models/HTTPValidationError.ts
+models/HealthResponse.ts
 models/MessageContent.ts
 models/MessageContents.ts
 models/MessageCreateInput.ts

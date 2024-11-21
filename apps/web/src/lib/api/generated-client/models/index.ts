@@ -3,6 +3,7 @@
 export * from './AgentConfig';
 export * from './ChatCreateInput';
 export * from './HTTPValidationError';
+export * from './HealthResponse';
 export * from './MessageContent';
 export * from './MessageContents';
 export * from './MessageCreateInput';

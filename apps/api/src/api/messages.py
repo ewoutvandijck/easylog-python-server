@@ -17,6 +17,7 @@ router = APIRouter()
 
 @router.get(
     "/threads/{thread_id}/messages",
+    name="get_messages",
     tags=["messages"],
     response_model=Pagination[Messages],
     description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
@@ -47,6 +48,7 @@ async def get_messages(
 
 @router.post(
     "/threads/{thread_id}/messages",
+    name="create_message",
     tags=["messages"],
     response_model=MessageContent,
     response_description="A stream of JSON-encoded message chunks",
@@ -98,6 +100,7 @@ async def create_message(
 @router.delete(
     "/threads/{thread_id}/messages/{message_id}",
     tags=["messages"],
+    name="delete_message",
 )
 async def delete_message(
     # TODO: Validate the user has permission to delete the message
