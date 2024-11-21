@@ -110,7 +110,6 @@ Example message with agent configuration:
 
 ## Understanding Message Streams
 
-
 The `/threads/{thread_id}/messages` endpoint supports **Server-Sent Events (SSE)**, similar to [OpenAI's streaming API](https://platform.openai.com/docs/api-reference/streaming).
 
 An SSE stream sends a sequence of message chunks, each containing an `event` and `data` field. Here's an example of SSE output:
@@ -124,7 +123,6 @@ data: {"content": "Hello, world! How are you?"}
 ```
 
 > For more information on Server-Sent Events and implementation examples, visit [MDN's SSE documentation](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#examples).
-
 
 The streaming process does not immediately provide the full message content. Instead, it sends a series of events, each representing a small piece (chunk) of the assistant's response. These chunks are aggregated and stored in the `content` property once the stream finishes.
 
@@ -145,8 +143,8 @@ These chunks are grouped by `chunk_index` and consolidated into the final messag
 
 ```json
 {
-    "type": "text",
-    "content": "Hello, world!"
+  "type": "text",
+  "content": "Hello, world!"
 }
 ```
 

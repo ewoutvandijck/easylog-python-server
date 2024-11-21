@@ -12,4 +12,4 @@ class AnthropicWithPDF(BaseAgent):
     def on_message(
         self, messages: List[Message], config: AnthropicWithPDFConfig
     ) -> Generator[MessageContent, None, None]:
-        yield MessageContent(content="Hello, world!")
+        yield MessageContent(content="Hello, world!!!!")
