@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: 'Easylog AI Chat'
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children
 }: Readonly<{
