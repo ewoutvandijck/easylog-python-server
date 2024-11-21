@@ -23,6 +23,10 @@ const useConnections = () => {
   };
 
   const addConnection = (connection: Connection) => {
+    if (connections.find((c) => c.name === connection.name)) {
+      return;
+    }
+
     setConnections([...connections, connection]);
   };
 

@@ -67,8 +67,9 @@ const ChatNewDialog = ({ children }: React.PropsWithChildren) => {
             <DialogTitle>New chat</DialogTitle>
             <DialogDescription>Start a new chat</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
+          <div className="flex flex-col gap-3 py-4 w-full">
+            <Label htmlFor="name">Name</Label>
+            <div className="flex flex-col gap-1.5 col-span-3">
               <Label htmlFor="name" className="text-right">
                 Name
               </Label>

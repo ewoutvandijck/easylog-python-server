@@ -37,7 +37,7 @@ const useSendMessage = () => {
               const data = JSON.parse(ev.data);
 
               if (ev.event === 'error') {
-                toast.error(data.details);
+                toast.error(data.detail);
               }
 
               if (ev.event === 'delta') {

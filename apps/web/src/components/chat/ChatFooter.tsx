@@ -8,6 +8,7 @@ import useZodForm from '@/hooks/use-zod-form';
 import useIsConnectionHealthy from '@/hooks/use-is-connection-healthy';
 import useSendMessage from '@/hooks/use-send-message';
 import useThreadId from '@/hooks/use-thread-id';
+import useConfigurations from '@/hooks/use-configurations';
 
 const schema = z.object({
   message: z.string().min(1)
@@ -17,6 +18,7 @@ const ChatFooter = () => {
   const threadId = useThreadId();
   const { data: isConnected } = useIsConnectionHealthy();
   const { mutateAsync: sendMessage } = useSendMessage();
+  const { activeConfiguration } = useConfigurations();
 
   const form = useZodForm(schema);
 
@@ -25,8 +27,8 @@ const ChatFooter = () => {
       threadId: threadId!,
       messageCreateInput: {
         agent_config: {
-          agent_class: 'OpenAIAssistant',
-          assistant_id: 'asst_5vWL7aefIopE4aU5DcFRmpA5'
+          agent_class: activeConfiguration?.agentConfig.agent_class ?? '',
+          ...activeConfiguration?.agentConfig
         },
         content: [{ content: data.message, type: 'text' }]
       }
