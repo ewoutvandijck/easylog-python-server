@@ -1,14 +1,21 @@
-import AppSidebar from '@/components/chat/AppSidebar';
-import { Button } from '@/components/ui/button';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import AppHeader from '@/components/shared/AppHeader';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage
+} from '@/components/ui/breadcrumb';
 
 export default function Home() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <Button>Click me</Button>
-      </SidebarInset>
-    </SidebarProvider>
+    <AppHeader>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>Chat</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    </AppHeader>
   );
 }
