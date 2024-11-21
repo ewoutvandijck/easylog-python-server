@@ -1,3 +1,5 @@
+import ChatBubbles from '@/components/chat/ChatBubbles';
+import ChatFooter from '@/components/chat/ChatFooter';
 import AppHeader from '@/components/shared/AppHeader';
 import {
   Breadcrumb,
@@ -7,23 +9,31 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
 
 export default function Chat({ params }: { params: { chatId: string } }) {
   return (
-    <AppHeader>
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem className="hidden md:block">
-            <BreadcrumbLink href="/">Chat</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator className="hidden md:block" />
-          <BreadcrumbItem>
-            <BreadcrumbPage className="capitalize">
-              {params.chatId}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-    </AppHeader>
+    <>
+      <AppHeader>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem className="hidden md:block">
+              <BreadcrumbLink href="/">Chat</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden md:block" />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="capitalize">
+                {params.chatId}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </AppHeader>
+      <div className="flex flex-col flex-1">
+        <ChatBubbles />
+        <Separator />
+        <ChatFooter />
+      </div>
+    </>
   );
 }
