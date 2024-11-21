@@ -41,6 +41,7 @@ const ChatFooter = () => {
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <Textarea
+          autoFocus
           disabled={!isConnected || form.formState.isSubmitting}
           style={{ fieldSizing: 'content' } as React.CSSProperties}
           placeholder="Type a message..."

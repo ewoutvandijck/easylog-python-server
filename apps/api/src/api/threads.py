@@ -29,6 +29,7 @@ async def get_threads(
     threads = await prisma.threads.find_many(
         take=limit,
         skip=offset,
+        order={"created_at": order},
         include={
             "messages": {
                 "order_by": {"created_at": order},

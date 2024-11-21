@@ -7,7 +7,8 @@ const useThreads = () => {
     queryKey: ['threads'],
     queryFn: () =>
       apiClient.threads.getThreadsThreadsGet({
-        limit: 100
+        limit: 100,
+        order: 'desc'
       })
   });
 };
