@@ -24,7 +24,7 @@ export interface ChatCreateInput {
      * @type {string}
      * @memberof ChatCreateInput
      */
-    externalId?: string | null;
+    external_id?: string | null;
 }
 
 /**
@@ -44,7 +44,7 @@ export function ChatCreateInputFromJSONTyped(json: any, ignoreDiscriminator: boo
     }
     return {
         
-        'externalId': json['external_id'] == null ? undefined : json['external_id'],
+        'external_id': json['external_id'] == null ? undefined : json['external_id'],
     };
 }
 
@@ -59,7 +59,7 @@ export function ChatCreateInputToJSONTyped(value?: ChatCreateInput | null, ignor
 
     return {
         
-        'external_id': value['externalId'],
+        'external_id': value['external_id'],
     };
 }
 

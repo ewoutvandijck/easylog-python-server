@@ -25,14 +25,14 @@ export interface AgentConfig {
      * @type {string}
      * @memberof AgentConfig
      */
-    agentClass: string;
+    agent_class: string;
 }
 
 /**
  * Check if a given object implements the AgentConfig interface.
  */
 export function instanceOfAgentConfig(value: object): value is AgentConfig {
-    if (!('agentClass' in value) || value['agentClass'] === undefined) return false;
+    if (!('agent_class' in value) || value['agent_class'] === undefined) return false;
     return true;
 }
 
@@ -47,7 +47,7 @@ export function AgentConfigFromJSONTyped(json: any, ignoreDiscriminator: boolean
     return {
         
             ...json,
-        'agentClass': json['agent_class'],
+        'agent_class': json['agent_class'],
     };
 }
 
@@ -63,7 +63,7 @@ export function AgentConfigToJSONTyped(value?: AgentConfig | null, ignoreDiscrim
     return {
         
             ...value,
-        'agent_class': value['agentClass'],
+        'agent_class': value['agent_class'],
     };
 }
 

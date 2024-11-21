@@ -45,7 +45,7 @@ export interface MessageCreateInput {
      * @type {AgentConfig}
      * @memberof MessageCreateInput
      */
-    agentConfig: AgentConfig;
+    agent_config: AgentConfig;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface MessageCreateInput {
  */
 export function instanceOfMessageCreateInput(value: object): value is MessageCreateInput {
     if (!('content' in value) || value['content'] === undefined) return false;
-    if (!('agentConfig' in value) || value['agentConfig'] === undefined) return false;
+    if (!('agent_config' in value) || value['agent_config'] === undefined) return false;
     return true;
 }
 
@@ -68,7 +68,7 @@ export function MessageCreateInputFromJSONTyped(json: any, ignoreDiscriminator: 
     return {
         
         'content': ((json['content'] as Array<any>).map(MessageContentFromJSON)),
-        'agentConfig': AgentConfigFromJSON(json['agent_config']),
+        'agent_config': AgentConfigFromJSON(json['agent_config']),
     };
 }
 
@@ -84,7 +84,7 @@ export function MessageCreateInputToJSONTyped(value?: MessageCreateInput | null,
     return {
         
         'content': ((value['content'] as Array<any>).map(MessageContentToJSON)),
-        'agent_config': AgentConfigToJSON(value['agentConfig']),
+        'agent_config': AgentConfigToJSON(value['agent_config']),
     };
 }
 

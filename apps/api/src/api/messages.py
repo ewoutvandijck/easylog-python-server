@@ -29,7 +29,7 @@ async def get_messages(
     ),
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
-    order: Literal["asc", "desc"] = Query(default="desc"),
+    order: Literal["asc", "desc"] = Query(default="asc"),
 ):
     messages = await prisma.messages.find_many(
         where={
@@ -39,6 +39,7 @@ async def get_messages(
             ],
         },
         order=[{"created_at": order}],
+        include={"contents": True},
         take=limit,
         skip=offset,
     )

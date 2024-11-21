@@ -51,7 +51,7 @@ export interface Messages {
      * @type {string}
      * @memberof Messages
      */
-    threadId: string;
+    thread_id: string;
     /**
      * 
      * @type {string}
@@ -69,19 +69,19 @@ export interface Messages {
      * @type {string}
      * @memberof Messages
      */
-    agentClass: string;
+    agent_class: string;
     /**
      * 
      * @type {Date}
      * @memberof Messages
      */
-    createdAt: Date;
+    created_at: Date;
     /**
      * 
      * @type {Date}
      * @memberof Messages
      */
-    updatedAt: Date;
+    updated_at: Date;
 }
 
 /**
@@ -89,11 +89,11 @@ export interface Messages {
  */
 export function instanceOfMessages(value: object): value is Messages {
     if (!('id' in value) || value['id'] === undefined) return false;
-    if (!('threadId' in value) || value['threadId'] === undefined) return false;
+    if (!('thread_id' in value) || value['thread_id'] === undefined) return false;
     if (!('role' in value) || value['role'] === undefined) return false;
-    if (!('agentClass' in value) || value['agentClass'] === undefined) return false;
-    if (!('createdAt' in value) || value['createdAt'] === undefined) return false;
-    if (!('updatedAt' in value) || value['updatedAt'] === undefined) return false;
+    if (!('agent_class' in value) || value['agent_class'] === undefined) return false;
+    if (!('created_at' in value) || value['created_at'] === undefined) return false;
+    if (!('updated_at' in value) || value['updated_at'] === undefined) return false;
     return true;
 }
 
@@ -109,12 +109,12 @@ export function MessagesFromJSONTyped(json: any, ignoreDiscriminator: boolean): 
         
         'id': json['id'],
         'thread': json['thread'] == null ? undefined : ThreadsFromJSON(json['thread']),
-        'threadId': json['thread_id'],
+        'thread_id': json['thread_id'],
         'role': json['role'],
         'contents': json['contents'] == null ? undefined : ((json['contents'] as Array<any>).map(MessageContentsFromJSON)),
-        'agentClass': json['agent_class'],
-        'createdAt': (new Date(json['created_at'])),
-        'updatedAt': (new Date(json['updated_at'])),
+        'agent_class': json['agent_class'],
+        'created_at': (new Date(json['created_at'])),
+        'updated_at': (new Date(json['updated_at'])),
     };
 }
 
@@ -131,12 +131,12 @@ export function MessagesToJSONTyped(value?: Messages | null, ignoreDiscriminator
         
         'id': value['id'],
         'thread': ThreadsToJSON(value['thread']),
-        'thread_id': value['threadId'],
+        'thread_id': value['thread_id'],
         'role': value['role'],
         'contents': value['contents'] == null ? undefined : ((value['contents'] as Array<any>).map(MessageContentsToJSON)),
-        'agent_class': value['agentClass'],
-        'created_at': ((value['createdAt']).toISOString()),
-        'updated_at': ((value['updatedAt']).toISOString()),
+        'agent_class': value['agent_class'],
+        'created_at': ((value['created_at']).toISOString()),
+        'updated_at': ((value['updated_at']).toISOString()),
     };
 }
 

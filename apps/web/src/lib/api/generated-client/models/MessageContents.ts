@@ -44,13 +44,13 @@ export interface MessageContents {
      * @type {string}
      * @memberof MessageContents
      */
-    messageId: string;
+    message_id: string;
     /**
      * 
      * @type {string}
      * @memberof MessageContents
      */
-    contentType: string;
+    content_type: string;
     /**
      * 
      * @type {string}
@@ -62,13 +62,13 @@ export interface MessageContents {
      * @type {Date}
      * @memberof MessageContents
      */
-    createdAt: Date;
+    created_at: Date;
     /**
      * 
      * @type {Date}
      * @memberof MessageContents
      */
-    updatedAt: Date;
+    updated_at: Date;
 }
 
 /**
@@ -76,11 +76,11 @@ export interface MessageContents {
  */
 export function instanceOfMessageContents(value: object): value is MessageContents {
     if (!('id' in value) || value['id'] === undefined) return false;
-    if (!('messageId' in value) || value['messageId'] === undefined) return false;
-    if (!('contentType' in value) || value['contentType'] === undefined) return false;
+    if (!('message_id' in value) || value['message_id'] === undefined) return false;
+    if (!('content_type' in value) || value['content_type'] === undefined) return false;
     if (!('content' in value) || value['content'] === undefined) return false;
-    if (!('createdAt' in value) || value['createdAt'] === undefined) return false;
-    if (!('updatedAt' in value) || value['updatedAt'] === undefined) return false;
+    if (!('created_at' in value) || value['created_at'] === undefined) return false;
+    if (!('updated_at' in value) || value['updated_at'] === undefined) return false;
     return true;
 }
 
@@ -96,11 +96,11 @@ export function MessageContentsFromJSONTyped(json: any, ignoreDiscriminator: boo
         
         'id': json['id'],
         'message': json['message'] == null ? undefined : MessagesFromJSON(json['message']),
-        'messageId': json['message_id'],
-        'contentType': json['content_type'],
+        'message_id': json['message_id'],
+        'content_type': json['content_type'],
         'content': json['content'],
-        'createdAt': (new Date(json['created_at'])),
-        'updatedAt': (new Date(json['updated_at'])),
+        'created_at': (new Date(json['created_at'])),
+        'updated_at': (new Date(json['updated_at'])),
     };
 }
 
@@ -117,11 +117,11 @@ export function MessageContentsToJSONTyped(value?: MessageContents | null, ignor
         
         'id': value['id'],
         'message': MessagesToJSON(value['message']),
-        'message_id': value['messageId'],
-        'content_type': value['contentType'],
+        'message_id': value['message_id'],
+        'content_type': value['content_type'],
         'content': value['content'],
-        'created_at': ((value['createdAt']).toISOString()),
-        'updated_at': ((value['updatedAt']).toISOString()),
+        'created_at': ((value['created_at']).toISOString()),
+        'updated_at': ((value['updated_at']).toISOString()),
     };
 }
 

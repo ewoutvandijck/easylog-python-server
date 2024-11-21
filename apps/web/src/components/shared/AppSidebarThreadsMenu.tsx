@@ -18,11 +18,11 @@ const AppSidebarThreadsMenu = () => {
         <SidebarMenuItem key={item.id}>
           <SidebarMenuButton
             asChild
-            isActive={threadId === item.externalId || threadId === item.id}
+            isActive={threadId === item.external_id || threadId === item.id}
             disabled={!isConnected}
           >
-            <Link href={`/${item.externalId ? item.externalId : item.id}`}>
-              {item.externalId ? item.externalId : item.id}
+            <Link href={`/${item.external_id ? item.external_id : item.id}`}>
+              {item.external_id ? item.external_id : item.id}
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

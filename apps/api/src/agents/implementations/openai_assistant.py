@@ -2,6 +2,7 @@ from typing import Generator, List
 
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
+
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.models.messages import Message, MessageContent
 

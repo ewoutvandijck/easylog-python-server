@@ -11,9 +11,15 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Separator } from '@/components/ui/separator';
 
-export default function Chat({ params }: { params: { chatId: string } }) {
+export default async function Chat({
+  params
+}: {
+  params: Promise<{ chatId: string }>;
+}) {
+  const { chatId } = await params;
+
   return (
-    <>
+    <div className="h-screen max-h-screen flex flex-col">
       <AppHeader>
         <Breadcrumb>
           <BreadcrumbList>
@@ -22,18 +28,14 @@ export default function Chat({ params }: { params: { chatId: string } }) {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="capitalize">
-                {params.chatId}
-              </BreadcrumbPage>
+              <BreadcrumbPage className="capitalize">{chatId}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </AppHeader>
-      <div className="flex flex-col flex-1">
-        <ChatBubbles />
-        <Separator />
-        <ChatFooter />
-      </div>
-    </>
+      <ChatBubbles />
+      <Separator />
+      <ChatFooter />
+    </div>
   );
 }

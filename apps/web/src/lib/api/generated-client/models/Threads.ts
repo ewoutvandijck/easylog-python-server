@@ -38,19 +38,19 @@ export interface Threads {
      * @type {string}
      * @memberof Threads
      */
-    externalId?: string | null;
+    external_id?: string | null;
     /**
      * 
      * @type {Date}
      * @memberof Threads
      */
-    createdAt: Date;
+    created_at: Date;
     /**
      * 
      * @type {Date}
      * @memberof Threads
      */
-    updatedAt: Date;
+    updated_at: Date;
     /**
      * 
      * @type {Array<Messages>}
@@ -64,8 +64,8 @@ export interface Threads {
  */
 export function instanceOfThreads(value: object): value is Threads {
     if (!('id' in value) || value['id'] === undefined) return false;
-    if (!('createdAt' in value) || value['createdAt'] === undefined) return false;
-    if (!('updatedAt' in value) || value['updatedAt'] === undefined) return false;
+    if (!('created_at' in value) || value['created_at'] === undefined) return false;
+    if (!('updated_at' in value) || value['updated_at'] === undefined) return false;
     return true;
 }
 
@@ -80,9 +80,9 @@ export function ThreadsFromJSONTyped(json: any, ignoreDiscriminator: boolean): T
     return {
         
         'id': json['id'],
-        'externalId': json['external_id'] == null ? undefined : json['external_id'],
-        'createdAt': (new Date(json['created_at'])),
-        'updatedAt': (new Date(json['updated_at'])),
+        'external_id': json['external_id'] == null ? undefined : json['external_id'],
+        'created_at': (new Date(json['created_at'])),
+        'updated_at': (new Date(json['updated_at'])),
         'messages': json['messages'] == null ? undefined : ((json['messages'] as Array<any>).map(MessagesFromJSON)),
     };
 }
@@ -99,9 +99,9 @@ export function ThreadsToJSONTyped(value?: Threads | null, ignoreDiscriminator: 
     return {
         
         'id': value['id'],
-        'external_id': value['externalId'],
-        'created_at': ((value['createdAt']).toISOString()),
-        'updated_at': ((value['updatedAt']).toISOString()),
+        'external_id': value['external_id'],
+        'created_at': ((value['created_at']).toISOString()),
+        'updated_at': ((value['updated_at']).toISOString()),
         'messages': value['messages'] == null ? undefined : ((value['messages'] as Array<any>).map(MessagesToJSON)),
     };
 }
