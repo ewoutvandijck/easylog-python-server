@@ -20,6 +20,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
+    root_path="/ai",
     docs_url="/ai/docs",
     redoc_url="/ai/redoc",
     lifespan=lifespan,
@@ -49,3 +50,8 @@ async def add_process_time_header(request: Request, call_next):
 app.include_router(health.router)
 app.include_router(threads.router)
 app.include_router(messages.router)
+
+
+@app.get(app.root_path + "/openapi.json")
+def custom_swagger_ui_html():
+    return app.openapi()
