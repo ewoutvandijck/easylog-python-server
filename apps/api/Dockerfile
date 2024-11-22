@@ -8,7 +8,10 @@ WORKDIR /app
 
 RUN uv sync --frozen
 
-RUN uv run prisma db push
+# Replace sqlite with postgres
+RUN sed -i 's/sqlite/postgres/g' schema.prisma
+
+RUN uv run prisma generate
 
 EXPOSE 8000
 
