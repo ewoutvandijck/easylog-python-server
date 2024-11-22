@@ -2,11 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import useApiClient from './use-api-client';
 
 const useThreads = () => {
-  const apiClient = useApiClient();
+  const { threads, activeConnection } = useApiClient();
   return useQuery({
-    queryKey: ['threads'],
+    queryKey: ['threads', activeConnection.name],
     queryFn: () =>
-      apiClient.threads.getThreadsThreadsGet({
+      threads.getThreadsThreadsGet({
         limit: 100,
         order: 'desc'
       })

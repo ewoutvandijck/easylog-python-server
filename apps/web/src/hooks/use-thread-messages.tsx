@@ -4,12 +4,12 @@ import useApiClient from './use-api-client';
 
 const useThreadMessages = () => {
   const threadId = useThreadId();
-  const apiClient = useApiClient();
+  const { messages, activeConnection } = useApiClient();
 
   return useInfiniteQuery({
-    queryKey: ['threadMessages', threadId],
+    queryKey: ['threadMessages', threadId, activeConnection.name],
     queryFn: ({ pageParam = 0 }) =>
-      apiClient.messages.getMessagesThreadsThreadIdMessagesGet({
+      messages.getMessagesThreadsThreadIdMessagesGet({
         threadId: threadId!,
         limit: 100,
         offset: pageParam

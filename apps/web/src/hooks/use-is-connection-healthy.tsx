@@ -1,17 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import useConnections from './use-connections';
+
 import useApiClient from './use-api-client';
 
 const useIsConnectionHealthy = () => {
-  const { activeConnection } = useConnections();
-
-  const apiClient = useApiClient();
+  const { health, activeConnection } = useApiClient();
 
   return useQuery({
     queryKey: ['connection-status', activeConnection.name],
     queryFn: async () => {
       try {
-        const response = await apiClient.health.healthHealthGet();
+        const response = await health.healthHealthGet();
         return response.status === 'healthy';
       } catch {
         return false;

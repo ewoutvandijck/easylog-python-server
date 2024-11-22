@@ -11,7 +11,7 @@ const useApiClient = () => {
       apiKey: activeConnection.secret
     });
 
-    return apiClient;
+    return { ...apiClient, activeConnection };
   }, [activeConnection]);
 };
 
