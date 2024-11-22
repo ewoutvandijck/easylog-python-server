@@ -21,6 +21,9 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
+    root_path="/ai",
+    docs_url="/ai/docs",
+    redoc_url="/ai/redoc",
     dependencies=[Depends(verify_api_key)],
 )
 
