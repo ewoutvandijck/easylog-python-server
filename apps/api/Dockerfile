@@ -15,5 +15,5 @@ RUN uv run prisma generate
 
 EXPOSE 8000
 
-CMD ["uv", "run", "fastapi", "run", "src/main.py", "--root-path", "/ai", "--port", "8000"]
+CMD ["uv", "run", "fastapi", "run", "src/main.py", "--port", "8000"]
 

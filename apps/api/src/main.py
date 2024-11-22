@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api import health, messages, threads
 from src.db.prisma import prisma
 from src.security.api_token import verify_api_key
+from src.settings import settings
 
 load_dotenv()
 
@@ -20,7 +21,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    root_path="/ai",
+    root_path=settings.API_ROOT_PATH,
     lifespan=lifespan,
     dependencies=[Depends(verify_api_key)],
 )
