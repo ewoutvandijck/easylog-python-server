@@ -2,6 +2,9 @@
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.extraPaths": [
+        "./apps/api"
+    ],
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,

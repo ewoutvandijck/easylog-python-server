@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Path, Query
 from prisma.models import Threads
 
 from src.db.prisma import prisma
-from src.models.chat import ChatCreateInput
 from src.models.pagination import Pagination
+from src.models.threads import ThreadCreateInput
 
 router = APIRouter()
 
@@ -89,7 +89,7 @@ async def get_thread_by_id(
     response_model=Threads,
     description="Creates a new thread or returns the existing thread if it already exists.",
 )
-async def create_thread(thread: ChatCreateInput):
+async def create_thread(thread: ThreadCreateInput):
     if thread.external_id:
         return await prisma.threads.upsert(
             where={
