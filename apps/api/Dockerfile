@@ -1,5 +1,10 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ENV VIRTUAL_ENV=.venv
+
+ENV PATH="/.venv/bin:/root/.cargo/bin:${PATH}"
 
 ADD . /app
 
