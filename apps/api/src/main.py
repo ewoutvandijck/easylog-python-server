@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from urllib.parse import urljoin
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
@@ -21,7 +22,9 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    root_path=settings.API_SUFFIX,
+    root_path=urljoin(settings.API_ROOT_PATH, "api/v1"),
+    docs_url=urljoin(settings.API_ROOT_PATH, "docs"),
+    redoc_url=urljoin(settings.API_ROOT_PATH, "redoc"),
     dependencies=[Depends(verify_api_key)],
 )
 
