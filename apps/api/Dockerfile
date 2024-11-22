@@ -10,6 +10,6 @@ RUN uv sync --frozen
 
 RUN uv run prisma db push
 
-EXPOSE 80
+EXPOSE 8000
 
-CMD ["uv", "run", "fastapi", "run", "src/main.py", "--port", "80"]
+CMD ["uv", "run", "fastapi", "run", "src/main.py", "--port", "8000"]
