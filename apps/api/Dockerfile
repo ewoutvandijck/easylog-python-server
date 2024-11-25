@@ -18,5 +18,5 @@ RUN sed -i 's/sqlite/postgres/g' schema.prisma
 
 RUN uv run prisma generate
 
-CMD ["uv", "run", "fastapi", "run", "src/main.py", "--port", "8000"]
+CMD ["uv", "run", "fastapi", "run", "src/main.py", "--port", "8000", "--host", "0.0.0.0"]
 
