@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from prisma.models import Messages
 
 from src.db.prisma import prisma
-from src.logging import logger
+from src.logger import logger
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
 from src.services.message_service import MessageService

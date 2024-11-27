@@ -5,7 +5,7 @@ from typing import Generator, List
 
 from pydantic import BaseModel
 
-from src.logging import logger
+from src.logger import logger
 from src.models.messages import Message, MessageContent
 
 

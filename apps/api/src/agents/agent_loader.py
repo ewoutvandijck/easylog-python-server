@@ -3,7 +3,7 @@ import inspect
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
-from src.logging import logger
+from src.logger import logger
 
 
 class AgentLoader:
