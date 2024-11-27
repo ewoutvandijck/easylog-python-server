@@ -5,6 +5,7 @@
     "python.analysis.extraPaths": [
         "./apps/api"
     ],
+    "python.pythonPath": "./apps/api/.venv/bin/python",
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,

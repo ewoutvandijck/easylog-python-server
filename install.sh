@@ -1,3 +1,15 @@
+#!/bin/bash
+
+if [ ! -f ./apps/api/.env ]; then
+    echo "Copying .env.example to .env for the API..."
+    cp ./apps/api/.env.example ./apps/api/.env
+fi
+
+# if [ ! -f ./apps/web/.env ]; then
+#     echo "Copying .env.example to .env for the Web App..."
+#     cp ./apps/web/.env.example ./apps/web/.env
+# fi
+
 # Check if Homebrew is installed
 if ! command -v brew &> /dev/null; then
     echo "Homebrew is not installed. Please install Homebrew first."
@@ -25,21 +37,11 @@ fi
 
 # Sync the dependencies and virtual environment
 echo "Syncing dependencies and virtual environment..."
-cd apps/api && uv sync && cd ../..
+cd ./apps/api && uv sync && cd ../..
 
 # Sync the database schema
 echo "Syncing database schema..."
-cd apps/api && uv run prisma db push && cd ../..
-
-if [ ! -f apps/api/.env ]; then
-    echo "Copying .env.example to .env for the API..."
-    cd apps/api && cp .env.example .env && cd ../..
-fi
-
-if [ ! -f apps/web/.env ]; then
-    echo "Copying .env.example to .env for the Web App..."
-    cd apps/web && cp .env.example .env && cd ../..
-fi
+cd ./apps/api && uv run prisma db push && cd ../..
 
 # Installing pnpm dependencies
 echo "Installing pnpm dependencies..."
