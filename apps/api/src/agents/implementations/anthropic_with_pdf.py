@@ -8,6 +8,7 @@ from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockP
 from anthropic.types.beta.beta_message_param import BetaMessageParam
 from anthropic.types.beta.beta_text_block_param import BetaTextBlockParam
 from pydantic import Field
+
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.models.messages import Message, MessageContent
 
@@ -15,7 +16,7 @@ from src.models.messages import Message, MessageContent
 # Configuration class for AnthropicWithPDF agent
 # Specifies the directory path where PDF files are stored
 class AnthropicWithPDFConfig(AgentConfig):
-    pdfs_path: str = Field(default="./pdfs")
+    pdfs_path: str = Field(default="pdfs")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -32,10 +33,7 @@ class AnthropicWithPDF(BaseAgent):
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
 
-        # Load PDFs on initialization
-        self._load_pdfs()
-
-    def _load_pdfs(self, path: str = "./pdfs") -> list[str]:
+    def _load_pdfs(self, path: str = "pdfs") -> list[str]:
         """
         Loads and base64 encodes all PDF files from the specified directory.
 
@@ -54,8 +52,7 @@ class AnthropicWithPDF(BaseAgent):
         # Find all PDF files in directory and encode them
         for file in glob.glob(f"{path}/*.pdf"):
             with open(file, "rb") as f:
-                print(f"Size of {file}: {len(f.read())} bytes")
-                pdfs.append(base64.b64encode(f.read()).decode("utf-8"))
+                pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
 
         return pdfs
 
