@@ -5,6 +5,7 @@ datasource db {
 
 generator client {
     provider = "prisma-client-py"
+    interface = "sync"
 }
 
 model Threads {
@@ -12,6 +13,7 @@ model Threads {
     external_id String?    @unique
     created_at  DateTime   @default(now())
     updated_at  DateTime   @updatedAt
+    metadata    String?
     messages    Messages[]
 
     @@map("threads")

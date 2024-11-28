@@ -9,8 +9,8 @@ from src.logger import logger
 class AgentLoader:
     agents: list[BaseAgent] = []
 
-    def __init__(self) -> None:
-        self.load_agents()
+    def __init__(self, thread_id: str) -> None:
+        self.load_agents(thread_id)
 
     def get_agent(self, agent_class: str) -> BaseAgent | None:
         return next(
@@ -18,7 +18,7 @@ class AgentLoader:
             None,
         )
 
-    def load_agents(self):
+    def load_agents(self, thread_id: str):
         agents_dir = Path("src/agents/implementations")
 
         # Get all Python files in the agents directory
@@ -38,7 +38,4 @@ class AgentLoader:
                     and obj != BaseAgent
                 ):
                     logger.debug(f"Found agent: {obj}")
-                    self.agents.append(obj())
-
-
-agent_loader = AgentLoader()
+                    self.agents.append(obj(thread_id=thread_id))

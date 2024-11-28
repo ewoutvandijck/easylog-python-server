@@ -8,15 +8,18 @@ const useThreadMessages = () => {
 
   return useInfiniteQuery({
     queryKey: ['threadMessages', threadId, activeConnection.name],
-    queryFn: ({ pageParam = 0 }) =>
-      messages.getMessagesThreadsThreadIdMessagesGet({
-        threadId: threadId!,
-        limit: 100,
-        offset: pageParam
-      }),
+    queryFn: async ({ pageParam = 0 }) => {
+      return (
+        await messages.getMessagesThreadsThreadIdMessagesGet({
+          threadId: threadId!,
+          limit: 100,
+          offset: pageParam
+        })
+      ).data;
+    },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.data.length === 100 ? allPages.length * 100 : undefined;
+      return lastPage.length === 100 ? allPages.length * 100 : undefined;
     }
   });
 };

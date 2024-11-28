@@ -26,7 +26,7 @@ async def get_threads(
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="desc"),
 ):
-    threads = await prisma.threads.find_many(
+    threads = prisma.threads.find_many(
         take=limit,
         skip=offset,
         order={"created_at": order},
@@ -59,7 +59,7 @@ async def get_thread_by_id(
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
 ):
-    thread = await prisma.threads.find_first(
+    thread = prisma.threads.find_first(
         where={
             "OR": [
                 {"id": id},
@@ -91,7 +91,7 @@ async def get_thread_by_id(
 )
 async def create_thread(thread: ThreadCreateInput):
     if thread.external_id:
-        return await prisma.threads.upsert(
+        return prisma.threads.upsert(
             where={
                 "external_id": thread.external_id,
             },
@@ -110,7 +110,7 @@ async def create_thread(thread: ThreadCreateInput):
             },
         )
 
-    return await prisma.threads.create(
+    return prisma.threads.create(
         data={"external_id": thread.external_id},
         include={
             "messages": {
@@ -134,7 +134,7 @@ async def delete_thread(
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
 ):
-    return await prisma.threads.delete_many(
+    return prisma.threads.delete_many(
         where={
             "OR": [
                 {"id": id},

@@ -31,7 +31,7 @@ async def get_messages(
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
 ):
-    messages = await prisma.messages.find_many(
+    messages = prisma.messages.find_many(
         where={
             "OR": [
                 {"thread_id": thread_id},
@@ -62,7 +62,7 @@ async def create_message(
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
 ):
-    thread = await prisma.threads.find_first(
+    thread = prisma.threads.find_first(
         where={
             "OR": [
                 {"id": thread_id},
@@ -86,7 +86,7 @@ async def create_message(
 
     async def stream():
         try:
-            async for chunk in forward_message_generator:
+            for chunk in forward_message_generator:
                 yield create_sse_event("delta", chunk.model_dump_json())
         except Exception as e:
             logger.exception("Error in SSE stream", exc_info=e)
@@ -111,4 +111,4 @@ async def delete_message(
     ),
     message_id: str = Path(..., description="The unique identifier of the message."),
 ):
-    return await prisma.messages.delete(where={"id": message_id})
+    return prisma.messages.delete(where={"id": message_id})

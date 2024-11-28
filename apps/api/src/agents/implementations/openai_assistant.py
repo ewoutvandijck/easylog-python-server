@@ -1,4 +1,4 @@
-from typing import Generator, List
+from typing import List
 
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
@@ -14,15 +14,15 @@ class OpenAIAssistantConfig(AgentConfig):
 class OpenAIAssistant(BaseAgent):
     client: OpenAI
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         self.client = OpenAI(
             # Make sure to set the OPENAI_API_KEY environment variable
             api_key=self.get_env("OPENAI_API_KEY"),
         )
 
-    def on_message(
-        self, messages: List[Message], config: OpenAIAssistantConfig
-    ) -> Generator[MessageContent, None, None]:
+    def on_message(self, messages: List[Message], config: OpenAIAssistantConfig):
         """An agent that uses OpenAI Assistants to generate responses.
 
         Args:
@@ -36,22 +36,42 @@ class OpenAIAssistant(BaseAgent):
         # First, we retrieve the assistant
         assistant = self.client.beta.assistants.retrieve(config.assistant_id)
 
-        # Then, we create a new thread with the messages. We could also reuse an existing thread, but we currently have no way to store those between requests.
-        thread = self.client.beta.threads.create(
-            messages=[
-                {
-                    "role": message.role,
-                    "content": [
-                        {
-                            "type": content.type,
-                            "text": content.content,
-                        }
-                        for content in message.content
-                    ],
-                }
-                for message in messages
-            ]
-        )
+        # If we already have a thread ID, we reuse it
+        thread_id: str = self.get_metadata("thread_id")
+        if thread_id:
+            thread = self.client.beta.threads.retrieve(thread_id=thread_id)
+        else:
+            # Otherwise, we create a new thread
+            thread = self.client.beta.threads.create(
+                messages=[
+                    {
+                        "role": message.role,
+                        "content": [
+                            {
+                                "type": content.type,
+                                "text": content.content,
+                            }
+                            for content in message.content
+                        ],
+                    }
+                    for message in messages
+                ]
+            )
+            self.set_metadata("thread_id", thread.id)
+
+        # Add the user messages to the thread
+        for message in messages:
+            self.client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=[
+                    {
+                        "type": content.type,
+                        "text": content.content,
+                    }
+                    for content in message.content
+                ],
+            )
 
         # Then, we create a run for the thread. We stream the response back to the client.
         for x in self.client.beta.threads.runs.create(

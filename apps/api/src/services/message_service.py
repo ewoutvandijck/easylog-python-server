@@ -1,6 +1,6 @@
-from typing import AsyncGenerator, Literal
+from typing import Generator, Literal
 
-from src.agents.agent_loader import agent_loader
+from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
 from src.models.messages import Message, MessageChunkContent, MessageContent
 
@@ -11,13 +11,13 @@ class AgentNotFoundError(Exception):
 
 class MessageService:
     @classmethod
-    async def forward_message(
+    def forward_message(
         cls,
         thread_id: str,
         content: list[MessageContent],
         agent_class: str,
         agent_config: dict,
-    ) -> AsyncGenerator[MessageChunkContent, None]:
+    ) -> Generator[MessageChunkContent, None, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
@@ -35,6 +35,7 @@ class MessageService:
         Yields:
             Iterator[MessageChunkContent]: A generator of message chunks.
         """
+        agent_loader = AgentLoader(thread_id)
 
         # Try to load the agent
         agent = agent_loader.get_agent(agent_class)
@@ -56,7 +57,7 @@ class MessageService:
                         for message_content in message.contents or []
                     ],
                 )
-                for message in await cls.find_messages(thread_id)
+                for message in cls.find_messages(thread_id)
             ),
             Message(
                 role="user",
@@ -91,7 +92,7 @@ class MessageService:
             )
 
         # Save the user message
-        await cls.save_message(
+        cls.save_message(
             thread_id=thread_id,
             message=Message(
                 role="user",
@@ -102,7 +103,7 @@ class MessageService:
         )
 
         # Save the agent response
-        await cls.save_message(
+        cls.save_message(
             thread_id=thread_id,
             message=Message(
                 role="assistant",
@@ -116,8 +117,8 @@ class MessageService:
         )
 
     @classmethod
-    async def find_messages(cls, thread_id: str):
-        return await prisma.messages.find_many(
+    def find_messages(cls, thread_id: str):
+        return prisma.messages.find_many(
             where={
                 "thread_id": thread_id,
             },
@@ -125,14 +126,14 @@ class MessageService:
         )
 
     @classmethod
-    async def save_message(
+    def save_message(
         cls,
         thread_id: str,
         message: Message,
         agent_class: str,
         role: Literal["user", "assistant"],
     ) -> None:
-        await prisma.messages.create(
+        prisma.messages.create(
             data={
                 "thread": {"connect": {"id": thread_id}},
                 "agent_class": agent_class,

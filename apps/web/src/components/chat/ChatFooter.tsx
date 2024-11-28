@@ -1,6 +1,6 @@
 'use client';
 
-import { SendIcon } from 'lucide-react';
+import { Loader2Icon, SendIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { z } from 'zod';
@@ -17,21 +17,18 @@ const schema = z.object({
 const ChatFooter = () => {
   const threadId = useThreadId();
   const { data: isConnected } = useIsConnectionHealthy();
-  const { mutateAsync: sendMessage } = useSendMessage();
+  const { sendMessage, isLoading } = useSendMessage();
   const { activeConfiguration } = useConfigurations();
 
   const form = useZodForm(schema);
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
-    await sendMessage({
-      threadId: threadId!,
-      messageCreateInput: {
-        agent_config: {
-          agent_class: activeConfiguration?.agentConfig.agent_class ?? '',
-          ...activeConfiguration?.agentConfig
-        },
-        content: [{ content: data.message, type: 'text' }]
-      }
+    await sendMessage(threadId!, {
+      agent_config: {
+        agent_class: activeConfiguration?.agentConfig.agent_class ?? '',
+        ...activeConfiguration?.agentConfig
+      },
+      content: [{ content: data.message, type: 'text' }]
     });
     form.reset();
   };
@@ -57,13 +54,13 @@ const ChatFooter = () => {
           }}
         />
         <Button
-          disabled={!isConnected || form.formState.isSubmitting}
+          disabled={!isConnected || form.formState.isSubmitting || isLoading}
           size="icon"
           className="w-16 h-10"
           variant="secondary"
           type="submit"
         >
-          <SendIcon />
+          {isLoading ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
         </Button>
       </form>
     </div>

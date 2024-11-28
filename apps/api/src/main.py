@@ -15,9 +15,9 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    await prisma.connect()
+    prisma.connect()
     yield
-    await prisma.disconnect()
+    prisma.disconnect()
 
 
 app = FastAPI(

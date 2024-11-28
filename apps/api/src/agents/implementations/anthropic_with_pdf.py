@@ -1,8 +1,10 @@
 from typing import Generator, List
 
+from anthropic import Anthropic
+
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.models.messages import Message, MessageContent
-from anthropic import Anthropic
+
 
 class AnthropicWithPDFConfig(AgentConfig):
     pass
@@ -11,7 +13,9 @@ class AnthropicWithPDFConfig(AgentConfig):
 class AnthropicWithPDF(BaseAgent):
     client: Anthropic
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         self.client = Anthropic(
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
@@ -19,7 +23,6 @@ class AnthropicWithPDF(BaseAgent):
     def on_message(
         self, messages: List[Message], config: AnthropicWithPDFConfig
     ) -> Generator[MessageContent, None, None]:
-        
         response = self.client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1000,
@@ -28,14 +31,9 @@ class AnthropicWithPDF(BaseAgent):
             messages=[
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Why is the ocean salty?"
-                        }
-                    ]
+                    "content": [{"type": "text", "text": "Why is the ocean salty?"}],
                 }
-            ]
+            ],
         )
 
         yield MessageContent(content=str(response))

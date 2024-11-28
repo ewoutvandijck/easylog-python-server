@@ -1,10 +1,13 @@
+import json
 import os
 from abc import abstractmethod
 from inspect import signature
-from typing import Generator, List
+from typing import Any, Generator, List
 
+from prisma.models import Threads
 from pydantic import BaseModel
 
+from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 
@@ -16,7 +19,11 @@ class AgentConfig(BaseModel):
 class BaseAgent:
     """Base class for all agents."""
 
-    def __init__(self):
+    thread_id: str
+    _thread: Threads | None = None
+
+    def __init__(self, thread_id: str):
+        self.thread_id = thread_id
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
     @abstractmethod
@@ -58,6 +65,29 @@ class BaseAgent:
         agent_config = self._get_config_class().model_validate(config)
 
         return self.on_message(messages, agent_config)
+
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+
+        return metadata.get(key, default)
+
+    def set_metadata(self, key: str, value: Any) -> None:
+        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+        metadata[key] = value
+
+        prisma.threads.update(
+            where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)}
+        )
+
+    def _get_thread(self) -> Threads:
+        """Get the thread for the agent."""
+
+        if self._thread is None:
+            self._thread = prisma.threads.find_first_or_raise(
+                where={"id": self.thread_id}
+            )
+
+        return self._thread
 
     def _get_config_class(self) -> type[AgentConfig]:
         """
