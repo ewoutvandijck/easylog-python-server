@@ -54,6 +54,7 @@ class AnthropicWithPDF(BaseAgent):
         # Find all PDF files in directory and encode them
         for file in glob.glob(f"{path}/*.pdf"):
             with open(file, "rb") as f:
+                print(f"Size of {file}: {len(f.read())} bytes")
                 pdfs.append(base64.b64encode(f.read()).decode("utf-8"))
 
         return pdfs
