@@ -28,13 +28,16 @@ class DebugAssistant(BaseAgent):
         """
 
         last_message = messages[-1]
-        loc_index = 0
         for content in last_message.content:
-            if content.type == "text":
+            if content.type != "text":
+                continue
+
+            text = content.content
+            # Continue yielding chunks until we've processed the entire text
+            loc_index = 0
+            while loc_index < len(text):
                 yield MessageContent(
-                    content=content.content[
-                        loc_index : loc_index + config.debug_chunk_size
-                    ],
+                    content=text[loc_index : loc_index + config.debug_chunk_size],
                     type="text",
                 )
                 loc_index += config.debug_chunk_size
