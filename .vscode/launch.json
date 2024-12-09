@@ -5,6 +5,7 @@
       "name": "Development",
       "type": "node",
       "request": "launch",
+      "runtimeExecutable": "pnpm",
       "runtimeArgs": ["turbo", "run", "dev"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
