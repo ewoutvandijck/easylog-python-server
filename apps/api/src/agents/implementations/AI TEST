@@ -1,0 +1,82 @@
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+import time
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.live import Live
+from rich.text import Text
+
+# Laad environment variables uit .env bestand
+load_dotenv()
+
+# Initialiseer de OpenAI client en console voor mooie output
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+console = Console()
+
+# Assistant ID
+assistant_id = "asst_pP7fmBo3insIA5Xi2OepRh5X"
+
+# Maak een nieuwe thread aan
+thread = client.beta.threads.create()
+
+def chat_with_assistant(user_input):
+    # Voeg het gebruikersbericht toe aan de thread
+    client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content=user_input
+    )
+
+    # Start de assistent run
+    run = client.beta.threads.runs.create(
+        thread_id=thread.id,
+        assistant_id=assistant_id,
+    )
+
+    # Wacht tot de run klaar is
+    while True:
+        run_status = client.beta.threads.runs.retrieve(
+            thread_id=thread.id,
+            run_id=run.id
+        )
+        
+        if run_status.status == 'completed':
+            messages = client.beta.threads.messages.list(
+                thread_id=thread.id,
+                order="desc",
+                limit=1
+            )
+            
+            if messages.data:
+                content = messages.data[0].content[0].text.value
+                # Print alleen de streaming versie als het geen code-block bevat
+                if "```" not in content:
+                    with Live(Text(), refresh_per_second=10) as live:
+                        for i in range(len(content)):
+                            current_text = content[:i+1]
+                            live.update(Text(current_text))
+                            time.sleep(0.02)
+                    console.print("\n")
+                else:
+                    # Als er code in zit, print dan direct als markdown
+                    console.print(Markdown(content))
+                return content
+            break
+            
+        elif run_status.status == 'failed':
+            return "Er is een fout opgetreden."
+        
+        time.sleep(0.5)
+
+# Voorbeeld gebruik
+if __name__ == "__main__":
+    console.print("[bold blue]Chat met AI Assistant[/bold blue]")
+    console.print("Typ 'stop' om te eindigen\n")
+    
+    while True:
+        user_input = input("Jij: ")
+        if user_input.lower() == 'stop':
+            break
+            
+        response = chat_with_assistant(user_input)

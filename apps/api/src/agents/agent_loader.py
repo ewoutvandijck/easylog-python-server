@@ -38,4 +38,8 @@ class AgentLoader:
                     and obj != BaseAgent
                 ):
                     logger.debug(f"Found agent: {obj}")
-                    self.agents.append(obj(thread_id=thread_id))
+
+                    try:
+                        self.agents.append(obj(thread_id=thread_id))
+                    except Exception as e:
+                        logger.error(f"Error loading agent {obj}: {e}")
