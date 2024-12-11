@@ -41,50 +41,56 @@ const useSendMessage = () => {
 
       setIsLoading(true);
 
+      const endpointURL = new URL(
+        `/threads/${threadId}/messages/complete`,
+        activeConnection.url
+      );
+
+      endpointURL.searchParams.set(
+        'message',
+        window.btoa(JSON.stringify(message))
+      );
+
       await new Promise(async (resolve, reject) => {
-        await fetchEventSource(
-          `${activeConnection.url}/threads/${threadId}/messages`,
-          {
-            method: 'POST',
-            headers: {
-              'X-API-KEY': activeConnection.secret,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(message),
-            onmessage(ev) {
-              const data = JSON.parse(ev.data);
+        await fetchEventSource(endpointURL.toString(), {
+          method: 'GET',
+          headers: {
+            'X-API-KEY': activeConnection.secret,
+            'Content-Type': 'application/json'
+          },
+          onmessage(ev) {
+            const data = JSON.parse(ev.data);
 
-              if (ev.event === 'error') {
-                toast.error(data.detail);
-              }
-
-              if (ev.event === 'delta') {
-                setAssistantMessage((prev) => ({
-                  role: 'assistant',
-                  contents: [
-                    ...(prev?.contents ?? []),
-                    { type: 'text', content: data.content }
-                  ]
-                }));
-              }
-            },
-            onerror(ev) {
-              setIsLoading(false);
-              toast.error(ev.data);
-              reject(ev);
-            },
-            async onopen() {
-              setIsLoading(true);
-            },
-            async onclose() {
-              await refetch();
-              setIsLoading(false);
-              setAssistantMessage(null);
-              setUserMessage(null);
-              resolve(void 0);
+            if (ev.event === 'error') {
+              toast.error(data.detail);
             }
+
+            if (ev.event === 'delta') {
+              setAssistantMessage((prev) => ({
+                role: 'assistant',
+                contents: [
+                  ...(prev?.contents ?? []),
+                  { type: 'text', content: data.content }
+                ]
+              }));
+            }
+          },
+          onerror(ev) {
+            setIsLoading(false);
+            toast.error(ev.data);
+            reject(ev);
+          },
+          async onopen() {
+            setIsLoading(true);
+          },
+          async onclose() {
+            await refetch();
+            setIsLoading(false);
+            setAssistantMessage(null);
+            setUserMessage(null);
+            resolve(void 0);
           }
-        );
+        });
       });
     },
     [

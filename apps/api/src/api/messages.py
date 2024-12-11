@@ -1,3 +1,4 @@
+import base64
 import json
 from typing import Literal
 
@@ -96,6 +97,32 @@ async def create_message(
         stream(),
         media_type="text/event-stream",
     )
+
+
+# FIXME: Hopefully a temporary endpoint to allow for easier testing of the API. We should ideally have one endpoint for creating the next message and another for streaming the result.
+@router.get(
+    "/threads/{thread_id}/messages/complete",
+    name="complete_message",
+    tags=["messages"],
+    response_model=MessageContent,
+    response_description="A stream of JSON-encoded message chunks",
+    description="The same as `create_message`, as a get request because some HTTP clients don't support streaming POST requests.",
+)
+async def complete_message(
+    message: str = Query(
+        ...,
+        description="The message to complete. A base64 encoded JSON object of the `MessageCreateInput` model.",
+    ),
+    thread_id: str = Path(
+        ...,
+        description="The unique identifier of the thread. Can be either the internal ID or external ID.",
+    ),
+):
+    message_create_input = MessageCreateInput(
+        **json.loads(base64.b64decode(message).decode("utf-8")),
+    )
+
+    return await create_message(message_create_input, thread_id)
 
 
 @router.delete(
