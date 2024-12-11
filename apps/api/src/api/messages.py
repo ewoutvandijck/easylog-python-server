@@ -85,7 +85,7 @@ async def create_message(
         content=message.content,
     )
 
-    async def stream():
+    def stream():
         try:
             for chunk in forward_message_generator:
                 yield create_sse_event("delta", chunk.model_dump_json())
@@ -96,6 +96,9 @@ async def create_message(
     return StreamingResponse(
         stream(),
         media_type="text/event-stream",
+        headers={
+            "Transfer-Encoding": "chunked",
+        },
     )
 
 

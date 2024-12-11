@@ -1,6 +1,7 @@
 import base64
 import glob
 import os
+import time
 from typing import Generator, List
 
 from anthropic import Anthropic
@@ -8,8 +9,8 @@ from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockP
 from anthropic.types.beta.beta_message_param import BetaMessageParam
 from anthropic.types.beta.beta_text_block_param import BetaTextBlockParam
 from pydantic import Field
-
 from src.agents.base_agent import AgentConfig, BaseAgent
+from src.logger import logger
 from src.models.messages import Message, MessageContent
 
 
@@ -109,6 +110,9 @@ class AnthropicWithPDF(BaseAgent):
             for content in current_message
         ]
 
+        # Print performance
+        start_time = time.time()
+
         # Create a streaming message request to Claude
         # This includes the message history, PDFs, and current message
         stream = self.client.beta.messages.create(
@@ -127,6 +131,9 @@ class AnthropicWithPDF(BaseAgent):
             ],
             stream=True,
         )
+
+        end_time = time.time()
+        logger.info(f"Time taken: {end_time - start_time} seconds")
 
         # Process the streaming response
         # Yield text content as it arrives from Claude

@@ -2,6 +2,7 @@ from typing import Generator, Literal
 
 from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
+from src.logger import logger
 from src.models.messages import Message, MessageChunkContent, MessageContent
 
 
@@ -37,12 +38,17 @@ class MessageService:
         """
         agent_loader = AgentLoader(thread_id)
 
+        logger.info(f"Loading agent {agent_class}")
+
         # Try to load the agent
         agent = agent_loader.get_agent(agent_class)
         if not agent:
             raise AgentNotFoundError(
                 f"Agent class {agent_class} not found, available agents are {', '.join(map(lambda agent: agent.__class__.__name__, agent_loader.agents))}"
             )
+
+        logger.info(f"Agent {agent_class} loaded")
+        logger.info("Getting thread history")
 
         # Fetch the thread history including the new user message
         thread_history = [
@@ -65,11 +71,16 @@ class MessageService:
             ),
         ]
 
+        logger.info(f"Thread history: {len(thread_history)} messages")
+
         # Chunks are "compressed" so we don't have to store every single token in the database.
         compressed_chunks: list[MessageChunkContent] = []
 
+        logger.info("Forwarding message through agent")
+
         # Forward the history through the agent
         for chunk in agent.forward(thread_history, agent_config):
+            logger.info(f"Received chunk: {chunk}")
             last_chunk = compressed_chunks[-1] if compressed_chunks else None
             if last_chunk and last_chunk.type == "text":
                 last_chunk.content += chunk.content
@@ -91,6 +102,8 @@ class MessageService:
                 content=chunk.content,
             )
 
+        logger.info("Saving user message")
+
         # Save the user message
         cls.save_message(
             thread_id=thread_id,
@@ -101,6 +114,8 @@ class MessageService:
             agent_class=agent_class,
             role="user",
         )
+
+        logger.info("Saving agent response")
 
         # Save the agent response
         cls.save_message(
@@ -115,6 +130,8 @@ class MessageService:
             agent_class=agent_class,
             role="assistant",
         )
+
+        logger.info("Message saved")
 
     @classmethod
     def find_messages(cls, thread_id: str):
