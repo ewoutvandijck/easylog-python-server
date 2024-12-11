@@ -42,22 +42,18 @@ const useSendMessage = () => {
       setIsLoading(true);
 
       const endpointURL = new URL(
-        `/threads/${threadId}/messages/complete`,
+        `/threads/${threadId}/messages`,
         activeConnection.url
-      );
-
-      endpointURL.searchParams.set(
-        'message',
-        window.btoa(JSON.stringify(message))
       );
 
       await new Promise(async (resolve, reject) => {
         await fetchEventSource(endpointURL.toString(), {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'X-API-KEY': activeConnection.secret,
             'Content-Type': 'application/json'
           },
+          body: JSON.stringify(message),
           onmessage(ev) {
             const data = JSON.parse(ev.data);
 
