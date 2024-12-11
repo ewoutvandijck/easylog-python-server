@@ -1,4 +1,5 @@
 import time
+from collections.abc import AsyncGenerator
 from typing import List
 
 from pydantic import Field
@@ -16,7 +17,9 @@ class DebugAssistant(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def on_message(self, messages: List[Message], config: DebugAssistantConfig):
+    async def on_message(
+        self, messages: List[Message], config: DebugAssistantConfig
+    ) -> AsyncGenerator[MessageContent, None]:
         """An agent that streams back the messages it receives in chunks of `debug_chunk_size` characters.
 
         Args:

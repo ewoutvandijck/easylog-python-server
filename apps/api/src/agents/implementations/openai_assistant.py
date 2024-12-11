@@ -1,4 +1,4 @@
-from typing import List
+from typing import AsyncGenerator, List
 
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
@@ -22,7 +22,9 @@ class OpenAIAssistant(BaseAgent):
             api_key=self.get_env("OPENAI_API_KEY"),
         )
 
-    def on_message(self, messages: List[Message], config: OpenAIAssistantConfig):
+    async def on_message(
+        self, messages: List[Message], config: OpenAIAssistantConfig
+    ) -> AsyncGenerator[MessageContent, None]:
         """An agent that uses OpenAI Assistants to generate responses.
 
         Args:
