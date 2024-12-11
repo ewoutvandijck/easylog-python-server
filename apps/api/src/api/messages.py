@@ -97,6 +97,7 @@ async def create_message(
         media_type="text/event-stream",
         headers={
             "Transfer-Encoding": "chunked",
+            "X-Accel-Buffering": "no",
         },
     )
 
