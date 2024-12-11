@@ -1,8 +1,9 @@
+import inspect
 import json
 import os
 from abc import abstractmethod
 from inspect import signature
-from typing import Any, AsyncGenerator, List
+from typing import Any, AsyncGenerator, Generator, List
 
 from prisma.models import Threads
 from pydantic import BaseModel
@@ -64,7 +65,20 @@ class BaseAgent:
 
         agent_config = self._get_config_class().model_validate(config)
 
-        return self.on_message(messages, agent_config)
+        generator = self.on_message(messages, agent_config)
+
+        if not inspect.isasyncgen(generator):
+            if inspect.isgenerator(generator):
+                logger.warning(
+                    "on_message returned a sync generator, converting to async generator"
+                )
+                generator = self.sync_to_async_generator(generator)
+            else:
+                raise ValueError(
+                    "on_message must return either a sync or async generator"
+                )
+
+        return generator
 
     def get_metadata(self, key: str, default: Any = None) -> Any:
         metadata: dict = json.loads((self._get_thread()).metadata or "{}")
@@ -110,3 +124,7 @@ class BaseAgent:
             )
 
         return attr_type
+
+    async def sync_to_async_generator(self, sync_gen: Generator):
+        for item in sync_gen:
+            yield item
