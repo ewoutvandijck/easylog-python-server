@@ -2,7 +2,7 @@ import json
 import os
 from abc import abstractmethod
 from inspect import signature
-from typing import Any, Generator, List
+from typing import Any, AsyncGenerator, List
 
 from prisma.models import Threads
 from pydantic import BaseModel
@@ -29,7 +29,7 @@ class BaseAgent:
     @abstractmethod
     def on_message(
         self, messages: List[Message], config: AgentConfig
-    ) -> Generator[MessageContent, None, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         raise NotImplementedError()
 
     def get_env(self, key: str) -> str:
@@ -46,7 +46,7 @@ class BaseAgent:
 
     def forward(
         self, messages: List[Message], config: dict
-    ) -> Generator[MessageContent, None, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Validate the config and forward the messages to the agent. Returns a generator of message contents.
 

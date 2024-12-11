@@ -1,4 +1,4 @@
-from typing import Generator, Literal
+from typing import AsyncGenerator, Literal
 
 from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
@@ -12,13 +12,13 @@ class AgentNotFoundError(Exception):
 
 class MessageService:
     @classmethod
-    def forward_message(
+    async def forward_message(
         cls,
         thread_id: str,
         content: list[MessageContent],
         agent_class: str,
         agent_config: dict,
-    ) -> Generator[MessageChunkContent, None, None]:
+    ) -> AsyncGenerator[MessageChunkContent, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
@@ -79,7 +79,7 @@ class MessageService:
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        for chunk in agent.forward(thread_history, agent_config):
+        async for chunk in agent.forward(thread_history, agent_config):
             logger.info(f"Received chunk: {chunk}")
             last_chunk = compressed_chunks[-1] if compressed_chunks else None
             if last_chunk and last_chunk.type == "text":

@@ -2,13 +2,14 @@ import base64
 import glob
 import os
 import time
-from typing import Generator, List
+from typing import AsyncGenerator, List
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from anthropic.types.beta.beta_message_param import BetaMessageParam
 from anthropic.types.beta.beta_text_block_param import BetaTextBlockParam
 from pydantic import Field
+
 from src.agents.base_agent import AgentConfig, BaseAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -23,14 +24,14 @@ class AnthropicWithPDFConfig(AgentConfig):
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class AnthropicWithPDF(BaseAgent):
     # Anthropic client instance for making API calls
-    client: Anthropic
+    client: AsyncAnthropic
 
     def __init__(self, *args, **kwargs):
         # Initialize parent BaseAgent class
         super().__init__(*args, **kwargs)
 
         # Initialize Anthropic client with API key from environment
-        self.client = Anthropic(
+        self.client = AsyncAnthropic(
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
 
@@ -57,9 +58,9 @@ class AnthropicWithPDF(BaseAgent):
 
         return pdfs
 
-    def on_message(
+    async def on_message(
         self, messages: List[Message], config: AnthropicWithPDFConfig
-    ) -> Generator[MessageContent, None, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         # Load PDFs from the configured path
         pdfs = self._load_pdfs(config.pdfs_path)
 
@@ -115,7 +116,7 @@ class AnthropicWithPDF(BaseAgent):
 
         # Create a streaming message request to Claude
         # This includes the message history, PDFs, and current message
-        stream = self.client.beta.messages.create(
+        stream = await self.client.beta.messages.create(
             model="claude-3-5-sonnet-20241022",
             betas=["pdfs-2024-09-25"],  # Enable PDF support
             max_tokens=1024,
@@ -137,6 +138,6 @@ class AnthropicWithPDF(BaseAgent):
 
         # Process the streaming response
         # Yield text content as it arrives from Claude
-        for event in stream:
+        async for event in stream:
             if event.type == "content_block_delta" and event.delta.type == "text_delta":
                 yield MessageContent(content=event.delta.text)
