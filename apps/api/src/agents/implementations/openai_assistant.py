@@ -75,7 +75,7 @@ class OpenAIAssistant(BaseAgent):
                 ],
             )
 
-        # Then, we create a run for the thread. We stream the response back to the client.
+        # Then!, we create a run for the thread. We stream the response back to the client.
         for x in self.client.beta.threads.runs.create(
             thread_id=thread.id, assistant_id=assistant.id, stream=True
         ):
