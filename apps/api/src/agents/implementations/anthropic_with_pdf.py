@@ -99,7 +99,7 @@ class AnthropicWithPDF(BaseAgent):
                     "data": pdf,
                 },
             }
-            for pdf in pdfs
+            for pdf in pdfs 
         ]
 
         # Convert the current message content into text blocks
