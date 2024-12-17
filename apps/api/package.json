@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "source ./.venv/bin/activate && uv run fastapi dev ./src/main.py"
+    "dev": "uv sync && source ./.venv/bin/activate && uv run prisma generate && uv run fastapi dev ./src/main.py"
   },
   "keywords": [],
   "author": "",
