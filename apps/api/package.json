@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "uv run fastapi dev ./src/main.py"
+    "dev": "source ./.venv/bin/activate && uv run fastapi dev ./src/main.py"
   },
   "keywords": [],
   "author": "",
