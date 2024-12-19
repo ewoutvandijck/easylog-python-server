@@ -6,8 +6,8 @@ from typing import AsyncGenerator, List
 
 from anthropic import AsyncAnthropic
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
-from anthropic.types.beta.beta_message_param import BetaMessageParam
-from anthropic.types.beta.beta_text_block_param import BetaTextBlockParam
+from anthropic.types.message_param import MessageParam
+from anthropic.types.text_block_param import TextBlockParam
 from pydantic import Field
 
 from src.agents.base_agent import AgentConfig, BaseAgent
@@ -15,14 +15,14 @@ from src.logger import logger
 from src.models.messages import Message, MessageContent
 
 
-# Configuration class for AnthropicWithPDF agent
+# Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
-class AnthropicWithPDFConfig(AgentConfig):
+class AnthropicNewConfig(AgentConfig):
     pdfs_path: str = Field(default="pdfs")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicWithPDF(BaseAgent):
+class AnthropicNew(BaseAgent):
     # Anthropic client instance for making API calls
     client: AsyncAnthropic
 
@@ -59,7 +59,7 @@ class AnthropicWithPDF(BaseAgent):
         return pdfs
 
     async def on_message(
-        self, messages: List[Message], config: AnthropicWithPDFConfig
+        self, messages: List[Message], config: AnthropicNewConfig
     ) -> AsyncGenerator[MessageContent, None]:
         # Load PDFs from the configured path
         pdfs = self._load_pdfs(config.pdfs_path)
@@ -69,7 +69,7 @@ class AnthropicWithPDF(BaseAgent):
 
         # Convert previous messages into Anthropic's BetaMessageParam format
         # Each message contains role (user/assistant) and content blocks
-        message_history: list[BetaMessageParam] = [
+        message_history: list[MessageParam] = [
             {
                 "role": message.role,
                 "content": [
@@ -98,12 +98,13 @@ class AnthropicWithPDF(BaseAgent):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
+                "cache_control": {"type": "ephemeral"},
             }
-            for pdf in pdfs 
+            for pdf in pdfs
         ]
 
         # Convert the current message content into text blocks
-        text_content_blocks: list[BetaTextBlockParam] = [
+        text_content_blocks: list[TextBlockParam] = [
             {
                 "type": "text",
                 "text": content.content,
@@ -116,35 +117,10 @@ class AnthropicWithPDF(BaseAgent):
 
         # Create a streaming message request to Claude
         # This includes the message history, PDFs, and current message
-        stream = await self.client.beta.messages.create(
+        stream = await self.client.messages.create(
             model="claude-3-5-sonnet-20241022",
-            betas=["pdfs-2024-09-25"],  # Enable PDF support
             max_tokens=1024,
-            system="""Je bent een technische assistent voor trammonteurs. Je taak is om te helpen bij het oplossen van storingen.
-
-BELANGRIJKE REGELS:
-- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Spreek alleen over de reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1 en vraag de monteur altijd eerst om een antwoord
-- Bij een stroomschema volg de route via de pijlen en of Ja/Nee antwoorden 
-- Wees vriendelijk en behulpzaam in je communicatie
-- Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
-- Bij twijfel, verwijs altijd naar het officiële document
-- Blijf strikt binnen de gegeven documentatie
-- !!!!!!!!! LOOP ALTIJD DE PROBLEEM OPLOSSING, stapsgewijs - vraag per vraag DOOR !!!!!!!!!
-
-BIJ EEN STROOMSCHEMA:
-- De EXACTE volgorde van het stroomschema aan te houden
-- Geen stappen overslaan, zelfs als ik denk te weten wat de volgende uitkomst zou kunnen zijn
-
-In het stroomschema zie je de volgende figuren:
-- Hexagon (zeshoeken) - Deze bevatten vragen die aan de monteur gesteld moeten worden, bijvoorbeeld "Is de fout in de andere omvormers opgetreden?"
-- Rechthoek - Deze bevatten acties/taken die uitgevoerd moeten worden, bijvoorbeeld "Controleer werking van Vbus-sensor", volg de pijlen daarna voor de bijbehorde vraag in een volgende stap.
-- Ovale cirkel - Deze bevatten opmerkingen/toelichtingen die met de monteur gedeeld moeten worden, bijvoorbeeld "De fout is het gevolg van een lage spanning in de kettinglijn. OPGELOST"
-- Rode rechthoek - Deze bevat de startconditie/foutmelding 
-- Pijlen - Deze geven de stroomrichting aan en verbinden de verschillende onderdelen. Bij sommige pijlen staan "JA" of "NEE" om aan te geven welke route gevolgd moet worden op basis van het antwoord.- 
-- Controleer voor je antwoord geeft je de juiste stap in het stroomschema behandeld en geen stap hebt overgeslagen.
-- Dit is een typisch diagnostisch stroomschema dat stap voor stap gevolgd moet worden om een storing op te lossen!""",
+            system="""Je bent een vriendelijke assistent, die alles weet van het onderhouden van trams""",
             messages=[
                 *message_history,
                 {
