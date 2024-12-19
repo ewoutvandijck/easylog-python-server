@@ -5,9 +5,9 @@ import time
 from typing import AsyncGenerator, List
 
 from anthropic import AsyncAnthropic
-from anthropic import Base64PDFBlockParam
-from anthropic import MessageParam
-from anthropic import TextBlockParam
+from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from anthropic.types.message_param import MessageParam
+from anthropic.types.text_block_param import TextBlockParam
 from pydantic import Field
 
 from src.agents.base_agent import AgentConfig, BaseAgent
@@ -90,17 +90,17 @@ class AnthropicNew(BaseAgent):
 
         # Create PDF content blocks for each loaded PDF
         # These will be sent to Claude as base64-encoded documents
-        pdf_content_blocks: list[Base64PDFBlockParam] = [
-            {   
+        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
+            {
                 "type": "document",
                 "source": {
-                    "type": "base64", 
+                    "type": "base64",
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"}
+                "cache_control": {"type": "ephemeral"},
             }
-            for pdf in pdfs 
+            for pdf in pdfs
         ]
 
         # Convert the current message content into text blocks
@@ -117,9 +117,8 @@ class AnthropicNew(BaseAgent):
 
         # Create a streaming message request to Claude
         # This includes the message history, PDFs, and current message
-        stream = await self.client.beta.messages.create(
+        stream = await self.client.messages.create(
             model="claude-3-5-sonnet-20241022",
-            betas=["pdfs-2024-09-25"],  # Enable PDF support
             max_tokens=1024,
             system="""Je bent een vriendelijke assistent, die alles weet van het onderhouden van trams""",
             messages=[

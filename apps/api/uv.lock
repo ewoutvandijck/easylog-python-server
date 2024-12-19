@@ -61,7 +61,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.39.0" },
+    { name = "anthropic", specifier = ">=0.42.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.5" },
     { name = "fastapi-pagination", specifier = ">=0.12.32" },
     { name = "markdown", specifier = ">=3.7" },
