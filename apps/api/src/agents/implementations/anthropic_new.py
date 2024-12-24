@@ -97,8 +97,8 @@ class AnthropicNew(BaseAgent):
                     "type": "base64",
                     "media_type": "application/pdf",
                     "data": pdf,
-                }
-                
+                },
+                "cache_control": {"type": "ephemeral"}, 
             }
             for pdf in pdfs
         ]
@@ -108,6 +108,7 @@ class AnthropicNew(BaseAgent):
             {
                 "type": "text",
                 "text": content.content,
+                "cache_control": {"type": "ephemeral"}, 
             }
             for content in current_message
         ]
