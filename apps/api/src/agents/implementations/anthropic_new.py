@@ -76,7 +76,7 @@ class AnthropicNew(BaseAgent):
                     {
                         "type": "text",
                         "text": content.content,
-                        "cache_control": {"type": "ephemeral"},
+                     
                     }
                     for content in message.content
                     if content.content
