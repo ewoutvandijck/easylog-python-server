@@ -29,6 +29,7 @@ class AnthropicAgent(BaseAgent):
         stream: AsyncStream[RawMessageStreamEvent],
         messages: List[Message],
         agent_config: AgentConfig,
+        tools: list[Callable] = [],
     ) -> AsyncGenerator[MessageContent, None]:
         current_index = 0
         blocks: list[tuple[str, str]] = []
@@ -67,7 +68,12 @@ class AnthropicAgent(BaseAgent):
                 event.type == "message_delta" and event.delta.stop_reason == "tool_use"
             ):
                 function_name, json_str = blocks[current_index - 1]
-                function = getattr(self, function_name)
+                function = next(
+                    (tool for tool in tools if tool.__name__ == function_name), None
+                )
+                if function is None:
+                    raise ValueError(f"Function {function_name} not found")
+
                 function_result = function(json_str)
 
                 new_messages = messages.copy()

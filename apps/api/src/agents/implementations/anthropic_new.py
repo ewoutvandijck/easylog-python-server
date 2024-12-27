@@ -103,6 +103,9 @@ class AnthropicNew(AnthropicAgent):
         ]
 
         def tool_list_pdfs() -> str:
+            """
+            List all PDF files in the specified directory
+            """
             return "\n".join(self._load_pdfs(config.pdfs_path))
 
         # Print performance
@@ -154,7 +157,7 @@ In het stroomschema zie je de volgende symbolen:
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
-        # Process the streaming response
-        # Yield text content as it arrives from Claude
-        async for content in self.handle_stream(stream, messages, config):
+        async for content in self.handle_stream(
+            stream, messages, config, [tool_list_pdfs]
+        ):
             yield content
