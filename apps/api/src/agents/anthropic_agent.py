@@ -93,5 +93,7 @@ class AnthropicAgent(BaseAgent):
                     )
                 )
 
+                logger.info(f"New messages: {new_messages}")
+
                 async for content in self.on_message(new_messages, agent_config):
                     yield content

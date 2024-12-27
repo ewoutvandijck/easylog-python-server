@@ -34,7 +34,7 @@ class PQIDataHwr(TypedDict):
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
 class AnthropicNewConfig(AgentConfig):
-    pdfs_path: str = Field(default="pdfs")
+    pdfs_path: str = Field(default="./pdfs")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
