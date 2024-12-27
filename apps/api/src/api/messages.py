@@ -1,14 +1,16 @@
 import json
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, Security
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from prisma.models import Messages
 
 from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
+from src.security.optional_http_bearer import optional_bearer_header
 from src.services.message_service import MessageService
 from src.utils.sse import create_sse_event
 
@@ -61,7 +63,10 @@ async def create_message(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
+    auth: HTTPAuthorizationCredentials | None = Security(optional_bearer_header),
 ):
+    logger.info(f"Authorization: {auth}")
+
     thread = prisma.threads.find_first(
         where={
             "OR": [

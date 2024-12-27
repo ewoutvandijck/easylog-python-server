@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api import health, messages, threads
 from src.db.prisma import prisma
 from src.security.api_token import verify_api_key
+from src.security.optional_http_bearer import optional_bearer_header
 from src.settings import settings
 
 load_dotenv()
@@ -23,7 +24,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     root_path=settings.API_ROOT_PATH,
     lifespan=lifespan,
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_api_key), Depends(optional_bearer_header)],
 )
 
 # TODO: Remove this after we know the domain
