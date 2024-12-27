@@ -16,6 +16,10 @@ class MessageContent(BaseModel):
         default="text", description="The type of content in the message."
     )
 
+    index: int = Field(
+        default=0, description="The index of the content in the message."
+    )
+
     content: str = Field(..., description="The content of the message.")
 
 

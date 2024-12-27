@@ -4,15 +4,16 @@ import os
 import time
 from typing import AsyncGenerator, List
 
-from anthropic import AsyncAnthropic
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from anthropic.types.message_param import MessageParam
 from anthropic.types.text_block_param import TextBlockParam
 from pydantic import Field
 
-from src.agents.base_agent import AgentConfig, BaseAgent
+from src.agents.anthropic_agent import AnthropicAgent
+from src.agents.base_agent import AgentConfig
 from src.logger import logger
 from src.models.messages import Message, MessageContent
+from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
 # Configuration class for AnthropicNew agent
@@ -22,19 +23,7 @@ class AnthropicNewConfig(AgentConfig):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicNew(BaseAgent):
-    # Anthropic client instance for making API calls
-    client: AsyncAnthropic
-
-    def __init__(self, *args, **kwargs):
-        # Initialize parent BaseAgent class
-        super().__init__(*args, **kwargs)
-
-        # Initialize Anthropic client with API key from environment
-        self.client = AsyncAnthropic(
-            api_key=self.get_env("ANTHROPIC_API_KEY"),
-        )
-
+class AnthropicNew(AnthropicAgent):
     def _load_pdfs(self, path: str = "pdfs") -> list[str]:
         """
         Loads and base64 encodes all PDF files from the specified directory.
@@ -153,6 +142,10 @@ In het stroomschema zie je de volgende symbolen:
                     ],
                 },
             ],
+            tools=[
+                function_to_anthropic_tool(self.list_pdfs),
+                # function_to_anthropic_tool(self.load_pdf),
+            ],
             stream=True,
         )
 
@@ -161,11 +154,4 @@ In het stroomschema zie je de volgende symbolen:
 
         # Process the streaming response
         # Yield text content as it arrives from Claude
-        async for event in stream:
-            if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                yield MessageContent(content=event.delta.text)
-            elif (
-                event.type == "content_block_delta"
-                and event.delta.type == "input_json_delta"
-            ):
-                yield MessageContent(content=event.delta.partial_json)
+        return self.handle_stream(stream, messages, config)

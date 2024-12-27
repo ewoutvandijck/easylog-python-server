@@ -1,10 +1,12 @@
 import inspect
-from typing import Any, cast, get_type_hints
+from typing import Any, Callable, cast, get_type_hints
 
 from anthropic.types.tool_param import ToolParam
 
 
-def function_to_anthropic_tool(func) -> ToolParam:
+def function_to_anthropic_tool(
+    func: Callable, name: str | None = None, description: str | None = None
+) -> ToolParam:
     """
     Converts a Python function to an Anthropic tool specification by inspecting its signature.
 
@@ -43,8 +45,8 @@ def function_to_anthropic_tool(func) -> ToolParam:
 
     # Build tool specification
     tool_spec = {
-        "name": func.__name__,
-        "description": func.__doc__ or "",
+        "name": name or func.__name__,
+        "description": description or func.__doc__ or "",
         "parameters": parameters,
     }
 
