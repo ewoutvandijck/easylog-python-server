@@ -2,7 +2,7 @@ import base64
 import glob
 import os
 import time
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator, List, TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from anthropic.types.message_param import MessageParam
@@ -14,6 +14,21 @@ from src.agents.base_agent import AgentConfig
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+
+
+class PQIDataHwr(TypedDict):
+    taak: str
+    wbcode: str
+    locatie: str
+    project: str
+    pqiscore: str
+    taakcode: str
+    component: str
+    deelproject: str
+    typematerieel: str
+    instructie_pdf: str
+    _default_pqiscore: str
+    categoriereportlabel: str
 
 
 # Configuration class for AnthropicNew agent
@@ -102,11 +117,22 @@ class AnthropicNew(AnthropicAgent):
             for content in current_message
         ]
 
+        # Voor Ewout, dit is een voorbeeld van een tool die we kunnen gebruiken
         def tool_list_pdfs() -> str:
             """
             List all PDF files in the specified directory
             """
             return "\n".join(self.list_pdfs(config.pdfs_path))
+
+        async def tool_get_pqi_data_hwr_450():
+            """
+            Get the PQR data for HWR 450
+            """
+            return await self.backend.get_datasource_entry(
+                datasource_slug="pqr",
+                entry_id="hwr_450",
+                data_type=PQIDataHwr,
+            )
 
         # Print performance
         start_time = time.time()
@@ -150,8 +176,7 @@ In het stroomschema zie je de volgende symbolen:
             ],
             tools=[
                 function_to_anthropic_tool(tool_list_pdfs),
-                function_to_anthropic_tool(self.backend.get_datasources),
-                function_to_anthropic_tool(self.backend.get_datasource_entry),
+                function_to_anthropic_tool(tool_get_pqi_data_hwr_450),
             ],
             stream=True,
         )

@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar, Union
+from typing import Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
 # Define the generic type variable
 PaginatedResponseType = TypeVar("PaginatedResponseType")
 
-DatasourceDataType = TypeVar("DatasourceDataType", bound=Union[BaseModel, dict])
+DatasourceDataType = TypeVar("DatasourceDataType")
 
 
 class Datasource(BaseModel):
