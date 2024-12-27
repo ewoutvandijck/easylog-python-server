@@ -106,7 +106,7 @@ class AnthropicNew(AnthropicAgent):
             """
             List all PDF files in the specified directory
             """
-            return "\n".join(self._load_pdfs(config.pdfs_path))
+            return "\n".join(self.list_pdfs(config.pdfs_path))
 
         # Print performance
         start_time = time.time()

@@ -98,16 +98,11 @@ class AnthropicAgent(BaseAgent):
                 async for content in self.on_message(new_messages, agent_config):
                     yield content
 
-    def tools(self) -> list[Callable]:
-        return [
-            self.list_pdfs,
-            self.load_pdf,
-        ]
-
     def list_pdfs(self, path: str) -> list[str]:
         """
         List all PDF files in the specified directory
         """
+        logger.info(f"Listing PDFs in {path}")
         return glob(f"{path}/*.pdf")
 
     def load_pdf(self, file: str) -> str:
