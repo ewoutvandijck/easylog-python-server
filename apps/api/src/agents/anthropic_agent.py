@@ -88,7 +88,7 @@ class AnthropicAgent(BaseAgent):
                 messages.append(
                     Message(
                         role="assistant",
-                        content=[MessageContent(content=str(current_index - 2)[1])],
+                        content=[MessageContent(content=blocks[current_index - 2][1])],
                     ),
                 )
 
