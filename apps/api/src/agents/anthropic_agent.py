@@ -34,6 +34,8 @@ class AnthropicAgent(BaseAgent):
         current_index = 0
         blocks: list[tuple[str, str]] = []
 
+        tool_result_messages = []
+
         async for event in stream:
             logger.info(event)
             if (
@@ -85,21 +87,24 @@ class AnthropicAgent(BaseAgent):
 
                 logger.info(f"Function result: {function_result}")
 
-                messages.append(
+                tool_result_messages.append(
                     Message(
                         role="assistant",
                         content=[MessageContent(content=blocks[current_index - 2][1])],
                     ),
                 )
 
-                messages.append(
+                tool_result_messages.append(
                     Message(
                         role="user",
                         content=[MessageContent(content=str(function_result))],
                     ),
                 )
 
-                logger.info(f"New messages: {messages}")
+        logger.info(f"New messages: {messages}")
 
-                async for content in self.on_message(messages, agent_config):
-                    yield content
+        if tool_result_messages:
+            async for content in self.on_message(
+                [*messages, *tool_result_messages], agent_config
+            ):
+                yield content
