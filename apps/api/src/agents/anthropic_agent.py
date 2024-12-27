@@ -85,15 +85,21 @@ class AnthropicAgent(BaseAgent):
 
                 logger.info(f"Function result: {function_result}")
 
-                new_messages = messages.copy()
-                new_messages.append(
+                messages.append(
+                    Message(
+                        role="assistant",
+                        content=[MessageContent(content=str(current_index - 2)[1])],
+                    ),
+                )
+
+                messages.append(
                     Message(
                         role="user",
                         content=[MessageContent(content=str(function_result))],
-                    )
+                    ),
                 )
 
-                logger.info(f"New messages: {new_messages}")
+                logger.info(f"New messages: {messages}")
 
-                async for content in self.on_message(new_messages, agent_config):
+                async for content in self.on_message(messages, agent_config):
                     yield content
