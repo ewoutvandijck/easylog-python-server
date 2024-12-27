@@ -122,7 +122,9 @@ class AnthropicNew(AnthropicAgent):
             """
             List all PDF files in the specified directory
             """
-            return "\n".join(self.list_pdfs(config.pdfs_path))
+            pdfs = glob.glob(f"{config.pdfs_path}/*.pdf")
+            logger.info(f"Listing PDFs in {config.pdfs_path}: {pdfs}")
+            return "\n".join(pdfs)
 
         async def tool_get_pqi_data_hwr_450():
             """
