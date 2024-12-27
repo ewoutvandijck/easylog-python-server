@@ -76,7 +76,6 @@ class AnthropicNew(BaseAgent):
                     {
                         "type": "text",
                         "text": content.content,
-                     
                     }
                     for content in message.content
                     if content.content
@@ -165,3 +164,8 @@ In het stroomschema zie je de volgende symbolen:
         async for event in stream:
             if event.type == "content_block_delta" and event.delta.type == "text_delta":
                 yield MessageContent(content=event.delta.text)
+            elif (
+                event.type == "content_block_delta"
+                and event.delta.type == "input_json_delta"
+            ):
+                yield MessageContent(content=event.delta.partial_json)

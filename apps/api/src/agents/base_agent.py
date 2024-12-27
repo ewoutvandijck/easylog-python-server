@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, MessageContent
+from src.services.easylog_backend.backend_service import BackendService
 
 
 class AgentConfig(BaseModel):
@@ -21,10 +22,12 @@ class BaseAgent:
     """Base class for all agents."""
 
     thread_id: str
+    _backend: BackendService | None = None
     _thread: Threads | None = None
 
-    def __init__(self, thread_id: str):
+    def __init__(self, thread_id: str, backend: BackendService | None = None):
         self.thread_id = thread_id
+        self._backend = backend
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
     @abstractmethod
@@ -92,6 +95,15 @@ class BaseAgent:
         prisma.threads.update(
             where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)}
         )
+
+    @property
+    def backend(self) -> BackendService:
+        if self._backend is None:
+            raise ValueError(
+                "Backend is not initalized. This is usually because an authentication token wasn't provided in the request"
+            )
+
+        return self._backend
 
     def _get_thread(self) -> Threads:
         """Get the thread for the agent."""

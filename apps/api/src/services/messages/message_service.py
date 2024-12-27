@@ -4,6 +4,7 @@ from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, MessageChunkContent, MessageContent
+from src.services.easylog_backend.backend_service import BackendService
 
 
 class AgentNotFoundError(Exception):
@@ -18,6 +19,7 @@ class MessageService:
         content: list[MessageContent],
         agent_class: str,
         agent_config: dict,
+        bearer_token: str | None = None,
     ) -> AsyncGenerator[MessageChunkContent, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
@@ -36,7 +38,9 @@ class MessageService:
         Yields:
             Iterator[MessageChunkContent]: A generator of message chunks.
         """
-        agent_loader = AgentLoader(thread_id)
+
+        backend_service = BackendService(bearer_token) if bearer_token else None
+        agent_loader = AgentLoader(thread_id, backend_service)
 
         logger.info(f"Loading agent {agent_class}")
 

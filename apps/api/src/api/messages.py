@@ -11,7 +11,7 @@ from src.logger import logger
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
 from src.security.optional_http_bearer import optional_bearer_header
-from src.services.message_service import MessageService
+from src.services.messages.message_service import MessageService
 from src.utils.sse import create_sse_event
 
 router = APIRouter()
@@ -87,6 +87,7 @@ async def create_message(
         agent_class=message.agent_config.agent_class,
         agent_config=agent_config,
         content=message.content,
+        bearer_token=auth.credentials if auth else None,
     )
 
     async def stream():
