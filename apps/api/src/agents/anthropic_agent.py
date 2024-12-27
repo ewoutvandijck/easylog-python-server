@@ -1,7 +1,5 @@
 import asyncio
-import base64
 import json
-from glob import glob
 from typing import AsyncGenerator, Callable, List
 
 from anthropic import AsyncAnthropic, AsyncStream
@@ -97,18 +95,3 @@ class AnthropicAgent(BaseAgent):
 
                 async for content in self.on_message(new_messages, agent_config):
                     yield content
-
-    def list_pdfs(self, path: str) -> list[str]:
-        """
-        List all PDF files in the specified directory
-        """
-        logger.info(f"Listing PDFs in {path}")
-        return glob(f"{path}/*.pdf")
-
-    def load_pdf(self, file: str) -> str:
-        """
-        Load a PDF file into a base64 encoded string
-        """
-        with open(file, "rb") as f:
-            self.pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
-            return f"PDF loaded successfully: {file}"

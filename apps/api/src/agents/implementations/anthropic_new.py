@@ -124,7 +124,7 @@ class AnthropicNew(AnthropicAgent):
             """
             pdfs = glob.glob(f"{config.pdfs_path}/*.pdf")
             logger.info(f"Listing PDFs in {config.pdfs_path}: {pdfs}")
-            return "\n".join(pdfs)
+            return "\n".join(pdfs) or "Geen PDF's gevonden"
 
         async def tool_get_pqi_data_hwr_450():
             """
@@ -138,7 +138,7 @@ class AnthropicNew(AnthropicAgent):
 
             logger.info(f"PQI data for HWR 450: {pqi_data}")
 
-            return pqi_data
+            return pqi_data or "Geen PQR data gevonden"
 
         tools = [
             tool_list_pdfs,
