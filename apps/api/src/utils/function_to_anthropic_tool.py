@@ -12,11 +12,12 @@ def function_to_anthropic_tool(
 
     Args:
         func: The Python function to convert
+        name: Optional custom name for the tool (defaults to function name)
+        description: Optional custom description (defaults to function docstring)
 
     Returns:
         ToolParam containing the tool specification
     """
-
     # Get function signature
     sig = inspect.signature(func)
 
@@ -47,7 +48,7 @@ def function_to_anthropic_tool(
     tool_spec = {
         "name": name or func.__name__,
         "description": description or func.__doc__ or "",
-        "parameters": parameters,
+        "input_schema": parameters,
     }
 
     return cast(ToolParam, tool_spec)
