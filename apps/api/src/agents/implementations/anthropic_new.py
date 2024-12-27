@@ -154,4 +154,5 @@ In het stroomschema zie je de volgende symbolen:
 
         # Process the streaming response
         # Yield text content as it arrives from Claude
-        return self.handle_stream(stream, messages, config)
+        async for content in self.handle_stream(stream, messages, config):
+            yield content
