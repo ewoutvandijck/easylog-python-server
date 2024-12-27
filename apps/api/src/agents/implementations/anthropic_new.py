@@ -102,6 +102,9 @@ class AnthropicNew(AnthropicAgent):
             for content in current_message
         ]
 
+        def tool_list_pdfs() -> str:
+            return "\n".join(self._load_pdfs(config.pdfs_path))
+
         # Print performance
         start_time = time.time()
 
@@ -143,8 +146,7 @@ In het stroomschema zie je de volgende symbolen:
                 },
             ],
             tools=[
-                function_to_anthropic_tool(self.list_pdfs),
-                # function_to_anthropic_tool(self.load_pdf),
+                function_to_anthropic_tool(tool_list_pdfs),
             ],
             stream=True,
         )
