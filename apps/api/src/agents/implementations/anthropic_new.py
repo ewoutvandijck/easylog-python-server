@@ -150,6 +150,8 @@ In het stroomschema zie je de volgende symbolen:
             ],
             tools=[
                 function_to_anthropic_tool(tool_list_pdfs),
+                function_to_anthropic_tool(self.backend.get_datasources),
+                function_to_anthropic_tool(self.backend.get_datasource_entry),
             ],
             stream=True,
         )
@@ -158,6 +160,13 @@ In het stroomschema zie je de volgende symbolen:
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
         async for content in self.handle_stream(
-            stream, messages, config, [tool_list_pdfs]
+            stream,
+            messages,
+            config,
+            [
+                tool_list_pdfs,
+                self.backend.get_datasources,
+                self.backend.get_datasource_entry,
+            ],
         ):
             yield content

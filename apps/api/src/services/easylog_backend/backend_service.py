@@ -22,6 +22,12 @@ class BackendService:
         )
 
     async def get_datasources(self) -> PaginatedResponse[Datasource]:
+        """
+        Get all datasources
+
+        Returns:
+            PaginatedResponse[Datasource]: The datasources
+        """
         async with self.client.stream(
             "GET",
             "/datasources",
@@ -35,6 +41,17 @@ class BackendService:
         entry_id: str,
         data_type: Type[DatasourceDataType] = dict,
     ) -> DatasourceDataEntry[DatasourceDataType]:
+        """
+        Get a datasource entry
+
+        Args:
+            datasource_slug: The slug of the datasource
+            entry_id: The id of the entry
+            data_type: The type of the data
+
+        Returns:
+            DatasourceDataEntry[DatasourceDataType]: The datasource entry
+        """
         async with self.client.stream(
             "GET",
             f"/datasources/{datasource_slug}/entries/{entry_id}",

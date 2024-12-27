@@ -1,4 +1,6 @@
+import asyncio
 import base64
+import json
 from glob import glob
 from typing import AsyncGenerator, Callable, List
 
@@ -71,10 +73,17 @@ class AnthropicAgent(BaseAgent):
                 function = next(
                     (tool for tool in tools if tool.__name__ == function_name), None
                 )
+
                 if function is None:
                     raise ValueError(f"Function {function_name} not found")
 
-                function_result = function(json_str)
+                kwargs = json.loads(json_str or "{}")
+
+                function_result = (
+                    await function(**kwargs)
+                    if asyncio.iscoroutinefunction(function)
+                    else function(**kwargs)
+                )
 
                 new_messages = messages.copy()
                 new_messages.append(
