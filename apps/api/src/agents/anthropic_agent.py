@@ -85,6 +85,8 @@ class AnthropicAgent(BaseAgent):
                     else function(**kwargs)
                 )
 
+                logger.info(f"Function result: {function_result}")
+
                 new_messages = messages.copy()
                 new_messages.append(
                     Message(
