@@ -7,6 +7,7 @@ from typing import AsyncGenerator, List, TypedDict
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from anthropic.types.message_param import MessageParam
 from anthropic.types.text_block_param import TextBlockParam
+from anthropic.types.tool_result_block_param import ToolResultBlockParam
 from pydantic import Field
 
 from src.agents.anthropic_agent import AnthropicAgent
@@ -77,12 +78,24 @@ class AnthropicNew(AnthropicAgent):
             {
                 "role": message.role,
                 "content": [
-                    {
-                        "type": "text",
-                        "text": content.content,
-                    }
-                    for content in message.content
-                    if content.content
+                    *[
+                        {
+                            "type": "text",
+                            "text": content.content,
+                        }
+                        for content in message.content
+                        if content.type == "text"
+                    ],
+                    *[
+                        {
+                            "type": "tool_result",
+                            "content": content.content,
+                            "tool_use_id": content.tool_use_id,
+                        }
+                        for content in message.content
+                        if content.type == "tool_result"
+                        and content.tool_use_id is not None
+                    ],
                 ],
             }
             for message in previous_messages
@@ -115,6 +128,17 @@ class AnthropicNew(AnthropicAgent):
                 "cache_control": {"type": "ephemeral"},
             }
             for content in current_message
+            if content.type == "test"
+        ]
+
+        tool_result_blocks: list[ToolResultBlockParam] = [
+            {
+                "type": "tool_result",
+                "content": content.content,
+                "tool_use_id": content.tool_use_id,
+            }
+            for content in current_message
+            if content.type == "tool_result" and content.tool_use_id is not None
         ]
 
         # Voor Ewout, dit is een voorbeeld van een tool die we kunnen gebruiken
@@ -182,6 +206,7 @@ In het stroomschema zie je de volgende symbolen:
                     "content": [
                         *pdf_content_blocks,  # First send PDFs
                         *text_content_blocks,  # Then send text content
+                        *tool_result_blocks,  # Then send tool results
                     ],
                 },
             ],

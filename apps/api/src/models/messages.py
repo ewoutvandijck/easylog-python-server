@@ -12,7 +12,7 @@ class AgentConfig(BaseModel):
 
 class MessageContent(BaseModel):
     # TODO: add support for other content types
-    type: Literal["text"] = Field(
+    type: Literal["text", "tool_result"] = Field(
         default="text", description="The type of content in the message."
     )
 
@@ -21,6 +21,10 @@ class MessageContent(BaseModel):
     )
 
     content: str = Field(..., description="The content of the message.")
+
+    tool_use_id: str | None = Field(
+        default=None, description="The ID of the tool use that generated the content."
+    )
 
 
 class Message(BaseModel):

@@ -32,7 +32,7 @@ class AnthropicAgent(BaseAgent):
         tools: list[Callable] = [],
     ) -> AsyncGenerator[MessageContent, None]:
         current_index = 0
-        blocks: list[tuple[str, str]] = []
+        blocks: list[tuple[str, str, str | None]] = []
 
         tool_result_messages = []
 
@@ -42,12 +42,12 @@ class AnthropicAgent(BaseAgent):
                 event.type == "content_block_start"
                 and event.content_block.type == "text"
             ):
-                blocks.append(("text", event.content_block.text))
+                blocks.append(("text", event.content_block.text, None))
             elif (
                 event.type == "content_block_start"
                 and event.content_block.type == "tool_use"
             ):
-                blocks.append((event.content_block.name, ""))
+                blocks.append((event.content_block.name, "", event.content_block.id))
             elif event.type == "content_block_stop":
                 current_index += 1
             elif (
@@ -56,6 +56,7 @@ class AnthropicAgent(BaseAgent):
                 blocks[current_index] = (
                     blocks[current_index][0],
                     blocks[current_index][1] + event.delta.text,
+                    blocks[current_index][2],
                 )
                 yield MessageContent(content=event.delta.text, index=current_index)
             elif (
@@ -65,11 +66,12 @@ class AnthropicAgent(BaseAgent):
                 blocks[current_index] = (
                     blocks[current_index][0],
                     blocks[current_index][1] + event.delta.partial_json,
+                    blocks[current_index][2],
                 )
             elif (
                 event.type == "message_delta" and event.delta.stop_reason == "tool_use"
             ):
-                function_name, json_str = blocks[current_index - 1]
+                function_name, json_str, tool_use_id = blocks[current_index - 1]
                 function = next(
                     (tool for tool in tools if tool.__name__ == function_name), None
                 )
@@ -97,7 +99,13 @@ class AnthropicAgent(BaseAgent):
                 tool_result_messages.append(
                     Message(
                         role="user",
-                        content=[MessageContent(content=str(function_result))],
+                        content=[
+                            MessageContent(
+                                content=str(function_result),
+                                type="tool_result",
+                                tool_use_id=tool_use_id,
+                            )
+                        ],
                     ),
                 )
 
