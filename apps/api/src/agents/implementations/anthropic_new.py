@@ -195,8 +195,7 @@ In het stroomschema zie je de volgende symbolen:
             config,
             [
                 tool_list_pdfs,
-                self.backend.get_datasources,
-                self.backend.get_datasource_entry,
+                tool_get_pqi_data_hwr_450,
             ],
         ):
             yield content
