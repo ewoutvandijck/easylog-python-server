@@ -48,13 +48,7 @@ class OpenAIAssistant(BaseAgent):
                 messages=[
                     {
                         "role": message.role,
-                        "content": [
-                            {
-                                "type": content.type,
-                                "text": content.content,
-                            }
-                            for content in message.content
-                        ],
+                        "content": message.content[0].content,
                     }
                     for message in messages
                 ]
@@ -66,13 +60,7 @@ class OpenAIAssistant(BaseAgent):
             self.client.beta.threads.messages.create(
                 thread_id=thread.id,
                 role="user",
-                content=[
-                    {
-                        "type": content.type,
-                        "text": content.content,
-                    }
-                    for content in message.content
-                ],
+                content=message.content[0].content,
             )
 
         # Then!, we create a run for the thread. We stream the response back to the client.
@@ -83,10 +71,12 @@ class OpenAIAssistant(BaseAgent):
             if isinstance(x.data, MessageDeltaEvent):
                 for delta in x.data.delta.content or []:
                     # We only care about text deltas, we ignore any other types of deltas
-                    if isinstance(delta, TextDeltaBlock) and delta.text:
+                    if (
+                        isinstance(delta, TextDeltaBlock)
+                        and delta.text
+                        and delta.text.value
+                    ):
                         yield MessageContent(
-                            content=delta.text.value
-                            if isinstance(delta.text.value, str)
-                            else "",
+                            content=delta.text.value,
                             type="text",
                         )
