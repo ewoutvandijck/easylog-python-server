@@ -128,11 +128,15 @@ class AnthropicNew(AnthropicAgent):
             """
             Get the PQR data for HWR 450
             """
-            return await self.backend.get_datasource_entry(
-                datasource_slug="pqr",
-                entry_id="hwr_450",
+            pqi_data = await self.backend.get_datasource_entry(
+                datasource_slug="pqi-data-hwr",
+                entry_id="450",
                 data_type=PQIDataHwr,
             )
+
+            logger.info(f"PQI data for HWR 450: {pqi_data}")
+
+            return pqi_data
 
         # Print performance
         start_time = time.time()
@@ -175,6 +179,7 @@ In het stroomschema zie je de volgende symbolen:
                 },
             ],
             tools=[
+                # Example tools
                 function_to_anthropic_tool(tool_list_pdfs),
                 function_to_anthropic_tool(tool_get_pqi_data_hwr_450),
             ],
