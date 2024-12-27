@@ -48,7 +48,7 @@ class MessageService:
         agent = agent_loader.get_agent(agent_class)
         if not agent:
             raise AgentNotFoundError(
-                f"Agent class {agent_class} not found, available agents are {', '.join(map(lambda agent: agent.__class__.__name__, agent_loader.agents))}"
+                f"Agent class {agent_class} not found, available agents are {', '.join(list(map(lambda agent: agent.__class__.__name__, agent_loader.agents)))}"
             )
 
         logger.info(f"Agent {agent_class} loaded")
@@ -85,23 +85,30 @@ class MessageService:
         # Forward the history through the agent
         async for chunk in agent.forward(thread_history, agent_config):
             logger.info(f"Received chunk: {chunk}")
-            last_chunk = compressed_chunks[-1] if compressed_chunks else None
-            if last_chunk and last_chunk.type == "text":
-                last_chunk.content += chunk.content
+
+            # Use chunk's index if available, otherwise use length of compressed chunks
+            chunk_index = getattr(chunk, "index", len(compressed_chunks))
+
+            # Try to find existing chunk with same index
+            existing_chunk = next(
+                (c for c in compressed_chunks if c.chunk_index == chunk_index), None
+            )
+
+            if existing_chunk and existing_chunk.type == "text":
+                existing_chunk.content += chunk.content
             else:
                 compressed_chunks.append(
                     MessageChunkContent(
-                        chunk_index=len(compressed_chunks),
+                        chunk_index=chunk_index,
                         type=chunk.type,
                         content=chunk.content,
                     )
                 )
-                last_chunk = compressed_chunks[-1]
+                existing_chunk = compressed_chunks[-1]
 
             # Yield the chunk to the client
             yield MessageChunkContent(
-                # We include a chunk index so the client can reorder the chunks if needed
-                chunk_index=last_chunk.chunk_index,
+                chunk_index=chunk_index,
                 type=chunk.type,
                 content=chunk.content,
             )
