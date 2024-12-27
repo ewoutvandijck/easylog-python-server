@@ -6,6 +6,7 @@ from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
 
 from src.agents.base_agent import AgentConfig, BaseAgent
+from src.logger import logger
 from src.models.messages import Message, MessageContent
 
 
@@ -30,48 +31,50 @@ class AnthropicAgent(BaseAgent):
         agent_config: AgentConfig,
     ) -> AsyncGenerator[MessageContent, None]:
         current_index = 0
-        text_blocks: list[str] = []
-        json_blocks: list[tuple[str, str]] = []
+        blocks: list[tuple[str, str]] = []
+
         async for event in stream:
+            logger.info(event)
             if (
                 event.type == "content_block_start"
                 and event.content_block.type == "text"
             ):
-                text_blocks.append(event.content_block.text)
+                blocks.append(("text", event.content_block.text))
             elif (
                 event.type == "content_block_start"
                 and event.content_block.type == "tool_use"
             ):
-                json_blocks.append((event.content_block.name, ""))
+                blocks.append((event.content_block.name, ""))
             elif event.type == "content_block_stop":
                 current_index += 1
             elif (
                 event.type == "content_block_delta" and event.delta.type == "text_delta"
             ):
-                text_blocks[current_index] += event.delta.text
+                blocks[current_index] = (
+                    blocks[current_index][0],
+                    blocks[current_index][1] + event.delta.text,
+                )
                 yield MessageContent(content=event.delta.text, index=current_index)
             elif (
                 event.type == "content_block_delta"
                 and event.delta.type == "input_json_delta"
             ):
-                json_blocks[current_index] = (
-                    json_blocks[current_index][0],
-                    json_blocks[current_index][1] + event.delta.partial_json,
+                blocks[current_index] = (
+                    blocks[current_index][0],
+                    blocks[current_index][1] + event.delta.partial_json,
                 )
             elif (
                 event.type == "message_delta" and event.delta.stop_reason == "tool_use"
             ):
-                function_name, json_str = json_blocks[current_index]
+                function_name, json_str = blocks[current_index - 1]
                 function = getattr(self, function_name)
                 function_result = function(json_str)
 
                 new_messages = messages.copy()
                 new_messages.append(
                     Message(
-                        role="assistant",
-                        content=[
-                            MessageContent(content=function_result, index=current_index)
-                        ],
+                        role="user",
+                        content=[MessageContent(content=str(function_result))],
                     )
                 )
 
@@ -88,7 +91,7 @@ class AnthropicAgent(BaseAgent):
         """
         List all PDF files in the specified directory
         """
-        return glob.glob(f"{path}/*.pdf")
+        return glob(f"{path}/*.pdf")
 
     def load_pdf(self, file: str) -> str:
         """
