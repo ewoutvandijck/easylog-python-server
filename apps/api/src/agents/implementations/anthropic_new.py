@@ -138,6 +138,11 @@ class AnthropicNew(AnthropicAgent):
 
             return pqi_data
 
+        tools = [
+            tool_list_pdfs,
+            tool_get_pqi_data_hwr_450,
+        ]
+
         # Print performance
         start_time = time.time()
 
@@ -178,11 +183,7 @@ In het stroomschema zie je de volgende symbolen:
                     ],
                 },
             ],
-            tools=[
-                # Example tools
-                function_to_anthropic_tool(tool_list_pdfs),
-                function_to_anthropic_tool(tool_get_pqi_data_hwr_450),
-            ],
+            tools=[function_to_anthropic_tool(tool) for tool in tools],
             stream=True,
         )
 
@@ -193,9 +194,6 @@ In het stroomschema zie je de volgende symbolen:
             stream,
             messages,
             config,
-            [
-                tool_list_pdfs,
-                tool_get_pqi_data_hwr_450,
-            ],
+            tools,
         ):
             yield content
