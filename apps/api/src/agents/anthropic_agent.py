@@ -154,7 +154,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
                 try:
                     # Parse the accumulated JSON string into a Python object and set it as the tool's input
-                    message_contents[-1].input = json.loads(partial_json)
+                    message_contents[-1].input = json.loads(partial_json or "{}")
 
                     # Extract the name of the tool that Claude wants to use
                     function_name = message_contents[-1].name
@@ -188,7 +188,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # 3. Log the error
                     tool_result.is_error = True
                     tool_result.content = str(e)
-                    logger.error(f"Error executing tool {function_name}: {e}")
+                    logger.error(f"Error executing tool {e}")
 
                 finally:
                     # Clear the partial JSON buffer, regardless of success or failure
