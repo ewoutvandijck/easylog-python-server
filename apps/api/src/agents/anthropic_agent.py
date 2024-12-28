@@ -7,6 +7,7 @@ from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
 
 from src.agents.base_agent import BaseAgent, TConfig
+from src.logger import logger
 from src.models.messages import (
     Message,
     TextContent,
@@ -17,18 +18,21 @@ from src.models.messages import (
 
 class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     """
-    A base class for creating AI agents that use Anthropic's Claude model.
-    Think of this as the foundation for building specialized AI assistants.
+    A friendly AI assistant that talks to Claude (Anthropic's AI model).
+    Think of this as a translator between your app and Claude.
 
-    This agent can:
-    1. Connect to Anthropic's API (like establishing a phone line to Claude)
-    2. Send messages and receive responses
-    3. Use special tools when needed to get extra information
-    4. Handle responses that come in pieces (streaming)
+    What can this assistant do?
+    1. Connect to Claude (like making a phone call to a smart friend)
+    2. Send your messages to Claude and get responses back
+    3. Use special tools when needed (like a calculator or search engine)
+    4. Get responses piece by piece (like reading a message as someone types it)
 
-    Example usage:
+    Simple example:
+        # Create your AI assistant
         agent = AnthropicAgent()
-        response = await agent.on_message(["How can I help?"])
+
+        # Ask it a question and wait for the response
+        response = await agent.on_message(["What's the weather like?"])
     """
 
     # Store the connection to Anthropic's API
@@ -61,24 +65,27 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         content_index: int = 0,
     ) -> AsyncGenerator[TextContent, None]:
         """
-        Processes Claude's response as it comes in, piece by piece.
-        This is like having a conversation where someone is thinking out loud
-        and you're writing down each part as they say it.
+        Handles Claude's response as it comes in, piece by piece.
 
-        Example flow:
-        1. Claude starts responding
-        2. We receive each piece of the response
-        3. If Claude needs to use a tool, we pause, use the tool, and continue
-        4. We send each piece of the response back as it arrives
+        Imagine you're on a phone call where:
+        1. Your friend Claude is thinking out loud
+        2. Every time Claude says something, we write it down
+        3. Sometimes Claude needs to use tools (like a calculator)
+        4. We send each piece of what Claude says back to you right away
+
+        For example:
+        - Claude: "Let me calculate 2+2..."
+        - *Claude uses calculator tool*
+        - Claude: "The answer is 4!"
 
         Args:
-            stream: The incoming response from Claude
-            messages: Previous messages in the conversation
-            agent_config: Settings for how the agent should behave
-            tools: Special functions Claude can use to get more information
+            stream: Claude's incoming response (like a live phone call)
+            messages: The conversation history (what was said before)
+            tools: Special helpers Claude can use (like calculators or search engines)
+            content_index: Keeps track of which part of the response we're on
 
         Returns:
-            Parts of Claude's response as they become available
+            Each piece of Claude's response as soon as we get it
         """
         # Keep track of which part of the response we're processing
         current_index = content_index
@@ -146,40 +153,63 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 )
 
                 try:
+                    # Parse the accumulated JSON string into a Python object and set it as the tool's input
                     message_contents[-1].input = json.loads(partial_json)
 
+                    # Extract the name of the tool that Claude wants to use
                     function_name = message_contents[-1].name
 
-                    # Find the right tool to use
+                    # Search through available tools to find one matching the requested name
+                    # Returns None if no matching tool is found
                     function = next(
                         (tool for tool in tools if tool.__name__ == function_name), None
                     )
 
+                    # If no matching tool was found, raise an error
                     if function is None:
                         raise ValueError(f"Function {function_name} not found")
 
-                    # Use the tool and get its result
-                    # Some tools need to run asynchronously (in the background)
+                    # Execute the tool with the provided input parameters
+                    # If the tool is async (returns a coroutine), await it
+                    # Otherwise, execute it synchronously
                     function_result = (
                         await function(**message_contents[-1].input)
                         if asyncio.iscoroutinefunction(function)
                         else function(**message_contents[-1].input)
                     )
 
+                    # Convert the tool's result to a string
                     tool_result.content = str(function_result)
+
                 except Exception as e:
+                    # If anything goes wrong during tool execution:
+                    # 1. Mark the result as an error
+                    # 2. Store the error message
+                    # 3. Log the error
                     tool_result.is_error = True
                     tool_result.content = str(e)
+                    logger.error(f"Error executing tool {function_name}: {e}")
+
                 finally:
+                    # Clear the partial JSON buffer, regardless of success or failure
                     partial_json = ""
 
+                # Continue the conversation with Claude by:
+                # 1. Including all previous messages
+                # 2. Adding Claude's latest response (including tool use)
+                # 3. Adding the tool's result as a user message
                 async for content in self.on_message(
                     [
-                        *messages,
-                        Message(role="assistant", content=message_contents),
-                        Message(role="user", content=[tool_result]),
+                        *messages,  # Previous conversation
+                        Message(
+                            role="assistant", content=message_contents
+                        ),  # Claude's current response
+                        Message(
+                            role="user", content=[tool_result]
+                        ),  # Tool execution result
                     ],
                 ):
+                    # Maintain consistent chunk indexing for streaming
                     content.chunk_index = current_index - 1
                     yield content
 
@@ -187,25 +217,31 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         self, messages: List[Message]
     ) -> list[MessageParam]:
         """
-        Converts our message format into one that Claude can understand.
-        This is like translating between two languages.
+        Translates messages into a language Claude can understand.
+
+        Think of this like translating between English and Spanish:
+        - We have our way of writing messages
+        - Claude has its own way of understanding messages
+        - This function converts between the two
 
         Example:
-        Our format:
-            Message(role="user", content="How are you?")
-        Claude's format:
-            {"role": "user", "content": [{"type": "text", "text": "How are you?"}]}
+            Our format:
+                Message(role="user", content="What's 2+2?")
+
+            Claude's format:
+                {
+                    "role": "user",
+                    "content": [{
+                        "type": "text",
+                        "text": "What's 2+2?"
+                    }]
+                }
 
         Args:
-            messages: List of messages in our format
+            messages: Our version of the messages
 
         Returns:
-            List of messages in Claude's format
-
-        The function handles different types of content:
-        - Regular text messages
-        - Tool usage requests
-        - Tool results
+            Claude's version of the same messages
         """
         return [
             {
