@@ -1,7 +1,6 @@
 from typing import Type
 
 from httpx import AsyncClient
-from pydantic import BaseModel
 
 from .schemas import (
     Datasource,
@@ -54,7 +53,3 @@ class BackendService:
         )
         response.raise_for_status()
         return DatasourceDataEntry[data_type].model_validate_json(response.text)
-
-
-class Data(BaseModel):
-    id: str

@@ -45,8 +45,17 @@ class PQIDataHwr(TypedDict):
 
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
+
+
+class Subject(BaseModel):
+    name: str
+    instructions: str
+    glob_pattern: str
+
+
 class AnthropicNewConfig(BaseModel):
-    pdfs_path: str = Field(default="./pdfs")
+    subjects: list[Subject] = Field(default=[])
+    default_subject: str | None = Field(default=None)
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -62,7 +71,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
     4. Use special tools to get additional information when needed
     """
 
-    def _load_pdfs(self, path: str = "pdfs") -> list[str]:
+    def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         """
         Reads all PDF files from a folder and converts them into a special format (base64)
         that can be sent to the AI model.
@@ -85,10 +94,10 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         pdfs: list[str] = []
 
         # Get absolute path by joining with current file's directory
-        path = os.path.join(os.path.dirname(__file__), path)
+        glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
 
         # Find all PDF files in directory and encode them
-        for file in glob.glob(f"{path}/*.pdf"):
+        for file in glob.glob(glob_with_path):
             with open(file, "rb") as f:
                 pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
 
@@ -123,12 +132,28 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         Returns:
             An async generator that yields parts of the AI's response as they're generated
         """
-        # Load PDFs from the configured path
-        pdfs = self._load_pdfs(self.config.pdfs_path)
 
         # Convert messages to a format Claude understands
         # This is like translating from one language to another
         message_history = self._convert_messages_to_anthropic_format(messages)
+
+        # The get and set metadata functions are used to store and retrieve information between messages
+        current_subject = self.get_metadata("subject")
+        if current_subject is None:
+            current_subject = self.config.default_subject
+
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
+
+        if subject is not None:
+            current_subject_name = subject.name
+            current_subject_instructions = subject.instructions
+            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
+        else:
+            current_subject_name = current_subject
+            current_subject_instructions = ""
+            current_subject_pdfs = []
 
         # Create special blocks for each PDF that Claude can read
         # This is like creating a digital package for each PDF
@@ -144,18 +169,12 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
                     "type": "ephemeral"
                 },  # Tells Claude this is temporary
             }
-            for pdf in pdfs
+            for pdf in current_subject_pdfs
         ]
 
         # Add the PDF content to the last message
         # This ensures Claude has access to the latest documents
-        if (
-            isinstance(message_history[-1]["content"], list)
-            # If the result is a tool result, we don't want to add the PDF to the message history
-            # since it won't respond to the tool result
-            and isinstance(message_history[-1]["content"][0], dict)
-            and message_history[-1]["content"][0].get("type") == "text"
-        ):
+        if isinstance(message_history[-1]["content"], list):
             message_history[-1]["content"].extend(pdf_content_blocks)
         # Technically, the last message content could be a string, but practically it's always a list
         elif isinstance(message_history[-1]["content"], str):
@@ -163,6 +182,23 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
+
+        def tool_switch_subject(subject: str | None = None):
+            """
+            Switch to a different subject.
+            """
+            if subject is None:
+                self.set_metadata("subject", None)
+                return "Je bent nu terug in het algemene onderwerp"
+
+            if subject not in [s.name for s in self.config.subjects]:
+                raise ValueError(
+                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
+                )
+
+            self.set_metadata("subject", subject)
+
+            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
         def tool_get_random_number(start: int = 1, end: int = 100) -> str:
             """
@@ -204,6 +240,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         tools = [
             tool_get_random_number,
             tool_get_pqi_locatie,
+            tool_switch_subject,
         ]
 
         # Start measuring how long the operation takes
@@ -220,7 +257,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system="""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
 BELANGRIJKE REGELS:
@@ -239,6 +276,13 @@ In het stroomschema zie je de volgende symbolen:
 - Ovale cirkel - Deze bevatten opmerkingen/toelichtingen
 - Rode rechthoek - Deze bevat de startconditie/foutmelding
 - Pijlen - Deze geven de stroomrichting aan met "JA" of "NEE" antwoorden
+
+### Onderwerpen
+- Als je geen onderwerp hebt geselecteerd, volg de de instructies hierboven, anders hebben de volgende regels voorrang:
+- Je bent nu in het onderwerp: {current_subject_name}
+- Je hebt toegang tot de volgende onderwerpen: {', '.join([s.name for s in self.config.subjects])}
+- Je kunt overstappen naar een ander onderwerp met de tool "switch_subject" zodra je een vraag hebt die niet in het huidige onderwerp past.
+- Volg altijd de instructies van het onderwerp: {current_subject_instructions}
             """,
             messages=message_history,
             # Give Claude access to our special tools
