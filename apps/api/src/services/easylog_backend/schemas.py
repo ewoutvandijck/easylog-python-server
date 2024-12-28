@@ -56,6 +56,6 @@ class PaginatedResponse(BaseModel, Generic[PaginatedResponseType]):
 class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
     id: int
     datasource_id: int
-    data: DatasourceDataType | dict = Field(default_factory=dict)
+    data: DatasourceDataType
     created_at: datetime
     updated_at: datetime

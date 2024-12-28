@@ -8,21 +8,21 @@ from anthropic import AsyncAnthropic
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from anthropic.types.message_param import MessageParam
 from anthropic.types.text_block_param import TextBlockParam
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from src.agents.base_agent import AgentConfig, BaseAgent
+from src.agents.base_agent import BaseAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent
+from src.models.messages import Message, TextContent
 
 
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
-class AnthropicNewConfig(AgentConfig):
+class AnthropicNewConfig(BaseModel):
     pdfs_path: str = Field(default="pdfs")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicNew(BaseAgent):
+class AnthropicNew(BaseAgent[AnthropicNewConfig]):
     # Anthropic client instance for making API calls
     client: AsyncAnthropic
 
@@ -60,7 +60,7 @@ class AnthropicNew(BaseAgent):
 
     async def on_message(
         self, messages: List[Message], config: AnthropicNewConfig
-    ) -> AsyncGenerator[MessageContent, None]:
+    ) -> AsyncGenerator[TextContent, None]:
         # Load PDFs from the configured path
         pdfs = self._load_pdfs(config.pdfs_path)
 
@@ -78,7 +78,7 @@ class AnthropicNew(BaseAgent):
                         "text": content.content,
                     }
                     for content in message.content
-                    if content.content
+                    if isinstance(content, TextContent)
                 ],
             }
             for message in previous_messages
@@ -110,6 +110,7 @@ class AnthropicNew(BaseAgent):
                 "text": content.content,
             }
             for content in current_message
+            if isinstance(content, TextContent)
         ]
 
         # Print performance
@@ -141,4 +142,4 @@ class AnthropicNew(BaseAgent):
         # Yield text content as it arrives from Claude
         async for event in stream:
             if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                yield MessageContent(content=event.delta.text)
+                yield TextContent(content=event.delta.text)

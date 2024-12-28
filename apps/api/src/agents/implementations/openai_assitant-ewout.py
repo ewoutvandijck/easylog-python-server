@@ -1,12 +1,14 @@
 from typing import AsyncGenerator, List
+
 from openai import OpenAI
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
+from pydantic import BaseModel
 
-from src.agents.base_agent import AgentConfig, BaseAgent
-from src.models.messages import Message, MessageContent
+from src.agents.base_agent import BaseAgent
+from src.models.messages import Message, TextContent
 
 
-class OpenAIAssistantConfig(AgentConfig):
+class OpenAIAssistantConfig(BaseModel):
     assistant_id: str
 
 
@@ -22,20 +24,20 @@ class OpenAIAssistant(BaseAgent):
         )
 
     async def on_message(
-        self, messages: List[Message], config: OpenAIAssistantConfig
-    ) -> AsyncGenerator[MessageContent, None]:
+        self,
+        messages: List[Message],
+    ) -> AsyncGenerator[TextContent, None]:
         """An agent that uses OpenAI Assistants to generate responses.
 
         Args:
             messages (List[Message]): The messages to send to the assistant.
-            config (OpenAIAssistantConfig): The configuration for the assistant.
 
         Yields:
-            Generator[MessageContent, None, None]: The streamed response from the assistant.
+            Generator[TextContent, None, None]: The streamed response from the assistant.
         """
 
         # First, we retrieve the assistant
-        assistant = self.client.beta.assistants.retrieve(config.assistant_id)
+        assistant = self.client.beta.assistants.retrieve(self.config.assistant_id)
 
         # If we already have a thread ID, we reuse it
         thread_id: str = self.get_metadata("thread_id")
@@ -53,6 +55,7 @@ class OpenAIAssistant(BaseAgent):
                                 "text": content.content,
                             }
                             for content in message.content
+                            if isinstance(content, TextContent)
                         ],
                     }
                     for message in messages
@@ -71,6 +74,7 @@ class OpenAIAssistant(BaseAgent):
                         "text": content.content,
                     }
                     for content in message.content
+                    if isinstance(content, TextContent)
                 ],
             )
 
@@ -83,7 +87,7 @@ class OpenAIAssistant(BaseAgent):
                 for delta in x.data.delta.content or []:
                     # We only care about text deltas, we ignore any other types of deltas
                     if isinstance(delta, TextDeltaBlock) and delta.text:
-                        yield MessageContent(
+                        yield TextContent(
                             content=delta.text.value
                             if isinstance(delta.text.value, str)
                             else "",

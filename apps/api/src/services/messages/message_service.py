@@ -3,7 +3,10 @@ from typing import AsyncGenerator, Literal
 from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
 from src.logger import logger
-from src.models.messages import Message, MessageChunkContent, MessageContent
+from src.models.messages import (
+    Message,
+    TextContent,
+)
 from src.services.easylog_backend.backend_service import BackendService
 
 
@@ -16,16 +19,16 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        content: list[MessageContent],
+        content: list[TextContent],
         agent_class: str,
         agent_config: dict,
         bearer_token: str | None = None,
-    ) -> AsyncGenerator[MessageChunkContent, None]:
+    ) -> AsyncGenerator[TextContent, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
             thread_id (str): The ID of the thread.
-            content (list[MessageContent]): The content of the user message.
+            content (list[TextContent]): The content of the user message.
             agent_class (str): The class of the agent.
             agent_config (dict): The config of the agent.
 
@@ -33,25 +36,26 @@ class MessageService:
             AgentNotFoundError: The agent class was not found.
 
         Returns:
-            AsyncGenerator[MessageChunkContent, None]: A generator of message chunks.
+            AsyncGenerator[TextContent, None]: A generator of message chunks.
 
         Yields:
-            Iterator[MessageChunkContent]: A generator of message chunks.
+            Iterator[TextContent]: A generator of message chunks.
         """
 
         backend_service = BackendService(bearer_token) if bearer_token else None
-        agent_loader = AgentLoader(thread_id, backend_service)
 
         logger.info(f"Loading agent {agent_class}")
 
         # Try to load the agent
-        agent = agent_loader.get_agent(agent_class)
+        agent = AgentLoader.get_agent(
+            agent_class, thread_id, agent_config, backend_service
+        )
+
         if not agent:
-            raise AgentNotFoundError(
-                f"Agent class {agent_class} not found, available agents are {', '.join(list(map(lambda agent: agent.__class__.__name__, agent_loader.agents)))}"
-            )
+            raise AgentNotFoundError(f"Agent class {agent_class} not found")
 
         logger.info(f"Agent {agent_class} loaded")
+
         logger.info("Getting thread history")
 
         # Fetch the thread history including the new user message
@@ -60,11 +64,12 @@ class MessageService:
                 Message(
                     role=message.role,  # type: ignore
                     content=[
-                        MessageContent(
-                            type=message_content.content_type,  # type: ignore
+                        TextContent(
                             content=message_content.content,
                         )
                         for message_content in message.contents or []
+                        # TODO: store and retrieve other content types
+                        if message_content.content_type == "text"
                     ],
                 )
                 for message in cls.find_messages(thread_id)
@@ -78,39 +83,38 @@ class MessageService:
         logger.info(f"Thread history: {len(thread_history)} messages")
 
         # Chunks are "compressed" so we don't have to store every single token in the database.
-        compressed_chunks: list[MessageChunkContent] = []
+        compressed_chunks: list[TextContent] = []
 
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        async for chunk in agent.forward(thread_history, agent_config):
+        async for chunk in agent.forward(thread_history):
             logger.info(f"Received chunk: {chunk}")
 
-            # Use chunk's index if available, otherwise use length of compressed chunks
-            chunk_index = getattr(chunk, "index", len(compressed_chunks))
+            index = chunk.chunk_index
 
             # Try to find existing chunk with same index
             existing_chunk = next(
-                (c for c in compressed_chunks if c.chunk_index == chunk_index), None
+                (c for c in compressed_chunks if c.chunk_index == index), None
             )
 
-            if existing_chunk and existing_chunk.type == "text":
+            if existing_chunk and isinstance(existing_chunk, TextContent):
                 existing_chunk.content += chunk.content
             else:
                 compressed_chunks.append(
-                    MessageChunkContent(
-                        chunk_index=chunk_index,
-                        type=chunk.type,
+                    TextContent(
+                        type="text",
                         content=chunk.content,
+                        chunk_index=index,
                     )
                 )
                 existing_chunk = compressed_chunks[-1]
 
             # Yield the chunk to the client
-            yield MessageChunkContent(
-                chunk_index=chunk_index,
-                type=chunk.type,
+            yield TextContent(
+                type="text",
                 content=chunk.content,
+                chunk_index=index,
             )
 
         logger.info("Saving user message")
@@ -128,13 +132,19 @@ class MessageService:
 
         logger.info("Saving agent response")
 
+        logger.info(f"Compressed chunks: {compressed_chunks}")
+
         # Save the agent response
         cls.save_message(
             thread_id=thread_id,
             message=Message(
                 role="assistant",
                 content=[
-                    MessageContent(type=chunk.type, content=chunk.content)
+                    TextContent(
+                        type="text",
+                        content=chunk.content,
+                        chunk_index=chunk.chunk_index,
+                    )
                     for chunk in compressed_chunks
                 ],
             ),
@@ -173,6 +183,8 @@ class MessageService:
                             "content_type": message_content.type,
                         }
                         for message_content in message.content
+                        # TODO: store and retrieve other content types
+                        if isinstance(message_content, TextContent)
                     ]
                 },
             }

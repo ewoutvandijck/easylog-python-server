@@ -2,24 +2,24 @@ import time
 from collections.abc import AsyncGenerator
 from typing import List
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from src.agents.base_agent import AgentConfig, BaseAgent
-from src.models.messages import Message, MessageContent
+from src.agents.base_agent import BaseAgent
+from src.models.messages import Message, TextContent
 
 
-class DebugAssistantConfig(AgentConfig):
+class DebugAssistantConfig(BaseModel):
     debug_interval_ms: int = Field(default=100)
     debug_chunk_size: int = Field(default=10)
 
 
-class DebugAssistant(BaseAgent):
+class DebugAssistant(BaseAgent[DebugAssistantConfig]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     async def on_message(
-        self, messages: List[Message], config: DebugAssistantConfig
-    ) -> AsyncGenerator[MessageContent, None]:
+        self, messages: List[Message]
+    ) -> AsyncGenerator[TextContent, None]:
         """An agent that streams back the messages it receives in chunks of `debug_chunk_size` characters.
 
         Args:
@@ -27,7 +27,7 @@ class DebugAssistant(BaseAgent):
             config (DebugAssistantConfig): The configuration for the assistant.
 
         Yields:
-            Generator[MessageContent, None, None]: The streamed response from the assistant.
+            Generator[TextContent, None, None]: The streamed response from the assistant.
         """
 
         last_message = messages[-1]
@@ -39,9 +39,9 @@ class DebugAssistant(BaseAgent):
             # Continue yielding chunks until we've processed the entire text
             loc_index = 0
             while loc_index < len(text):
-                yield MessageContent(
-                    content=text[loc_index : loc_index + config.debug_chunk_size],
+                yield TextContent(
+                    content=text[loc_index : loc_index + self.config.debug_chunk_size],
                     type="text",
                 )
-                loc_index += config.debug_chunk_size
-                time.sleep(config.debug_interval_ms / 1000)
+                loc_index += self.config.debug_chunk_size
+                time.sleep(self.config.debug_interval_ms / 1000)

@@ -1,23 +1,34 @@
 import base64
 import glob
 import os
+import random
 import time
 from typing import AsyncGenerator, List, TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
-from anthropic.types.message_param import MessageParam
-from anthropic.types.text_block_param import TextBlockParam
-from anthropic.types.tool_result_block_param import ToolResultBlockParam
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
-from src.agents.base_agent import AgentConfig
 from src.logger import logger
-from src.models.messages import Message, MessageContent
+from src.models.messages import Message, TextContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
 class PQIDataHwr(TypedDict):
+    """
+    Defines the structure for PQI (Product Quality Inspection) data specifically for HWR (Hardware) components.
+    This is like a template that tells us what information we expect to receive about each hardware component.
+
+    For example, if we have HWR component data, it would look like this:
+    {
+        "taak": "Maintenance",
+        "wbcode": "WB123",
+        "locatie": "Amsterdam",
+        "project": "Tram Maintenance",
+        ...
+    }
+    """
+
     taak: str
     wbcode: str
     locatie: str
@@ -34,21 +45,41 @@ class PQIDataHwr(TypedDict):
 
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
-class AnthropicNewConfig(AgentConfig):
+class AnthropicNewConfig(BaseModel):
     pdfs_path: str = Field(default="./pdfs")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicNew(AnthropicAgent):
+class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
+    """
+    A specialized AI agent that can read PDF documents and answer questions about them.
+    This agent uses Claude (Anthropic's AI model) to understand and respond to questions.
+
+    The agent can:
+    1. Read PDF files from a specified folder
+    2. Convert these PDFs into a format that Claude can understand
+    3. Answer questions about the content of these PDFs
+    4. Use special tools to get additional information when needed
+    """
+
     def _load_pdfs(self, path: str = "pdfs") -> list[str]:
         """
-        Loads and base64 encodes all PDF files from the specified directory.
+        Reads all PDF files from a folder and converts them into a special format (base64)
+        that can be sent to the AI model.
+
+        Think of this like taking physical documents and scanning them into the computer.
+
+        Example:
+            If you have these files in your pdfs folder:
+                - manual1.pdf
+                - manual2.pdf
+            This function will read both files and convert them to a format the AI can understand.
 
         Args:
-            path (str): Directory path containing PDF files. Defaults to "./pdfs"
+            path (str): Where to look for PDF files (e.g., "./pdfs" or "documents/manuals")
 
         Returns:
-            list[str]: List of base64 encoded PDF contents
+            list[str]: A list of converted PDF contents ready to be sent to the AI
         """
 
         pdfs: list[str] = []
@@ -64,49 +95,43 @@ class AnthropicNew(AnthropicAgent):
         return pdfs
 
     async def on_message(
-        self, messages: List[Message], config: AnthropicNewConfig
-    ) -> AsyncGenerator[MessageContent, None]:
+        self, messages: List[Message]
+    ) -> AsyncGenerator[TextContent, None]:
+        """
+        This is the main function that handles each message from the user.
+        It processes the message, looks up relevant information, and generates a response.
+
+        Step by step, this function:
+        1. Loads all PDFs from the specified folder
+        2. Converts previous messages into a format Claude understands
+        3. Prepares the PDF contents to be sent to Claude
+        4. Sets up helpful tools that Claude can use
+        5. Sends everything to Claude and gets back a response
+
+        Example usage:
+            agent = AnthropicNew()
+            config = AnthropicNewConfig(pdfs_path="./pdfs")
+            messages = [Message(content="How do I fix the brake system?")]
+
+            async for response in agent.on_message(messages, config):
+                print(response)  # Prints each part of the AI's response as it's generated
+
+        Args:
+            messages: List of previous messages in the conversation
+            config: Settings for the agent, including where to find PDFs
+
+        Returns:
+            An async generator that yields parts of the AI's response as they're generated
+        """
         # Load PDFs from the configured path
-        pdfs = self._load_pdfs(config.pdfs_path)
+        pdfs = self._load_pdfs(self.config.pdfs_path)
 
-        # Get all messages except the most recent one
-        previous_messages = messages[:-1]
+        # Convert messages to a format Claude understands
+        # This is like translating from one language to another
+        message_history = self._convert_messages_to_anthropic_format(messages)
 
-        # Convert previous messages into Anthropic's BetaMessageParam format
-        # Each message contains role (user/assistant) and content blocks
-        message_history: list[MessageParam] = [
-            {
-                "role": message.role,
-                "content": [
-                    *[
-                        {
-                            "type": "text",
-                            "text": content.content,
-                        }
-                        for content in message.content
-                        if content.type == "text"
-                    ],
-                    *[
-                        {
-                            "type": "tool_result",
-                            "content": content.content,
-                            "tool_use_id": content.tool_use_id,
-                        }
-                        for content in message.content
-                        if content.type == "tool_result"
-                        and content.tool_use_id is not None
-                    ],
-                ],
-            }
-            for message in previous_messages
-            if message.content
-        ]
-
-        # Get the content of the most recent message
-        current_message = messages[-1].content
-
-        # Create PDF content blocks for each loaded PDF
-        # These will be sent to Claude as base64-encoded documents
+        # Create special blocks for each PDF that Claude can read
+        # This is like creating a digital package for each PDF
         pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
             {
                 "type": "document",
@@ -115,112 +140,125 @@ class AnthropicNew(AnthropicAgent):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"},
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary
             }
             for pdf in pdfs
         ]
 
-        # Convert the current message content into text blocks
-        text_content_blocks: list[TextBlockParam] = [
-            {
-                "type": "text",
-                "text": content.content,
-                "cache_control": {"type": "ephemeral"},
-            }
-            for content in current_message
-            if content.type == "test"
-        ]
+        # Add the PDF content to the last message
+        # This ensures Claude has access to the latest documents
+        if (
+            isinstance(message_history[-1]["content"], list)
+            # If the result is a tool result, we don't want to add the PDF to the message history
+            # since it won't respond to the tool result
+            and isinstance(message_history[-1]["content"][0], dict)
+            and message_history[-1]["content"][0].get("type") == "text"
+        ):
+            message_history[-1]["content"].extend(pdf_content_blocks)
+        # Technically, the last message content could be a string, but practically it's always a list
+        elif isinstance(message_history[-1]["content"], str):
+            raise ValueError("Last message content must be a list, not a string.")
 
-        tool_result_blocks: list[ToolResultBlockParam] = [
-            {
-                "type": "tool_result",
-                "content": content.content,
-                "tool_use_id": content.tool_use_id,
-            }
-            for content in current_message
-            if content.type == "tool_result" and content.tool_use_id is not None
-        ]
+        # Define helper tools that Claude can use
+        # These are like special commands Claude can run to get extra information
 
-        # Voor Ewout, dit is een voorbeeld van een tool die we kunnen gebruiken
-        def tool_list_pdfs() -> str:
+        def tool_get_random_number(start: int = 1, end: int = 100) -> str:
             """
-            List all PDF files in the specified directory
-            """
-            pdfs = glob.glob(f"{config.pdfs_path}/*.pdf")
-            logger.info(f"Listing PDFs in {config.pdfs_path}: {pdfs}")
-            return "\n".join(pdfs) or "Geen PDF's gevonden"
+            A simple tool that returns a random number between start and end.
 
-        async def tool_get_pqi_data_hwr_450():
+            This tool demonstrates how to use a tool with arguments. Claude will provide the arguments.
+
+            Args:
+                start: The start of the range
+                end: The end of the range
+
+            Returns:
+                A random number between start and end
             """
-            Get the PQR data for HWR 450
+            return str(random.randint(start, end))
+
+        async def tool_get_pqi_locatie():
             """
+            Get the location from the PQI data for HWR 450 from the datasource.
+
+            This tool demonstrates how to fetch data from a datasource entry. It could be
+            adapted to fetch other data like custom instructions that Claude should follow.
+
+            Returns:
+                The location from the PQI data for HWR 450 or an error message
+            """
+
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-hwr",
                 entry_id="450",
+                # This tell us what the data looks like in the datasource.
                 data_type=PQIDataHwr,
             )
 
-            logger.info(f"PQI data for HWR 450: {pqi_data}")
+            # Return the location data or if it's not found, return a generic error message
+            return pqi_data.data["locatie"] or "Geen PQI data gevonden"
 
-            return pqi_data or "Geen PQR data gevonden"
-
+        # Set up the tools that Claude can use
         tools = [
-            tool_list_pdfs,
-            tool_get_pqi_data_hwr_450,
+            tool_get_random_number,
+            tool_get_pqi_locatie,
         ]
 
-        # Print performance
+        # Start measuring how long the operation takes
+        # This is like starting a stopwatch
         start_time = time.time()
 
         # Create a streaming message request to Claude
-        # This includes the message history, PDFs, and current message
+        # Think of this like starting a live chat with Claude where responses come in piece by piece
         stream = await self.client.messages.create(
+            # Tell Claude which version to use (like choosing which expert to talk to)
             model="claude-3-5-sonnet-20241022",
+            # Maximum number of words Claude can respond with
+            # This prevents responses from being too long
             max_tokens=1024,
-            system="""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
-
-BELANGRIJKE REGELS:
-- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken 
-- Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1 en vraag de monteur altijd eerst om een antwoord
-- Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
-- !!!!!!!!! LOOP ALTIJD DE PROBLEEM OPLOSSING, stapsgewijs - vraag per vraag DOOR !!!!!!!!!
-- Stel soms een vraag over de documentatie om de kennis van de monteur te verbeteren
-- ### De monteur gebruikt een mobiel dus geef geen lange antwoorden ###
-
-### BIJ HET TOEPASSEN VAN EEN STROOMSCHEMA: ###
-
-In het stroomschema zie je de volgende symbolen:
-- Hexagon (zeshoeken) - Deze bevatten vragen die aan de monteur gesteld moeten worden, bijvoorbeeld "Is de fout in de andere omvormers opgetreden?"
-- Rechthoek - Deze bevatten acties/taken die uitgevoerd moeten worden, bijvoorbeeld "Controleer werking van Vbus-sensor", volg de pijlen daarna voor de bijbehorde vraag in een volgende stap.
-- Ovale cirkel - Deze bevatten opmerkingen/toelichtingen die met de monteur gedeeld moeten worden, bijvoorbeeld "De fout is het gevolg van een lage spanning in de kettinglijn. OPGELOST"
-- Rode rechthoek - Deze bevat de startconditie/foutmelding 
-- Pijlen - Deze geven de stroomrichting aan en verbinden de verschillende onderdelen. Bij sommige pijlen staan "JA" of "NEE" om aan te geven welke route gevolgd moet worden op basis van het antwoord.- 
-- Controleer voor je antwoord geeft je de juiste stap in het stroomschema behandeld en geen stap hebt overgeslagen.
-- Dit is een typisch diagnostisch stroomschema dat stap voor stap gevolgd moet worden om een storing op te lossen
-""",
-            messages=[
-                *message_history,
-                {
-                    "role": "user",
-                    "content": [
-                        *pdf_content_blocks,  # First send PDFs
-                        *text_content_blocks,  # Then send text content
-                        *tool_result_blocks,  # Then send tool results
-                    ],
-                },
-            ],
+            # Special instructions that tell Claude how to behave
+            # This is like giving Claude a job description and rules to follow
+            # system="""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+            # Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+            # BELANGRIJKE REGELS:
+            # - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
+            # - Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
+            # - Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1 en vraag de monteur altijd eerst om een antwoord
+            # - Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
+            # - !!!!!!!!! LOOP ALTIJD DE PROBLEEM OPLOSSING, stapsgewijs - vraag per vraag DOOR !!!!!!!!!
+            # - Stel soms een vraag over de documentatie om de kennis van de monteur te verbeteren
+            # - ### De monteur gebruikt een mobiel dus geef geen lange antwoorden ###
+            # ### BIJ HET TOEPASSEN VAN EEN STROOMSCHEMA: ###
+            # In het stroomschema zie je de volgende symbolen:
+            # - Hexagon (zeshoeken) - Deze bevatten vragen die aan de monteur gesteld moeten worden
+            # - Rechthoek - Deze bevatten acties/taken die uitgevoerd moeten worden
+            # - Ovale cirkel - Deze bevatten opmerkingen/toelichtingen
+            # - Rode rechthoek - Deze bevat de startconditie/foutmelding
+            # - Pijlen - Deze geven de stroomrichting aan met "JA" of "NEE" antwoorden
+            # """,
+            # Send all previous messages and PDFs to Claude
+            system="Als je zowel een pdf als een tool result krijgt, negeer dan de pdf en gebruik alleen het tool result.",
+            messages=message_history,
+            # Give Claude access to our special tools
+            # This is like giving Claude a toolbox to help answer questions
             tools=[function_to_anthropic_tool(tool) for tool in tools],
+            # Tell Claude to send responses as they're ready (piece by piece)
+            # Instead of waiting for the complete answer
             stream=True,
         )
 
+        # Calculate how long the operation took
+        # This is like stopping our stopwatch
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
+        # Process Claude's response piece by piece and send it back
+        # This is like receiving a long message one sentence at a time
         async for content in self.handle_stream(
             stream,
             messages,
-            config,
             tools,
         ):
             yield content

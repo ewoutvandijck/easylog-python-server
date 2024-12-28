@@ -8,20 +8,13 @@ from src.services.easylog_backend.backend_service import BackendService
 
 
 class AgentLoader:
-    agents: list[BaseAgent] = []
-
-    def __init__(
-        self, thread_id: str, backend_service: BackendService | None = None
-    ) -> None:
-        self.load_agents(thread_id, backend_service)
-
-    def get_agent(self, agent_class: str) -> BaseAgent | None:
-        return next(
-            (agent for agent in self.agents if agent.__class__.__name__ == agent_class),
-            None,
-        )
-
-    def load_agents(self, thread_id: str, backend: BackendService | None = None):
+    @staticmethod
+    def get_agent(
+        agent_class: str,
+        thread_id: str,
+        agent_config: dict = {},
+        backend: BackendService | None = None,
+    ) -> BaseAgent | None:
         agents_dir = Path("src/agents/implementations")
 
         # Get all Python files in the agents directory
@@ -39,10 +32,12 @@ class AgentLoader:
                     inspect.isclass(obj)
                     and issubclass(obj, BaseAgent)
                     and obj != BaseAgent
+                    and obj.__name__ == agent_class
                 ):
                     logger.debug(f"Found agent: {obj}")
 
                     try:
-                        self.agents.append(obj(thread_id=thread_id, backend=backend))
+                        return obj(thread_id=thread_id, backend=backend, **agent_config)
                     except Exception as e:
                         logger.error(f"Error loading agent {obj}: {e}")
+                        return None

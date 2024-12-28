@@ -2,38 +2,40 @@ import inspect
 import json
 import os
 from abc import abstractmethod
-from inspect import signature
-from typing import Any, AsyncGenerator, Generator, List
+from typing import Any, AsyncGenerator, Generator, Generic, List, TypeVar, get_args
 
 from prisma.models import Threads
 from pydantic import BaseModel
 
 from src.db.prisma import prisma
 from src.logger import logger
-from src.models.messages import Message, MessageContent
+from src.models.messages import Message, TextContent
 from src.services.easylog_backend.backend_service import BackendService
 
-
-class AgentConfig(BaseModel):
-    pass
+TConfig = TypeVar("TConfig", bound=BaseModel)
 
 
-class BaseAgent:
+class BaseAgent(Generic[TConfig]):
     """Base class for all agents."""
 
     thread_id: str
     _backend: BackendService | None = None
     _thread: Threads | None = None
+    _raw_config: dict[str, Any] = {}
+    _type_T: Any
 
-    def __init__(self, thread_id: str, backend: BackendService | None = None):
+    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs):
         self.thread_id = thread_id
         self._backend = backend
+        self._raw_config = kwargs
+
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
+    def __init_subclass__(cls) -> None:
+        cls._type_T = get_args(cls.__orig_bases__[0])[0]  # type: ignore
+
     @abstractmethod
-    def on_message(
-        self, messages: List[Message], config: AgentConfig
-    ) -> AsyncGenerator[MessageContent, None]:
+    def on_message(self, messages: List[Message]) -> AsyncGenerator[TextContent, None]:
         raise NotImplementedError()
 
     def get_env(self, key: str) -> str:
@@ -49,33 +51,29 @@ class BaseAgent:
         return env
 
     def forward(
-        self, messages: List[Message], config: dict
-    ) -> AsyncGenerator[MessageContent, None]:
+        self,
+        messages: List[Message],
+    ) -> AsyncGenerator[TextContent, None]:
         """
-        Validate the config and forward the messages to the agent. Returns a generator of message contents.
+        Forward the messages to the agent. Returns a generator of message contents.
 
         Args:
             messages: The messages to forward to the agent.
-            config: The config to validate and forward to the agent.
 
         Returns:
             A generator of messages.
         """
 
-        logger.info(
-            f"Forwarding message to agent: {self.__class__.__name__} with config: {config}"
-        )
+        logger.info(f"Forwarding message to agent: {self.__class__.__name__}")
 
-        agent_config = self._get_config_class().model_validate(config)
-
-        generator = self.on_message(messages, agent_config)
+        generator = self.on_message(messages)
 
         if not inspect.isasyncgen(generator):
             if inspect.isgenerator(generator):
                 logger.warning(
                     "on_message returned a sync generator, converting to async generator"
                 )
-                generator = self.sync_to_async_generator(generator)
+                generator = self._sync_to_async_generator(generator)
             else:
                 raise ValueError(
                     "on_message must return either a sync or async generator"
@@ -105,6 +103,10 @@ class BaseAgent:
 
         return self._backend
 
+    @property
+    def config(self) -> TConfig:
+        return self._get_config(**self._raw_config)
+
     def _get_thread(self) -> Threads:
         """Get the thread for the agent."""
 
@@ -115,28 +117,16 @@ class BaseAgent:
 
         return self._thread
 
-    def _get_config_class(self) -> type[AgentConfig]:
-        """
-        Get the config class for the agent.
-
-        Returns:
-            The config class.
-        """
-
-        sig = signature(self.on_message)
-        config_param = sig.parameters["config"]
-        attr_type = config_param.annotation
-
-        if attr_type is None:
-            raise ValueError("Config parameter must have an annotation")
-
-        if not issubclass(attr_type, AgentConfig):
-            raise ValueError(
-                f"Config parameter must be an instance of {AgentConfig.__name__}"
-            )
-
-        return attr_type
-
-    async def sync_to_async_generator(self, sync_gen: Generator):
+    async def _sync_to_async_generator(self, sync_gen: Generator):
         for item in sync_gen:
             yield item
+
+    def _get_config(self, **kwargs) -> TConfig:
+        """Parse kwargs into the config type specified by the child class"""
+        # Get the generic parameters using typing.get_args
+        # Get the actual config type from the class's generic parameters
+
+        if self._type_T:
+            return self._type_T(**kwargs)
+
+        raise ValueError("Could not determine config type from class definition")
