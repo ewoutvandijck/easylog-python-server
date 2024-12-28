@@ -172,13 +172,23 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             for pdf in current_subject_pdfs
         ]
 
-        # Add the PDF content to the last message
-        # This ensures Claude has access to the latest documents
-        if isinstance(message_history[-1]["content"], list):
-            message_history[-1]["content"].extend(pdf_content_blocks)
-        # Technically, the last message content could be a string, but practically it's always a list
-        elif isinstance(message_history[-1]["content"], str):
-            raise ValueError("Last message content must be a list, not a string.")
+        # Claude won't respond to tool results if there is a PDF in the message.
+        # So we add the PDF to the last user message that doesn't contain a tool result.
+        for message in reversed(message_history):
+            if (
+                message["role"] == "user"  # Only attach PDFs to user messages
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
+                and not any(
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
+                )  # Skip messages that contain tool results
+            ):
+                # Add PDF content blocks to eligible messages
+                # This ensures Claude can reference PDFs when responding to user queries
+                message["content"].extend(pdf_content_blocks)
+                break
 
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
