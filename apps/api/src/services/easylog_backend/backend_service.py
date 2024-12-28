@@ -28,12 +28,9 @@ class BackendService:
         Returns:
             PaginatedResponse[Datasource]: The datasources
         """
-        async with self.client.stream(
-            "GET",
-            "/datasources",
-        ) as response:
-            response.raise_for_status()
-            return PaginatedResponse[Datasource].model_validate_json(response.text)
+        response = await self.client.get("/datasources")
+        response.raise_for_status()
+        return PaginatedResponse[Datasource].model_validate_json(response.text)
 
     async def get_datasource_entry(
         self,
@@ -52,12 +49,11 @@ class BackendService:
         Returns:
             DatasourceDataEntry[DatasourceDataType]: The datasource entry
         """
-        async with self.client.stream(
-            "GET",
+        response = await self.client.get(
             f"/datasources/{datasource_slug}/entries/{entry_id}",
-        ) as response:
-            response.raise_for_status()
-            return DatasourceDataEntry[data_type].model_validate_json(response.text)
+        )
+        response.raise_for_status()
+        return DatasourceDataEntry[data_type].model_validate_json(response.text)
 
 
 class Data(BaseModel):
