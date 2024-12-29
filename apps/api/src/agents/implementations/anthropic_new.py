@@ -42,7 +42,7 @@ class AnthropicNewConfig(BaseModel):
             Subject(
                 name="Gebeurtenis_Systeem",
                 instructions="Je bent nu in het Gebeurtenis Systeem onderwerp. Help de monteur met vragen over gebeurtenissen en storingen.",
-                glob_pattern="/Users/ewoutdijck/Projecten AI/easylog-python-server/agents/pdfs/*.pdf"
+                glob_pattern="pdfs/*.pdf"
             )
         ]
     )
@@ -51,37 +51,9 @@ class AnthropicNewConfig(BaseModel):
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
-    """
-    A specialized AI agent that can read PDF documents and answer questions about them.
-    This agent uses Claude (Anthropic's AI model) to understand and respond to questions.
-
-    The agent can:
-    1. Read PDF files from a specified folder
-    2. Convert these PDFs into a format that Claude can understand
-    3. Answer questions about the content of these PDFs
-    4. Use special tools to get additional information when needed
-    """
-
+ 
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
-        """
-        Reads all PDF files from a folder and converts them into a special format (base64)
-        that can be sent to the AI model.
-
-        Think of this like taking physical documents and scanning them into the computer.
-
-        Example:
-            If you have these files in your pdfs folder:
-                - manual1.pdf
-                - manual2.pdf
-            This function will read both files and convert them to a format the AI can understand.
-
-        Args:
-            path (str): Where to look for PDF files (e.g., "./pdfs" or "documents/manuals")
-
-        Returns:
-            list[str]: A list of converted PDF contents ready to be sent to the AI
-        """
-
+    
         pdfs: list[str] = []
 
         # Get absolute path by joining with current file's directory
