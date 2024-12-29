@@ -19,28 +19,11 @@ class PQIDataHwr(TypedDict):
     Defines the structure for PQI (Product Quality Inspection) data specifically for HWR (Hardware) components.
     This is like a template that tells us what information we expect to receive about each hardware component.
 
-    For example, if we have HWR component data, it would look like this:
-    {
-        "taak": "Maintenance",
-        "wbcode": "WB123",
-        "locatie": "Amsterdam",
-        "project": "Tram Maintenance",
-        ...
-    }
     """
 
-    taak: str
-    wbcode: str
-    locatie: str
     project: str
     pqiscore: str
-    taakcode: str
     component: str
-    deelproject: str
-    typematerieel: str
-    instructie_pdf: str
-    _default_pqiscore: str
-    categoriereportlabel: str
 
 
 # Configuration class for AnthropicNew agent
@@ -225,31 +208,26 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             """
             return str(random.randint(start, end))
 
-        async def tool_get_pqi_locatie():
+        async def tool_get_pqi_score():
             """
-            Get the location from the PQI data for HWR 450 from the datasource.
-
-            This tool demonstrates how to fetch data from a datasource entry. It could be
-            adapted to fetch other data like custom instructions that Claude should follow.
-
+            Haalt de PQI score op uit de datasource voor HWR 450.
+            
             Returns:
-                The location from the PQI data for HWR 450 or an error message
+                De PQI score voor HWR 450 of een foutmelding
             """
-
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-hwr",
                 entry_id="450",
-                # This tell us what the data looks like in the datasource.
                 data_type=PQIDataHwr,
             )
 
-            # Return the location data or if it's not found, return a generic error message
-            return pqi_data.data["locatie"] or "Geen PQI data gevonden"
+            # Retourneer de pqiscore of een foutmelding als deze niet gevonden wordt
+            return pqi_data.data["pqiscore"] or "Geen PQI score gevonden"
 
         # Set up the tools that Claude can use
         tools = [
             tool_get_random_number,
-            tool_get_pqi_locatie,
+            tool_get_pqi_score,
             tool_switch_subject,
         ]
 
@@ -267,25 +245,16 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor leerling tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
 BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
 - Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1 en vraag de monteur altijd eerst om een antwoord
+- Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
 - Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
-- !!!!!!!!! LOOP ALTIJD DE PROBLEEM OPLOSSING, stapsgewijs - vraag per vraag DOOR !!!!!!!!!
-- Stel soms een vraag over de documentatie om de kennis van de monteur te verbeteren
-- ### De monteur gebruikt een mobiel dus geef geen lange antwoorden ###
+- ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
 
-### BIJ HET TOEPASSEN VAN EEN STROOMSCHEMA: ###
-In het stroomschema zie je de volgende symbolen:
-- Hexagon (zeshoeken) - Deze bevatten vragen die aan de monteur gesteld moeten worden
-- Rechthoek - Deze bevatten acties/taken die uitgevoerd moeten worden
-- Ovale cirkel - Deze bevatten opmerkingen/toelichtingen
-- Rode rechthoek - Deze bevat de startconditie/foutmelding
-- Pijlen - Deze geven de stroomrichting aan met "JA" of "NEE" antwoorden
 
 ### Onderwerpen
 - Als je geen onderwerp hebt geselecteerd, volg de de instructies hierboven, anders hebben de volgende regels voorrang:
