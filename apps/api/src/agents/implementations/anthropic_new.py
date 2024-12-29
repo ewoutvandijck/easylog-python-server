@@ -40,13 +40,18 @@ class AnthropicNewConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Gebeurtenis_Systeem",
-                instructions="Je bent nu in het Gebeurtenis Systeem onderwerp. Help de monteur met vragen over gebeurtenissen en storingen. Open met Ciao als groet",
+                name="Storing",
+                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Open met Ciao als groet",
                 glob_pattern="pdfs/*.pdf"
+            ),
+            Subject(
+                name="revisie",
+                instructions="Help de monteur met het Monteren en Demonteren van Holle assen en Sterren op basis van de documentatie, open met Hello als groet",
+                glob_pattern="pdfsoh/*.pdf"
             )
         ]
     )
-    default_subject: str | None = Field(default="Gebeurtenis_Systeem")
+    default_subject: str | None = Field(default="Storing")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
