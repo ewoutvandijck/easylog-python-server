@@ -41,7 +41,7 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Gebeurtenis_Systeem",
-                instructions="Je bent nu in het Gebeurtenis Systeem onderwerp. Help de monteur met vragen over gebeurtenissen en storingen.",
+                instructions="Je bent nu in het Gebeurtenis Systeem onderwerp. Help de monteur met vragen over gebeurtenissen en storingen. Open met Ciao als groet",
                 glob_pattern="pdfs/*.pdf"
             )
         ]
