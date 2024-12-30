@@ -212,11 +212,25 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             # Retourneer de pqiscore of een foutmelding als deze niet gevonden wordt
             return pqi_data.data["pqiscore"] or "Geen PQI score gevonden"
 
+        memories = self.get_metadata("memories", default=[])
+
+        async def tool_store_memory(memory: str):
+            """
+            Store a memory in the database.
+            """
+
+            current_memory = self.get_metadata("memories", default=[])
+            current_memory.append(memory)
+            self.set_metadata("memories", current_memory)
+
+            return "Memory stored"
+
         # Set up the tools that Claude can use
         tools = [
             tool_get_random_number,
             tool_get_pqi_score,
             tool_switch_subject,
+            tool_store_memory,
         ]
 
         # Start measuring how long the operation takes
@@ -250,6 +264,12 @@ BELANGRIJKE REGELS:
 - Je hebt toegang tot de volgende onderwerpen: {', '.join([s.name for s in self.config.subjects])}
 - Je kunt overstappen naar een ander onderwerp met de tool "switch_subject" zodra je een vraag hebt die niet in het huidige onderwerp past.
 - Volg altijd de instructies van het onderwerp: {current_subject_instructions}
+
+### Core memories
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
+
+Je huidige core memories zijn:
+{'\n-'.join(memories)}
             """,
             messages=message_history,
             # Give Claude access to our special tools
