@@ -7,7 +7,6 @@ from typing import AsyncGenerator, List, TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, TextContent
