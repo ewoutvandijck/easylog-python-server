@@ -263,6 +263,7 @@ BELANGRIJKE REGELS:
 - Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
 - Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
 - ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
+- Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
 
 
 ### Onderwerpen
