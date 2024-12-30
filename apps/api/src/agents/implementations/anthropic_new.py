@@ -160,6 +160,10 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
                 message["content"].extend(pdf_content_blocks)
                 break
 
+        # Memories are a way to store important information about a user.
+        memories = self.get_metadata("memories", default=[])
+        logger.info(f"Memories: {memories}")
+
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
 
@@ -202,6 +206,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             Returns:
                 De PQI data voor HWR 450 of een foutmelding
             """
+
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-hwr",
                 entry_id="450",
@@ -217,11 +222,6 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             return {
                 k: v for k, v in data.items() if v is not None
             } or "Geen PQI data gevonden"
-
-        # Memories are a way to store important information about a user.
-        memories = self.get_metadata("memories", default=[])
-
-        logger.info(f"Memories: {memories}")
 
         # This tool is used to store a memory in the database.
         async def tool_store_memory(memory: str):
