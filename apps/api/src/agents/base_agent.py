@@ -22,6 +22,7 @@ class BaseAgent(Generic[TConfig]):
     _backend: BackendService | None = None
     _thread: Threads | None = None
     _raw_config: dict[str, Any] = {}
+
     _type_T: Any
 
     def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs):
@@ -33,6 +34,8 @@ class BaseAgent(Generic[TConfig]):
 
     def __init_subclass__(cls) -> None:
         cls._type_T = get_args(cls.__orig_bases__[0])[0]  # type: ignore
+
+        logger.info(f"Initialized subclass: {cls.__name__}")
 
     @abstractmethod
     def on_message(self, messages: List[Message]) -> AsyncGenerator[TextContent, None]:
