@@ -209,8 +209,15 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
                 data_type=PQIDataHwr,
             )
 
-            # Retourneer de pqiscore of een foutmelding als deze niet gevonden wordt
-            return pqi_data.data["pqiscore"] or "Geen PQI score gevonden"
+            data = {
+                "project": pqi_data.data["project"],
+                "component": pqi_data.data["component"],
+            }
+
+            # Return the pqi data or an error message if it's not found
+            return {
+                k: v for k, v in data.items() if v is not None
+            } or "Geen PQI data gevonden"
 
         # Memories are a way to store important information about a user.
         memories = self.get_metadata("memories", default=[])
