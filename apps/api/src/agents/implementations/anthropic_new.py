@@ -212,10 +212,12 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             # Retourneer de pqiscore of een foutmelding als deze niet gevonden wordt
             return pqi_data.data["pqiscore"] or "Geen PQI score gevonden"
 
+        # Memories are a way to store important information about a user.
         memories = self.get_metadata("memories", default=[])
 
         logger.info(f"Memories: {memories}")
 
+        # This tool is used to store a memory in the database.
         async def tool_store_memory(memory: str):
             """
             Store a memory in the database.
@@ -223,6 +225,9 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
             current_memory = self.get_metadata("memories", default=[])
             current_memory.append(memory)
+
+            logger.info(f"Storing memory: {memory}")
+
             self.set_metadata("memories", current_memory)
 
             return "Memory stored"
