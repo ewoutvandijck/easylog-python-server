@@ -214,6 +214,8 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         memories = self.get_metadata("memories", default=[])
 
+        logger.info(f"Memories: {memories}")
+
         async def tool_store_memory(memory: str):
             """
             Store a memory in the database.
