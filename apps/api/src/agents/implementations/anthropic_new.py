@@ -42,23 +42,26 @@ class AnthropicNewConfig(BaseModel):
             Subject(
                 name="Storing",
                 instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Open met Ciao als groet",
-                glob_pattern="pdfs/*.pdf"
+                glob_pattern="pdfs/*.pdf",
             ),
             Subject(
-                name="revisie",
+                name="Revisie",
                 instructions="Help de monteur met het Monteren en Demonteren van Holle assen en Sterren op basis van de documentatie, open met Hello als groet",
-                glob_pattern="pdfsoh/*.pdf"
-            )
+                glob_pattern="pdfsoh/*.pdf",
+            ),
+            Subject(
+                name="Algemeen",
+                instructions="Laat de lijst van subjects zien waarmee de monteur kan helpen, open met Ciao als groet",
+                glob_pattern="algemeen/*.pdf",
+            ),
         ]
     )
-    default_subject: str | None = Field(default="Storing")
+    default_subject: str | None = Field(default="Algemeen")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
- 
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
-    
         pdfs: list[str] = []
 
         # Get absolute path by joining with current file's directory
@@ -196,7 +199,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         async def tool_get_pqi_score():
             """
             Haalt de PQI score op uit de datasource voor HWR 450.
-            
+
             Returns:
                 De PQI score voor HWR 450 of een foutmelding
             """
