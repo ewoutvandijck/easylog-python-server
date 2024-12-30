@@ -196,12 +196,12 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             """
             return f"{random.randint(start, end)} kusjes."
 
-        async def tool_get_pqi_score():
+        async def tool_get_pqi_data():
             """
-            Haalt de PQI score op uit de datasource voor HWR 450.
+            Haalt de PQI data op uit de datasource voor HWR 450.
 
             Returns:
-                De PQI score voor HWR 450 of een foutmelding
+                De PQI data voor HWR 450 of een foutmelding
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-hwr",
@@ -242,7 +242,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         # Set up the tools that Claude can use
         tools = [
             tool_get_random_number,
-            tool_get_pqi_score,
+            tool_get_pqi_data,
             tool_switch_subject,
             tool_store_memory,
         ]
