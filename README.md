@@ -160,3 +160,15 @@ data: {"details": "The agent failed to generate a response"}
 ```
 
 Once the stream is complete, the message is added to the thread's `messages` list. You can retrieve the full message content by calling the `/threads/{thread_id}/messages` endpoint.
+
+# Accessing server logs
+
+To access the server logs, you can use the following command:
+
+```
+# First, connect to the server
+ssh easylog-python
+
+# Then, access the logs
+docker logs -f easylog-python-server.api
+```
