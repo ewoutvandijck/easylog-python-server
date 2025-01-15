@@ -260,7 +260,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor leerling tram monteurs.
+            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
 BELANGRIJKE REGELS:
