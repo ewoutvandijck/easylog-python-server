@@ -44,9 +44,9 @@ class AnthropicNewConfig(BaseModel):
                 glob_pattern="pdfs/*.pdf",
             ),
             Subject(
-                name="Revisie",
-                instructions="Help de monteur met het Monteren en Demonteren van Holle assen en Sterren op basis van de documentatie, open met Hello als groet",
-                glob_pattern="pdfsoh/*.pdf",
+                name="Pantograaf",
+                instructions="Help de monteur met werkzaamheden aan de pantograaf en het oplossen van storigen met de pantograaf",
+                glob_pattern="pdfs/pantograaf/*.pdf",
             ),
             Subject(
                 name="Algemeen",
@@ -275,7 +275,7 @@ BELANGRIJKE REGELS:
 ### Onderwerpen
 - Als je geen onderwerp hebt geselecteerd, volg de de instructies hierboven, anders hebben de volgende regels voorrang:
 - Je bent nu in het onderwerp: {current_subject_name}
-- Je hebt toegang tot de volgende onderwerpen: {', '.join([s.name for s in self.config.subjects])}
+- Je hebt toegang tot de volgende onderwerpen: {", ".join([s.name for s in self.config.subjects])}
 - Je kunt overstappen naar een ander onderwerp met de tool "switch_subject" zodra je een vraag hebt die niet in het huidige onderwerp past.
 - Volg altijd de instructies van het onderwerp: {current_subject_instructions}
 
@@ -283,7 +283,7 @@ BELANGRIJKE REGELS:
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
-{'\n-'.join(memories)}
+{"\n-".join(memories)}
             """,
             messages=message_history,
             # Give Claude access to our special tools
