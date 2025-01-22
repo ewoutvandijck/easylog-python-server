@@ -197,7 +197,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             Returns:
                 A random number between start and end
             """
-            return f"{random.randint(start, end)} kusjes."
+            return f"{random.randint(start, end)} ."
 
         async def tool_get_pqi_data():
             """
