@@ -137,7 +137,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
                 },
                 "cache_control": {
                     "type": "ephemeral"
-                },  # Tells Claude this is temporary
+                },  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
