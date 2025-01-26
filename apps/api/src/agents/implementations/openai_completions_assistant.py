@@ -8,12 +8,12 @@ from src.models.messages import Message, TextContent
 
 
 class OpenAICompletionsAssistantConfig(BaseModel):
-    model: ChatModel = Field(default="o1")
+    model: ChatModel = Field(default="gpt-4o")
     system_message: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] | None = Field(default=None)
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
@@ -26,7 +26,7 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         or assistant configurations.
 
         Note: When using GPT o1, you must set stream=False in the config for the
-        model to work properly..
+        model to work properly.
 
         Args:
             messages (List[Message]): All messages in the conversation, including the new one.
