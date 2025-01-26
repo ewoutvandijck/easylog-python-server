@@ -19,9 +19,10 @@ const AppSidebar = () => {
       <SidebarHeader>
         <ConnectionSwitcher />
         <AppSidebarNew />
-        <AppSidebarThreadsMenu />
       </SidebarHeader>
-      <SidebarContent />
+      <SidebarContent>
+        <AppSidebarThreadsMenu />
+      </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter>
         <AppSidebarConfigurationMenu />

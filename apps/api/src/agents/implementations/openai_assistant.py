@@ -1,10 +1,8 @@
 from typing import AsyncGenerator, List
 
-from openai import OpenAI
-from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
 from pydantic import BaseModel
 
-from src.agents.base_agent import BaseAgent
+from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
 
@@ -12,17 +10,7 @@ class OpenAIAssistantConfig(BaseModel):
     assistant_id: str
 
 
-class OpenAIAssistant(BaseAgent[OpenAIAssistantConfig]):
-    client: OpenAI
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.client = OpenAI(
-            # Make sure to set the OPENAI_API_KEY environment variable
-            api_key=self.get_env("OPENAI_API_KEY"),
-        )
-
+class OpenAIAssistant(OpenAIAgent[OpenAIAssistantConfig]):
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
@@ -37,15 +25,19 @@ class OpenAIAssistant(BaseAgent[OpenAIAssistantConfig]):
         """
 
         # First, we retrieve the assistant
-        assistant = self.client.beta.assistants.retrieve(self.config.assistant_id)
+        assistant = await self.client.beta.assistants.retrieve(self.config.assistant_id)
+
+        previous_messages = messages[:-1]
+
+        current_message = messages[-1]
 
         # If we already have a thread ID, we reuse it
         thread_id: str = self.get_metadata("thread_id")
         if thread_id:
-            thread = self.client.beta.threads.retrieve(thread_id=thread_id)
+            thread = await self.client.beta.threads.retrieve(thread_id=thread_id)
         else:
             # Otherwise, we create a new thread!!!!
-            thread = self.client.beta.threads.create(
+            thread = await self.client.beta.threads.create(
                 messages=[
                     {
                         "role": message.role,
@@ -61,35 +53,41 @@ class OpenAIAssistant(BaseAgent[OpenAIAssistantConfig]):
                     for message in messages
                 ]
             )
+
+            for message in previous_messages:
+                await self.client.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role=message.role,
+                    content=[
+                        {
+                            "type": content.type,
+                            "text": content.content,
+                        }
+                        for content in message.content
+                        if isinstance(content, TextContent)
+                    ],
+                )
+
             self.set_metadata("thread_id", thread.id)
 
         # Add the user messages to the thread
-        for message in messages:
-            self.client.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=[
-                    {
-                        "type": content.type,
-                        "text": content.content,
-                    }
-                    for content in message.content
-                    if isinstance(content, TextContent)
-                ],
-            )
+        await self.client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=[
+                {
+                    "type": content.type,
+                    "text": content.content,
+                }
+                for content in current_message.content
+                if isinstance(content, TextContent)
+            ],
+        )
 
-        # Then!!!!!, we create a run for the thread. We stream the response back to the client.
-        for x in self.client.beta.threads.runs.create(
+        # Then, we create a run for the thread. We stream the response back to the client.
+        stream = await self.client.beta.threads.runs.create(
             thread_id=thread.id, assistant_id=assistant.id, stream=True
-        ):
-            # We only care about the message deltas
-            if isinstance(x.data, MessageDeltaEvent):
-                for delta in x.data.delta.content or []:
-                    # We only care about text deltas, we ignore any other types of deltas
-                    if isinstance(delta, TextDeltaBlock) and delta.text:
-                        yield TextContent(
-                            content=delta.text.value
-                            if isinstance(delta.text.value, str)
-                            else "",
-                            type="text",
-                        )
+        )
+
+        async for message in self.handle_stream(stream):
+            yield message
