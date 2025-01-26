@@ -8,7 +8,7 @@ from src.models.messages import Message, TextContent
 
 
 class OpenAICompletionsAssistantConfig(BaseModel):
-    model: ChatModel = Field(default="gpt-4o")
+    model: ChatModel = Field(default="o1-mini")
     system_message: str | None = Field(
         default="Je bent een behulpzame Assistent, en je helpt Ewout met Python programmeren. Zijn doel is de beste app te maken de API van OpenAI"
     )
