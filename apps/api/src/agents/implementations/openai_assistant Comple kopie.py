@@ -26,7 +26,7 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         or assistant configurations.
 
         Note: When using GPT o1, you must set stream=False in the config for the
-        model to work properly..
+        model to work properly.
 
         Args:
             messages (List[Message]): All messages in the conversation, including the new one.
