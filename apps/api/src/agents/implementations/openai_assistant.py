@@ -1,7 +1,7 @@
 from typing import AsyncGenerator, List
 
 from openai.types.chat_model import ChatModel
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
@@ -12,7 +12,12 @@ class OpenAIAssistantConfigWithId(BaseModel):
 
 
 class OpenAIAssistantConfigWithParams(BaseModel):
-    model: ChatModel
+    model: ChatModel = Field(default="gpt-4o")
+    name: str | None = Field(default=None)
+    description: str | None = Field(default=None)
+    temperature: float | None = Field(default=None)
+    instructions: str | None = Field(default=None)
+    top_p: float | None = Field(default=None)
 
 
 class OpenAIAssistant(
@@ -63,7 +68,9 @@ class OpenAIAssistant(
             )
 
             assistant = await self.client.beta.assistants.create(
-                model=self.config.model
+                # Pass all the config parameters to the assistant creation
+                # Exclude None values to let OpenAI fill in the defaults
+                **self.config.model_dump(exclude_none=True)
             )
 
             # Save the new assistant's ID in our cache for future use
@@ -144,5 +151,5 @@ class OpenAIAssistant(
         )
 
         # STEP 5: Stream the response back to the user piece by piece
-        async for message in self.handle_stream(stream):
+        async for message in self.handle_assistant_stream(stream):
             yield message

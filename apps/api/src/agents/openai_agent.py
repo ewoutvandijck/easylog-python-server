@@ -1,11 +1,13 @@
-from typing import AsyncGenerator, Generic
+from typing import AsyncGenerator, Generic, List, cast
 
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.models.messages import (
+    Message,
     TextContent,
 )
 
@@ -49,7 +51,7 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
             api_key=self.get_env("OPENAI_API_KEY"),
         )
 
-    async def handle_stream(
+    async def handle_assistant_stream(
         self,
         stream: AsyncStream[AssistantStreamEvent],
     ) -> AsyncGenerator[TextContent, None]:
@@ -64,3 +66,38 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
                             else "",
                             type="text",
                         )
+
+    async def handle_completions_stream(
+        self, stream: AsyncStream[ChatCompletionChunk]
+    ) -> AsyncGenerator[TextContent, None]:
+        async for event in stream:
+            self.logger.info(
+                f"Received completion chunk: {event.choices[0].delta.content}"
+            )
+
+            if event.choices[0].delta.content is not None:
+                yield TextContent(
+                    content=event.choices[0].delta.content or "",
+                    type="text",
+                )
+
+    def _convert_messages_to_openai_messages(
+        self, messages: List[Message]
+    ) -> List[ChatCompletionMessageParam]:
+        return cast(
+            List[ChatCompletionMessageParam],
+            [
+                {
+                    "role": message.role,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": content.content,
+                        }
+                        for content in message.content
+                        if isinstance(content, TextContent)
+                    ],
+                }
+                for message in messages
+            ],
+        )
