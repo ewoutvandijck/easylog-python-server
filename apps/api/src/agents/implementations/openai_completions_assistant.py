@@ -9,7 +9,9 @@ from src.models.messages import Message, TextContent
 
 class OpenAICompletionsAssistantConfig(BaseModel):
     model: ChatModel = Field(default="gpt-4o")
-    system_message: str | None = Field(default=None)
+    system_message: str | None = Field(
+        default="Je bent een behulpzame Assistent, en je helpt Ewout met Python programmeren. Zijn doel is de beste app te maken de API van OpenAI"
+    )
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
