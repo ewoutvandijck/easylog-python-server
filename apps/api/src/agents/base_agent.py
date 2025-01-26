@@ -1,8 +1,19 @@
 import inspect
 import json
+import logging
 import os
 from abc import abstractmethod
-from typing import Any, AsyncGenerator, Generator, Generic, List, TypeVar, get_args
+from types import UnionType
+from typing import (
+    Any,
+    AsyncGenerator,
+    Generator,
+    Generic,
+    List,
+    TypeVar,
+    Union,
+    get_args,
+)
 
 from prisma.models import Threads
 from pydantic import BaseModel
@@ -110,6 +121,10 @@ class BaseAgent(Generic[TConfig]):
     def config(self) -> TConfig:
         return self._get_config(**self._raw_config)
 
+    @property
+    def logger(self) -> logging.Logger:
+        return logger
+
     def _get_thread(self) -> Threads:
         """Get the thread for the agent."""
 
@@ -129,7 +144,21 @@ class BaseAgent(Generic[TConfig]):
         # Get the generic parameters using typing.get_args
         # Get the actual config type from the class's generic parameters
 
-        if self._type_T:
-            return self._type_T(**kwargs)
+        if not self._type_T:
+            raise ValueError("Could not determine config type from class definition")
 
-        raise ValueError("Could not determine config type from class definition")
+        # Handle Union types by trying each type until one works
+        if (
+            hasattr(self._type_T, "__origin__") and self._type_T.__origin__ is Union
+        ) or isinstance(self._type_T, UnionType):
+            for type_option in get_args(self._type_T):
+                try:
+                    return type_option(**kwargs)
+                except (ValueError, TypeError):
+                    continue
+            raise ValueError(
+                f"None of the union types {self._type_T} could parse the config"
+            )
+
+        # Handle single type
+        return self._type_T(**kwargs)
