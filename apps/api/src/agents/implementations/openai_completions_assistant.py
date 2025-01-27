@@ -3,7 +3,6 @@ from typing import AsyncGenerator, List, Literal
 from openai import AsyncStream
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
-
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
@@ -16,7 +15,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     max_tokens: int | None = Field(default=None)
     reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
     # Server timeout is 90 seconds, so we set it to 85 to ensure we take into account other overhead
-    timeout: float = Field(default=85.0, description="Timeout in seconds for API calls")
+    timeout: float = Field(default=60.0, description="Timeout in seconds for API calls")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
