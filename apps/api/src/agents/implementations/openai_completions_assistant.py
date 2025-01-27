@@ -8,7 +8,7 @@ from src.models.messages import Message, TextContent
 
 
 class OpenAICompletionsAssistantConfig(BaseModel):
-    model: ChatModel = Field(default="gpt-4o")
+    model: ChatModel = Field(default="o1")
     system_message: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
