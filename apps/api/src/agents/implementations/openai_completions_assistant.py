@@ -14,6 +14,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
     reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
+    timeout: float = Field(default=60.0, description="Timeout in seconds for API calls")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
@@ -57,6 +58,7 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
             **self.config.model_dump(exclude={"system_message"}, exclude_none=True),
             messages=_messages,
             response_format={"type": "text"},
+            timeout=self.config.timeout,
         )
 
         if isinstance(stream_or_completion, AsyncStream):
