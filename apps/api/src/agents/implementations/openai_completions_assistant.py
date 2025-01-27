@@ -13,9 +13,9 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
     # Server timeout is 90 seconds, so we set it to 85 to ensure we take into account other overhead
-    timeout: float = Field(default=60.0, description="Timeout in seconds for API calls")
+    timeout: float = Field(default=90.0, description="Timeout in seconds for API calls")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
