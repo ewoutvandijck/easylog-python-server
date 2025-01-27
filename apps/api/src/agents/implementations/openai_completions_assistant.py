@@ -14,7 +14,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
     reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
-    timeout: float = Field(default=60.0, description="Timeout in seconds for API calls")
+    timeout: float = Field(default=90.0, description="Timeout in seconds for API calls")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
