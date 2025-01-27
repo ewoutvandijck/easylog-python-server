@@ -20,7 +20,7 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
-        """An agent that uses OpenAI's simpler chat completions API to generate responses.
+        """An agent that uses OpenAI's simpler chat completions API to generate responses..
         Unlike the full Assistants API, this uses a more straightforward approach
         where messages are sent directly to the model without persistent threads
         or assistant configurations.

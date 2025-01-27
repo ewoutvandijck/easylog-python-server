@@ -51,19 +51,29 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         # We take all the messages in the conversation and convert them to
         # OpenAI's expected format (this handles things like roles and content properly)
         self.logger.info("Sending messages directly to OpenAI for completion")
-        stream_or_completion = await self.client.chat.completions.create(
-            # Use the configuration settings (model, temperature, etc.)
-            # that were specified when this assistant was created (excluding the system message)
-            **self.config.model_dump(exclude={"system_message"}, exclude_none=True),
-            messages=_messages,
-            response_format={"type": "text"},
-        )
 
-        if isinstance(stream_or_completion, AsyncStream):
-            async for message in self.handle_completions_stream(stream_or_completion):
-                yield message
-        else:
+        try:
+            stream_or_completion = await self.client.chat.completions.create(
+                **self.config.model_dump(exclude={"system_message"}, exclude_none=True),
+                messages=_messages,
+                response_format={"type": "text"},
+                timeout=60.0,
+                stream=True,
+            )
+
+            if isinstance(stream_or_completion, AsyncStream):
+                async for message in self.handle_completions_stream(
+                    stream_or_completion
+                ):
+                    yield message
+            else:
+                yield TextContent(
+                    content=stream_or_completion.choices[0].message.content,
+                    type="text",
+                )
+        except Exception as e:
+            self.logger.error(f"Error tijdens het genereren van antwoord: {str(e)}")
             yield TextContent(
-                content=stream_or_completion.choices[0].message.content,
+                content="Sorry, er is een probleem opgetreden bij het genereren van het antwoord. Probeer het opnieuw.",
                 type="text",
             )
