@@ -13,14 +13,14 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
-        """An agent that uses OpenAI's simpler chat completions API to generate responses.
+        """An agent that uses OpenAI's simpler chat completions API to generate responses..
         Unlike the full Assistants API, this uses a more straightforward approach
         where messages are sent directly to the model without persistent threads
         or assistant configurations.
@@ -54,12 +54,9 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         stream_or_completion = await self.client.chat.completions.create(
             # Use the configuration settings (model, temperature, etc.)
             # that were specified when this assistant was created (excluding the system message)
-            **self.config.model_dump(
-                exclude={"system_message", "reasoning_effort"}, exclude_none=True
-            ),
+            **self.config.model_dump(exclude={"system_message"}, exclude_none=True),
             messages=_messages,
             response_format={"type": "text"},
-            timeout=30,  # Voeg een timeout toe van 30 seconden
         )
 
         if isinstance(stream_or_completion, AsyncStream):
