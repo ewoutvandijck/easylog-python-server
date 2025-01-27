@@ -13,14 +13,14 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
-        """An agent that uses OpenAI's simpler chat completions API to generate responses..
+        """An agent that uses OpenAI's simpler chat completions API to generate responses.
         Unlike the full Assistants API, this uses a more straightforward approach
         where messages are sent directly to the model without persistent threads
         or assistant configurations.
@@ -51,29 +51,22 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         # We take all the messages in the conversation and convert them to
         # OpenAI's expected format (this handles things like roles and content properly)
         self.logger.info("Sending messages directly to OpenAI for completion")
+        stream_or_completion = await self.client.chat.completions.create(
+            # Use the configuration settings (model, temperature, etc.)
+            # that were specified when this assistant was created (excluding the system message)
+            **self.config.model_dump(
+                exclude={"system_message", "reasoning_effort"}, exclude_none=True
+            ),
+            messages=_messages,
+            response_format={"type": "text"},
+            timeout=30,  # Voeg een timeout toe van 30 seconden
+        )
 
-        try:
-            stream_or_completion = await self.client.chat.completions.create(
-                **self.config.model_dump(exclude={"system_message"}, exclude_none=True),
-                messages=_messages,
-                response_format={"type": "text"},
-                timeout=60.0,
-                stream=True,
-            )
-
-            if isinstance(stream_or_completion, AsyncStream):
-                async for message in self.handle_completions_stream(
-                    stream_or_completion
-                ):
-                    yield message
-            else:
-                yield TextContent(
-                    content=stream_or_completion.choices[0].message.content,
-                    type="text",
-                )
-        except Exception as e:
-            self.logger.error(f"Error tijdens het genereren van antwoord: {str(e)}")
+        if isinstance(stream_or_completion, AsyncStream):
+            async for message in self.handle_completions_stream(stream_or_completion):
+                yield message
+        else:
             yield TextContent(
-                content="Sorry, er is een probleem opgetreden bij het genereren van het antwoord. Probeer het opnieuw.",
+                content=stream_or_completion.choices[0].message.content,
                 type="text",
             )
