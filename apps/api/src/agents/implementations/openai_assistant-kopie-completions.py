@@ -13,7 +13,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="high")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):

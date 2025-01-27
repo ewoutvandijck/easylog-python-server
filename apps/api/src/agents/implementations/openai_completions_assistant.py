@@ -13,7 +13,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
     max_tokens: int | None = Field(default=None)
-    reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
+    reasoning_effort: Literal["low", "medium", "high"] = Field(default="low")
 
 
 class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
@@ -29,7 +29,7 @@ class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
         model to work properly.
 
         Args:
-            messages (List[Message]): All messages in the conversation, including the new one.
+            messages (List[Message]): All messages in the conversation, including the new one.;
 
         Yields:
             Generator[TextContent, None, None]: Streams back the AI's response piece by piece.
