@@ -1,9 +1,11 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api import health, messages, threads
 from src.db.prisma import prisma
@@ -45,6 +47,16 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.perf_counter() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
+
+@app.middleware("http")
+async def timeout_middleware(request, call_next):
+    try:
+        async with asyncio.timeout(90):  # 90 second timeout
+            response = await call_next(request)
+            return response
+    except asyncio.TimeoutError:
+        return JSONResponse(status_code=504, content={"detail": "Request timeout"})
 
 
 app.include_router(health.router)
