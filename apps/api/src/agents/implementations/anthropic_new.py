@@ -40,12 +40,12 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Storing",
-                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Geef een overzicht van de storingen waarmee je kunt helpen met deze instructies.",
+                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Help de monteur met het oplossen van storingen..",
                 glob_pattern="pdfs/*.pdf",
             ),
             Subject(
                 name="Onderhoud",
-                instructions="Help de monteur met werkzaamheden aan de pantograaf en draaistellen en het oplossen van storigen. Werk met de instructies van de pantograaf en draaistellen.",
+                instructions="Help de monteur met werkzaamheden aan de pantograaf en draaistellen. Werk met de instructiesn uit docs van de pantograaf en draaistellen.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
             Subject(
