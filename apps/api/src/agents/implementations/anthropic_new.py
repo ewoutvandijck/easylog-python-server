@@ -44,8 +44,8 @@ class AnthropicNewConfig(BaseModel):
                 glob_pattern="pdfs/*.pdf",
             ),
             Subject(
-                name="Pantograaf",
-                instructions="Help de monteur met werkzaamheden aan de pantograaf en het oplossen van storigen met de pantograaf",
+                name="Onderhoud",
+                instructions="Help de monteur met werkzaamheden aan de pantograaf en draaistellen en het oplossen van storigen. Werk met de instructies van de pantograaf en draaistellen.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
             Subject(
