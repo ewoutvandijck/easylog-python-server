@@ -39,8 +39,8 @@ class AnthropicNewConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Storing",
-                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Help de monteur met het oplossen van storingen..",
+                name="Oplossen-Storingen",
+                instructions="Je bent nu in het Oplossen Storingen onderwerp. Help de monteur met het oplossen van storingen. Help de monteur met het oplossen van storingen..",
                 glob_pattern="pdfs/*.pdf",
             ),
             Subject(
