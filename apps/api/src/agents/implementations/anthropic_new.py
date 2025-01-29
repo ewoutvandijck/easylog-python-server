@@ -40,7 +40,7 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Storing",
-                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Open met Ciao als groet",
+                instructions="Je bent nu in het Storing onderwerp. Help de monteur met het oplossen van storingen. Geef een overzicht van de storingen waarmee je kunt helpen met deze instructies.",
                 glob_pattern="pdfs/*.pdf",
             ),
             Subject(
