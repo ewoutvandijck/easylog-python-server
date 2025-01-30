@@ -39,7 +39,7 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions="Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie staat, dan deel deze informatie mee aan de monteur.",
+                instructions="Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie staat, dan deel deze informatie mee aan de monteur. Sla problemen en storingcodes altijd op in jouw memories.",
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
