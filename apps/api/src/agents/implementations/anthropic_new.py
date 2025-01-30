@@ -40,7 +40,7 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Laat de lijst van subjects zien waarmee je de monteur kan helpen. Vraag of hij naar het onderwerp storingen of onderhoud wil gaan.",
+                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.",
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
