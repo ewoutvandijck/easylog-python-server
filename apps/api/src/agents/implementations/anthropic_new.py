@@ -46,7 +46,7 @@ class AnthropicNewConfig(BaseModel):
             Subject(
                 name="Storingen",
                 instructions="Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN BIJ EEN STORING.",
-                glob_pattern="pdfs/stroringen/*.pdf",
+                glob_pattern="pdfs/storingen/*.pdf",
             ),
             Subject(
                 name="Onderhoud",
