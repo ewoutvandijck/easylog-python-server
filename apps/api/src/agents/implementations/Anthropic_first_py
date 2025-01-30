@@ -56,7 +56,7 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
         """
-        This is the main function that handles each message from the user.
+        This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
 
         Step by step, this function:
