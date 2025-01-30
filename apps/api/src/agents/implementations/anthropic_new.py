@@ -50,7 +50,7 @@ class AnthropicNewConfig(BaseModel):
             ),
             Subject(
                 name="Algemeen",
-                instructions="Laat de lijst van subjects zien waarmee de monteur kan helpen, open met Ciao als groet",
+                instructions="Laat de lijst van subjects en bijbehorende documentatie zien waarmee je de monteur kan helpen. Bij een nieuwe storing: gebruik het storingsboekje voor de 1e analyse en hulp",
                 glob_pattern="algemeen/*.pdf",
             ),
         ]
