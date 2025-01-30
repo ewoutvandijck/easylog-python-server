@@ -24,12 +24,12 @@ class AnthropicFirstConfig(BaseModel):
         default=[
             Subject(
                 name="WerkenSnelweg",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent voor wegwerkers op de snelweg. Help de wegwerker met het veilig uitvoeren van zijn werkzaamheden op de snelweg. Gebruik de documentatie om de wegwerker te helpen met de juiste veiligheidsmaatregelen en werkprocedures.",
+                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers. .Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving.",
                 glob_pattern="pdfs/werken_snelweg/*.pdf",
             ),
             Subject(
                 name="WerkenNietSnelweg",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent voor wegwerkers die niet op de snelweg werken. Help de wegwerker met het veilig uitvoeren van zijn werkzaamheden op provinciale wegen, gemeentelijke wegen en andere niet-snelwegen. Gebruik de documentatie om de wegwerker te helpen met de juiste veiligheidsmaatregelen en werkprocedures.",
+                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving van werken op provinciale wegen, gemeentelijke wegen en andere niet-snelwegen.",
                 glob_pattern="pdfs/werken_niet_snelweg/*.pdf",
             ),
         ]
