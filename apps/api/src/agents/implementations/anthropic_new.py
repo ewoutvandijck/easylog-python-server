@@ -21,7 +21,6 @@ class PQIDataHwr(TypedDict):
     """
 
     project: str
-    pqiscore: str
     component: str
 
 
@@ -40,7 +39,7 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent monteurs, Gebruik de documentatie om de monteur te helpen.",
+                instructions="Je bent een vriendelijke en behulpzame technische assistent voor monteurs. In dit onderwerp kun bespreek je de bediening van de CAF tram op basis van de documentatie. Geef een overzicht van de onderwerpen die in de documentatie staan.",
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
@@ -52,11 +51,6 @@ class AnthropicNewConfig(BaseModel):
                 name="Onderhoud",
                 instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf of aan de draaistellen. Werk met de instructies uit de documentatie van de pantograaf en draaistellen.",
                 glob_pattern="pdfs/onderhoud/*.pdf",
-            ),
-            Subject(
-                name="Metro",
-                instructions="Help de Metro monteur met zijn technische werkzaamheden. Werk met de instructies uit de documentatie. Vertel welke documentatie je gebruikt.",
-                glob_pattern="pdfs/metro/*.pdf",
             ),
         ]
     )
@@ -245,10 +239,10 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         # Set up the tools that Claude can use
         tools = [
-            tool_get_random_number,
-            tool_get_pqi_data,
             tool_switch_subject,
             tool_store_memory,
+            tool_get_random_number,
+            tool_get_pqi_data,
         ]
 
         # Start measuring how long the operation takes
