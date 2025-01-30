@@ -40,18 +40,18 @@ class AnthropicNewConfig(BaseModel):
         default=[
             Subject(
                 name="Oplossen-Storingen",
-                instructions="Je bent nu in het Oplossen Storingen onderwerp. Help de monteur met het oplossen van storingen. Help de monteur met het oplossen van storingen..",
-                glob_pattern="pdfs/*.pdf",
+                instructions="Je bent nu in het Oplossen Storingen onderwerp. Help de monteur met het oplossen van storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. Bij een nieuwe storing: gebruik het storingsboekje voor de 1e analyse en hulp",
+                glob_pattern="pdfs/stroringen/*.pdf",
             ),
             Subject(
                 name="Onderhoud",
-                instructions="Help de monteur met werkzaamheden aan de pantograaf en draaistellen. Werk met de instructiesn uit docs van de pantograaf en draaistellen.",
-                glob_pattern="pdfs/pantograaf/*.pdf",
+                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf en draaistellen. Werk met de instructies uit de documentatie van de pantograaf en draaistellen.",
+                glob_pattern="pdfs/onderhoud/*.pdf",
             ),
             Subject(
                 name="Algemeen",
-                instructions="Laat de lijst van subjects en bijbehorende documentatie zien waarmee je de monteur kan helpen. Bij een nieuwe storing: gebruik het storingsboekje voor de 1e analyse en hulp",
-                glob_pattern="algemeen/*.pdf",
+                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Je bent nu in het Algemeen onderwerp. Laat de lijst van subjects zien waarmee je de monteur kan helpen. Vraag of hij naar het onderwerp storingen of onderhoud wil gaan.",
+                glob_pattern="pdfs/algemeen/*.pdf",
             ),
         ]
     )
