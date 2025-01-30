@@ -39,19 +39,19 @@ class AnthropicNewConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Oplossen-Storingen",
+                name="Algemeen",
+                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Laat de lijst van subjects zien waarmee je de monteur kan helpen. Vraag of hij naar het onderwerp storingen of onderhoud wil gaan.",
+                glob_pattern="pdfs/algemeen/*.pdf",
+            ),
+            Subject(
+                name="Storingen",
                 instructions="Je bent nu in het Oplossen Storingen onderwerp. Help de monteur met het oplossen van storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. Bij een nieuwe storing: gebruik het storingsboekje voor de 1e analyse en hulp",
                 glob_pattern="pdfs/stroringen/*.pdf",
             ),
             Subject(
                 name="Onderhoud",
-                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf en draaistellen. Werk met de instructies uit de documentatie van de pantograaf en draaistellen.",
+                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf of aan de draaistellen. Werk met de instructies uit de documentatie van de pantograaf en draaistellen.",
                 glob_pattern="pdfs/onderhoud/*.pdf",
-            ),
-            Subject(
-                name="Algemeen",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Je bent nu in het Algemeen onderwerp. Laat de lijst van subjects zien waarmee je de monteur kan helpen. Vraag of hij naar het onderwerp storingen of onderhoud wil gaan.",
-                glob_pattern="pdfs/algemeen/*.pdf",
             ),
         ]
     )
