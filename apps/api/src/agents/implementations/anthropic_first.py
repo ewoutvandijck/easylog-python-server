@@ -24,7 +24,7 @@ class AnthropicFirstConfig(BaseModel):
         default=[
             Subject(
                 name="WerkenSnelweg",
-                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers. .Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving.",
+                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving.",
                 glob_pattern="pdfs/werken_snelweg/*.pdf",
             ),
             Subject(
