@@ -243,7 +243,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         Returns:
             Claude's version of the same messages
         """
-        return [
+
+        message_history: list[MessageParam] = [
             {
                 "role": message.role,
                 "content": [
@@ -273,3 +274,23 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             }
             for message in messages
         ]
+
+        # Remove messages with empty content and their following message
+        # FIXME: We should not even allow this kind of data in the database
+        i = len(message_history) - 1
+        while i >= 0:
+            # Check if current message has empty content
+            if not message_history[i]["content"]:
+                self.logger.warning(
+                    f"Removing message {i} with empty content and its following message"
+                )
+
+                # Remove current message
+                message_history.pop(i)
+
+                # Remove next message if it exists
+                if i < len(message_history):
+                    message_history.pop(i)
+            i -= 1
+
+        return message_history
