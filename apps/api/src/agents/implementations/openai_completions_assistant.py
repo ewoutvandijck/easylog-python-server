@@ -3,12 +3,13 @@ from typing import AsyncGenerator, List, Literal
 from openai import AsyncStream
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
+
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
 
 class OpenAICompletionsAssistantConfig(BaseModel):
-    model: ChatModel = Field(default="o1")
+    model: ChatModel = Field(default="o1-mini")
     system_message: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
     top_p: float | None = Field(default=None)
