@@ -162,15 +162,7 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 
             return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
-        # This tool is used to store a memory in the database.
-        async def tool_store_memory(memory: str):
-            """
-            Store a memory in the database.
-            """
-            # Verwijder eventuele '-' aan het begin van de memory
-            memory = memory.lstrip("- ")
-
-            current_memory = self.get_metadata("memories", default=[])
+            # This tool is used to store a m tadata("memories", default=[])
             current_memory.append(memory)
 
             logger.info(f"Storing memory: {memory}")
