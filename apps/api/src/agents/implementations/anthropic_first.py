@@ -6,7 +6,6 @@ from typing import AsyncGenerator, List
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, TextContent
@@ -24,12 +23,12 @@ class AnthropicFirstConfig(BaseModel):
         default=[
             Subject(
                 name="WerkenSnelweg",
-                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW 96a regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving.",
+                instructions="Onderwerp`voor controleurs die de CROW 96a regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving op snelwegen.",
                 glob_pattern="pdfs/werken_snelweg/*.pdf",
             ),
             Subject(
                 name="WerkenNietSnelweg",
-                instructions="Je bent een vriendelijke en behulpzame  assistent voor controleurs die de CROW regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving van werken op provinciale wegen, gemeentelijke wegen en andere niet-snelwegen.",
+                instructions="Onderwerp voor controleurs die de CROW 96b regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP NIET-SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving van werken op provinciale wegen, gemeentelijke wegen en andere niet-snelwegen.",
                 glob_pattern="pdfs/werken_niet_snelweg/*.pdf",
             ),
         ]
@@ -198,11 +197,12 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een vriendelijke en behulpzame assistent voor controlleurs die de toepassing van de CROW regelgeving controleren tijdens (snel)weg werkzaamheden uitgevoerd door aannemers.
+            system=f"""Je bent een vriendelijke en behulpzame assistent voor controlleurs die de toepassing van de CROW96a of CROW96b regelgeving controleren tijdens (snel)weg werkzaamheden uitgevoerd door aannemers.
             
 BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Gebruik de documentatie om de controlleur te helpen met de juiste regelgeving.
+- Gebruik de documentatie om de controlleur te helpen met de juiste regelgeving. 
+- Leg alles kort en bondig uit.
 
 
 ### Onderwerpen
