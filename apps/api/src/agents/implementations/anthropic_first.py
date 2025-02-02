@@ -201,8 +201,8 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
             
 BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Gebruik de documentatie om de controlleur te helpen met de juiste regelgeving. 
-- Leg alles kort en bondig uit.
+- Gebruik de documentatie om de controleur te helpen met de juiste regelgeving. 
+- GEEF KORTE ANTWOORDEN 
 
 
 ### Onderwerpen
