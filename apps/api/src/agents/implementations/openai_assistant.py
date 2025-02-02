@@ -2,7 +2,6 @@ from typing import AsyncGenerator, List
 
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
-
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
@@ -12,7 +11,7 @@ class OpenAIAssistantConfigWithId(BaseModel):
 
 
 class OpenAIAssistantConfigWithParams(BaseModel):
-    model: ChatModel = Field(default="gpt-4o")
+    model: ChatModel = Field(default="o3-mini")
     name: str | None = Field(default=None)
     description: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
@@ -47,9 +46,15 @@ class OpenAIAssistant(
         # Option 1: Use an existing assistant ID provided in the config
         if isinstance(self.config, OpenAIAssistantConfigWithId):
             self.logger.info("Using existing assistant with provided ID")
-            assistant = await self.client.beta.assistants.retrieve(
-                self.config.assistant_id
-            )
+            try:
+                assistant = await self.client.beta.assistants.retrieve(
+                    self.config.assistant_id
+                )
+            except Exception:
+                self.logger.error(
+                    "Fout bij het ophalen van de assistent", exc_info=True
+                )
+                raise
         # Option 2: Use a previously created assistant from our cache
         elif self.get_metadata(config_hash):
             self.logger.info(
