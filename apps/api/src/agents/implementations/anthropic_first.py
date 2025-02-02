@@ -167,6 +167,8 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
             """
             Store a memory in the database.
             """
+            # Verwijder eventuele '-' aan het begin van de memory
+            memory = memory.lstrip("- ")
 
             current_memory = self.get_metadata("memories", default=[])
             current_memory.append(memory)
@@ -216,7 +218,9 @@ BELANGRIJKE REGELS:
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
-{"\n-".join(memories)}
+- Eerste herinnering
+- Tweede herinnering
+- Derde herinnering
             """,
             messages=message_history,
             # Give Claude access to our special tools
