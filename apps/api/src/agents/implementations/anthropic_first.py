@@ -180,13 +180,14 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 
             return "Memory stored"
 
-        # Nieuwe tool om memories te wissen
+        # Aangepaste tool om memories en thread te wissen
         def tool_clear_memories():
             """
-            Wis alle opgeslagen herinneringen.
+            Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
             """
             self.set_metadata("memories", [])
-            return "Alle herinneringen zijn gewist."
+            message_history.clear()  # Wist de gespreksgeschiedenis
+            return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
         # Set up the tools that Claude can use
         tools = [
