@@ -218,14 +218,14 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 - Ik kan je helpen met de volgende onderwerpen: {", ".join([s.name for s in self.config.subjects])}
 - Je kunt overstappen naar een ander onderwerp met de tool "switch_subject" zodra je een vraag hebt die niet in het huidige onderwerp past.
 - Volg altijd de instructies en documentatie van het onderwerp: {current_subject_instructions}
+- Je mag LaTeX gebruiken voor wiskundige formules. Gebruik de standaard LaTeX notatie tussen $$ tekens voor formules.
+  Bijvoorbeeld: $$E = mc^2$$
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
-- Eerste herinnering
-- Tweede herinnering
-- Derde herinnering
+{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
             """,
             messages=message_history,
             # Give Claude access to our special tools
