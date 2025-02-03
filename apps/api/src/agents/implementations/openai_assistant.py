@@ -155,6 +155,13 @@ class OpenAIAssistant(
             thread_id=thread.id, assistant_id=assistant.id, stream=True
         )
 
-        # STEP 5: Stream the response back to the user piece by piece
-        async for message in self.handle_assistant_stream(stream):
-            yield message
+        # Voeg een try-except toe rond de streaming-lus
+        try:
+            async for message in self.handle_assistant_stream(stream):
+                yield message
+        except Exception as e:
+            self.logger.error(
+                "Fout tijdens het streamen van het antwoord", exc_info=True
+            )
+            # Afhankelijk van hoe je wilt omgaan met de fout kun je:
+            raise e
