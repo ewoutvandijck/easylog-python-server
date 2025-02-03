@@ -49,9 +49,9 @@ class AnthropicNewConfig(BaseModel):
                 glob_pattern="pdfs/storingen/*.pdf",
             ),
             Subject(
-                name="Onderhoud",
-                instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf of aan de draaistellen. Werk met de instructies uit de documentatie van de pantograaf en draaistellen.",
-                glob_pattern="pdfs/onderhoud/*.pdf",
+                name="Pantograaf",
+                instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf.",
+                glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
     )
