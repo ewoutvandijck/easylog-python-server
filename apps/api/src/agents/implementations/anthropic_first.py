@@ -24,12 +24,12 @@ class AnthropicFirstConfig(BaseModel):
         default=[
             Subject(
                 name="GezonderLeven",
-                instructions="Help met bewegen en gezonder leven",
-                glob_pattern="pdfs/gezonder,even/*.pdf",
+                instructions="Help met bewegen en het creeren van een gezonder leven",
+                glob_pattern="pdfs/gezonderleven/*.pdf",
             ),
             Subject(
                 name="Dieet",
-                instructions="Help met eten van gezonde voeding en afvallen",
+                instructions="Help met het eten van gezonde voeding en help met afvallen",
                 glob_pattern="pdfs/dieet/*.pdf",
             ),
         ]
