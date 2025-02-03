@@ -7,6 +7,7 @@ from typing import AsyncGenerator, List, TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, TextContent
@@ -183,6 +184,14 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
             return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
+        def tool_clear_memories():
+            """
+            Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
+            """
+            self.set_metadata("memories", [])
+            message_history.clear()  # Wist de gespreksgeschiedenis
+            return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
+
         def tool_get_random_number(start: int = 1, end: int = 100) -> str:
             """
             A simple tool that returns a random number between start and end.
@@ -243,6 +252,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             tool_store_memory,
             tool_get_random_number,
             tool_get_pqi_data,
+            tool_clear_memories,
         ]
 
         # Start measuring how long the operation takes
