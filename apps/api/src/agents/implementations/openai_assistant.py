@@ -1,4 +1,6 @@
 from typing import AsyncGenerator, List
+import time
+import asyncio
 
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
@@ -148,20 +150,55 @@ class OpenAIAssistant(
         )
 
         # STEP 4: Get the assistant's response
-        # Create a run (which is OpenAI's way of getting the assistant to process and respond)
-        # We use stream=True to get the response piece by piece instead of waiting for the whole thing
         self.logger.info("Getting assistant's response")
-        stream = await self.client.beta.threads.runs.create(
-            thread_id=thread.id, assistant_id=assistant.id, stream=True
+        run = await self.client.beta.threads.runs.create(
+            thread_id=thread.id, 
+            assistant_id=assistant.id, 
+            stream=True
         )
 
-        # Voeg een try-except toe rond de streaming-lus
-        try:
-            async for message in self.handle_assistant_stream(stream):
-                yield message
-        except Exception as e:
-            self.logger.error(
-                "Fout tijdens het streamen van het antwoord", exc_info=True
+        # Wacht tot de run is voltooid met timeout
+        timeout = 60  # 60 seconden timeout
+        start_time = time.time()
+        
+        while True:
+            if time.time() - start_time > timeout:
+                raise TimeoutError("Assistant response timed out")
+                
+            run_status = await self.client.beta.threads.runs.retrieve(
+                thread_id=thread.id,
+                run_id=run.id
             )
-            # Afhankelijk van hoe je wilt omgaan met de fout kun je:
-            raise e
+            
+            if run_status.status == "completed":
+                break
+            elif run_status.status in ["failed", "cancelled", "expired"]:
+                raise Exception(f"Run failed with status: {run_status.status}")
+                
+            await asyncio.sleep(1)  # Wacht 1 seconde voor nieuwe check
+
+        # Stream het antwoord
+        try:
+            async for message in self.handle_assistant_stream(run):
+                yield message
+        except Exception as stream_error:
+            self.logger.error(
+                "Error tijdens streamen van antwoord",
+                exc_info=True
+            )
+            # Probeer het antwoord in één keer op te halen als fallback
+            messages = await self.client.beta.threads.messages.list(
+                thread_id=thread.id
+            )
+            if messages.data:
+                yield TextContent(
+                    content=messages.data[0].content[0].text.value
+                )
+            else:
+                raise stream_error
+
+    except Exception as e:
+        self.logger.error("Kritieke fout in assistant", exc_info=True)
+        yield TextContent(
+            content="Sorry, er ging iets mis. Probeer het later opnieuw."
+        )
