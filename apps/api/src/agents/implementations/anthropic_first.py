@@ -180,10 +180,19 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 
             return "Memory stored"
 
+        # Nieuwe tool om memories te wissen
+        def tool_clear_memories():
+            """
+            Wis alle opgeslagen herinneringen.
+            """
+            self.set_metadata("memories", [])
+            return "Alle herinneringen zijn gewist."
+
         # Set up the tools that Claude can use
         tools = [
             tool_switch_subject,
             tool_store_memory,
+            tool_clear_memories,  # Voeg de nieuwe tool toe
         ]
 
         # Start measuring how long the operation takes
