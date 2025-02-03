@@ -23,14 +23,14 @@ class AnthropicFirstConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="GezonderLeven",
-                instructions="Help met bewegen en gezonder leven",
-                glob_pattern="pdfs/gezonder,even/*.pdf",
+                name="WerkenSnelweg",
+                instructions="Onderwerp`voor controleurs die de CROW 96a regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving op snelwegen.",
+                glob_pattern="pdfs/werken_snelweg/*.pdf",
             ),
             Subject(
-                name="Dieet",
-                instructions="Help met eten van gezonde voeding en afvallen",
-                glob_pattern="pdfs/dieet/*.pdf",
+                name="WerkenNietSnelweg",
+                instructions="Onderwerp voor controleurs die de CROW 96b regelgeving controleren tijdens weg werkzaamheden uitgevoerd door aannemers OP NIET-SNELWEGEN. Gebruik de documentatie om de controleur te helpen met de juiste veiligheidsmaatregelen en regelgeving van werken op provinciale wegen, gemeentelijke wegen en andere niet-snelwegen.",
+                glob_pattern="pdfs/werken_niet_snelweg/*.pdf",
             ),
         ]
     )
@@ -200,9 +200,15 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een vriendelijke en behulpzame assistent die helpt met bewust gezonder leven
+            system=f"""Je bent een vriendelijke en behulpzame assistent voor controlleurs die de toepassing van de CROW96a of CROW96b regelgeving controleren tijdens (snel)weg werkzaamheden uitgevoerd door aannemers.
+            
+BELANGRIJKE REGELS:
+- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
+- Gebruik de documentatie om de controleur te helpen met de juiste regelgeving. 
+- GEEF KORTE ANTWOORDEN 
 
-            ### Onderwerpen
+
+### Onderwerpen
 - Als je geen onderwerp hebt geselecteerd, volg de de instructies hierboven, anders hebben de volgende regels voorrang:
 - Je bent nu in het onderwerp: {current_subject_name}
 - Ik kan je helpen met de volgende onderwerpen: {", ".join([s.name for s in self.config.subjects])}
