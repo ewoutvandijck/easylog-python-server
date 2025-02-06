@@ -1,34 +1,22 @@
 from typing import List, Literal, Sequence
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
-class AgentConfig(BaseModel):
-    agent_class: str
+class TextDeltaContent(BaseModel):
+    type: Literal["text_delta"] = Field(default="text_delta")
 
-    class Config:
-        extra = "allow"
-
-
-class BaseMessageContent(BaseModel):
-    chunk_index: int = Field(
-        default=0, description="The index of the content in the message."
-    )
+    content: str = Field(..., description="The text of the delta.")
 
 
-class TextContent(BaseMessageContent):
-    # TODO: add support for other content types
-    type: Literal["text"] = Field(
-        default="text", description="The type of content in the message."
-    )
+class TextContent(BaseModel):
+    type: Literal["text"] = Field(default="text")
 
     content: str = Field(..., description="The content of the message.")
 
 
-class ToolUseContent(BaseMessageContent):
-    type: Literal["tool_use"] = Field(
-        default="tool_use", description="The type of content in the message."
-    )
+class ToolUseContent(BaseModel):
+    type: Literal["tool_use"] = Field(default="tool_use")
 
     id: str = Field(..., description="The ID of the tool use.")
 
@@ -37,10 +25,8 @@ class ToolUseContent(BaseMessageContent):
     input: dict = Field(..., description="The arguments of the tool.")
 
 
-class ToolResultContent(BaseMessageContent):
-    type: Literal["tool_result"] = Field(
-        default="tool_result", description="The type of content in the message."
-    )
+class ToolResultContent(BaseModel):
+    type: Literal["tool_result"] = Field(default="tool_result")
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
@@ -51,18 +37,77 @@ class ToolResultContent(BaseMessageContent):
     )
 
 
+ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+
+class ImageContent(BaseModel):
+    type: Literal["image"] = Field(default="image")
+
+    content: str = Field(
+        ...,
+        description="The content of the message, must start with `data:image/`",
+    )
+
+    content_type: ContentType = Field(
+        default="image/jpeg",
+        description="The content type of the image, must start with `image/`",
+    )
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        if not v.startswith("data:image/"):
+            raise ValueError("Content must be a valid image URL")
+        return v
+
+
+class PDFContent(BaseModel):
+    type: Literal["pdf"] = Field(default="pdf")
+
+    content: str = Field(
+        ...,
+        description="The content of the message, must start with `data:application/pdf;base64,`",
+    )
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        if not v.startswith("data:application/pdf;base64,"):
+            raise ValueError("Content must be a valid PDF URL")
+        return v
+
+
+MessageContent = (
+    TextContent
+    | TextDeltaContent
+    | ToolUseContent
+    | ToolResultContent
+    | ImageContent
+    | PDFContent
+)
+
+
 class Message(BaseModel):
-    role: Literal["assistant", "user"] = Field(
+    role: Literal["assistant", "user", "system", "developer"] = Field(
         default="assistant", description="The role of the message."
     )
 
-    content: Sequence[TextContent | ToolUseContent | ToolResultContent] = Field(
+    content: Sequence[MessageContent] = Field(
         ..., description="The content of the message."
     )
 
 
+class AgentConfig(BaseModel):
+    agent_class: str
+
+    class Config:
+        extra = "allow"
+
+
 class MessageCreateInput(BaseModel):
-    content: List[TextContent] = Field(..., description="The content of the message.")
+    content: List[TextContent | ImageContent | PDFContent] = Field(
+        ..., description="The content of the message."
+    )
 
     agent_config: AgentConfig = Field(
         ...,

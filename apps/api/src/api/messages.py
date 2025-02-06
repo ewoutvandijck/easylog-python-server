@@ -86,7 +86,7 @@ async def create_message(
         thread_id=thread.id,
         agent_class=message.agent_config.agent_class,
         agent_config=agent_config,
-        content=message.content,
+        input_content=list(message.content),
         bearer_token=auth.credentials if auth else None,
     )
 

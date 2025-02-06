@@ -1,11 +1,20 @@
-from typing import AsyncGenerator, Literal
+from typing import AsyncGenerator, Sequence, cast
+
+from prisma.enums import MessageContentType, MessageRole
 
 from src.agents.agent_loader import AgentLoader
 from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import (
+    ContentType,
+    ImageContent,
     Message,
+    MessageContent,
+    PDFContent,
     TextContent,
+    TextDeltaContent,
+    ToolResultContent,
+    ToolUseContent,
 )
 from src.services.easylog_backend.backend_service import BackendService
 
@@ -19,11 +28,11 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        content: list[TextContent],
+        input_content: list[TextContent | ImageContent | PDFContent],
         agent_class: str,
         agent_config: dict,
         bearer_token: str | None = None,
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
@@ -62,114 +71,96 @@ class MessageService:
         thread_history = [
             *(
                 Message(
-                    role=message.role,  # type: ignore
+                    role=message.role.value,
                     content=[
                         TextContent(
-                            content=message_content.content,
+                            content=message_content.content or "",
                         )
-                        for message_content in message.contents or []
-                        # TODO: store and retrieve other content types
-                        if message_content.content_type == "text"
+                        if message_content.type == MessageContentType.text
+                        else ImageContent(
+                            content=message_content.content or "",
+                            content_type=cast(ContentType, message_content.content_type)
+                            or "image/jpeg",
+                        )
+                        if message_content.type == MessageContentType.image
+                        else PDFContent(
+                            content=message_content.content or "",
+                        )
+                        if message_content.type == MessageContentType.pdf
+                        else ToolResultContent(
+                            tool_use_id=message_content.tool_use_id or "",
+                            content=message_content.content or "",
+                            is_error=message_content.tool_use_is_error or False,
+                        )
+                        if message_content.type == MessageContentType.tool_result
+                        else ToolUseContent(
+                            id=message_content.tool_use_id or "",
+                            name=message_content.tool_use_name or "",
+                            input=dict(message_content.tool_use_input)
+                            if message_content.tool_use_input
+                            else {},
+                        )
+                        for message_content in message.contents
+                        if message_content is not None
                     ],
                 )
-                for message in cls.find_messages(thread_id)
+                for message in prisma.messages.find_many(
+                    where={
+                        "thread_id": thread_id,
+                    },
+                    include={"contents": True},
+                )
+                if message.contents is not None
             ),
             Message(
                 role="user",
-                content=content,
+                content=input_content,
             ),
         ]
 
         logger.info(f"Thread history: {len(thread_history)} messages")
 
-        # Chunks are "compressed" so we don't have to store every single token in the database.
-        compressed_chunks: list[TextContent] = []
-
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        async for chunk in agent.forward(thread_history):
-            logger.info(f"Received chunk: {chunk}")
+        output_content: list[MessageContent] = []
+        async for content_chunk in agent.forward(thread_history):
+            logger.info(f"Received chunk: {content_chunk}")
 
-            index = chunk.chunk_index
+            output_content.append(content_chunk)
 
-            # Try to find existing chunk with same index
-            existing_chunk = next(
-                (c for c in compressed_chunks if c.chunk_index == index), None
-            )
+            # Yield early to allow the frontend to render the message as it comes in
+            yield content_chunk
 
-            if existing_chunk and isinstance(existing_chunk, TextContent):
-                existing_chunk.content += chunk.content
-            else:
-                compressed_chunks.append(
-                    TextContent(
-                        type="text",
-                        content=chunk.content,
-                        chunk_index=index,
-                    )
-                )
-                existing_chunk = compressed_chunks[-1]
-
-            # Yield the chunk to the client
-            yield TextContent(
-                type="text",
-                content=chunk.content,
-                chunk_index=index,
-            )
-
-        logger.info("Saving user message")
-
-        # Save the user message
-        cls.save_message(
-            thread_id=thread_id,
-            message=Message(
-                role="user",
-                content=content,
-            ),
-            agent_class=agent_class,
-            role="user",
+        MessageService.save_message(
+            thread_id,
+            agent_class,
+            input_content,
+            MessageRole.user,
         )
 
-        logger.info("Saving agent response")
-
-        logger.info(f"Compressed chunks: {compressed_chunks}")
-
         # Save the agent response
-        cls.save_message(
-            thread_id=thread_id,
-            message=Message(
-                role="assistant",
-                content=[
-                    TextContent(
-                        type="text",
-                        content=chunk.content,
-                        chunk_index=chunk.chunk_index,
-                    )
-                    for chunk in compressed_chunks
-                ],
-            ),
-            agent_class=agent_class,
-            role="assistant",
+        MessageService.save_message(
+            thread_id,
+            agent_class,
+            [
+                chunk
+                for chunk in output_content
+                # Don't save text deltas
+                if not isinstance(chunk, TextDeltaContent)
+            ],
+            MessageRole.assistant,
         )
 
         logger.info("Message saved")
 
     @classmethod
-    def find_messages(cls, thread_id: str):
-        return prisma.messages.find_many(
-            where={
-                "thread_id": thread_id,
-            },
-            include={"contents": True},
-        )
-
-    @classmethod
     def save_message(
         cls,
         thread_id: str,
-        message: Message,
         agent_class: str,
-        role: Literal["user", "assistant"],
+        content_chunks: Sequence[MessageContent],
+        role: MessageRole,
     ) -> None:
         prisma.messages.create(
             data={
@@ -177,14 +168,42 @@ class MessageService:
                 "agent_class": agent_class,
                 "role": role,
                 "contents": {
-                    "create": [
+                    "create": [  # type: ignore
                         {
-                            "content": message_content.content,
-                            "content_type": message_content.type,
+                            "type": "text",
+                            "content": content_chunk.content,
                         }
-                        for message_content in message.content
-                        # TODO: store and retrieve other content types
-                        if isinstance(message_content, TextContent)
+                        if isinstance(content_chunk, TextContent)
+                        else {
+                            "type": "image",
+                            "content": content_chunk.content,
+                        }
+                        if isinstance(content_chunk, ImageContent)
+                        else {
+                            "type": "pdf",
+                            "content": content_chunk.content,
+                        }
+                        if isinstance(content_chunk, PDFContent)
+                        else {
+                            "type": "tool_result",
+                            "content": content_chunk.content,
+                            "is_error": content_chunk.is_error,
+                            "tool_use_id": content_chunk.tool_use_id,
+                        }
+                        if isinstance(content_chunk, ToolResultContent)
+                        else {
+                            "type": "tool_use",
+                            "tool_use_id": content_chunk.id,
+                            "tool_use_name": content_chunk.name,
+                            "tool_use_input": content_chunk.input,
+                        }
+                        if isinstance(content_chunk, ToolUseContent)
+                        else {
+                            "type": "text_delta",
+                            "content": content_chunk.content,
+                        }
+                        for content_chunk in content_chunks
+                        if isinstance(content_chunk, MessageContent)
                     ]
                 },
             }

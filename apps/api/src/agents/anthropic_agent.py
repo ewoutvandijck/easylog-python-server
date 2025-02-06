@@ -5,12 +5,16 @@ from typing import AsyncGenerator, Callable, Generic, List
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
+from prisma.enums import MessageRole
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.logger import logger
 from src.models.messages import (
+    ImageContent,
     Message,
+    MessageContent,
     TextContent,
+    TextDeltaContent,
     ToolResultContent,
     ToolUseContent,
 )
@@ -62,8 +66,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         stream: AsyncStream[RawMessageStreamEvent],
         messages: List[Message],
         tools: list[Callable] = [],
-        content_index: int = 0,
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Handles Claude's response as it comes in, piece by piece.
 
@@ -87,8 +90,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         Returns:
             Each piece of Claude's response as soon as we get it
         """
-        # Keep track of which part of the response we're processing
-        current_index = content_index
 
         # Store different parts of the response (text, tool use, etc.)
         message_contents: list[TextContent | ToolUseContent] = []
@@ -119,8 +120,13 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 )
 
             # When Claude finishes a block
-            elif event.type == "content_block_stop":
-                current_index += 1
+            elif event.type == "content_block_stop" and isinstance(
+                message_contents[-1], TextContent
+            ):
+                yield TextContent(
+                    content=message_contents[-1].content,
+                    type="text",
+                )
 
             # When Claude adds more text to the current block
             elif (
@@ -131,7 +137,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 message_contents[-1].content += event.delta.text
 
                 # Yield this content early so we can stream it to the client
-                yield TextContent(content=event.delta.text, chunk_index=current_index)
+                yield TextDeltaContent(content=event.delta.text)
 
             # When Claude is building up JSON data for a tool
             elif (
@@ -209,8 +215,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         ),  # Tool execution result
                     ],
                 ):
-                    # Maintain consistent chunk indexing for streaming
-                    content.chunk_index = current_index - 1
                     yield content
 
     def _convert_messages_to_anthropic_format(
@@ -269,10 +273,25 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         "tool_use_id": str(content.tool_use_id),
                         "is_error": content.is_error,
                     }
+                    if isinstance(content, ToolResultContent)
+                    else {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": content.content,
+                        },
+                    }
+                    if isinstance(content, ImageContent)
+                    else {
+                        "type": "text",
+                        "text": "",
+                    }
                     for content in message.content
                 ],
             }
             for message in messages
+            if message.role in [MessageRole.user, MessageRole.assistant]
         ]
 
         # Remove messages with empty content and their following message
