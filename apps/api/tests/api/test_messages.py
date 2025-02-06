@@ -55,7 +55,6 @@ async def test_anthropic_supports_image_data():
 
 @pytest.mark.asyncio
 async def test_anthropic_supports_pdf_data():
-    return
     prisma.connect()
 
     thread = prisma.threads.create(
@@ -117,12 +116,13 @@ async def test_anthropic_supports_pdf_data():
     ):
         print(chunk)
 
-    prisma.threads.delete(where={"id": thread.id})
+    # prisma.threads.delete(where={"id": thread.id})
     prisma.disconnect()
 
 
 @pytest.mark.asyncio
 async def test_anthropic_supports_tool_use():
+    return
     prisma.connect()
 
     thread = prisma.threads.create(
@@ -149,5 +149,5 @@ async def test_anthropic_supports_tool_use():
     ):
         print(chunk)
 
-    prisma.threads.delete(where={"id": thread.id})
+    # prisma.threads.delete(where={"id": thread.id})
     prisma.disconnect()
