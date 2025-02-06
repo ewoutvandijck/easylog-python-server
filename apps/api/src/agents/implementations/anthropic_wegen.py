@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
@@ -54,7 +54,7 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 
     async def on_message(
         self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.

@@ -278,7 +278,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            "media_type": "image/jpeg",
+                            "media_type": content.content_type,
                             "data": content.content,
                         },
                     }

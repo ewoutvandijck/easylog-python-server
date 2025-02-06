@@ -1,12 +1,15 @@
+import base64
+import glob
+import os
 import random
 import time
 from typing import AsyncGenerator, List, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
@@ -20,19 +23,57 @@ class PQIDataHwr(TypedDict):
     typematerieel: str
 
 
-# Vereenvoudigde config class zonder subjects
-class AnthropicNewConfig(BaseModel):
-    pass
+# Configuration class for AnthropicNew agent
+# Specifies the directory path where PDF files are stored
 
 
-# De functie voor het laden van PDF JSON data is verwijderd omdat we geen PDF/JSON functionaliteit meer willen.
+class Subject(BaseModel):
+    name: str
+    instructions: str
+    glob_pattern: str
 
 
-# Vereenvoudigde agent class zonder PDF functionaliteit
-class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
+class AnthropicAssistantConfig(BaseModel):
+    subjects: list[Subject] = Field(
+        default=[
+            Subject(
+                name="Algemeen",
+                instructions="Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie staat, dan deel deze informatie mee aan de monteur.",
+                glob_pattern="pdfs/algemeen/*.pdf",
+            ),
+            Subject(
+                name="Storingen",
+                instructions="Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
+                glob_pattern="pdfs/storingen/*.pdf",
+            ),
+            Subject(
+                name="Pantograaf",
+                instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf.",
+                glob_pattern="pdfs/pantograaf/*.pdf",
+            ),
+        ]
+    )
+    default_subject: str | None = Field(default="Algemeen")
+
+
+# Agent class that integrates with Anthropic's Claude API and handles PDF documents
+class AnthropicAssistant(AnthropicAgent[AnthropicAssistantConfig]):
+    def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
+        pdfs: list[str] = []
+
+        # Get absolute path by joining with current file's directory
+        glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
+
+        # Find all PDF files in directory and encode them
+        for file in glob.glob(glob_with_path):
+            with open(file, "rb") as f:
+                pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
+
+        return pdfs
+
     async def on_message(
         self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """

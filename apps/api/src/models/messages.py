@@ -1,6 +1,6 @@
 from typing import List, Literal, Sequence
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TextDeltaContent(BaseModel):
@@ -45,20 +45,13 @@ class ImageContent(BaseModel):
 
     content: str = Field(
         ...,
-        description="The content of the message, must start with `data:image/`",
+        description="The raw base64 encoded image data",
     )
 
     content_type: ContentType = Field(
         default="image/jpeg",
         description="The content type of the image, must start with `image/`",
     )
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, v: str) -> str:
-        if not v.startswith("data:image/"):
-            raise ValueError("Content must be a valid image URL")
-        return v
 
 
 class PDFContent(BaseModel):
@@ -100,8 +93,7 @@ class Message(BaseModel):
 class AgentConfig(BaseModel):
     agent_class: str
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class MessageCreateInput(BaseModel):
