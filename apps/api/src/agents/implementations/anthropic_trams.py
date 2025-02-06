@@ -6,7 +6,6 @@ import time
 from typing import AsyncGenerator, List, TypedDict
 
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -33,7 +32,7 @@ class Subject(BaseModel):
     glob_pattern: str
 
 
-class AnthropicAssistantConfig(BaseModel):
+class AnthropicTramsConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
@@ -57,7 +56,7 @@ class AnthropicAssistantConfig(BaseModel):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicAssistant(AnthropicAgent[AnthropicAssistantConfig]):
+class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
