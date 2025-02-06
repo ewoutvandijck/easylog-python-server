@@ -13,6 +13,7 @@ from src.models.messages import (
     ImageContent,
     Message,
     MessageContent,
+    PDFContent,
     TextContent,
     TextDeltaContent,
     ToolResultContent,
@@ -152,6 +153,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 and event.delta.stop_reason == "tool_use"
                 and isinstance(message_contents[-1], ToolUseContent)
             ):
+                yield message_contents[-1]
+
                 tool_result = ToolResultContent(
                     tool_use_id=message_contents[-1].id,
                     content="",
@@ -200,22 +203,24 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Clear the partial JSON buffer, regardless of success or failure
                     partial_json = ""
 
-                # Continue the conversation with Claude by:
-                # 1. Including all previous messages
-                # 2. Adding Claude's latest response (including tool use)
-                # 3. Adding the tool's result as a user message
-                async for content in self.on_message(
-                    [
-                        *messages,  # Previous conversation
-                        Message(
-                            role="assistant", content=message_contents
-                        ),  # Claude's current response
-                        Message(
-                            role="user", content=[tool_result]
-                        ),  # Tool execution result
-                    ],
-                ):
-                    yield content
+                yield tool_result
+
+                # # Continue the conversation with Claude by:
+                # # 1. Including all previous messages
+                # # 2. Adding Claude's latest response (including tool use)
+                # # 3. Adding the tool's result as a user message
+                # async for content in self.on_message(
+                #     [
+                #         *messages,  # Previous conversation
+                #         Message(
+                #             role="assistant", content=message_contents
+                #         ),  # Claude's current response
+                #         Message(
+                #             role="user", content=[tool_result]
+                #         ),  # Tool execution result
+                #     ],
+                # ):
+                #     yield content
 
     def _convert_messages_to_anthropic_format(
         self, messages: List[Message]
@@ -283,6 +288,15 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         },
                     }
                     if isinstance(content, ImageContent)
+                    else {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": content.content,
+                        },
+                    }
+                    if isinstance(content, PDFContent)
                     else {
                         "type": "text",
                         "text": "",

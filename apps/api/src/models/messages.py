@@ -1,6 +1,6 @@
 from typing import List, Literal, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TextDeltaContent(BaseModel):
@@ -61,13 +61,6 @@ class PDFContent(BaseModel):
         ...,
         description="The content of the message, must start with `data:application/pdf;base64,`",
     )
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, v: str) -> str:
-        if not v.startswith("data:application/pdf;base64,"):
-            raise ValueError("Content must be a valid PDF URL")
-        return v
 
 
 MessageContent = (

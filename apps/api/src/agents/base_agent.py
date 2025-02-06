@@ -7,6 +7,9 @@ from types import UnionType
 from typing import (
     Any,
     AsyncGenerator,
+    Callable,
+    Coroutine,
+    Dict,
     Generator,
     Generic,
     List,
@@ -50,6 +53,12 @@ class BaseAgent(Generic[TConfig]):
 
     @abstractmethod
     def on_message(self, messages: List[Message]) -> AsyncGenerator[TextContent, None]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_tools(
+        self,
+    ) -> Dict[str, Callable[[], Any] | Callable[[], Coroutine[Any, Any, Any]]]:
         raise NotImplementedError()
 
     def get_env(self, key: str) -> str:

@@ -1,5 +1,6 @@
 from typing import AsyncGenerator, Sequence, cast
 
+from prisma import Json
 from prisma.enums import MessageContentType, MessageRole
 
 from src.agents.agent_loader import AgentLoader
@@ -28,7 +29,9 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        input_content: list[TextContent | ImageContent | PDFContent],
+        input_content: list[
+            TextContent | ImageContent | PDFContent | ToolResultContent | ToolUseContent
+        ],
         agent_class: str,
         agent_config: dict,
         bearer_token: str | None = None,
@@ -124,8 +127,13 @@ class MessageService:
 
         # Forward the history through the agent
         output_content: list[MessageContent] = []
+        tool_result_content: ToolResultContent | None = None
         async for content_chunk in agent.forward(thread_history):
             logger.info(f"Received chunk: {content_chunk}")
+
+            if isinstance(content_chunk, ToolResultContent):
+                tool_result_content = content_chunk
+                break
 
             output_content.append(content_chunk)
 
@@ -153,6 +161,17 @@ class MessageService:
         )
 
         logger.info("Message saved")
+
+        if tool_result_content:
+            yield tool_result_content
+            async for chunk in cls.forward_message(
+                thread_id,
+                [tool_result_content],
+                agent_class,
+                agent_config,
+                bearer_token,
+            ):
+                yield chunk
 
     @classmethod
     def save_message(
@@ -187,7 +206,7 @@ class MessageService:
                         else {
                             "type": "tool_result",
                             "content": content_chunk.content,
-                            "is_error": content_chunk.is_error,
+                            "tool_use_is_error": content_chunk.is_error,
                             "tool_use_id": content_chunk.tool_use_id,
                         }
                         if isinstance(content_chunk, ToolResultContent)
@@ -195,7 +214,7 @@ class MessageService:
                             "type": "tool_use",
                             "tool_use_id": content_chunk.id,
                             "tool_use_name": content_chunk.name,
-                            "tool_use_input": content_chunk.input,
+                            "tool_use_input": Json(content_chunk.input),
                         }
                         if isinstance(content_chunk, ToolUseContent)
                         else {
