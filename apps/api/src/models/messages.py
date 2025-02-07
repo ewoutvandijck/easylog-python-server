@@ -45,7 +45,7 @@ class ImageContent(BaseModel):
 
     content: str = Field(
         ...,
-        description="The raw base64 encoded image data",
+        description="The raw base64 encoded image data, without any prefixes like `data:image/jpeg;base64,` for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
     )
 
     content_type: ContentType = Field(
@@ -59,7 +59,7 @@ class PDFContent(BaseModel):
 
     content: str = Field(
         ...,
-        description="The content of the message, must start with `data:application/pdf;base64,`",
+        description="The base64 encoded PDF data, without any prefixes like `data:application/pdf;base64,`, for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
     )
 
 
@@ -103,7 +103,17 @@ class MessageCreateInput(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "content": [{"type": "text", "content": "Hello, how are you?"}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "content": "Hello, what color is this image?",
+                        },
+                        {
+                            "type": "image",
+                            "content": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
+                            "content_type": "image/png",
+                        },
+                    ],
                     "agent_config": {
                         "agent_class": "OpenAIAssistant",
                         "assistant_id": "asst_5vWL7aefIopE4aU5DcFRmpA5",

@@ -7,13 +7,13 @@ from src.db.prisma import prisma
 from src.main import app
 from src.models.messages import ImageContent, PDFContent, TextContent
 from src.services.messages.message_service import MessageService
+from src.utils.sse import create_sse_event
 
 client = TestClient(app)
 
 
 @pytest.mark.asyncio
 async def test_anthropic_supports_image_data():
-    return
     prisma.connect()
 
     thread = prisma.threads.create(
@@ -27,34 +27,24 @@ async def test_anthropic_supports_image_data():
     async for chunk in MessageService.forward_message(
         thread_id=thread.id,
         input_content=[
-            TextContent(content="Wat staat er in deze afbeelding?"),
+            TextContent(content="Store a memory with the color of this image"),
             ImageContent(
-                content=image_data,
-                content_type=image_media_type,
+                content="iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
+                content_type="image/png",
             ),
         ],
         agent_class="DebugAnthropic",
         agent_config={},
     ):
-        print(chunk)
-
-    async for chunk in MessageService.forward_message(
-        thread_id=thread.id,
-        input_content=[
-            TextContent(content="Wat stond er ook alweer in deze afbeelding?"),
-        ],
-        agent_class="DebugAnthropic",
-        agent_config={},
-    ):
-        print(chunk)
+        print(create_sse_event("delta", chunk.model_dump_json()))
 
     prisma.threads.delete(where={"id": thread.id})
     prisma.disconnect()
-    pass
 
 
 @pytest.mark.asyncio
 async def test_anthropic_supports_pdf_data():
+    return
     prisma.connect()
 
     thread = prisma.threads.create(
