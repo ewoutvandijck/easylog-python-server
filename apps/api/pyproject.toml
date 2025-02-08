@@ -15,4 +15,5 @@ dependencies = [
     "anthropic>=0.42.0",
     "markdown>=3.7",
     "pypdf2>=3.0.1",
+    "google-genai>=1.0.0",
 ]
