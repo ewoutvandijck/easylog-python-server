@@ -54,9 +54,7 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
             config=GenerateContentConfig(
                 system_instruction="""
 Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
-Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
-In de documetatie zie je diverse storingen en oplossingen met behulp van stroomschema's.
-Ieder schema is een speciek probleem wat je stap voor stap naar de probleemoplossing kan helpen.
+Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud aan de Pantograaf.
 
 
 BELANGRIJKE REGELS:
