@@ -1,10 +1,15 @@
 import glob
 import os
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator, List, cast
 
 from anthropic import BaseModel
 from google import genai
-from google.genai import types
+from google.genai.types import (
+    Content,
+    GenerateContentConfig,
+    GenerateContentResponse,
+    Part,
+)
 from pydantic import Field
 
 from src.agents.base_agent import BaseAgent
@@ -41,27 +46,60 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
 
         self.logger.info(f"Loaded {len(pdfs)} PDFs")
 
-        last_text_content = next(
-            (content for content in messages[-1].content if content.type == "text"),
-            None,
+        current_message = messages[-1]
+        previous_messages = messages[:-1]
+
+        chat = self.client.chats.create(
+            model="gemini-2.0-flash",
+            config=GenerateContentConfig(
+                system_instruction="""
+Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+
+BELANGRIJKE REGELS:
+- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
+- Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
+- Bij het weergeven van probleem oplossingen uit de documentatie, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
+- Als een vraag niet beantwoord kan worden met de informatie uit het document, zeg dit dan duidelijk
+- ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
+- Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
+""",
+            ),
+            history=[
+                *[
+                    Content(
+                        role="user" if message.role == "user" else "model",
+                        parts=[
+                            Part(
+                                text=content.content,
+                            )
+                            for content in message.content
+                            if isinstance(content, TextContent)
+                        ],
+                    )
+                    for message in previous_messages
+                ],
+            ],
         )
 
-        if last_text_content is None:
-            yield TextContent(content="")
-            return
-
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
+        for chunk in chat.send_message_stream(
+            message=[
                 *[
-                    types.Part.from_bytes(
+                    Part.from_bytes(
                         data=pdf,
                         mime_type="application/pdf",
                     )
                     for pdf in pdfs
                 ],
-                last_text_content.content,
+                *[
+                    Part(
+                        text=content.content,
+                    )
+                    for content in current_message.content
+                    if isinstance(content, TextContent)
+                ],
             ],
-        )
-
-        yield TextContent(content=response.text or "")
+        ):
+            chunk = cast(GenerateContentResponse, chunk)
+            if chunk.text:
+                yield TextContent(content=chunk.text)
