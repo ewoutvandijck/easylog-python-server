@@ -26,6 +26,8 @@ class AgentLoader:
             module_path = f"src.agents.implementations.{file.stem}"
             module = importlib.import_module(module_path)
 
+            print(file.stem)
+
             # Find all classes in the module that inherit from BaseAgent
             for _, obj in inspect.getmembers(module):
                 if (
