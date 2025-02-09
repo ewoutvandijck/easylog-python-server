@@ -55,8 +55,8 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
                 system_instruction="""
 Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud aan de Pantograaf.
-De documentatie jouw leidraad is.
-Geef korte antwoorden en geef geen lange verklaringen.
+De documentatie is jouw leidraad.
+Geef korte antwoorden en geef geen lange uitlegg, de monteur gebruikt zijn mobiel.
 
 
 BELANGRIJKE REGELS:
