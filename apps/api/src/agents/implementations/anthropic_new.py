@@ -1,5 +1,7 @@
+import json
 import random
 import time
+from pathlib import Path
 from typing import AsyncGenerator, List, TypedDict
 
 from pydantic import BaseModel
@@ -36,6 +38,25 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
+
+        # Path naar de JSON data en gerelateerde bestanden
+        json_dir = Path(
+            "/Users/ewoutdijck/Projecten AI/easylog-python-server/apps/api/src/agents/implementations/pdfs/jsondata"
+        )
+
+        # Laad alle JSON bestanden en gerelateerde content
+        knowledge_base = {}
+        for file_path in json_dir.glob("*"):
+            if file_path.suffix == ".json":
+                with open(file_path, "r", encoding="utf-8") as f:
+                    knowledge_base[file_path.stem] = json.load(f)
+            else:
+                # Voor andere bestandstypes, lees de inhoud
+                with open(file_path, "r", encoding="utf-8") as f:
+                    knowledge_base[file_path.stem] = f.read()
+
+        logger.info(f"Loaded knowledge base with {len(knowledge_base)} items")
+
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -102,6 +123,10 @@ BELANGRIJKE REGELS:
 - Als een vraag niet beantwoord kan worden, zeg dit dan duidelijk
 - ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
 - Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
+
+### Technische kennis
+Dit is de technische kennis die je mag gebruiken:
+{json.dumps(knowledge_base, indent=2)}
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
