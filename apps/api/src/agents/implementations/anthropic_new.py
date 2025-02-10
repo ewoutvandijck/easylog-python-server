@@ -95,7 +95,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         """
 
         # Laad de kennis data van de PDF JSON bestanden via de nieuwe functie
-        pdf_kennis = load_pdf_knowledge("pdfs/jsondata")
+        pdf_kennis = load_pdf_knowledge("/pdfs/jsondata")
 
         # Combineer de statische kennis met de PDF kennis
         knowledge_base = f"{static_kennis}\n\n### PDF Kennis Document\n{pdf_kennis}"
