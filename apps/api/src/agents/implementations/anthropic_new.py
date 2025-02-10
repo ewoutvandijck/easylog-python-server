@@ -40,9 +40,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         memories = self.get_metadata("memories", default=[])
 
         # Path naar de JSON data en gerelateerde bestanden
-        json_dir = Path(
-            "/Users/ewoutdijck/Projecten AI/easylog-python-server/apps/api/src/agents/implementations/pdfs/jsondata"
-        )
+        json_dir = Path(__file__).parent / "pdfs" / "jsondata"  # Gebruik relatief pad
 
         # Laad alle JSON bestanden en gerelateerde content
         knowledge_base = {}
@@ -54,6 +52,12 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
                 # Voor andere bestandstypes, lees de inhoud
                 with open(file_path, "r", encoding="utf-8") as f:
                     knowledge_base[file_path.stem] = f.read()
+
+        # Format de knowledge base voor betere leesbaarheid in de prompt
+        formatted_knowledge = "\n".join(
+            f"### {key} ###\n{json.dumps(value, indent=2, ensure_ascii=False)}"
+            for key, value in knowledge_base.items()
+        )
 
         logger.info(f"Loaded knowledge base with {len(knowledge_base)} items")
 
@@ -78,8 +82,8 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             Haalt de PQI data op uit de datasource voor HWR 450.
             """
             pqi_data = await self.backend.get_datasource_entry(
-                datasource_slug="pqi-data-hwr",
-                entry_id="450",
+                datasource_slug="pqi-data-tram",
+                entry_id="453",
                 data_type=PQIDataHwr,
             )
 
@@ -126,7 +130,7 @@ BELANGRIJKE REGELS:
 
 ### Technische kennis
 Dit is de technische kennis die je mag gebruiken:
-{json.dumps(knowledge_base, indent=2)}
+{formatted_knowledge}
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
