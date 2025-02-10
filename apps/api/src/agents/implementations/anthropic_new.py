@@ -40,14 +40,15 @@ def load_pdf_knowledge(directory: str) -> str:
     """
     kennis_onderdelen = []
     try:
-        # Loop door alle bestanden in de opgegeven directory
-        for bestandsnaam in os.listdir(directory):
+        # Bekijk eerst welke bestanden er in de directory zitten
+        bestanden = os.listdir(directory)
+        logger.info(f"Map '{directory}' bevat de volgende bestanden: {bestanden}")
+        for bestandsnaam in bestanden:
             if bestandsnaam.endswith(".json"):
                 pad = os.path.join(directory, bestandsnaam)
                 try:
                     with open(pad, "r", encoding="utf-8") as file:
                         data = json.load(file)
-                        # Voeg de inhoud toe als 'content' aanwezig is
                         if "content" in data:
                             kennis_onderdelen.append(data["content"])
                         else:
@@ -94,8 +95,13 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         - Airco problemen: Start met filter controle
         """
 
+        # Bepaal het pad naar de map met JSON data relatief aan deze file
+        huidige_map = os.path.dirname(__file__)
+        pdf_directory = os.path.join(huidige_map, "pdfs", "jsondata")
+
         # Laad de kennis data van de PDF JSON bestanden via de nieuwe functie
-        pdf_kennis = load_pdf_knowledge("/pdfs/jsondata")
+        pdf_kennis = load_pdf_knowledge(pdf_directory)
+        logger.info(f"PDF kennis data: {pdf_kennis}")
 
         # Combineer de statische kennis met de PDF kennis
         knowledge_base = f"{static_kennis}\n\n### PDF Kennis Document\n{pdf_kennis}"
