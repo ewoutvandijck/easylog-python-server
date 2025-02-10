@@ -29,17 +29,26 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
         pdfs: list[bytes] = []
         glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
 
+        self.logger.info(f"Start laden van PDFs uit: {glob_with_path}")
+
         try:
             # Find all PDF files in directory and encode them
             for file in glob.glob(glob_with_path):
                 try:
+                    self.logger.info(f"Bezig met laden van PDF: {file}")
                     with open(file, "rb") as f:
-                        pdfs.append(f.read())
+                        pdf_content = f.read()
+                        pdfs.append(pdf_content)
+                        self.logger.info(
+                            f"PDF succesvol geladen: {file} ({len(pdf_content)} bytes)"
+                        )
                 except IOError as e:
                     self.logger.error(f"Kon PDF bestand niet lezen: {file}. Fout: {e}")
 
             if not pdfs:
                 self.logger.warning(f"Geen PDF bestanden gevonden in: {glob_with_path}")
+            else:
+                self.logger.info(f"Totaal aantal geladen PDFs: {len(pdfs)}")
 
             return pdfs
         except Exception as e:
