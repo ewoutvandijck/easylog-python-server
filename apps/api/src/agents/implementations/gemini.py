@@ -27,20 +27,37 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
 
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[bytes]:
         pdfs: list[bytes] = []
-
-        # Get absolute path by joining with current file's directory
         glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
 
-        # Find all PDF files in directory and encode them
-        for file in glob.glob(glob_with_path):
-            with open(file, "rb") as f:
-                pdfs.append(f.read())
+        try:
+            # Find all PDF files in directory and encode them
+            for file in glob.glob(glob_with_path):
+                try:
+                    with open(file, "rb") as f:
+                        pdfs.append(f.read())
+                except IOError as e:
+                    self.logger.error(f"Kon PDF bestand niet lezen: {file}. Fout: {e}")
 
-        return pdfs
+            if not pdfs:
+                self.logger.warning(f"Geen PDF bestanden gevonden in: {glob_with_path}")
+
+            return pdfs
+        except Exception as e:
+            self.logger.error(f"Fout bij het laden van PDFs: {e}")
+            return []
 
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
+        """
+        Verwerkt berichten en genereert antwoorden.
+
+        Args:
+            messages (List[Message]): Lijst van berichten om te verwerken
+
+        Yields:
+            TextContent: Gegenereerde tekst antwoorden
+        """
         pdfs = self._load_pdfs(self.config.glob_pattern)
 
         self.logger.info(f"Loaded {len(pdfs)} PDFs")
