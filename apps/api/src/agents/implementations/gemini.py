@@ -11,7 +11,6 @@ from google.genai.types import (
     Part,
 )
 from pydantic import Field
-
 from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
@@ -46,8 +45,24 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
 
         self.logger.info(f"Loaded {len(pdfs)} PDFs")
 
+        # Beter structureren van de message history
+        history = []
+        for message in messages[:-1]:  # Alle berichten behalve het laatste
+            role = "user" if message.role == "user" else "model"
+            text_contents = [
+                content.content
+                for content in message.content
+                if isinstance(content, TextContent)
+            ]
+
+            if text_contents:  # Alleen toevoegen als er tekst content is
+                history.append(
+                    Content(
+                        role=role, parts=[Part(text=text) for text in text_contents]
+                    )
+                )
+
         current_message = messages[-1]
-        previous_messages = messages[:-1]
 
         chat = self.client.chats.create(
             model="gemini-2.0-flash",
@@ -65,21 +80,7 @@ BELANGRIJKE REGELS:
 - Toon altijd de Veiligheidsinstructies die tegenkomt bij de instructies
 """,
             ),
-            history=[
-                *[
-                    Content(
-                        role="user" if message.role == "user" else "model",
-                        parts=[
-                            Part(
-                                text=content.content,
-                            )
-                            for content in message.content
-                            if isinstance(content, TextContent)
-                        ],
-                    )
-                    for message in previous_messages
-                ],
-            ],
+            history=history,
         )
 
         for chunk in chat.send_message_stream(
