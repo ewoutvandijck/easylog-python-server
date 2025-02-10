@@ -1,3 +1,5 @@
+import json
+import os
 import random
 import time
 from typing import AsyncGenerator, List, TypedDict
@@ -12,7 +14,7 @@ from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 class PQIDataHwr(TypedDict):
     """
-    Defines the structure for PQI (Product Quality Inspection) data specifically for HWR (Hardware) components.
+    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components.
     """
 
     taak: str
@@ -23,6 +25,47 @@ class PQIDataHwr(TypedDict):
 # Vereenvoudigde config class zonder subjects
 class AnthropicNewConfig(BaseModel):
     pass
+
+
+# Nieuwe functie om de PDF JSON data te laden
+def load_pdf_knowledge(directory: str) -> str:
+    """
+    Laad alle PDF JSON data als kennisdocument uit de opgegeven map.
+
+    Args:
+        directory (str): Het pad naar de directory met JSON-bestanden.
+
+    Returns:
+        str: De gecombineerde kennis tekst van alle JSON-bestanden of een melding als er niets gevonden is.
+    """
+    kennis_onderdelen = []
+    try:
+        # Loop door alle bestanden in de opgegeven directory
+        for bestandsnaam in os.listdir(directory):
+            if bestandsnaam.endswith(".json"):
+                pad = os.path.join(directory, bestandsnaam)
+                try:
+                    with open(pad, "r", encoding="utf-8") as file:
+                        data = json.load(file)
+                        # Voeg de inhoud toe als 'content' aanwezig is
+                        if "content" in data:
+                            kennis_onderdelen.append(data["content"])
+                        else:
+                            kennis_onderdelen.append(
+                                f"In {bestandsnaam} is geen 'content' key gevonden."
+                            )
+                except Exception as e:
+                    kennis_onderdelen.append(
+                        f"Fout bij verwerken van {bestandsnaam}: {e}"
+                    )
+    except Exception as e:
+        kennis_onderdelen.append(f"Fout bij openen van map '{directory}': {e}")
+
+    return (
+        "\n\n".join(kennis_onderdelen)
+        if kennis_onderdelen
+        else "Geen PDF kennis gevonden."
+    )
 
 
 # Vereenvoudigde agent class zonder PDF functionaliteit
@@ -38,21 +81,26 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
 
-        # Vereenvoudigde technische kennis
-        knowledge_base = """
+        # Statistische technische kennis
+        static_kennis = """
         ### Tram Onderhoud Basis ###
         - Controleer altijd eerst de veiligheid voordat je begint
         - Gebruik de juiste gereedschappen
         - Raadpleeg bij twijfel een senior monteur
         
         ### Veel voorkomende storingen ###
-        - Deuren die niet goed sluiten: Controleer eerst de rubber afdichtingen
+        - Deuren die niet goed sluiten: Controleer eerst de rubberen afdichtingen
         - Remmen die piepen: Controleer de remblokken op slijtage
         - Airco problemen: Start met filter controle
         """
 
-        logger.info(f"Loaded knowledge base with {len(knowledge_base)} items")
+        # Laad de kennis data van de PDF JSON bestanden via de nieuwe functie
+        pdf_kennis = load_pdf_knowledge("pdfs/jsondata")
 
+        # Combineer de statische kennis met de PDF kennis
+        knowledge_base = f"{static_kennis}\n\n### PDF Kennis Document\n{pdf_kennis}"
+
+        logger.info(f"Loaded knowledge base with {len(knowledge_base)} characters")
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
