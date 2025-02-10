@@ -15,8 +15,9 @@ class PQIDataHwr(TypedDict):
     Defines the structure for PQI (Product Quality Inspection) data specifically for HWR (Hardware) components.
     """
 
-    project: str
+    taak: str
     component: str
+    typematerieel: str
 
 
 # Vereenvoudigde config class zonder subjects
@@ -74,13 +75,14 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
-                entry_id="453",
+                entry_id="443",
                 data_type=PQIDataHwr,
             )
 
             data = {
-                "project": pqi_data.data["project"],
+                "taak": pqi_data.data["taak"],
                 "component": pqi_data.data["component"],
+                "typematerieel": pqi_data.data["typematerieel"],
             }
             return {
                 k: v for k, v in data.items() if v is not None
