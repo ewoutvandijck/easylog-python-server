@@ -196,11 +196,13 @@ class MessageService:
                         else {
                             "type": "image",
                             "content": content_chunk.content,
+                            "content_type": content_chunk.content_type,
                         }
                         if isinstance(content_chunk, ImageContent)
                         else {
                             "type": "pdf",
                             "content": content_chunk.content,
+                            "content_type": "application/pdf",
                         }
                         if isinstance(content_chunk, PDFContent)
                         else {
