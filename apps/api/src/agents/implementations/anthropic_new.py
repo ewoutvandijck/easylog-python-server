@@ -104,11 +104,49 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
+        async def tool_get_pdf_data():
+            """
+            Haalt PDF data op en formatteert deze leesbaar voor de assistant.
+            """
+            try:
+                pdf_data = await self.backend.get_datasource_entry(
+                    datasource_slug="pdf-extracts",
+                    entry_id="hwr-doc-12",
+                    data_type=dict,
+                )
+
+                formatted_text = []
+                current_section = ""
+
+                for element in pdf_data.get("elements", []):
+                    # Filter alleen Nederlandse tekst
+                    if element.get("Lang") != "nl":
+                        continue
+
+                    text = element.get("Text", "").strip()
+                    if not text:
+                        continue
+
+                    # Herken titels op basis van lettergrootte en vetgedrukt
+                    if element["Font"]["weight"] > 600 and element["TextSize"] > 12:
+                        if current_section:
+                            formatted_text.append(current_section)
+                        current_section = f"\n# {text}\n"
+                    else:
+                        current_section += f"{text}\n"
+
+                return "\n".join(formatted_text) or "Geen leesbare PDF data gevonden"
+
+            except Exception as e:
+                logger.error(f"PDF parse error: {str(e)}")
+                return "Kon PDF document niet laden"
+
         tools = [
             tool_store_memory,
             tool_get_random_number,
             tool_get_pqi_data,
             tool_clear_memories,
+            tool_get_pdf_data,
         ]
 
         start_time = time.time()
@@ -120,15 +158,14 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
 BELANGRIJKE REGELS:
-- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Bij het weergeven van probleem oplossingen, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
-- Als een vraag niet beantwoord kan worden, zeg dit dan duidelijk
-- ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
-- Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
+- Combineer de technische kennis met informatie uit de PDF documentatie waar relevant
+- Verwijs naar hoofdstuknummers en sectietitels uit de PDF waar mogelijk
 
 ### Technische kennis
 {knowledge_base}
+
+### PDF Documentatie (Hoofdstuk 12):
+{await tool_get_pdf_data()}
 
 ### Core memories
 {"\n-".join(memories)}
