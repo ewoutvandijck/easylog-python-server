@@ -1,5 +1,3 @@
-import json
-import os
 import random
 import time
 from typing import AsyncGenerator, List, TypedDict
@@ -27,46 +25,7 @@ class AnthropicNewConfig(BaseModel):
     pass
 
 
-# Nieuwe functie om de PDF JSON data te laden
-def load_pdf_knowledge(directory: str) -> str:
-    """
-    Laad alle PDF JSON data als kennisdocument uit de opgegeven map.
-
-    Args:
-        directory (str): Het pad naar de directory met JSON-bestanden.
-
-    Returns:
-        str: De gecombineerde kennis tekst van alle JSON-bestanden of een melding als er niets gevonden is.
-    """
-    kennis_onderdelen = []
-    try:
-        # Bekijk eerst welke bestanden er in de directory zitten
-        bestanden = os.listdir(directory)
-        logger.info(f"Map '{directory}' bevat de volgende bestanden: {bestanden}")
-        for bestandsnaam in bestanden:
-            if bestandsnaam.endswith(".json"):
-                pad = os.path.join(directory, bestandsnaam)
-                try:
-                    with open(pad, "r", encoding="utf-8") as file:
-                        data = json.load(file)
-                        if "content" in data:
-                            kennis_onderdelen.append(data["content"])
-                        else:
-                            kennis_onderdelen.append(
-                                f"In {bestandsnaam} is geen 'content' key gevonden."
-                            )
-                except Exception as e:
-                    kennis_onderdelen.append(
-                        f"Fout bij verwerken van {bestandsnaam}: {e}"
-                    )
-    except Exception as e:
-        kennis_onderdelen.append(f"Fout bij openen van map '{directory}': {e}")
-
-    return (
-        "\n\n".join(kennis_onderdelen)
-        if kennis_onderdelen
-        else "Geen PDF kennis gevonden."
-    )
+# De functie voor het laden van PDF JSON data is verwijderd omdat we geen PDF/JSON functionaliteit meer willen.
 
 
 # Vereenvoudigde agent class zonder PDF functionaliteit
@@ -75,7 +34,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
         """
-        This is the main function that handles each message from the user.
+        Deze functie handelt elk bericht van de gebruiker af.
         """
         message_history = self._convert_messages_to_anthropic_format(messages)
 
@@ -95,18 +54,11 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
         - Airco problemen: Start met filter controle
         """
 
-        # Bepaal het pad naar de map met JSON data relatief aan deze file
-        huidige_map = os.path.dirname(__file__)
-        pdf_directory = os.path.join(huidige_map, "pdfs", "jsondata")
-
-        # Laad de kennis data van de PDF JSON bestanden via de nieuwe functie
-        pdf_kennis = load_pdf_knowledge(pdf_directory)
-        logger.info(f"PDF kennis data: {pdf_kennis}")
-
-        # Combineer de statische kennis met de PDF kennis
-        knowledge_base = f"{static_kennis}\n\n### PDF Kennis Document\n{pdf_kennis}"
-
-        logger.info(f"Loaded knowledge base with {len(knowledge_base)} characters")
+        # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
+        knowledge_base = static_kennis
+        logger.info(
+            f"Loaded static knowledge base with {len(knowledge_base)} characters"
+        )
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -119,9 +71,9 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         def tool_get_random_number(start: int = 1, end: int = 100) -> str:
             """
-            A simple tool that returns a random number between start and end.
+            Een eenvoudige tool die een willekeurig getal retourneert tussen start en end.
             """
-            return f"{random.randint(start, end)} ."
+            return f"{random.randint(start, end)}."
 
         async def tool_get_pqi_data():
             """
@@ -144,7 +96,7 @@ class AnthropicNew(AnthropicAgent[AnthropicNewConfig]):
 
         async def tool_store_memory(memory: str):
             """
-            Store a memory in the database.
+            Sla een geheugen (memory) op in de database.
             """
             current_memory = self.get_metadata("memories", default=[])
             current_memory.append(memory)
