@@ -27,13 +27,14 @@ dependencies = [
 [tool.ruff]
 line-length = 120
 extend-include = ["*.ipynb"]
+target-version = "py312"
 
-# [lint]
-# Disable fix for unused imports (`F401`).
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 120
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I", "N", "UP", "ANN", "B", "A"]
-unfixable = ["F401"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Ignore unused imports in __init__.py

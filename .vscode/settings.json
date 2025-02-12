@@ -22,10 +22,10 @@
   },
   "[jupyter]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit",
-      "source.fixAll.ruff": "explicit"
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
     }
-  },
-  "ruff.configuration": "./apps/api/pyproject.toml"
+  }
 }
