@@ -1,11 +1,26 @@
 datasource db {
-    provider = "sqlite"
+    provider = "postgresql"
     url      = env("DATABASE_URL")
 }
 
 generator client {
     provider  = "prisma-client-py"
     interface = "sync"
+}
+
+enum MessageContentType {
+    text
+    image
+    pdf
+    tool_use
+    tool_result
+}
+
+enum MessageRole {
+    user
+    assistant
+    system
+    developer
 }
 
 model Threads {
@@ -23,7 +38,7 @@ model Messages {
     id          String            @id @default(cuid())
     thread      Threads           @relation(fields: [thread_id], references: [id], onDelete: Cascade)
     thread_id   String
-    role        String            @default("user")
+    role        MessageRole       @default(user)
     contents    MessageContents[]
     agent_class String
     created_at  DateTime          @default(now())
@@ -33,13 +48,19 @@ model Messages {
 }
 
 model MessageContents {
-    id           String   @id @default(cuid())
-    message      Messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    message_id   String
-    content_type String   @default("text")
-    content      String
-    created_at   DateTime @default(now())
-    updated_at   DateTime @updatedAt
+    id                String             @id @default(cuid())
+    message           Messages           @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    message_id        String
+    type              MessageContentType @default(text)
+    tool_use_id       String?
+    tool_use_is_error Boolean?
+    tool_use_name     String?
+    tool_use_input    Json?
+    content           String?
+    content_type      String?
+    data              String?
+    created_at        DateTime           @default(now())
+    updated_at        DateTime           @updatedAt
 
     @@map("message_contents")
 }

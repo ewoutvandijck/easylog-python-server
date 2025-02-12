@@ -1,34 +1,22 @@
 from typing import List, Literal, Sequence
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class AgentConfig(BaseModel):
-    agent_class: str
+class TextDeltaContent(BaseModel):
+    type: Literal["text_delta"] = Field(default="text_delta")
 
-    class Config:
-        extra = "allow"
-
-
-class BaseMessageContent(BaseModel):
-    chunk_index: int = Field(
-        default=0, description="The index of the content in the message."
-    )
+    content: str = Field(..., description="The text of the delta.")
 
 
-class TextContent(BaseMessageContent):
-    # TODO: add support for other content types
-    type: Literal["text"] = Field(
-        default="text", description="The type of content in the message."
-    )
+class TextContent(BaseModel):
+    type: Literal["text"] = Field(default="text")
 
     content: str = Field(..., description="The content of the message.")
 
 
-class ToolUseContent(BaseMessageContent):
-    type: Literal["tool_use"] = Field(
-        default="tool_use", description="The type of content in the message."
-    )
+class ToolUseContent(BaseModel):
+    type: Literal["tool_use"] = Field(default="tool_use")
 
     id: str = Field(..., description="The ID of the tool use.")
 
@@ -37,10 +25,8 @@ class ToolUseContent(BaseMessageContent):
     input: dict = Field(..., description="The arguments of the tool.")
 
 
-class ToolResultContent(BaseMessageContent):
-    type: Literal["tool_result"] = Field(
-        default="tool_result", description="The type of content in the message."
-    )
+class ToolResultContent(BaseModel):
+    type: Literal["tool_result"] = Field(default="tool_result")
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
@@ -51,18 +37,62 @@ class ToolResultContent(BaseMessageContent):
     )
 
 
+ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+
+class ImageContent(BaseModel):
+    type: Literal["image"] = Field(default="image")
+
+    content: str = Field(
+        ...,
+        description="The raw base64 encoded image data, without any prefixes like `data:image/jpeg;base64,` for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
+    )
+
+    content_type: ContentType = Field(
+        default="image/jpeg",
+        description="The content type of the image, must start with `image/`",
+    )
+
+
+class PDFContent(BaseModel):
+    type: Literal["pdf"] = Field(default="pdf")
+
+    content: str = Field(
+        ...,
+        description="The base64 encoded PDF data, without any prefixes like `data:application/pdf;base64,`, for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
+    )
+
+
+MessageContent = (
+    TextContent
+    | TextDeltaContent
+    | ToolUseContent
+    | ToolResultContent
+    | ImageContent
+    | PDFContent
+)
+
+
 class Message(BaseModel):
-    role: Literal["assistant", "user"] = Field(
+    role: Literal["assistant", "user", "system", "developer"] = Field(
         default="assistant", description="The role of the message."
     )
 
-    content: Sequence[TextContent | ToolUseContent | ToolResultContent] = Field(
+    content: Sequence[MessageContent] = Field(
         ..., description="The content of the message."
     )
 
 
+class AgentConfig(BaseModel):
+    agent_class: str
+
+    model_config = ConfigDict(extra="allow")
+
+
 class MessageCreateInput(BaseModel):
-    content: List[TextContent] = Field(..., description="The content of the message.")
+    content: List[TextContent | ImageContent | PDFContent] = Field(
+        ..., description="The content of the message."
+    )
 
     agent_config: AgentConfig = Field(
         ...,
@@ -73,7 +103,17 @@ class MessageCreateInput(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "content": [{"type": "text", "content": "Hello, how are you?"}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "content": "Hello, what color is this image?",
+                        },
+                        {
+                            "type": "image",
+                            "content": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
+                            "content_type": "image/png",
+                        },
+                    ],
                     "agent_config": {
                         "agent_class": "OpenAIAssistant",
                         "assistant_id": "asst_5vWL7aefIopE4aU5DcFRmpA5",

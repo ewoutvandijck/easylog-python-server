@@ -8,7 +8,7 @@ from prisma.models import Messages
 
 from src.db.prisma import prisma
 from src.logger import logger
-from src.models.messages import MessageCreateInput, TextContent
+from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
 from src.security.optional_http_bearer import optional_bearer_header
 from src.services.messages.message_service import MessageService
@@ -53,7 +53,7 @@ async def get_messages(
     "/threads/{thread_id}/messages",
     name="create_message",
     tags=["messages"],
-    response_model=TextContent,
+    response_model=MessageContent,
     response_description="A stream of JSON-encoded message chunks",
     description="Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.",
 )
@@ -86,7 +86,7 @@ async def create_message(
         thread_id=thread.id,
         agent_class=message.agent_config.agent_class,
         agent_config=agent_config,
-        content=message.content,
+        input_content=list(message.content),
         bearer_token=auth.credentials if auth else None,
     )
 

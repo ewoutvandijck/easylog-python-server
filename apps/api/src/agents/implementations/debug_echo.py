@@ -3,17 +3,16 @@ from collections.abc import AsyncGenerator
 from typing import List
 
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
 
-class DebugAssistantConfig(BaseModel):
+class DebugEchoConfig(BaseModel):
     debug_interval_ms: int = Field(default=100)
     debug_chunk_size: int = Field(default=10)
 
 
-class DebugAssistant(BaseAgent[DebugAssistantConfig]):
+class DebugEcho(BaseAgent[DebugEchoConfig]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

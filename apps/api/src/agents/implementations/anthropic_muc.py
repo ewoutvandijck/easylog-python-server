@@ -6,10 +6,9 @@ from typing import AsyncGenerator, List
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
@@ -19,7 +18,7 @@ class Subject(BaseModel):
     glob_pattern: str
 
 
-class AnthropicFirstConfig(BaseModel):
+class AnthropicMUCConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
@@ -38,7 +37,7 @@ class AnthropicFirstConfig(BaseModel):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
+class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
@@ -54,7 +53,7 @@ class AnthropicFirst(AnthropicAgent[AnthropicFirstConfig]):
 
     async def on_message(
         self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.

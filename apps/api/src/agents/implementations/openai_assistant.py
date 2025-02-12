@@ -3,7 +3,7 @@ from typing import AsyncGenerator, List
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
 from src.agents.openai_agent import OpenAIAgent
-from src.models.messages import Message, TextContent
+from src.models.messages import Message, MessageContent, TextContent
 
 
 class OpenAIAssistantConfigWithId(BaseModel):
@@ -24,7 +24,7 @@ class OpenAIAssistant(
 ):
     async def on_message(
         self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """An agent that uses OpenAI Assistants to generate responses.
         This class handles all the communication with OpenAI's assistant feature,
         including managing conversations and streaming responses.
@@ -96,8 +96,8 @@ class OpenAIAssistant(
                         "role": message.role,
                         "content": [
                             {
-                                "type": content.type,
-                                "text": content.content,
+                                "type": "text",
+                                "text": "",
                             }
                             # Only include text content, skip other types (like images)
                             for content in message.content
@@ -105,17 +105,21 @@ class OpenAIAssistant(
                         ],
                     }
                     for message in messages
+                    if message.role == "user" or message.role == "assistant"
                 ]
             )
 
             # Add all previous messages to the thread to maintain conversation context
             for message in previous_messages:
+                if message.role != "user" and message.role != "assistant":
+                    continue
+
                 await self.client.beta.threads.messages.create(
                     thread_id=thread.id,
                     role=message.role,
                     content=[
                         {
-                            "type": content.type,
+                            "type": "text",
                             "text": content.content,
                         }
                         for content in message.content

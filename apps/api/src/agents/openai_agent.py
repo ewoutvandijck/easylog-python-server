@@ -8,7 +8,9 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 from src.agents.base_agent import BaseAgent, TConfig
 from src.models.messages import (
     Message,
+    MessageContent,
     TextContent,
+    TextDeltaContent,
 )
 
 
@@ -54,18 +56,24 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
     async def handle_assistant_stream(
         self,
         stream: AsyncStream[AssistantStreamEvent],
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
+        text_content = ""
         async for event in stream:
             if isinstance(event.data, MessageDeltaEvent):
                 for delta in event.data.delta.content or []:
                     # We only care about text deltas, we ignore any other types of deltas for now
                     if isinstance(delta, TextDeltaBlock) and delta.text:
-                        yield TextContent(
-                            content=delta.text.value
+                        content = (
+                            delta.text.value
                             if isinstance(delta.text.value, str)
-                            else "",
-                            type="text",
+                            else ""
                         )
+                        yield TextDeltaContent(
+                            content=content,
+                        )
+                        text_content += content
+
+        yield TextContent(content=text_content)
 
     async def handle_completions_stream(
         self, stream: AsyncStream[ChatCompletionChunk]

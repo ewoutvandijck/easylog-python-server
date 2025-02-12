@@ -3,12 +3,11 @@ from typing import AsyncGenerator, List, Literal
 from openai import AsyncStream
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
-
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
 
-class OpenAICompletionsAssistantConfig(BaseModel):
+class OpenAICompletionsConfig(BaseModel):
     model: ChatModel = Field(default="o3-mini")
     system_message: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
@@ -19,7 +18,7 @@ class OpenAICompletionsAssistantConfig(BaseModel):
     timeout: float = Field(default=90.0, description="Timeout in seconds for API calls")
 
 
-class OpenAICompletionsAssistant(OpenAIAgent[OpenAICompletionsAssistantConfig]):
+class OpenAICompletions(OpenAIAgent[OpenAICompletionsConfig]):
     async def on_message(
         self, messages: List[Message]
     ) -> AsyncGenerator[TextContent, None]:
