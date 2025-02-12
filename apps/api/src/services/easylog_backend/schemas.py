@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -11,20 +11,20 @@ DatasourceDataType = TypeVar("DatasourceDataType")
 
 class Datasource(BaseModel):
     id: int
-    types: List[str]
-    category_id: Optional[int]
+    types: list[str]
+    category_id: int | None
     name: str
     description: str
     slug: str
-    resource_groups: Optional[dict]
-    extra_data_fields: Optional[dict]
-    allocation_types: Optional[dict]
+    resource_groups: dict | None
+    extra_data_fields: dict | None
+    allocation_types: dict | None
     created_at: datetime
     updated_at: datetime
 
 
 class PaginationLink(BaseModel):
-    url: Optional[str]
+    url: str | None
     label: str
     active: bool
 
@@ -32,15 +32,15 @@ class PaginationLink(BaseModel):
 class PaginationLinks(BaseModel):
     first: str
     last: str
-    prev: Optional[str]
-    next: Optional[str]
+    prev: str | None
+    next: str | None
 
 
 class PaginationMeta(BaseModel):
     current_page: int
     from_: int = Field(alias="from")
     last_page: int
-    links: List[PaginationLink]
+    links: list[PaginationLink]
     path: str
     per_page: int
     to: int
@@ -48,7 +48,7 @@ class PaginationMeta(BaseModel):
 
 
 class PaginatedResponse(BaseModel, Generic[PaginatedResponseType]):
-    data: List[PaginatedResponseType]
+    data: list[PaginatedResponseType]
     links: PaginationLinks
     meta: PaginationMeta
 

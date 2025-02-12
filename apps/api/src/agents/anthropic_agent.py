@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import AsyncGenerator, Callable, Generic, List
+from collections.abc import AsyncGenerator, Callable
+from typing import Generic
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.message_param import MessageParam
@@ -65,7 +66,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     async def handle_stream(
         self,
         stream: AsyncStream[RawMessageStreamEvent],
-        messages: List[Message],
+        messages: list[Message],
         tools: list[Callable] = [],
     ) -> AsyncGenerator[MessageContent, None]:
         """
@@ -101,17 +102,11 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         # Process each piece of Claude's response as it arrives
         async for event in stream:
             # When Claude starts a new text block
-            if (
-                event.type == "content_block_start"
-                and event.content_block.type == "text"
-            ):
+            if event.type == "content_block_start" and event.content_block.type == "text":
                 message_contents.append(TextContent(content=event.content_block.text))
 
             # When Claude wants to use a tool
-            elif (
-                event.type == "content_block_start"
-                and event.content_block.type == "tool_use"
-            ):
+            elif event.type == "content_block_start" and event.content_block.type == "tool_use":
                 message_contents.append(
                     ToolUseContent(
                         name=event.content_block.name,
@@ -121,9 +116,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 )
 
             # When Claude finishes a block
-            elif event.type == "content_block_stop" and isinstance(
-                message_contents[-1], TextContent
-            ):
+            elif event.type == "content_block_stop" and isinstance(message_contents[-1], TextContent):
                 yield TextContent(
                     content=message_contents[-1].content,
                     type="text",
@@ -141,10 +134,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 yield TextDeltaContent(content=event.delta.text)
 
             # When Claude is building up JSON data for a tool
-            elif (
-                event.type == "content_block_delta"
-                and event.delta.type == "input_json_delta"
-            ):
+            elif event.type == "content_block_delta" and event.delta.type == "input_json_delta":
                 partial_json += event.delta.partial_json
 
             # When Claude wants to use a tool and has all the information ready
@@ -168,9 +158,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
                     # Search through available tools to find one matching the requested name
                     # Returns None if no matching tool is found
-                    function = next(
-                        (tool for tool in tools if tool.__name__ == function_name), None
-                    )
+                    function = next((tool for tool in tools if tool.__name__ == function_name), None)
 
                     # If no matching tool was found, raise an error
                     if function is None:
@@ -204,9 +192,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Clear the partial JSON buffer, regardless of success or failure
                     partial_json = ""
 
-    def _convert_messages_to_anthropic_format(
-        self, messages: List[Message]
-    ) -> list[MessageParam]:
+    def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
         """
         Translates messages into a language Claude can understand.
 
@@ -296,9 +282,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         while i >= 0:
             # Check if current message has empty content
             if not message_history[i]["content"]:
-                self.logger.warning(
-                    f"Removing message {i} with empty content and its following message"
-                )
+                self.logger.warning(f"Removing message {i} with empty content and its following message")
 
                 # Remove current message
                 message_history.pop(i)

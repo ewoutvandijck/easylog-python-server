@@ -1,11 +1,11 @@
-from typing import Type, cast
+from typing import cast
 
 from anthropic.types.tool_param import ToolParam
 from pydantic import BaseModel
 
 
 def pydantic_to_anthropic_tool(
-    pydantic_model: Type[BaseModel],
+    pydantic_model: type[BaseModel],
     description: str = "",
 ):
     json_schema = dict(

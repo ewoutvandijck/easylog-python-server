@@ -1,4 +1,5 @@
-from typing import AsyncGenerator, Sequence, cast
+from collections.abc import AsyncGenerator, Sequence
+from typing import cast
 
 from prisma import Json
 from prisma.enums import MessageContentType, MessageRole
@@ -29,9 +30,7 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        input_content: list[
-            TextContent | ImageContent | PDFContent | ToolResultContent | ToolUseContent
-        ],
+        input_content: list[TextContent | ImageContent | PDFContent | ToolResultContent | ToolUseContent],
         agent_class: str,
         agent_config: dict,
         bearer_token: str | None = None,
@@ -59,9 +58,7 @@ class MessageService:
         logger.info(f"Loading agent {agent_class}")
 
         # Try to load the agent
-        agent = AgentLoader.get_agent(
-            agent_class, thread_id, agent_config, backend_service
-        )
+        agent = AgentLoader.get_agent(agent_class, thread_id, agent_config, backend_service)
 
         if not agent:
             raise AgentNotFoundError(f"Agent class {agent_class} not found")
@@ -82,8 +79,7 @@ class MessageService:
                         if message_content.type == MessageContentType.text
                         else ImageContent(
                             content=message_content.content or "",
-                            content_type=cast(ContentType, message_content.content_type)
-                            or "image/jpeg",
+                            content_type=cast(ContentType, message_content.content_type) or "image/jpeg",
                         )
                         if message_content.type == MessageContentType.image
                         else PDFContent(
@@ -99,9 +95,7 @@ class MessageService:
                         else ToolUseContent(
                             id=message_content.tool_use_id or "",
                             name=message_content.tool_use_name or "",
-                            input=dict(message_content.tool_use_input)
-                            if message_content.tool_use_input
-                            else {},
+                            input=dict(message_content.tool_use_input) if message_content.tool_use_input else {},
                         )
                         for message_content in message.contents
                         if message_content is not None

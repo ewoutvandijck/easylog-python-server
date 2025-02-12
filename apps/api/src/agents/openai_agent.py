@@ -1,4 +1,5 @@
-from typing import AsyncGenerator, Generic, List, cast
+from collections.abc import AsyncGenerator
+from typing import Generic, cast
 
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.beta import AssistantStreamEvent
@@ -63,11 +64,7 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
                 for delta in event.data.delta.content or []:
                     # We only care about text deltas, we ignore any other types of deltas for now
                     if isinstance(delta, TextDeltaBlock) and delta.text:
-                        content = (
-                            delta.text.value
-                            if isinstance(delta.text.value, str)
-                            else ""
-                        )
+                        content = delta.text.value if isinstance(delta.text.value, str) else ""
                         yield TextDeltaContent(
                             content=content,
                         )
@@ -79,9 +76,7 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
         self, stream: AsyncStream[ChatCompletionChunk]
     ) -> AsyncGenerator[TextContent, None]:
         async for event in stream:
-            self.logger.info(
-                f"Received completion chunk: {event.choices[0].delta.content}"
-            )
+            self.logger.info(f"Received completion chunk: {event.choices[0].delta.content}")
 
             if event.choices[0].delta.content is not None:
                 yield TextContent(
@@ -89,11 +84,9 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
                     type="text",
                 )
 
-    def _convert_messages_to_openai_messages(
-        self, messages: List[Message]
-    ) -> List[ChatCompletionMessageParam]:
+    def _convert_messages_to_openai_messages(self, messages: list[Message]) -> list[ChatCompletionMessageParam]:
         return cast(
-            List[ChatCompletionMessageParam],
+            list[ChatCompletionMessageParam],
             [
                 {
                     "role": message.role,

@@ -55,7 +55,7 @@ async def timeout_middleware(request, call_next):
         async with asyncio.timeout(90):  # 90 second timeout
             response = await call_next(request)
             return response
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return JSONResponse(status_code=504, content={"detail": "Request timeout"})
 
 

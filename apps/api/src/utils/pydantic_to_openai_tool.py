@@ -1,11 +1,11 @@
-from typing import Type, cast
+from typing import cast
 
 from openai.types.chat import chat_completion_tool_param
 from pydantic import BaseModel
 
 
 def pydantic_to_openai_tool(
-    pydantic_model: Type[BaseModel],
+    pydantic_model: type[BaseModel],
 ) -> chat_completion_tool_param.ChatCompletionToolParam:
     if pydantic_model.__doc__ is None:
         raise ValueError(

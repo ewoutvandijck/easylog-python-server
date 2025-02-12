@@ -3,16 +3,11 @@ import json
 import logging
 import os
 from abc import abstractmethod
+from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
 from types import UnionType
 from typing import (
     Any,
-    AsyncGenerator,
-    Callable,
-    Coroutine,
-    Dict,
-    Generator,
     Generic,
-    List,
     TypeVar,
     Union,
     get_args,
@@ -52,13 +47,13 @@ class BaseAgent(Generic[TConfig]):
         logger.info(f"Initialized subclass: {cls.__name__}")
 
     @abstractmethod
-    def on_message(self, messages: List[Message]) -> AsyncGenerator[TextContent, None]:
+    def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
         raise NotImplementedError()
 
     @abstractmethod
     def get_tools(
         self,
-    ) -> Dict[str, Callable[[], Any] | Callable[[], Coroutine[Any, Any, Any]]]:
+    ) -> dict[str, Callable[[], Any] | Callable[[], Coroutine[Any, Any, Any]]]:
         raise NotImplementedError()
 
     def get_env(self, key: str) -> str:
@@ -67,15 +62,13 @@ class BaseAgent(Generic[TConfig]):
         env = os.getenv(key)
 
         if env is None:
-            raise ValueError(
-                f"Environment variable {key} is not found. Make sure .env file exists and {key} is set."
-            )
+            raise ValueError(f"Environment variable {key} is not found. Make sure .env file exists and {key} is set.")
 
         return env
 
     def forward(
         self,
-        messages: List[Message],
+        messages: list[Message],
     ) -> AsyncGenerator[TextContent, None]:
         """
         Forward the messages to the agent. Returns a generator of message contents.
@@ -93,14 +86,10 @@ class BaseAgent(Generic[TConfig]):
 
         if not inspect.isasyncgen(generator):
             if inspect.isgenerator(generator):
-                logger.warning(
-                    "on_message returned a sync generator, converting to async generator"
-                )
+                logger.warning("on_message returned a sync generator, converting to async generator")
                 generator = self._sync_to_async_generator(generator)
             else:
-                raise ValueError(
-                    "on_message must return either a sync or async generator"
-                )
+                raise ValueError("on_message must return either a sync or async generator")
 
         return generator
 
@@ -113,9 +102,7 @@ class BaseAgent(Generic[TConfig]):
         metadata: dict = json.loads((self._get_thread()).metadata or "{}")
         metadata[key] = value
 
-        prisma.threads.update(
-            where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)}
-        )
+        prisma.threads.update(where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)})
 
     @property
     def backend(self) -> BackendService:
@@ -138,9 +125,7 @@ class BaseAgent(Generic[TConfig]):
         """Get the thread for the agent."""
 
         if self._thread is None:
-            self._thread = prisma.threads.find_first_or_raise(
-                where={"id": self.thread_id}
-            )
+            self._thread = prisma.threads.find_first_or_raise(where={"id": self.thread_id})
 
         return self._thread
 
@@ -157,17 +142,15 @@ class BaseAgent(Generic[TConfig]):
             raise ValueError("Could not determine config type from class definition")
 
         # Handle Union types by trying each type until one works
-        if (
-            hasattr(self._type_T, "__origin__") and self._type_T.__origin__ is Union
-        ) or isinstance(self._type_T, UnionType):
+        if (hasattr(self._type_T, "__origin__") and self._type_T.__origin__ is Union) or isinstance(
+            self._type_T, UnionType
+        ):
             for type_option in get_args(self._type_T):
                 try:
                     return type_option(**kwargs)
                 except (ValueError, TypeError):
                     continue
-            raise ValueError(
-                f"None of the union types {self._type_T} could parse the config"
-            )
+            raise ValueError(f"None of the union types {self._type_T} could parse the config")
 
         # Handle single type
         return self._type_T(**kwargs)

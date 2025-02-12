@@ -1,4 +1,3 @@
-from typing import Type
 
 from httpx import AsyncClient
 
@@ -11,9 +10,7 @@ from .schemas import (
 
 
 class BackendService:
-    def __init__(
-        self, bearer_token: str, base_url: str = "https://staging.easylog.nu/api/v2"
-    ) -> None:
+    def __init__(self, bearer_token: str, base_url: str = "https://staging.easylog.nu/api/v2") -> None:
         self.bearer_token = bearer_token
         self.client = AsyncClient(
             base_url=base_url,
@@ -35,7 +32,7 @@ class BackendService:
         self,
         datasource_slug: str,
         entry_id: str,
-        data_type: Type[DatasourceDataType] = dict,
+        data_type: type[DatasourceDataType] = dict,
     ) -> DatasourceDataEntry[DatasourceDataType]:
         """
         Get a datasource entry
