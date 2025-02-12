@@ -87,7 +87,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
         - Controleer altijd eerst de veiligheid voordat je begint
         - Gebruik de juiste gereedschappen
         - Raadpleeg bij twijfel een senior monteur
-        
+
         ### Veel voorkomende storingen ###
         - Deuren die niet goed sluiten: Controleer eerst de rubberen afdichtingen
         - Remmen die piepen: Controleer de remblokken op slijtage

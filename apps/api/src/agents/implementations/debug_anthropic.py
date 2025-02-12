@@ -6,7 +6,6 @@ from collections.abc import AsyncGenerator
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -52,7 +51,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -89,7 +90,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
 
         if subject is not None:
             current_subject_name = subject.name
@@ -110,7 +113,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -120,9 +125,12 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -208,6 +216,12 @@ Core memories zijn belangrijke informatie die je moet onthouden over een gebruik
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
+
+### Subject
+Je bent nu in het onderwerp: {current_subject_name}
+
+### Instructions
+{current_subject_instructions}
             """,
             messages=message_history,
             # Give Claude access to our special tools

@@ -125,14 +125,14 @@ class MessageService:
         async for content_chunk in agent.forward(thread_history):
             logger.info(f"Received chunk: {content_chunk}")
 
+            # Yield early to allow the frontend to render the message as it comes in
+            yield content_chunk
+
             if isinstance(content_chunk, ToolResultContent):
                 tool_result_content = content_chunk
                 break
-
-            output_content.append(content_chunk)
-
-            # Yield early to allow the frontend to render the message as it comes in
-            yield content_chunk
+            else:
+                output_content.append(content_chunk)
 
         MessageService.save_message(
             thread_id,
@@ -157,7 +157,6 @@ class MessageService:
         logger.info("Message saved")
 
         if tool_result_content:
-            yield tool_result_content
             async for chunk in cls.forward_message(
                 thread_id,
                 [tool_result_content],
