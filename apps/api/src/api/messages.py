@@ -94,10 +94,14 @@ async def create_message(
     async def stream():
         try:
             async for chunk in forward_message_generator:
-                yield create_sse_event("delta", chunk.model_dump_json())
+                sse_event = create_sse_event("delta", chunk.model_dump_json())
+                logger.info(f"Sending sse delta event to client: {sse_event}")
+                yield sse_event
         except Exception as e:
             logger.exception("Error in SSE stream", exc_info=e)
-            yield create_sse_event("error", json.dumps({"detail": str(e)}))
+            sse_event = create_sse_event("error", json.dumps({"detail": str(e)}))
+            logger.info(f"Sending sse error event to client: {sse_event}")
+            yield sse_event
 
     return StreamingResponse(
         stream(),
