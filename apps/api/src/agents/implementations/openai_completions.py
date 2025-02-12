@@ -1,8 +1,10 @@
-from typing import AsyncGenerator, List, Literal
+from collections.abc import AsyncGenerator
+from typing import Literal
 
 from openai import AsyncStream
 from openai.types.chat_model import ChatModel
 from pydantic import BaseModel, Field
+
 from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
@@ -19,9 +21,7 @@ class OpenAICompletionsConfig(BaseModel):
 
 
 class OpenAICompletions(OpenAIAgent[OpenAICompletionsConfig]):
-    async def on_message(
-        self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
         """An agent that uses OpenAI's simpler chat completions API to generate responses...
         Unlike the full Assistants API, this uses a more straightforward approach
         where messages are sent directly to the model without persistent threads
@@ -46,9 +46,7 @@ class OpenAICompletions(OpenAIAgent[OpenAICompletionsConfig]):
         # The system message helps set the tone and behavior of the AI assistant
         _messages = self._convert_messages_to_openai_messages(messages)
         if self.config.system_message:
-            _messages.insert(
-                0, {"role": "developer", "content": self.config.system_message}
-            )
+            _messages.insert(0, {"role": "developer", "content": self.config.system_message})
 
         # We take all the messages in the conversation and convert them to
         # OpenAI's expected format (this handles things like roles and content properly)
@@ -56,9 +54,7 @@ class OpenAICompletions(OpenAIAgent[OpenAICompletionsConfig]):
         stream_or_completion = await self.client.chat.completions.create(
             # Use the configuration settings (model, temperature, etc.)
             # that were specified when this assistant was created (excluding the system message)
-            **self.config.model_dump(
-                exclude={"system_message", "timeout"}, exclude_none=True
-            ),
+            **self.config.model_dump(exclude={"system_message", "timeout"}, exclude_none=True),
             messages=_messages,
             response_format={"type": "text"},
             timeout=self.config.timeout,

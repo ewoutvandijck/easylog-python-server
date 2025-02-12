@@ -3,6 +3,7 @@ import base64
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+
 from src.db.prisma import prisma
 from src.main import app
 from src.models.messages import ImageContent, PDFContent, TextContent
@@ -93,9 +94,7 @@ async def test_anthropic_supports_pdf_data():
     async for chunk in MessageService.forward_message(
         thread_id=thread.id,
         input_content=[
-            TextContent(
-                content="Wat hebben de afbeelding en de pdf met elkaar gemeen?"
-            ),
+            TextContent(content="Wat hebben de afbeelding en de pdf met elkaar gemeen?"),
             ImageContent(
                 content=image_data,
                 content_type=image_media_type,

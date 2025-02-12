@@ -3,9 +3,11 @@ import glob
 import os
 import random
 import time
-from typing import AsyncGenerator, List, TypedDict
+from collections.abc import AsyncGenerator
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -70,9 +72,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: List[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
@@ -96,9 +96,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
 
         # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
         knowledge_base = static_kennis
-        logger.info(
-            f"Loaded static knowledge base with {len(knowledge_base)} characters"
-        )
+        logger.info(f"Loaded static knowledge base with {len(knowledge_base)} characters")
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -130,9 +128,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
                 "component": pqi_data.data["component"],
                 "typematerieel": pqi_data.data["typematerieel"],
             }
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
+
+            # Return the pqi data or an error message if it's not found
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
         async def tool_store_memory(memory: str):
             """

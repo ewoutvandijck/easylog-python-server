@@ -1,8 +1,8 @@
 import time
 from collections.abc import AsyncGenerator
-from typing import List
 
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
@@ -16,9 +16,7 @@ class DebugEcho(BaseAgent[DebugEchoConfig]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def on_message(
-        self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
         """An agent that streams back the messages it receives in chunks of `debug_chunk_size` characters.
 
         Args:

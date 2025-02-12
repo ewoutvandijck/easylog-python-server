@@ -1,4 +1,5 @@
-from typing import List, Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,9 +33,7 @@ class ToolResultContent(BaseModel):
 
     content: str = Field(..., description="The result of the tool.")
 
-    is_error: bool = Field(
-        default=False, description="Whether the tool result is an error."
-    )
+    is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
 ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -63,14 +62,7 @@ class PDFContent(BaseModel):
     )
 
 
-MessageContent = (
-    TextContent
-    | TextDeltaContent
-    | ToolUseContent
-    | ToolResultContent
-    | ImageContent
-    | PDFContent
-)
+MessageContent = TextContent | TextDeltaContent | ToolUseContent | ToolResultContent | ImageContent | PDFContent
 
 
 class Message(BaseModel):
@@ -78,9 +70,7 @@ class Message(BaseModel):
         default="assistant", description="The role of the message."
     )
 
-    content: Sequence[MessageContent] = Field(
-        ..., description="The content of the message."
-    )
+    content: Sequence[MessageContent] = Field(..., description="The content of the message.")
 
 
 class AgentConfig(BaseModel):
@@ -90,9 +80,7 @@ class AgentConfig(BaseModel):
 
 
 class MessageCreateInput(BaseModel):
-    content: List[TextContent | ImageContent | PDFContent] = Field(
-        ..., description="The content of the message."
-    )
+    content: list[TextContent | ImageContent | PDFContent] = Field(..., description="The content of the message.")
 
     agent_config: AgentConfig = Field(
         ...,
