@@ -292,6 +292,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     message_history.pop(i)
             i -= 1
 
-        print(message_history)
+        self.logger.info(f"Message history: {message_history}")
 
         return message_history
