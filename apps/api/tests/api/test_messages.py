@@ -2,13 +2,13 @@ import base64
 
 import httpx
 import pytest
+from fastapi import BackgroundTasks
 from fastapi.testclient import TestClient
 
 from src.db.prisma import prisma
 from src.main import app
 from src.models.messages import ImageContent, PDFContent, TextContent
 from src.services.messages.message_service import MessageService
-from src.utils.sse import create_sse_event
 
 client = TestClient(app)
 
@@ -20,6 +20,8 @@ async def test_anthropic_supports_image_data():
     thread = prisma.threads.create(
         data={},
     )
+
+    background_tasks = BackgroundTasks()
 
     image_url = "https://upload.wikimedia.org/wikipedia/commons/a/a7/Camponotus_flavomarginatus_ant.jpg"
     image_media_type = "image/jpeg"
@@ -37,9 +39,20 @@ async def test_anthropic_supports_image_data():
         agent_class="DebugAnthropic",
         agent_config={},
     ):
-        print(create_sse_event("delta", chunk.model_dump_json()))
+        print(chunk.model_dump_json(indent=2))
+
+    async for message in MessageService.forward_message(
+        thread_id=thread.id,
+        input_content=[
+            TextContent(content="Wat was de kleur van de afbeelding?"),
+        ],
+        agent_class="DebugAnthropic",
+        agent_config={},
+    ):
+        print(message.model_dump_json(indent=2))
 
     prisma.threads.delete(where={"id": thread.id})
+
     prisma.disconnect()
 
 

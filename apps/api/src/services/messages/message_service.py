@@ -1,10 +1,11 @@
 from collections.abc import AsyncGenerator, Sequence
-from typing import cast
+from typing import Literal, cast
 
 from prisma import Json
 from prisma.enums import MessageContentType, MessageRole
 
 from src.agents.agent_loader import AgentLoader
+from src.agents.base_agent import BaseAgent
 from src.db.prisma import prisma
 from src.logger import logger
 from src.models.messages import (
@@ -30,7 +31,7 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        input_content: list[TextContent | ImageContent | PDFContent | ToolResultContent | ToolUseContent],
+        input_content: list[MessageContent],
         agent_class: str,
         agent_config: dict,
         bearer_token: str | None = None,
@@ -120,19 +121,22 @@ class MessageService:
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        output_content: list[MessageContent] = []
-        tool_result_content: ToolResultContent | None = None
-        async for content_chunk in agent.forward(thread_history):
-            logger.info(f"Received chunk: {content_chunk}")
+        generated_messages: list[Message] = []
 
-            # Yield early to allow the frontend to render the message as it comes in
-            yield content_chunk
+        try:
+            async for content_chunk, role in cls.call_agent(agent, thread_history):
+                yield content_chunk
 
-            if isinstance(content_chunk, ToolResultContent):
-                tool_result_content = content_chunk
-                break
-            else:
-                output_content.append(content_chunk)
+                last_message = generated_messages[-1] if len(generated_messages) > 0 else None
+
+                if not last_message or last_message.role != role:
+                    generated_messages.append(Message(role=role, content=[]))
+
+                generated_messages[-1].content.append(content_chunk)
+        except Exception as e:
+            logger.error(f"Error forwarding message: {e}", exc_info=e)
+            logger.error("Messages wont be saved!")
+            raise e
 
         MessageService.save_message(
             thread_id,
@@ -141,30 +145,57 @@ class MessageService:
             MessageRole.user,
         )
 
-        # Save the agent response
-        MessageService.save_message(
-            thread_id,
-            agent_class,
-            [
-                chunk
-                for chunk in output_content
-                # Don't save text deltas
-                if not isinstance(chunk, TextDeltaContent)
-            ],
-            MessageRole.assistant,
-        )
-
-        logger.info("Message saved")
-
-        if tool_result_content:
-            async for chunk in cls.forward_message(
+        for message in generated_messages:
+            # Save the agent response
+            MessageService.save_message(
                 thread_id,
-                [tool_result_content],
                 agent_class,
-                agent_config,
-                bearer_token,
-            ):
-                yield chunk
+                [content for content in message.content if not isinstance(content, TextDeltaContent)],
+                MessageRole.assistant if message.role == "assistant" else MessageRole.user,
+            )
+
+    @classmethod
+    async def call_agent(
+        cls, agent: BaseAgent, thread_history: list[Message]
+    ) -> AsyncGenerator[tuple[MessageContent, Literal["user", "assistant"]], None]:
+        """Call the agent with the thread history and return the response.
+
+        Args:
+            agent (BaseAgent): The agent to call.
+            thread_history (list[Message]): The thread history.
+
+        Returns:
+            AsyncGenerator[tuple[MessageContent, int], None]: A generator of message chunks.
+        """
+
+        generated_content: list[MessageContent] = []
+
+        async for content_chunk in agent.forward(thread_history):
+            logger.info(f"Received chunk: {content_chunk}")
+
+            if isinstance(content_chunk, ToolResultContent):
+                yield content_chunk, "user"
+
+                async for chunk in cls.call_agent(
+                    agent,
+                    [
+                        *thread_history,
+                        Message(
+                            role="assistant",
+                            content=generated_content,
+                        ),
+                        Message(
+                            role="user",
+                            content=[content_chunk],
+                        ),
+                    ],
+                ):
+                    yield chunk
+            else:
+                yield content_chunk, "assistant"
+
+                if not isinstance(content_chunk, TextDeltaContent):
+                    generated_content.append(content_chunk)
 
     @classmethod
     def save_message(

@@ -1,7 +1,7 @@
 import json
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Query, Security
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, Query, Security
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from prisma.models import Messages
@@ -59,6 +59,7 @@ async def get_messages(
 )
 async def create_message(
     message: MessageCreateInput,
+    background_tasks: BackgroundTasks,
     thread_id: str = Path(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",

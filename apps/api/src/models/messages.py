@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -70,7 +69,7 @@ class Message(BaseModel):
         default="assistant", description="The role of the message."
     )
 
-    content: Sequence[MessageContent] = Field(..., description="The content of the message.")
+    content: list[MessageContent] = Field(..., description="The content of the message.")
 
 
 class AgentConfig(BaseModel):
