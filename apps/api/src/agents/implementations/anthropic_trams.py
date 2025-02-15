@@ -22,11 +22,6 @@ class AnthropicTramsConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Algemeen",
-                instructions="Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs. Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.",
-                glob_pattern="pdfs/algemeen/*.pdf",
-            ),
-            Subject(
                 name="Storing",
                 instructions="",
                 glob_pattern="pdfs/stortingen/*.pdf",
@@ -38,7 +33,7 @@ class AnthropicTramsConfig(BaseModel):
             ),
         ]
     )
-    default_subject: str | None = Field(default="Algemeen")
+    default_subject: str | None = Field(default="Storing")
 
 
 # Agent class that  integrates with Anthropic's Claude API and handles PDF documents
@@ -214,20 +209,13 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
-Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+            system=f"""Je bent een behulpzame assistent,
 
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. 
-Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld:
-- zijn naam vertelt
-- een belangrijke gebeurtenis heeft meegemaakt 
-- belangrijke informatie heeft geleverd
-- een fout heeft opgelost
-dan moet je die opslaan in de core memories.
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
-{"\n-".join(memories)}
+{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
 
 ### Subject
 Je bent nu in het onderwerp: {current_subject_name}
