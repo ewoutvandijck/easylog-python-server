@@ -99,22 +99,6 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
         )
         logger.info(f"Memories: {memories}")
 
-        # Haal het huidige onderwerp op
-        current_subject = self.get_metadata("subject")
-        if current_subject is None:
-            current_subject = self.config.default_subject
-
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
-
-        if subject is not None:
-            current_subject_name = subject.name
-            current_subject_instructions = subject.instructions
-        else:
-            current_subject_name = current_subject
-            current_subject_instructions = ""
-
         def tool_clear_memories():
             """
             Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
@@ -154,28 +138,10 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
-        def tool_switch_subject(subject: str | None = None):
-            """
-            Switch to a different subject.
-            """
-            if subject is None:
-                self.set_metadata("subject", None)
-                return "Je bent nu terug in het algemene onderwerp"
-
-            if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
-                )
-
-            self.set_metadata("subject", subject)
-
-            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
-
         tools = [
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
-            tool_switch_subject,
         ]
 
         start_time = time.time()
@@ -185,13 +151,6 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
             max_tokens=1024,
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
-
-### Onderwerpen
-- Als je geen onderwerp hebt geselecteerd, volg de de instructies hierboven, anders hebben de volgende regels voorrang:
-- Je bent nu in het onderwerp: {current_subject_name}
-- Ik kan je helpen met de volgende onderwerpen: {", ".join([s.name for s in self.config.subjects])}
-- Je kunt overstappen naar een ander onderwerp met de tool "switch_subject" zodra je een vraag hebt die niet in het huidige onderwerp past.
-- Volg altijd de instructies en documentatie van het onderwerp: {current_subject_instructions}
 
 BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
