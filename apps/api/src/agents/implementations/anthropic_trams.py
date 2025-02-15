@@ -14,7 +14,7 @@ from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 class PQIDataHwr(TypedDict):
     """
-    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components.
+    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components
     """
 
     taak: str
