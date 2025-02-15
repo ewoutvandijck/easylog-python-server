@@ -23,17 +23,17 @@ class DebugAnthropicConfig(BaseModel):
         default=[
             Subject(
                 name="Storing",
-                instructions="",
+                instructions="Los storingen op op basis van de instructies in de pdfs.",
                 glob_pattern="pdfs/storingen/*.pdf",
             ),
             Subject(
                 name="Onderhoud",
-                instructions="",
+                instructions="Voor het onderhoud van de tram, gebruik de instructies in de pdfs. De indeling/volgorde van de pdfs is basis van de de uitvoering van het werk.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
     )
-    default_subject: str | None = Field(default="General")
+    default_subject: str | None = Field(default="Storing")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -209,10 +209,10 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame assistent die de gebruiker helpt met het configureren van diverse AI assistants voor een Flutter app.
+            system=f"""Je bent een behulpzame assistent die helpt met het debuggen van code.
 
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
