@@ -33,7 +33,7 @@ class DebugAnthropicConfig(BaseModel):
             ),
         ]
     )
-    default_subject: str | None = Field(default="GezonderLeven")
+    default_subject: str | None = Field(default="WerkenSnelweg")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents

@@ -1,11 +1,13 @@
 import base64
 import glob
 import os
+import random
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -70,9 +72,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
@@ -85,18 +85,18 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
         static_kennis = """
         ### Tram Onderhoud Basis ###
         - Controleer altijd eerst de veiligheid voordat je begint
-        - Gebruik de juiste gereedschappen en PBM's 
+        - Gebruik de juiste gereedschappen
         - Raadpleeg bij twijfel een senior monteur
 
         ### Veel voorkomende storingen ###
-        - Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
+        - Deuren die niet goed sluiten: Controleer eerst de rubberen afdichtingen
+        - Remmen die piepen: Controleer de remblokken op slijtage
+        - Airco problemen: Start met filter controle
         """
 
         # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
         knowledge_base = static_kennis
-        logger.info(
-            f"Loaded static knowledge base with {len(knowledge_base)} characters"
-        )
+        logger.info(f"Loaded static knowledge base with {len(knowledge_base)} characters")
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -106,6 +106,12 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", [])
             message_history.clear()
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
+
+        def tool_get_random_number(start: int = 1, end: int = 100) -> str:
+            """
+            Een eenvoudige tool die een willekeurig getal retourneert tussen start en end.
+            """
+            return f"{random.randint(start, end)}."
 
         async def tool_get_pqi_data():
             """
@@ -124,9 +130,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             }
 
             # Return the pqi data or an error message if it's not found
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
         async def tool_store_memory(memory: str):
             """
@@ -140,6 +144,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
 
         tools = [
             tool_store_memory,
+            tool_get_random_number,
             tool_get_pqi_data,
             tool_clear_memories,
         ]
