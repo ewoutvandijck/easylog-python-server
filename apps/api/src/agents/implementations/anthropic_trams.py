@@ -5,7 +5,6 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
-from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
@@ -92,11 +91,24 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         if subject is not None:
             current_subject_name = subject.name
             current_subject_instructions = subject.instructions
-            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
+            # Update PDF blocks met citations enabled
+            pdf_content_blocks = [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf,
+                    },
+                    "cache_control": {"type": "ephemeral"},
+                    "citations": {"enabled": True},  # Citations aanzetten
+                }
+                for pdf in self._load_pdfs(subject.glob_pattern)
+            ]
         else:
             current_subject_name = current_subject
             current_subject_instructions = ""
-            current_subject_pdfs = []
+            pdf_content_blocks = []
 
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
@@ -210,21 +222,7 @@ Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onde
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
-        # PDF content blocks aanmaken zoals in MUC
-        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": pdf,
-                },
-                "cache_control": {"type": "ephemeral"},
-            }
-            for pdf in current_subject_pdfs
-        ]
-
-        # PDF blocks toevoegen aan laatste user message
+        # PDF blocks toevoegen aan laatste user message met citations
         for message in reversed(message_history):
             if (
                 message["role"] == "user"
