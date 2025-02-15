@@ -3,6 +3,7 @@ import glob
 import os
 import time
 from collections.abc import AsyncGenerator
+from typing import List, TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
@@ -12,88 +13,96 @@ from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
+# Definieer een TypedDict voor PQI data specifiek voor tramonderdelen
+class PQIDataHwr(TypedDict):
+    taak: str
+    component: str
+    typematerieel: str
+
+
+# Definieer de structuur voor een onderwerp (subject)
 class Subject(BaseModel):
     name: str
     instructions: str
     glob_pattern: str
 
 
-class DebugAnthropicConfig(BaseModel):
+# Nieuwe configuratie-klasse voor de tram assistant in debug-modus.
+# Hier gebruiken we de onderwerpen en instructies zoals in anthropic_trams.py.
+class AnthropicTramsDebugConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="GezonderLeven",
-                instructions="Help met bewegen en het creeren van een gezonder leven!",
-                glob_pattern="pdfs/gezonderleven/*.pdf",
+                name="Algemeen",
+                instructions=(
+                    "Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke "
+                    "en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je "
+                    "het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie "
+                    "staat, dan deel deze informatie mee aan de monteur."
+                ),
+                glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
-                name="Dieet",
-                instructions="Help met het eten van gezonde voeding en help met afvallen",
-                glob_pattern="pdfs/dieet/*.pdf",
+                name="Storingen",
+                instructions=(
+                    "Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. "
+                    "Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN "
+                    "BIJ EEN STORING. Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de "
+                    "tool_store_memory."
+                ),
+                glob_pattern="pdfs/storingen/*.pdf",
+            ),
+            Subject(
+                name="Pantograaf",
+                instructions=(
+                    "Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk met de "
+                    "instructies uit de documentatie van de pantograaf."
+                ),
+                glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
     )
-    default_subject: str | None = Field(default="GezonderLeven")
+    default_subject: str | None = Field(default="Algemeen")
 
 
-# Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
+# Nieuwe agent-klasse die de debug-functionaliteit koppelt aan de tram-specifieke onderwerpen en prompt.
+class AnthropicTramsDebug(AnthropicAgent[AnthropicTramsDebugConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
+        """
+        Laadt PDF-bestanden uit de gegeven glob pattern.
+        """
         pdfs: list[str] = []
-
-        # Get absolute path by joining with current file's directory
+        # Bepaal absoluut pad t.o.v. de huidige directory van dit bestand
         glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
-
-        # Find all PDF files in directory and encode them
+        # Zoek alle PDF-bestanden en encodeer ze naar base64
         for file in glob.glob(glob_with_path):
             with open(file, "rb") as f:
                 pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
-
         return pdfs
 
     async def on_message(
         self, messages: list[Message]
     ) -> AsyncGenerator[MessageContent, None]:
         """
-        This is the main function that handles each message from the user.!
-        It processes the message, looks up relevant information, and generates a response.
-
-        Step by step, this function:
-        1. Loads all PDFs from the specified folder
-        2. Converts previous messages into a format Claude understands
-        3. Prepares the PDF contents to be sent to Claude
-        4. Sets up helpful tools that Claude can use
-        5. Sends everything to Claude and gets back a response
-
-        Example usage:
-            agent = AnthropicFirst()
-            config = AnthropicFirstConfig(pdfs_path="./pdfs")
-            messages = [Message(content="How do I fix the brake system?")]
-
-            async for response in agent.on_message(messages, config):
-                print(response)  # Prints each part of the AI's response as it's generated
-
-        Args:
-            messages: List of previous messages in the conversation
-            config: Settings for the agent, including where to find PDFs
-
-        Returns:
-            An async generator that yields parts of the AI's response as they're generated
+        Verwerkt elk ontvangen bericht door:
+          1. De berichten om te zetten naar een formaat dat Claude begrijpt.
+          2. Het ophalen van het huidige onderwerp en laden van de bijbehorende PDF-bestanden.
+          3. Het toevoegen van PDF-blokken aan een user-bericht (zodat Claude de documentatie kan raadplegen).
+          4. Het definiëren van handige tools (zoals wisselen van onderwerp, het opslaan van core memories, enz.).
+          5. Het opstellen van een systeem prompt die zowel de technische instructies als debuginformatie bevat.
         """
-
-        # Convert messages to a format Claude understands
-        # This is like translating from one language to another
+        # Converteer de berichten naar het Anthropic-formaat
         message_history = self._convert_messages_to_anthropic_format(messages)
 
-        # The get and set metadata functions are used to store and retrieve information between messages
+        # Ophalen van het huidige onderwerp uit metadata of gebruik het default subject
         current_subject = self.get_metadata("subject")
         if current_subject is None:
             current_subject = self.config.default_subject
 
+        # Zoek het onderwerp in de configuratie
         subject = next(
             (s for s in self.config.subjects if s.name == current_subject), None
         )
-
         if subject is not None:
             current_subject_name = subject.name
             current_subject_instructions = subject.instructions
@@ -103,9 +112,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             current_subject_instructions = ""
             current_subject_pdfs = []
 
-        # Create special blocks for each PDF that Claude can read
-        # This is like creating a digital package for each PDF
-        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
+        # Maak PDF content blocks zodat Claude de documenten kan inlezen
+        pdf_content_blocks: List[BetaBase64PDFBlockParam] = [
             {
                 "type": "document",
                 "source": {
@@ -115,133 +123,130 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 },
                 "cache_control": {
                     "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                },  # Geeft aan dat de content tijdelijk is
             }
             for pdf in current_subject_pdfs
         ]
 
-        # Claude won't respond to tool results if there is a PDF in the message.
-        # So we add the PDF to the last user message that doesn't contain a tool result.
+        # Voeg de PDF-blokken toe aan het laatste user-bericht dat geen tool-resultaat bevat
         for message in reversed(message_history):
             if (
-                message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                message["role"] == "user"
+                and isinstance(message["content"], list)
                 and not any(
                     isinstance(content, dict) and content.get("type") == "tool_result"
                     for content in message["content"]
-                )  # Skip messages that contain tool results
+                )
             ):
-                # Add PDF content blocks to eligible messages
-                # This ensures Claude can reference PDFs when responding to user queries
                 message["content"].extend(pdf_content_blocks)
                 break
 
-        # Memories are a way to store important information about a user.
+        # Haal de core memories (belangrijke opgeslagen informatie) op
         memories = self.get_metadata("memories", default=[])
         logger.info(f"Memories: {memories}")
 
-        # Define helper tools that Claude can use
-        # These are like special commands Claude can run to get extra information
-
+        # Definieer tool(s) voor het wisselen van onderwerp
         def tool_switch_subject(subject: str | None = None):
             """
-            Switch to a different subject.
+            Wissel van onderwerp. Geeft een foutmelding als het onderwerp niet bestaat.
             """
             if subject is None:
                 self.set_metadata("subject", None)
-                return "Je bent nu terug in het algemene onderwerp"
-
+                return "Je bent nu terug in het algemene onderwerp."
             if subject not in [s.name for s in self.config.subjects]:
                 raise ValueError(
-                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
+                    f"Subject '{subject}' niet gevonden. Kies uit: {', '.join([s.name for s in self.config.subjects])}"
                 )
-
             self.set_metadata("subject", subject)
-
             return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
-        # This tool is used to store a memory in the database.
+        # Tool om een geheugen op te slaan
         async def tool_store_memory(memory: str):
             """
-            Store a memory in the database.
+            Sla een geheugen (memory) op in de database.
             """
-            # Verwijder eventuele '-' aan het begin van de memory
-            memory = memory.lstrip("- ")
-
             current_memory = self.get_metadata("memories", default=[])
             current_memory.append(memory)
-
             logger.info(f"Storing memory: {memory}")
-
             self.set_metadata("memories", current_memory)
-
             return "Memory stored"
 
-        # Aangepaste tool om memories en thread te wissen
+        # Tool om alle gespreksgeschiedenis en opgeslagen memories te wissen
         def tool_clear_memories():
             """
-            Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
+            Wis alle opgeslagen herinneringen (core memories) en de gespreksgeschiedenis.
             """
             self.set_metadata("memories", [])
-            message_history.clear()  # Wist de gespreksgeschiedenis
+            message_history.clear()
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
-        # Set up the tools that Claude can use
+        # Tool om PQI data op te halen
+        async def tool_get_pqi_data():
+            """
+            Haal informatie op over het te onderhouden materieel.
+            """
+            pqi_data = await self.backend.get_datasource_entry(
+                datasource_slug="pqi-data-tram",
+                entry_id="443",
+                data_type=PQIDataHwr,
+            )
+            data = {
+                "taak": pqi_data.data["taak"],
+                "component": pqi_data.data["component"],
+                "typematerieel": pqi_data.data["typematerieel"],
+            }
+            return {
+                k: v for k, v in data.items() if v is not None
+            } or "Geen PQI data gevonden"
+
+        # Stel de tools samen die aan Claude worden aangeboden
         tools = [
             tool_switch_subject,
             tool_store_memory,
-            tool_clear_memories,  # Voeg de nieuwe tool toe
+            tool_get_pqi_data,
+            tool_clear_memories,
         ]
 
-        # Start measuring how long the operation takes
-        # This is like starting a stopwatch
+        # Meet de starttijd van de operatie
         start_time = time.time()
 
-        # Create a streaming message request to Claude
-        # Think of this like starting a live chat with Claude where responses come in piece by piece
-        stream = await self.client.messages.create(
-            # Tell Claude which version to use (like choosing which expert to talk to)
-            model="claude-3-5-sonnet-20241022",
-            # Maximum number of words Claude can respond with
-            # This prevents responses from being too long
-            max_tokens=1024,
-            # Special instructions that tell Claude how to behave
-            # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame assistent die helpt met het debuggen van code.
+        # Stel de systeem prompt samen waarbij we de technische instructies, core memories en het huidige onderwerp vermelden.
+        system_prompt = f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+
+### BELANGRIJKE REGELS ###
+- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis.
+- Spreek alleen over onderhoud, reparatie en storingen bij trams.
+- Als een vraag niet beantwoord kan worden vanuit de documentatie, geef dit dan duidelijk aan.
+- De monteur is een leerling en gebruikt een mobiel, dus geef geen lange antwoorden.
+
+### Technische kennis
+- Controleer altijd eerst de veiligheid voordat je begint.
+- Gebruik de juiste gereedschappen en PBM's.
+- Raadpleeg bij twijfel een senior monteur.
 
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
-
-Je huidige core memories zijn:
-{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
+{"\n- " + "\n- ".join(memories) if memories else "Geen core memories opgeslagen"}
 
 ### Subject
 Je bent nu in het onderwerp: {current_subject_name}
-
-### Instructions
 {current_subject_instructions}
-            """,
+"""
+
+        # Start een stream met de AI (Claude) en geef de tools mee
+        stream = await self.client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
+            system=system_prompt,
             messages=message_history,
-            # Give Claude access to our special tools
-            # This is like giving Claude a toolbox to help answer questions
             tools=[function_to_anthropic_tool(tool) for tool in tools],
-            # Tell Claude to send responses as they're ready (piece by piece)
-            # Instead of waiting for the complete answer
             stream=True,
         )
 
-        # Calculate how long the operation took
-        # This is like stopping our stopwatch
+        # Log de verbruikte tijd
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
-        # Process Claude's response piece by piece and send it back
-        # This is like receiving a long message one sentence at a time
-        async for content in self.handle_stream(
-            stream,
-            messages,
-            tools,
-        ):
+        # Geef het antwoord van Claude stukje voor stukje terug
+        async for content in self.handle_stream(stream, messages, tools):
             yield content
