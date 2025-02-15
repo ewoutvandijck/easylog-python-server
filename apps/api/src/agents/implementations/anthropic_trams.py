@@ -78,6 +78,22 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
         """
         message_history = self._convert_messages_to_anthropic_format(messages)
 
+        # Subject ophalen en controleren
+        current_subject = self.get_metadata("subject")
+        if current_subject is None:
+            current_subject = self.config.default_subject
+
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
+
+        if subject is not None:
+            current_subject_name = subject.name
+            current_subject_instructions = subject.instructions
+        else:
+            current_subject_name = current_subject
+            current_subject_instructions = ""
+
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
 
@@ -138,10 +154,27 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
+        def tool_switch_subject(subject: str | None = None):
+            """
+            Wissel naar een ander onderwerp.
+            """
+            if subject is None:
+                self.set_metadata("subject", None)
+                return "Je bent nu terug in het algemene onderwerp"
+
+            if subject not in [s.name for s in self.config.subjects]:
+                raise ValueError(
+                    f"Onderwerp {subject} niet gevonden, kies uit: {', '.join([s.name for s in self.config.subjects])}"
+                )
+
+            self.set_metadata("subject", subject)
+            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
+
         tools = [
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
+            tool_switch_subject,
         ]
 
         start_time = time.time()
@@ -162,6 +195,12 @@ BELANGRIJKE REGELS:
 
 ### Technische kennis
 {knowledge_base}
+
+### Huidig onderwerp
+Je bent nu in het onderwerp: {current_subject_name}
+
+### Onderwerp instructies
+{current_subject_instructions}
 
 ### Core memories
 {"\n-".join(memories)}
