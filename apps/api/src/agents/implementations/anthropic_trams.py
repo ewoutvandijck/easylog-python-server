@@ -55,7 +55,7 @@ class AnthropicTramsAssistantConfig(BaseModel):
     default_subject: str | None = Field(default="Algemeen")
 
 
-# Agent class that integrates with Anthropic's Claude API and handles PDF documents
+# Agent class that integrates with Anthropic's Claude API and handles PDF document
 class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
