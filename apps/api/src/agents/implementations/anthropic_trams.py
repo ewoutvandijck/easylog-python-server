@@ -3,8 +3,9 @@ import glob
 import os
 import time
 from collections.abc import AsyncGenerator
-from typing import TypedDict
+from typing import List, TypedDict
 
+from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
@@ -12,42 +13,51 @@ from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
+# Definieer een TypedDict voor PQI data specifiek voor tramonderdelen
 class PQIDataHwr(TypedDict):
-    """
-    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components.
-    """
-
     taak: str
     component: str
     typematerieel: str
 
 
-# Configuration class for AnthropicNew agent
-# Specifies the directory path where PDF files are stored
-
-
+# Definieer de structuur voor een onderwerp (subject)
 class Subject(BaseModel):
     name: str
     instructions: str
     glob_pattern: str
 
 
-class AnthropicTramsConfig(BaseModel):
+# Nieuwe configuratie-klasse voor de tram assistant in debug-modus.
+# Hier gebruiken we de onderwerpen en instructies zoals in anthropic_trams.py.
+class AnthropicTramsDebugConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
                 name="Algemeen",
-                instructions="Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie staat, dan deel deze informatie mee aan de monteur.",
+                instructions=(
+                    "Begin met het uitleggen welke onderwerpen/subjects je kent. Je bent een vriendelijke "
+                    "en behulpzame technische assistent voor CAF TRAM monteurs. In dit onderwerp bespreek je "
+                    "het in dienst nemen van de tram op basis van de documentatie. Als er LET OP in de documentatie "
+                    "staat, dan deel deze informatie mee aan de monteur."
+                ),
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
                 name="Storingen",
-                instructions="Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
+                instructions=(
+                    "Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. "
+                    "Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN "
+                    "BIJ EEN STORING. Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de "
+                    "tool_store_memory."
+                ),
                 glob_pattern="pdfs/storingen/*.pdf",
             ),
             Subject(
                 name="Pantograaf",
-                instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf.",
+                instructions=(
+                    "Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk met de "
+                    "instructies uit de documentatie van de pantograaf."
+                ),
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
@@ -55,79 +65,102 @@ class AnthropicTramsConfig(BaseModel):
     default_subject: str | None = Field(default="Algemeen")
 
 
-# Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
+# Nieuwe agent-klasse die de debug-functionaliteit koppelt aan de tram-specifieke onderwerpen en prompt.
+class AnthropicTramsDebug(AnthropicAgent[AnthropicTramsDebugConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
+        """
+        Laadt PDF-bestanden uit de gegeven glob pattern.
+        """
         pdfs: list[str] = []
-
-        # Get absolute path by joining with current file's directory
+        # Bepaal absoluut pad t.o.v. de huidige directory van dit bestand
         glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
-
-        # Find all PDF files in directory and encode them
+        # Zoek alle PDF-bestanden en encodeer ze naar base64
         for file in glob.glob(glob_with_path):
             with open(file, "rb") as f:
                 pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
-
         return pdfs
 
     async def on_message(
         self, messages: list[Message]
     ) -> AsyncGenerator[MessageContent, None]:
         """
-        Deze functie handelt elk bericht van de gebruiker af.
+        Verwerkt elk ontvangen bericht door:
+          1. De berichten om te zetten naar een formaat dat Claude begrijpt.
+          2. Het ophalen van het huidige onderwerp en laden van de bijbehorende PDF-bestanden.
+          3. Het toevoegen van PDF-blokken aan een user-bericht (zodat Claude de documentatie kan raadplegen).
+          4. Het definiëren van handige tools (zoals wisselen van onderwerp, het opslaan van core memories, enz.).
+          5. Het opstellen van een systeem prompt die zowel de technische instructies als debuginformatie bevat.
         """
+        # Converteer de berichten naar het Anthropic-formaat
         message_history = self._convert_messages_to_anthropic_format(messages)
 
-        # Memories ophalen
-        memories = self.get_metadata("memories", default=[])
+        # Ophalen van het huidige onderwerp uit metadata of gebruik het default subject
+        current_subject = self.get_metadata("subject")
+        if current_subject is None:
+            current_subject = self.config.default_subject
 
-        # Statistische technische kennis
-        static_kennis = """
-        ### Tram Onderhoud Basis ###
-        - Controleer altijd eerst de veiligheid voordat je begint
-        - Gebruik de juiste gereedschappen en PBM's 
-        - Raadpleeg bij twijfel een senior monteur
-
-        ### Veel voorkomende storingen ###
-        - Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
-        """
-
-        # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
-        knowledge_base = static_kennis
-        logger.info(
-            f"Loaded static knowledge base with {len(knowledge_base)} characters"
+        # Zoek het onderwerp in de configuratie
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
         )
+        if subject is not None:
+            current_subject_name = subject.name
+            current_subject_instructions = subject.instructions
+            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
+        else:
+            current_subject_name = current_subject
+            current_subject_instructions = ""
+            current_subject_pdfs = []
+
+        # Maak PDF content blocks zodat Claude de documenten kan inlezen
+        pdf_content_blocks: List[BetaBase64PDFBlockParam] = [
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": pdf,
+                },
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Geeft aan dat de content tijdelijk is
+            }
+            for pdf in current_subject_pdfs
+        ]
+
+        # Voeg de PDF-blokken toe aan het laatste user-bericht dat geen tool-resultaat bevat
+        for message in reversed(message_history):
+            if (
+                message["role"] == "user"
+                and isinstance(message["content"], list)
+                and not any(
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
+                )
+            ):
+                message["content"].extend(pdf_content_blocks)
+                break
+
+        # Haal de core memories (belangrijke opgeslagen informatie) op
+        memories = self.get_metadata("memories", default=[])
         logger.info(f"Memories: {memories}")
 
-        def tool_clear_memories():
+        # Definieer tool(s) voor het wisselen van onderwerp
+        def tool_switch_subject(subject: str | None = None):
             """
-            Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
+            Wissel van onderwerp. Geeft een foutmelding als het onderwerp niet bestaat.
             """
-            self.set_metadata("memories", [])
-            message_history.clear()
-            return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
+            if subject is None:
+                self.set_metadata("subject", None)
+                return "Je bent nu terug in het algemene onderwerp."
+            if subject not in [s.name for s in self.config.subjects]:
+                raise ValueError(
+                    f"Subject '{subject}' niet gevonden. Kies uit: {', '.join([s.name for s in self.config.subjects])}"
+                )
+            self.set_metadata("subject", subject)
+            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
-        async def tool_get_pqi_data():
-            """
-            Haalt de PQI data op uit de datasource voor HWR 450.
-            """
-            pqi_data = await self.backend.get_datasource_entry(
-                datasource_slug="pqi-data-tram",
-                entry_id="443",
-                data_type=PQIDataHwr,
-            )
-
-            data = {
-                "taak": pqi_data.data["taak"],
-                "component": pqi_data.data["component"],
-                "typematerieel": pqi_data.data["typematerieel"],
-            }
-
-            # Return the pqi data or an error message if it's not found
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
-
+        # Tool om een geheugen op te slaan
         async def tool_store_memory(memory: str):
             """
             Sla een geheugen (memory) op in de database.
@@ -138,61 +171,82 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
-        def tool_switch_subject(subject: str | None = None):
+        # Tool om alle gespreksgeschiedenis en opgeslagen memories te wissen
+        def tool_clear_memories():
             """
-            Switch to a different subject.
+            Wis alle opgeslagen herinneringen (core memories) en de gespreksgeschiedenis.
             """
-            if subject is None:
-                self.set_metadata("subject", None)
-                return "Je bent nu terug in het onderwerp trein in dienst nemen"
+            self.set_metadata("memories", [])
+            message_history.clear()
+            return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
-            if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
-                )
+        # Tool om PQI data op te halen
+        async def tool_get_pqi_data():
+            """
+            Haal informatie op over het te onderhouden materieel.
+            """
+            pqi_data = await self.backend.get_datasource_entry(
+                datasource_slug="pqi-data-tram",
+                entry_id="443",
+                data_type=PQIDataHwr,
+            )
+            data = {
+                "taak": pqi_data.data["taak"],
+                "component": pqi_data.data["component"],
+                "typematerieel": pqi_data.data["typematerieel"],
+            }
+            return {
+                k: v for k, v in data.items() if v is not None
+            } or "Geen PQI data gevonden"
 
-            self.set_metadata("subject", subject)
-
-            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
-
+        # Stel de tools samen die aan Claude worden aangeboden
         tools = [
+            tool_switch_subject,
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
-            tool_switch_subject,
         ]
 
+        # Meet de starttijd van de operatie
         start_time = time.time()
 
+        # Stel de systeem prompt samen waarbij we de technische instructies, core memories en het huidige onderwerp vermelden.
+        system_prompt = f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
+Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+
+### BELANGRIJKE REGELS ###
+- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis.
+- Spreek alleen over onderhoud, reparatie en storingen bij trams.
+- Als een vraag niet beantwoord kan worden vanuit de documentatie, geef dit dan duidelijk aan.
+- De monteur is een leerling en gebruikt een mobiel, dus geef geen lange antwoorden.
+
+### Technische kennis
+- Controleer altijd eerst de veiligheid voordat je begint.
+- Gebruik de juiste gereedschappen en PBM's.
+- Raadpleeg bij twijfel een senior monteur.
+
+### Core memories
+{"\n- " + "\n- ".join(memories) if memories else "Geen core memories opgeslagen"}
+
+### Subject
+Je bent nu in het onderwerp: {current_subject_name}
+{current_subject_instructions}
+"""
+
+        # Start een stream met de AI (Claude) en geef de tools mee
         stream = await self.client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
-            system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
-Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud. 
-
-### BELANGRIJKE REGELS ###
-- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Als een vraag niet beantwoord kan wordenvanuit de documentatie, zeg dit dan duidelijk
-- De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden 
-
-### Technische kennis
-{knowledge_base}
-
-### Core memories
-{"\n-".join(memories)}
-            """,
+            system=system_prompt,
             messages=message_history,
             tools=[function_to_anthropic_tool(tool) for tool in tools],
             stream=True,
         )
 
+        # Log de verbruikte tijd
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
 
-        async for content in self.handle_stream(
-            stream,
-            messages,
-            tools,
-        ):
+        # Geef het antwoord van Claude stukje voor stukje terug
+        async for content in self.handle_stream(stream, messages, tools):
             yield content
