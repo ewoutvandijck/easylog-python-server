@@ -138,28 +138,10 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
-        def tool_switch_subject(subject: str | None = None):
-            """
-            Switch to a different subject.
-            """
-            if subject is None:
-                self.set_metadata("subject", None)
-                return "Je bent nu terug in het onderwerp trein in dienst nemen"
-
-            if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
-                )
-
-            self.set_metadata("subject", subject)
-
-            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
-
         tools = [
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
-            tool_switch_subject,
         ]
 
         start_time = time.time()
@@ -168,13 +150,15 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
-Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud. 
+Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
-### BELANGRIJKE REGELS ###
+BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
 - Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Als een vraag niet beantwoord kan wordenvanuit de documentatie, zeg dit dan duidelijk
-- De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden 
+- Bij het weergeven van probleem oplossingen, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
+- Als een vraag niet beantwoord kan worden, zeg dit dan duidelijk
+- ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
+- Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
 
 ### Technische kennis
 {knowledge_base}
