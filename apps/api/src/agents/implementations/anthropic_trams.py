@@ -1,11 +1,13 @@
 import base64
 import glob
 import os
+import random
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -70,29 +72,11 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
         message_history = self._convert_messages_to_anthropic_format(messages)
-
-        # Subject ophalen en controleren
-        current_subject = self.get_metadata("subject")
-        if current_subject is None:
-            current_subject = self.config.default_subject
-
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
-
-        if subject is not None:
-            current_subject_name = subject.name
-            current_subject_instructions = subject.instructions
-        else:
-            current_subject_name = current_subject
-            current_subject_instructions = ""
 
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
@@ -101,18 +85,18 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
         static_kennis = """
         ### Tram Onderhoud Basis ###
         - Controleer altijd eerst de veiligheid voordat je begint
-        - Gebruik de juiste gereedschappen en PBM's 
+        - Gebruik de juiste gereedschappen
         - Raadpleeg bij twijfel een senior monteur
 
         ### Veel voorkomende storingen ###
-        - Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
+        - Deuren die niet goed sluiten: Controleer eerst de rubberen afdichtingen
+        - Remmen die piepen: Controleer de remblokken op slijtage
+        - Airco problemen: Start met filter controle
         """
 
         # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
         knowledge_base = static_kennis
-        logger.info(
-            f"Loaded static knowledge base with {len(knowledge_base)} characters"
-        )
+        logger.info(f"Loaded static knowledge base with {len(knowledge_base)} characters")
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -122,6 +106,12 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", [])
             message_history.clear()
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
+
+        def tool_get_random_number(start: int = 1, end: int = 100) -> str:
+            """
+            Een eenvoudige tool die een willekeurig getal retourneert tussen start en end.
+            """
+            return f"{random.randint(start, end)}."
 
         async def tool_get_pqi_data():
             """
@@ -140,9 +130,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             }
 
             # Return the pqi data or an error message if it's not found
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
         async def tool_store_memory(memory: str):
             """
@@ -154,27 +142,11 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
-        def tool_switch_subject(subject: str | None = None):
-            """
-            Wissel naar een ander onderwerp.
-            """
-            if subject is None:
-                self.set_metadata("subject", None)
-                return "Je bent nu terug in het algemene onderwerp"
-
-            if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Onderwerp {subject} niet gevonden, kies uit: {', '.join([s.name for s in self.config.subjects])}"
-                )
-
-            self.set_metadata("subject", subject)
-            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
-
         tools = [
             tool_store_memory,
+            tool_get_random_number,
             tool_get_pqi_data,
             tool_clear_memories,
-            tool_switch_subject,
         ]
 
         start_time = time.time()
@@ -195,12 +167,6 @@ BELANGRIJKE REGELS:
 
 ### Technische kennis
 {knowledge_base}
-
-### Huidig onderwerp
-Je bent nu in het onderwerp: {current_subject_name}
-
-### Onderwerp instructies
-{current_subject_instructions}
 
 ### Core memories
 {"\n-".join(memories)}
