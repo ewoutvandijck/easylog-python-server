@@ -22,18 +22,18 @@ class DebugAnthropicConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Storing",
-                instructions="",
-                glob_pattern="pdfs/storingen/*.pdf",
+                name="GezonderLeven",
+                instructions="Help met bewegen en het creeren van een gezonder leven!",
+                glob_pattern="pdfs/gezonderleven/*.pdf",
             ),
             Subject(
-                name="Onderhoud",
-                instructions="",
-                glob_pattern="pdfs/pantograaf/*.pdf",
+                name="Dieet",
+                instructions="Help met het eten van gezonde voeding en help met afvallen",
+                glob_pattern="pdfs/dieet/*.pdf",
             ),
         ]
     )
-    default_subject: str | None = Field(default="General")
+    default_subject: str | None = Field(default="GezonderLeven")
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -209,10 +209,10 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame assistent die de gebruiker helpt met het configureren van diverse AI assistants voor een Flutter app.
+            system=f"""Je bent een behulpzame assistent die helpt met het debuggen van code.
 
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
