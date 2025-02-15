@@ -32,7 +32,7 @@ class Subject(BaseModel):
     glob_pattern: str
 
 
-class AnthropicTramsConfig(BaseModel):
+class AnthropicTramsAssistantConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
@@ -56,7 +56,7 @@ class AnthropicTramsConfig(BaseModel):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicTrams(AnthropicAgent[AnthropicTramsConfig]):
+class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
