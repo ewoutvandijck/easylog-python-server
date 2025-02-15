@@ -5,6 +5,7 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
@@ -78,6 +79,25 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
         """
         message_history = self._convert_messages_to_anthropic_format(messages)
 
+        # NIEUW: Huidig onderwerp ophalen
+        current_subject = self.get_metadata("subject")
+        if current_subject is None:
+            current_subject = self.config.default_subject
+
+        # NIEUW: Juiste onderwerp vinden
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
+
+        if subject is not None:
+            current_subject_name = subject.name
+            current_subject_instructions = subject.instructions
+            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
+        else:
+            current_subject_name = current_subject
+            current_subject_instructions = ""
+            current_subject_pdfs = []
+
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
 
@@ -138,7 +158,22 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
             self.set_metadata("memories", current_memory)
             return "Memory stored"
 
+        # NIEUW: Tool toevoegen om van onderwerp te wisselen
+        def tool_switch_subject(subject: str | None = None):
+            if subject is None:
+                self.set_metadata("subject", None)
+                return "Terug naar algemeen onderwerp"
+
+            if subject not in [s.name for s in self.config.subjects]:
+                raise ValueError(
+                    f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}"
+                )
+
+            self.set_metadata("subject", subject)
+            return f"Onderwerp gewijzigd naar: {subject}"
+
         tools = [
+            tool_switch_subject,  # NIEUW
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
@@ -152,13 +187,14 @@ class AnthropicTramsAssistant(AnthropicAgent[AnthropicTramsAssistantConfig]):
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
-BELANGRIJKE REGELS:
-- Vul NOOIT aan met eigen technische kennis of tips uit jouw eigen kennis
-- Spreek alleen over de onderhoud en reparatie en storingen bij trams, ga niet in op andere vraagstukken
-- Bij het weergeven van probleem oplossingen, doe dit 1 voor 1, stap voor stap, en vraag de monteur altijd eerst om een antwoord voor je de volgende stap bespreekt
-- Als een vraag niet beantwoord kan worden, zeg dit dan duidelijk
-- ### De monteur is een leerling en gebruikt een mobiel dus geef geen lange antwoorden ###
-- Groet alleen aan het begin van het bericht, niet in het midden of aan het einde.
+### Actueel onderwerp: {current_subject_name}
+{current_subject_instructions}
+
+### BELANGRIJKE REGELS:
+- Vul NOOIT aan met eigen technische kennis
+- Spreek alleen over tram onderhoud en storingen
+- Stap-voor-stap uitleg geven
+- Korte antwoorden voor mobiel gebruik
 
 ### Technische kennis
 {knowledge_base}
@@ -173,6 +209,33 @@ BELANGRIJKE REGELS:
 
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
+
+        # PDF content blocks aanmaken zoals in MUC
+        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": pdf,
+                },
+                "cache_control": {"type": "ephemeral"},
+            }
+            for pdf in current_subject_pdfs
+        ]
+
+        # PDF blocks toevoegen aan laatste user message
+        for message in reversed(message_history):
+            if (
+                message["role"] == "user"
+                and isinstance(message["content"], list)
+                and not any(
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
+                )
+            ):
+                message["content"].extend(pdf_content_blocks)
+                break
 
         async for content in self.handle_stream(
             stream,
