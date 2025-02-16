@@ -112,7 +112,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                 "cache_control": {
                     "type": "ephemeral"
                 },  # Tells Claude this is temporary.xwxw
-                "citations": {"enabled": True},
+                "citations": {"enabled": False},
             }
             for pdf in current_subject_pdfs
         ]
@@ -217,11 +217,12 @@ Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
 
 
-### BELANGRIJKE REGELS:
-- Vul NOOIT aan met eigen technische kennis, gebruik alleen de documentatie
-- Spreek alleen over tram onderhoud en storingen
-- Taak-voor-taak uitleg geven
-- Geef geen lange antwoorden maar max 3 zinnen en verdeel het over alineas 
+## INSTRUCTIONS ##
+- SHORT ANSWERS ONLY
+- DO NOT ADD YOUR OWN TECHNICAL KNOWLEDGE, USE ONLY THE DOCUMENTATION
+- Talk only about tram maintenance and failures
+- Task-by-task explanation
+-
 
 ### Tram Onderhoud Basis ###
 - Controleer altijd eerst de veiligheid voordat je begint
