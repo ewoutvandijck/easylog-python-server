@@ -220,7 +220,7 @@ Huidige instructies: {current_subject_instructions}
 
 
 ## INSTRUCTIONS ##
-- SHORT ANSWERS ONLY
+- SHORT ANSWERS ONLY MAX 40 woorden per antwoord anders wordt ik boos 
 - DO NOT ADD YOUR OWN TECHNICAL KNOWLEDGE, USE ONLY THE DOCUMENTATION
 - Talk only about tram maintenance and failures
 - Task-by-task explanation
