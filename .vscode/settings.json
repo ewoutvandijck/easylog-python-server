@@ -20,12 +20,9 @@
       "source.organizeImports.ruff": "explicit"
     }
   },
-  "[jupyter]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.fixAll.ruff": "explicit",
-      "source.organizeImports.ruff": "explicit"
-    }
-  }
+  "notebook.codeActionsOnSave": {
+    "notebook.source.organizeImports.ruff": "explicit",
+    "notebook.source.fixAll.ruff": "explicit"
+  },
+  "notebook.formatOnSave.enabled": true
 }
