@@ -1,14 +1,16 @@
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api import health, messages, threads
 from src.db.prisma import prisma
+from src.logger import logger
 from src.security.api_token import verify_api_key
 from src.security.optional_http_bearer import optional_bearer_header
 from src.settings import settings
@@ -41,7 +43,7 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def add_process_time_header(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
     start_time = time.perf_counter()
     response = await call_next(request)
     process_time = time.perf_counter() - start_time
@@ -50,13 +52,25 @@ async def add_process_time_header(request: Request, call_next):
 
 
 @app.middleware("http")
-async def timeout_middleware(request, call_next):
+async def timeout_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
     try:
         async with asyncio.timeout(90):  # 90 second timeout
             response = await call_next(request)
             return response
     except TimeoutError:
         return JSONResponse(status_code=504, content={"detail": "Request timeout"})
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+
+    logger.info(
+        f"Method: {request.method} Path: {request.url.path} Status: {response.status_code} Duration: {duration:.2f}s"
+    )
+    return response
 
 
 app.include_router(health.router)

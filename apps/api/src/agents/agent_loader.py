@@ -15,31 +15,41 @@ class AgentLoader:
         agent_config: dict = {},
         backend: BackendService | None = None,
     ) -> BaseAgent | None:
+        logger.debug(f"Attempting to load agent class: {agent_class}")
         agents_dir = Path("src/agents/implementations")
+        logger.debug(f"Scanning directory: {agents_dir}")
 
         # Get all Python files in the agents directory
         for file in agents_dir.glob("*.py"):
+            logger.debug(f"Examining file: {file.name}")
             if file.name == "base_agent.py":
+                logger.debug("Skipping base_agent.py")
                 continue
 
             # Import the module
             module_path = f"src.agents.implementations.{file.stem}"
-            module = importlib.import_module(module_path)
-
-            print(file.stem)
+            logger.debug(f"Importing module: {module_path}")
+            try:
+                module = importlib.import_module(module_path)
+            except Exception as e:
+                logger.error(f"Failed to import module {module_path}: {e}")
+                continue
 
             # Find all classes in the module that inherit from BaseAgent
-            for _, obj in inspect.getmembers(module):
-                if (
-                    inspect.isclass(obj)
-                    and issubclass(obj, BaseAgent)
-                    and obj != BaseAgent
-                    and obj.__name__ == agent_class
-                ):
-                    logger.debug(f"Found agent: {obj}")
+            logger.debug(f"Scanning classes in {file.stem}")
+            for name, obj in inspect.getmembers(module):
+                logger.debug(f"Examining class: {name}")
+                if inspect.isclass(obj):
+                    logger.debug(f"Class {name} inheritance: {obj.__bases__}")
+                    if issubclass(obj, BaseAgent) and obj != BaseAgent and obj.__name__ == agent_class:
+                        logger.debug(f"Found matching agent class: {obj}")
 
-                    try:
-                        return obj(thread_id=thread_id, backend=backend, **agent_config)
-                    except Exception as e:
-                        logger.error(f"Error loading agent {obj}: {e}")
-                        return None
+                        try:
+                            logger.debug(f"Initializing agent with config: {agent_config}")
+                            return obj(thread_id=thread_id, backend=backend, **agent_config)
+                        except Exception as e:
+                            logger.error(f"Error initializing agent {obj}: {e}")
+                            return None
+
+        logger.warning(f"No matching agent found for class: {agent_class}")
+        return None
