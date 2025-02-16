@@ -112,7 +112,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                 "cache_control": {
                     "type": "ephemeral"
                 },  # Tells Claude this is temporary.xwxw
-                "citations": {"enabled": False},
+                "citations": {"enabled": True},
             }
             for pdf in current_subject_pdfs
         ]
