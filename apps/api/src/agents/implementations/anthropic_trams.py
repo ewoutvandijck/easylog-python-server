@@ -46,7 +46,7 @@ class AnthropicTramsAssistantConfig(BaseModel):
                 instructions="Help de monteur met het oplossen van TRAM storingen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN ANTWOORDEN OP STORINGEN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
                 glob_pattern="pdfs/storingen/*.pdf",
             ),
-            Subject(xw
+            Subject(
                 name="Pantograaf",
                 instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf, deze geven in stappen de werkzaamheden aan. Veiligheid is belangrijk, dus begin altijd met de veiligheid.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
@@ -111,8 +111,8 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                 },
                 "cache_control": {
                     "type": "ephemeral"
-                },  # Tells Claude this is temporary.
-                "citations": {"enabled": True},
+                },  # Tells Claude this is temporary.xwxw
+                "citations": {"enabled": False},
             }
             for pdf in current_subject_pdfs
         ]
@@ -150,7 +150,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_pqi_data():
             """
-            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerp onderhoud. 
+            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerponderhoud. 
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
@@ -207,6 +207,10 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             max_tokens=1024,
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
+
+### Onderwerpen ###
+Schakel een ander onderwerp om met de tool_switch_subject. 
+Gebruik alleen de onderwerpen die je in subjects hebt gedefinieerd.
 
 Alle onderwerpen: {", ".join([s.name for s in self.config.subjects])}
 Actueel onderwerp: {current_subject_name}
