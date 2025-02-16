@@ -43,10 +43,10 @@ class AnthropicTramsAssistantConfig(BaseModel):
             ),
             Subject(
                 name="Storingen",
-                instructions="Help de monteur met het oplossen van TRAM storingen. Vraag of hij een nieuwe storing heeft. Gebruik de documentatie om de monteur te helpen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
+                instructions="Help de monteur met het oplossen van TRAM storingen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN ANTWOORDEN OP STORINGEN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
                 glob_pattern="pdfs/storingen/*.pdf",
             ),
-            Subject(
+            Subject(xw
                 name="Pantograaf",
                 instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf, deze geven in stappen de werkzaamheden aan. Veiligheid is belangrijk, dus begin altijd met de veiligheid.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
@@ -150,7 +150,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_pqi_data():
             """
-            Haalt onderhoudsopdrachten op uit de datasource.
+            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerp onderhoud. 
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
