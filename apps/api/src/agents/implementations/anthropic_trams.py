@@ -209,6 +209,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
 ### Onderwerpen ###
+Geef de per ondewerp de onderdelen weer waar het over gaat
 Schakel een ander onderwerp om met de tool_switch_subject. 
 Gebruik alleen de onderwerpen die je in subjects hebt gedefinieerd.
 Gebruik de PQI data met de tool_get_pqi_data als er gevraaagd wordt om de specieke taak.
