@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator, Callable
 from typing import Generic
 
 from anthropic import AsyncAnthropic, AsyncStream
+from anthropic.types.citations_delta import Citation
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
 from prisma.enums import MessageRole
@@ -133,6 +134,14 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 # Yield this content early so we can stream it to the client
                 yield TextDeltaContent(content=event.delta.text)
 
+            elif (
+                event.type == "content_block_delta"
+                and event.delta.type == "citations_delta"
+                and isinstance(message_contents[-1], TextContent)
+            ):
+                self.logger.info(event.delta.citation)
+                message_contents[-1].content += self._format_inline_citation(event.delta.citation)
+
             # When Claude is building up JSON data for a tool
             elif event.type == "content_block_delta" and event.delta.type == "input_json_delta":
                 partial_json += event.delta.partial_json
@@ -191,6 +200,46 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
                     # Clear the partial JSON buffer, regardless of success or failure
                     partial_json = ""
+
+    def _format_academic_citation(self, citation: Citation) -> str:
+        """
+        Formats a citation location object into a formal academic-style citation.
+
+        Args:
+            citation: A CitationCharLocation, CitationPageLocation, or CitationContentBlockLocation object
+
+        Returns:
+            str: A formatted academic-style citation string
+        """
+        # If no document title is provided, use a generic reference
+        doc_reference = citation.document_title if citation.document_title else f"Document {citation.document_index}"
+
+        if citation.type == "page_location":
+            # Page-based citation (similar to academic page citations)
+            if citation.start_page_number == citation.end_page_number:
+                location = f"p. {citation.start_page_number}"
+            else:
+                location = f"pp. {citation.start_page_number}-{citation.end_page_number}"
+            return f"{doc_reference}, {location}."
+
+        elif citation.type == "char_location":
+            # Character-based citation (less common in academic writing)
+            return f"{doc_reference}, char. {citation.start_char_index}-{citation.end_char_index}."
+
+        elif citation.type == "content_block_location":
+            # Block-based citation (similar to paragraph or section citations)
+            if citation.start_block_index == citation.end_block_index:
+                location = f"block {citation.start_block_index}"
+            else:
+                location = f"blocks {citation.start_block_index}-{citation.end_block_index}"
+            return f"{doc_reference}, {location}."
+
+    def _format_inline_citation(self, citation: Citation) -> str:
+        """
+        Formats a citation for inline use with quoted text.
+        """
+        base_citation = self._format_academic_citation(citation).rstrip(".")  # Remove trailing period
+        return f'"{citation.cited_text}" ({base_citation})'
 
     def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
         """
@@ -263,6 +312,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                             "media_type": "application/pdf",
                             "data": content.content,
                         },
+                        "citations": {"enabled": True},
                     }
                     if isinstance(content, PDFContent)
                     else {

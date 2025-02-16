@@ -5,6 +5,7 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
@@ -76,14 +77,15 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
+        # Convert messages to a format Claude understands
+        # This is like translating from one language to another
         message_history = self._convert_messages_to_anthropic_format(messages)
 
-        # NIEUW: Huidig onderwerp ophalen
+        # The get and set metadata functions are used to store and retrieve information between messages
         current_subject = self.get_metadata("subject")
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        # NIEUW: Juiste onderwerp vinden
         subject = next(
             (s for s in self.config.subjects if s.name == current_subject), None
         )
@@ -91,44 +93,51 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         if subject is not None:
             current_subject_name = subject.name
             current_subject_instructions = subject.instructions
-            # Update PDF blocks met citations enabled
-            pdf_content_blocks = [
-                {
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": pdf,
-                    },
-                    "cache_control": {"type": "ephemeral"},
-                    "citations": {"enabled": True},  # Citations aanzetten
-                }
-                for pdf in self._load_pdfs(subject.glob_pattern)
-            ]
+            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
         else:
             current_subject_name = current_subject
             current_subject_instructions = ""
-            pdf_content_blocks = []
+            current_subject_pdfs = []
+
+        # Create special blocks for each PDF that Claude can read
+        # This is like creating a digital package for each PDF
+        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": pdf,
+                },
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
+                "citations": {"enabled": True},
+            }
+            for pdf in current_subject_pdfs
+        ]
+
+        # Claude won't respond to tool results if there is a PDF in the message.
+        # So we add the PDF to the last user message that doesn't contain a tool result.
+        for message in reversed(message_history):
+            if (
+                message["role"] == "user"  # Only attach PDFs to user messages
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
+                and not any(
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
+                )  # Skip messages that contain tool results
+            ):
+                # Add PDF content blocks to eligible messages
+                # This ensures Claude can reference PDFs when responding to user queries
+                message["content"].extend(pdf_content_blocks)
+                break
 
         # Memories ophalen
         memories = self.get_metadata("memories", default=[])
 
-        # Statistische technische kennis
-        static_kennis = """
-        ### Tram Onderhoud Basis ###
-        - Controleer altijd eerst de veiligheid voordat je begint
-        - Gebruik de juiste gereedschappen en PBM's 
-        - Raadpleeg bij twijfel een senior monteur
-
-        ### Veel voorkomende storingen ###
-        - Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
-        """
-
-        # Aangezien de PDF/JSON kennis functionaliteit verwijderd is, gebruiken we alleen de statische kennis.
-        knowledge_base = static_kennis
-        logger.info(
-            f"Loaded static knowledge base with {len(knowledge_base)} characters"
-        )
         logger.info(f"Memories: {memories}")
 
         def tool_clear_memories():
@@ -199,8 +208,10 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
-### Actueel onderwerp: {current_subject_name}
-{current_subject_instructions}
+Alle onderwerpen: {", ".join([s.name for s in self.config.subjects])}
+Actueel onderwerp: {current_subject_name}
+Huidige instructies: {current_subject_instructions}
+
 
 ### BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis
@@ -208,8 +219,13 @@ Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onde
 - Stap-voor-stap uitleg geven
 - Korte antwoorden voor mobiel gebruik
 
-### Technische kennis
-{knowledge_base}
+### Tram Onderhoud Basis ###
+- Controleer altijd eerst de veiligheid voordat je begint
+- Gebruik de juiste gereedschappen en PBM's 
+- Raadpleeg bij twijfel een senior monteur
+
+### Veel voorkomende storingen ###
+- Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
 
 ### Core memories
 {"\n-".join(memories)}
@@ -221,19 +237,6 @@ Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onde
 
         end_time = time.time()
         logger.info(f"Time taken: {end_time - start_time} seconds")
-
-        # PDF blocks toevoegen aan laatste user message met citations
-        for message in reversed(message_history):
-            if (
-                message["role"] == "user"
-                and isinstance(message["content"], list)
-                and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
-                )
-            ):
-                message["content"].extend(pdf_content_blocks)
-                break
 
         async for content in self.handle_stream(
             stream,
