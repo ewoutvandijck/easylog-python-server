@@ -38,7 +38,7 @@ class AnthropicTramsAssistantConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions=".",
+                instructions="We starten met het in dienst nemen van de tram. Gebruik de stappen uit de documentatie om de tram in dienst te nemen.",
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
@@ -211,6 +211,7 @@ Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onde
 ### Onderwerpen ###
 Schakel een ander onderwerp om met de tool_switch_subject. 
 Gebruik alleen de onderwerpen die je in subjects hebt gedefinieerd.
+Gebruik de PQI data met de tool_get_pqi_data als er gevraaagd wordt om de specieke taak.
 
 Alle onderwerpen: {", ".join([s.name for s in self.config.subjects])}
 Actueel onderwerp: {current_subject_name}
