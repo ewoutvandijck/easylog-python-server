@@ -43,21 +43,21 @@ model migrations {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model objects {
-    id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     bucket_id            String?
     name                 String?
-    owner                String?                @db.Uuid
-    created_at           DateTime?              @default(now()) @db.Timestamptz(6)
-    updated_at           DateTime?              @default(now()) @db.Timestamptz(6)
-    last_accessed_at     DateTime?              @default(now()) @db.Timestamptz(6)
+    owner                String?               @db.Uuid
+    created_at           DateTime?             @default(now()) @db.Timestamptz(6)
+    updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
+    last_accessed_at     DateTime?             @default(now()) @db.Timestamptz(6)
     metadata             Json?
-    path_tokens          String[]               @default(dbgenerated("string_to_array(name, '/'::text)"))
+    path_tokens          String[]              @default(dbgenerated("string_to_array(name, '/'::text)"))
     version              String?
     owner_id             String?
     user_metadata        Json?
-    buckets              buckets?               @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
-    processed_pdfs       processed_pdfs[]
-    processed_pdf_images processed_pdf_images[]
+    buckets              buckets?              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
+    processed_pdfs       processed_pdfs?
+    processed_pdf_images processed_pdf_images?
 
     @@unique([bucket_id, name], map: "bucketid_objname")
     @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
@@ -168,29 +168,32 @@ model message_contents {
 }
 
 model processed_pdfs {
-    id         String                 @id @default(cuid())
-    summary    String
-    file_type  String
-    object_id  String                 @unique @db.Uuid
-    object     objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
-    images     processed_pdf_images[]
-    created_at DateTime               @default(now())
-    updated_at DateTime               @updatedAt
+    id               String                 @id @default(cuid())
+    long_summary     String
+    short_summary    String
+    markdown_content String
+    file_type        String
+    object_id        String                 @unique @db.Uuid
+    object           objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
+    images           processed_pdf_images[]
+    created_at       DateTime               @default(now())
+    updated_at       DateTime               @updatedAt
 
     @@map("processed_pdfs")
     @@schema("public")
 }
 
 model processed_pdf_images {
-    id               String         @id @default(cuid())
-    processed_pdf_id String
-    processed_pdf    processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
-    object_id        String         @unique @db.Uuid
-    object           objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
-    summary          String
-    page             Int
-    created_at       DateTime       @default(now())
-    updated_at       DateTime       @updatedAt
+    id                 String         @id @default(cuid())
+    processed_pdf_id   String
+    processed_pdf      processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
+    object_id          String         @unique @db.Uuid
+    object             objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
+    original_file_name String
+    summary            String
+    page               Int
+    created_at         DateTime       @default(now())
+    updated_at         DateTime       @updatedAt
 
     @@map("processed_pdf_images")
     @@schema("public")

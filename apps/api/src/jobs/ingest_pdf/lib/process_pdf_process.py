@@ -124,7 +124,7 @@ def process_pdf_process(file_data: bytes) -> ProcessedPDF:
 
             images.append(
                 ProcessedPDFImage(
-                    file_name=image_path.split("/")[-1],
+                    file_name=image_path,
                     file_type="image/png",
                     file_data=image_data,
                     summary=response.text or "",
@@ -146,19 +146,17 @@ def process_pdf_process(file_data: bytes) -> ProcessedPDF:
             table_df = pd.read_excel(excel_file)
             df.at[row_hash, "table_data"] = table_df.to_dict()
 
-    tables_df.sample()
-
     # Clean up the dataframe
     logger.debug("Cleaning up extracted data")
     columns_to_remove = ["ObjectID", "attributes", "Font", "HasClip", "Lang", "TextSize", "ClipBounds"]
-    elements_df = df.drop(columns=columns_to_remove, errors="ignore").sort_values("Page")
+    elements_df = df.drop(columns=columns_to_remove, errors="ignore")
 
     # Generate document summary
-    logger.info("Generating document summary using Gemini")
-    response = gemini_client.models.generate_content(
+    logger.info("Generating short summary using Gemini")
+    short_summary_response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
-            system_instruction="Generate a short summary of the goal of the procedure in the following document in dutch."
+            system_instruction="Generate a short summary of the goal of the procedure in the following document in dutch. Maximum 10 words."
         ),
         contents=[
             Content(
@@ -169,9 +167,50 @@ def process_pdf_process(file_data: bytes) -> ProcessedPDF:
         ],
     )
 
+    logger.info(f"Short summary: {short_summary_response.text}")
+
+    logger.info("Generating long summary using Gemini")
+
+    long_summary_response = gemini_client.models.generate_content(
+        model="gemini-2.0-flash",
+        config=GenerateContentConfig(
+            system_instruction="Generate a long summary of the goal of the procedure in the following document in dutch. Maximum 100 words."
+        ),
+        contents=[
+            Content(
+                parts=[
+                    Part.from_text(text=json.dumps(elements_df.to_dict(orient="records"), indent=2)),
+                ],
+            )
+        ],
+    )
+
+    logger.info(f"Long summary: {long_summary_response.text}")
+
+    logger.info("Generating markdown content using Gemini")
+
+    markdown_response = gemini_client.models.generate_content(
+        model="gemini-2.0-flash",
+        config=GenerateContentConfig(
+            system_instruction="Generate markdown from the following data. Render each row in this data as a markdown item. I don't want a single table. I want a nicely formatted markdown document. So headings should be headings, and images should be images. etc. For images use the alt text to describe the image."
+        ),
+        contents=[
+            Content(
+                parts=[
+                    Part.from_text(text=json.dumps(elements_df.to_dict(orient="records"), indent=2)),
+                ],
+            )
+        ],
+    )
+
+    logger.info(f"Markdown content: {markdown_response.text}")
+
     logger.info("PDF processing completed successfully")
+
     return ProcessedPDF(
-        summary=response.text or "",
+        short_summary=short_summary_response.text or "",
+        long_summary=long_summary_response.text or "",
+        markdown_content=markdown_response.text or "",
         file_type="application/pdf",
         images=images,
     )

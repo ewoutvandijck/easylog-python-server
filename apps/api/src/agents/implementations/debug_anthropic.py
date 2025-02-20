@@ -1,4 +1,5 @@
 import base64
+import json
 import time
 from collections.abc import AsyncGenerator
 
@@ -6,7 +7,6 @@ from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockP
 from pydantic import BaseModel
 
 from src.agents.anthropic_agent import AnthropicAgent
-from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
@@ -19,6 +19,8 @@ class DebugAnthropicConfig(BaseModel):
 class ActivePDF(BaseModel):
     file_data: bytes
     summary: str
+    long_summary: str
+    markdown_content: str
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -75,6 +77,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             else []
         )
 
+        pdf_content_blocks = []
+
         # Claude won't respond to tool results if there is a PDF in the message.
         # So we add the PDF to the last user message that doesn't contain a tool result.
         for message in reversed(message_history):
@@ -111,14 +115,21 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             ):
                 return "Geen PDF gevonden"
 
-            file_data = supabase.storage.from_(knowledge_result.object.bucket_id).download(knowledge_result.object.name)
-
-            self._active_pdf = ActivePDF(
-                file_data=file_data,
-                summary=knowledge_result.summary,
+            return json.dumps(
+                {
+                    "id": knowledge_result.id,
+                    "markdown_content": knowledge_result.markdown_content,
+                }
             )
 
-            return knowledge_result.summary
+        async def tool_load_image(id: str, file_name: str):
+            """
+            Load an image from the database. Id is the id of the pdf file, and in the markdown you'll find many references to images. Use the exact file path to load the image.
+            """
+
+            image_data = await self.load_image(id, file_name)
+
+            return f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
 
         # This tool is used to store a memory in the database.
         async def tool_store_memory(memory: str):
@@ -150,7 +161,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         tools = [
             tool_search_pdf,
             tool_store_memory,
-            tool_clear_memories,  # Voeg de nieuwe tool toe
+            tool_clear_memories,
+            tool_load_image,
         ]
 
         # Start measuring how long the operation takes
@@ -175,6 +187,8 @@ Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
 
 Gebruik de tool "search_pdf" om een PDF te zoeken in de kennisbasis.
+
+G
             """,
             messages=message_history,
             # Give Claude access to our special tools

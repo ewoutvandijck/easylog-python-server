@@ -36,11 +36,15 @@ async def process_pdf(
         data={
             "create": {
                 "object_id": pdf_file_object.id,
-                "summary": processed_pdf.summary,
+                "short_summary": processed_pdf.short_summary,
+                "long_summary": processed_pdf.long_summary,
+                "markdown_content": processed_pdf.markdown_content,
                 "file_type": processed_pdf.file_type,
             },
             "update": {
-                "summary": processed_pdf.summary,
+                "short_summary": processed_pdf.short_summary,
+                "long_summary": processed_pdf.long_summary,
+                "markdown_content": processed_pdf.markdown_content,
                 "file_type": processed_pdf.file_type,
             },
         },
@@ -68,6 +72,7 @@ async def process_pdf(
                 "create": {
                     "processed_pdf_id": processed_pdf_db.id,
                     "object_id": image_storage_upload.id,
+                    "original_file_name": image.file_name,
                     "page": image.page,
                     "summary": image.summary,
                 },

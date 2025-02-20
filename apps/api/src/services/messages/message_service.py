@@ -90,6 +90,9 @@ class MessageService:
                         else ToolResultContent(
                             tool_use_id=message_content.tool_use_id or "",
                             content=message_content.content or "",
+                            content_type=cast(ContentType, message_content.content_type)
+                            if message_content.content_type
+                            else None,
                             is_error=message_content.tool_use_is_error or False,
                         )
                         if message_content.type == message_content_type.tool_result
@@ -232,6 +235,7 @@ class MessageService:
                         else {
                             "type": "tool_result",
                             "content": content_chunk.content,
+                            "content_type": content_chunk.content_type,
                             "tool_use_is_error": content_chunk.is_error,
                             "tool_use_id": content_chunk.tool_use_id,
                         }

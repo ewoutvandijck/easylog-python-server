@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Generic
+from typing import Generic, cast
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
@@ -12,8 +12,11 @@ from prisma.models import processed_pdfs
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.agents.models import PDFSearchResult
+from src.lib.prisma import prisma
+from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import (
+    ContentType,
     ImageContent,
     Message,
     MessageContent,
@@ -157,7 +160,18 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # For tool results we want to tell Claude about
                     else {
                         "type": "tool_result",
-                        "content": str(content.content),
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": content.content_type,
+                                    "data": content.content,
+                                },
+                            }
+                        ]
+                        if content.content_type
+                        else content.content,
                         "tool_use_id": str(content.tool_use_id),
                         "is_error": content.is_error,
                     }
@@ -322,14 +336,18 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously
-                    function_result = (
+                    function_result = str(
                         await function(**message_contents[-1].input)
                         if asyncio.iscoroutinefunction(function)
                         else function(**message_contents[-1].input)
                     )
 
-                    # Convert the tool's result to a string
-                    tool_result.content = str(function_result)
+                    # Support for images
+                    if function_result.startswith("data:image/"):
+                        tool_result.content_type = cast(ContentType, function_result.split(";")[0].split(":")[1])
+                        tool_result.content = function_result.split(";")[1].split(",")[1]
+                    else:
+                        tool_result.content = function_result
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
@@ -350,7 +368,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     async def search_knowledge(self, query: str) -> processed_pdfs | None:
         knowledge = self.get_knowledge()
 
-        knowledge_items = "\n".join([f"ID: {item.object_id}\nSummary: {item.summary}" for item in knowledge])
+        knowledge_items = "\n".join([f"ID: {item.object_id}\nSummary: {item.short_summary}" for item in knowledge])
 
         response = await self.client.messages.create(
             model="claude-3-5-sonnet-20240620",
@@ -387,3 +405,35 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             return None
 
         return next((item for item in knowledge if item.object_id == result.id), None)
+
+    async def load_image(self, content_id: str, file_name: str) -> bytes:
+        file_data = prisma.processed_pdfs.find_first(
+            where={
+                "id": content_id,
+            },
+            include={
+                "images": {
+                    "include": {
+                        "object": True,
+                    },
+                    "where": {
+                        "original_file_name": file_name,
+                    },
+                }
+            },
+        )
+
+        if not file_data:
+            raise ValueError("File not found")
+
+        if not file_data.images:
+            raise ValueError("No images found")
+
+        image = file_data.images[0]
+
+        if not image.object or not image.object.name or not image.object.bucket_id:
+            raise ValueError("Image object not found")
+
+        self.logger.info(f"Loading image {image.object.name} from bucket {image.object.bucket_id}")
+
+        return supabase.storage.from_(image.object.bucket_id).download(image.object.name)
