@@ -13,7 +13,6 @@ class ProcessedPDFImage(BaseModel):
 
 
 class ProcessedPDF(BaseModel):
-    subject: str
     summary: str
     file_name: str = Field(default_factory=lambda: f"document_{datetime.now().strftime('%Y%m%d_%H%M%S').lower()}.pdf")
     file_type: Literal["application/pdf"]

@@ -13,7 +13,7 @@ from typing import (
     get_args,
 )
 
-from prisma.models import threads
+from prisma.models import processed_pdfs, threads
 from pydantic import BaseModel
 
 from src.lib.prisma import prisma
@@ -103,6 +103,11 @@ class BaseAgent(Generic[TConfig]):
         metadata[key] = value
 
         prisma.threads.update(where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)})
+
+    def get_knowledge(self) -> list[processed_pdfs]:
+        return prisma.processed_pdfs.find_many(
+            include={"object": True},
+        )
 
     @property
     def backend(self) -> BackendService:

@@ -26,7 +26,6 @@ model buckets {
     objects                    objects[]
     s3_multipart_uploads       s3_multipart_uploads[]
     s3_multipart_uploads_parts s3_multipart_uploads_parts[]
-    processed_pdf_images       processed_pdf_images[]
 
     @@schema("storage")
 }
@@ -170,7 +169,6 @@ model message_contents {
 
 model processed_pdfs {
     id         String                 @id @default(cuid())
-    subject    String
     summary    String
     file_type  String
     object_id  String                 @unique @db.Uuid
@@ -191,8 +189,6 @@ model processed_pdf_images {
     object           objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
     summary          String
     page             Int
-    buckets          buckets?       @relation(fields: [bucketsId], references: [id])
-    bucketsId        String?
     created_at       DateTime       @default(now())
     updated_at       DateTime       @updatedAt
 

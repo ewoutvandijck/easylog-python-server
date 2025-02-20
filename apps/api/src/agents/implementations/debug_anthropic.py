@@ -1,56 +1,29 @@
 import base64
-import glob
-import os
 import time
 from collections.abc import AsyncGenerator
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src.agents.anthropic_agent import AnthropicAgent
+from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
-class Subject(BaseModel):
-    name: str
-    instructions: str
-    glob_pattern: str
-
-
 class DebugAnthropicConfig(BaseModel):
-    subjects: list[Subject] = Field(
-        default=[
-            Subject(
-                name="GezonderLeven",
-                instructions="Help met bewegen en het creeren van een gezonder leven!",
-                glob_pattern="pdfs/gezonderleven/*.pdf",
-            ),
-            Subject(
-                name="Dieet",
-                instructions="Help met het eten van gezonde voeding en help met afvallen",
-                glob_pattern="pdfs/dieet/*.pdf",
-            ),
-        ]
-    )
-    default_subject: str | None = Field(default="WerkenSnelweg")
+    pass
+
+
+class ActivePDF(BaseModel):
+    file_data: bytes
+    summary: str
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
-    def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
-        pdfs: list[str] = []
-
-        # Get absolute path by joining with current file's directory
-        glob_with_path = os.path.join(os.path.dirname(__file__), glob_pattern)
-
-        # Find all PDF files in directory and encode them
-        for file in glob.glob(glob_with_path):
-            with open(file, "rb") as f:
-                pdfs.append(base64.standard_b64encode(f.read()).decode("utf-8"))
-
-        return pdfs
+    _active_pdf: ActivePDF | None = None
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
@@ -84,36 +57,23 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         # This is like translating from one language to another
         message_history = self._convert_messages_to_anthropic_format(messages)
 
-        # The get and set metadata functions are used to store and retrieve information between messages
-        current_subject = self.get_metadata("subject")
-        if current_subject is None:
-            current_subject = self.config.default_subject
-
-        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
-
-        if subject is not None:
-            current_subject_name = subject.name
-            current_subject_instructions = subject.instructions
-            current_subject_pdfs = self._load_pdfs(subject.glob_pattern)
-        else:
-            current_subject_name = current_subject
-            current_subject_instructions = ""
-            current_subject_pdfs = []
-
         # Create special blocks for each PDF that Claude can read
         # This is like creating a digital package for each PDF
-        pdf_content_blocks: list[BetaBase64PDFBlockParam] = [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": pdf,
-                },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
-            }
-            for pdf in current_subject_pdfs
-        ]
+        pdf_content_blocks: list[BetaBase64PDFBlockParam] = (
+            [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
+                    },
+                    "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                }
+            ]
+            if self._active_pdf
+            else []
+        )
 
         # Claude won't respond to tool results if there is a PDF in the message.
         # So we add the PDF to the last user message that doesn't contain a tool result.
@@ -137,22 +97,28 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
 
-        def tool_switch_subject(subject: str | None = None):
+        async def tool_search_pdf(query: str):
             """
-            Switch to a different subject.
+            Search for a PDF in the knowledge base.
             """
-            if subject is None:
-                self.set_metadata("subject", None)
-                return "Je bent nu terug in het algemene onderwerp"
+            knowledge_result = await self.search_knowledge(query)
 
-            if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Subject {subject} not found, choose from {', '.join([s.name for s in self.config.subjects])}"
-                )
+            if (
+                knowledge_result is None
+                or knowledge_result.object is None
+                or knowledge_result.object.name is None
+                or knowledge_result.object.bucket_id is None
+            ):
+                return "Geen PDF gevonden"
 
-            self.set_metadata("subject", subject)
+            file_data = supabase.storage.from_(knowledge_result.object.bucket_id).download(knowledge_result.object.name)
 
-            return f"Je bent nu overgestapt naar het onderwerp: {subject}"
+            self._active_pdf = ActivePDF(
+                file_data=file_data,
+                summary=knowledge_result.summary,
+            )
+
+            return knowledge_result.summary
 
         # This tool is used to store a memory in the database.
         async def tool_store_memory(memory: str):
@@ -182,7 +148,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         # Set up the tools that Claude can use
         tools = [
-            tool_switch_subject,
+            tool_search_pdf,
             tool_store_memory,
             tool_clear_memories,  # Voeg de nieuwe tool toe
         ]
@@ -201,19 +167,14 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame assistent die helpt met het debuggen van code.
-
+            system=f"""
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
 
-### Subject
-Je bent nu in het onderwerp: {current_subject_name}
-
-### Instructions
-{current_subject_instructions}
+Gebruik de tool "search_pdf" om een PDF te zoeken in de kennisbasis.
             """,
             messages=message_history,
             # Give Claude access to our special tools

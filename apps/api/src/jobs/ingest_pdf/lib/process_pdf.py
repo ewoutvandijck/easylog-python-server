@@ -1,6 +1,6 @@
 import os
 
-from src.jobs.ingest_pdf.models import ProcessedPDF, ProcessedPDFImage
+from src.jobs.ingest_pdf.lib.process_pdf_process import process_pdf_process
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 
@@ -11,22 +11,10 @@ async def process_pdf(
     target_bucket: str = "knowledge",
     target_path: str = "/",
 ):
-    processed_pdf = ProcessedPDF(
-        # Annoying bullshit because of Pydantic
-        **{k: v for k, v in {"file_name": file_name}.items() if v is not None},
-        subject="Hele mooie PDF",
-        summary="Een pdf met super veel mooie afbeeldingen",
-        file_type="application/pdf",
-        images=[
-            ProcessedPDFImage(
-                file_type="image/png",
-                file_name="image.png",
-                summary="Een mooie afbeelding",
-                page=1,
-                file_data=b"",
-            ),
-        ],
-    )
+    processed_pdf = process_pdf_process(file_data)
+
+    if file_name:
+        processed_pdf.file_name = file_name
 
     full_pdf_path = os.path.join(target_path, processed_pdf.file_name)
 
@@ -48,12 +36,10 @@ async def process_pdf(
         data={
             "create": {
                 "object_id": pdf_file_object.id,
-                "subject": processed_pdf.subject,
                 "summary": processed_pdf.summary,
                 "file_type": processed_pdf.file_type,
             },
             "update": {
-                "subject": processed_pdf.subject,
                 "summary": processed_pdf.summary,
                 "file_type": processed_pdf.file_type,
             },
