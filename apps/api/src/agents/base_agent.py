@@ -13,7 +13,7 @@ from typing import (
     get_args,
 )
 
-from prisma.models import Threads
+from prisma.models import threads
 from pydantic import BaseModel
 
 from src.lib.prisma import prisma
@@ -29,7 +29,7 @@ class BaseAgent(Generic[TConfig]):
 
     thread_id: str
     _backend: BackendService | None = None
-    _thread: Threads | None = None
+    _thread: threads | None = None
     _raw_config: dict[str, Any] = {}
 
     _type_T: Any
@@ -121,7 +121,7 @@ class BaseAgent(Generic[TConfig]):
     def logger(self) -> logging.Logger:
         return logger
 
-    def _get_thread(self) -> Threads:
+    def _get_thread(self) -> threads:
         """Get the thread for the agent."""
 
         if self._thread is None:

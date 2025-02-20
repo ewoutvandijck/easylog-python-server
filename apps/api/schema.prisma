@@ -173,7 +173,7 @@ model processed_pdfs {
     subject    String
     summary    String
     file_type  String
-    object_id  String                 @unique
+    object_id  String                 @unique @db.Uuid
     object     objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
     images     processed_pdf_images[]
     created_at DateTime               @default(now())
@@ -187,12 +187,14 @@ model processed_pdf_images {
     id               String         @id @default(cuid())
     processed_pdf_id String
     processed_pdf    processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
-    object_id        String         @unique
+    object_id        String         @unique @db.Uuid
     object           objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
-    created_at       DateTime       @default(now())
-    updated_at       DateTime       @updatedAt
+    summary          String
+    page             Int
     buckets          buckets?       @relation(fields: [bucketsId], references: [id])
     bucketsId        String?
+    created_at       DateTime       @default(now())
+    updated_at       DateTime       @updatedAt
 
     @@map("processed_pdf_images")
     @@schema("public")
