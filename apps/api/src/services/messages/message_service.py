@@ -2,11 +2,11 @@ from collections.abc import AsyncGenerator, Sequence
 from typing import Literal, cast
 
 from prisma import Json
-from prisma.enums import MessageContentType, MessageRole
+from prisma.enums import message_content_type, message_role
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.messages import (
     ContentType,
@@ -77,22 +77,22 @@ class MessageService:
                         TextContent(
                             content=message_content.content or "",
                         )
-                        if message_content.type == MessageContentType.text
+                        if message_content.type == message_content_type.text
                         else ImageContent(
                             content=message_content.content or "",
                             content_type=cast(ContentType, message_content.content_type) or "image/jpeg",
                         )
-                        if message_content.type == MessageContentType.image
+                        if message_content.type == message_content_type.image
                         else PDFContent(
                             content=message_content.content or "",
                         )
-                        if message_content.type == MessageContentType.pdf
+                        if message_content.type == message_content_type.pdf
                         else ToolResultContent(
                             tool_use_id=message_content.tool_use_id or "",
                             content=message_content.content or "",
                             is_error=message_content.tool_use_is_error or False,
                         )
-                        if message_content.type == MessageContentType.tool_result
+                        if message_content.type == message_content_type.tool_result
                         else ToolUseContent(
                             id=message_content.tool_use_id or "",
                             name=message_content.tool_use_name or "",
@@ -142,7 +142,7 @@ class MessageService:
             thread_id,
             agent_class,
             input_content,
-            MessageRole.user,
+            message_role.user,
         )
 
         for message in generated_messages:
@@ -151,7 +151,7 @@ class MessageService:
                 thread_id,
                 agent_class,
                 [content for content in message.content if not isinstance(content, TextDeltaContent)],
-                MessageRole.assistant if message.role == "assistant" else MessageRole.user,
+                message_role.assistant if message.role == "assistant" else message_role.user,
             )
 
     @classmethod
@@ -203,7 +203,7 @@ class MessageService:
         thread_id: str,
         agent_class: str,
         content_chunks: Sequence[MessageContent],
-        role: MessageRole,
+        role: message_role,
     ) -> None:
         prisma.messages.create(
             data={

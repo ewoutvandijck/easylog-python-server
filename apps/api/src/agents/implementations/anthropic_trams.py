@@ -7,6 +7,7 @@ from typing import TypedDict
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -71,9 +72,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
@@ -86,9 +85,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -109,9 +106,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.xwxw
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.xwxw
                 "citations": {"enabled": False},
             }
             for pdf in current_subject_pdfs
@@ -122,12 +117,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -150,7 +142,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_pqi_data():
             """
-            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerponderhoud. 
+            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerponderhoud.
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
@@ -165,9 +157,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             }
 
             # Return the pqi data or an error message if it's not found
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
         async def tool_store_memory(memory: str):
             """
@@ -186,9 +176,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                 return "Terug naar algemeen onderwerp"
 
             if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}"
-                )
+                raise ValueError(f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}")
 
             self.set_metadata("subject", subject)
             return f"Onderwerp gewijzigd naar: {subject}"

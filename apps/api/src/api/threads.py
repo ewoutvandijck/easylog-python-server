@@ -1,9 +1,9 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query
-from prisma.models import Threads
+from prisma.models import threads
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.models.pagination import Pagination
 from src.models.threads import ThreadCreateInput
 
@@ -14,7 +14,7 @@ router = APIRouter()
     "/threads",
     name="get_threads",
     tags=["threads"],
-    response_model=Pagination[Threads],
+    response_model=Pagination[threads],
     description="Retrieves all threads. Returns a list of all threads with their messages by default in descending chronological order (newest first). Each message includes its full content.",
 )
 async def get_threads(
@@ -47,7 +47,7 @@ async def get_threads(
     "/threads/{id}",
     name="get_thread_by_id",
     tags=["threads"],
-    response_model=Threads,
+    response_model=threads,
     responses={
         404: {"description": "Thread not found"},
     },
@@ -86,7 +86,7 @@ async def get_thread_by_id(
     "/threads",
     name="create_thread",
     tags=["threads"],
-    response_model=Threads,
+    response_model=threads,
     description="Creates a new thread or returns the existing thread if it already exists.",
 )
 async def create_thread(thread: ThreadCreateInput):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.models.health import HealthResponse
 
 router = APIRouter()

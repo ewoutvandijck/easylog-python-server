@@ -7,7 +7,7 @@ from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
-from prisma.enums import MessageRole
+from prisma.enums import message_role
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.logger import logger
@@ -323,7 +323,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 ],
             }
             for message in messages
-            if message.role in [MessageRole.user, MessageRole.assistant]
+            if message.role in [message_role.user, message_role.assistant]
         ]
 
         # Remove messages with empty content and their following message

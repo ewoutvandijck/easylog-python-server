@@ -16,7 +16,7 @@ from typing import (
 from prisma.models import Threads
 from pydantic import BaseModel
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, TextContent
 from src.services.easylog_backend.backend_service import BackendService
@@ -34,7 +34,7 @@ class BaseAgent(Generic[TConfig]):
 
     _type_T: Any
 
-    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs):
+    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: Any):
         self.thread_id = thread_id
         self._backend = backend
         self._raw_config = kwargs
@@ -129,11 +129,11 @@ class BaseAgent(Generic[TConfig]):
 
         return self._thread
 
-    async def _sync_to_async_generator(self, sync_gen: Generator):
+    async def _sync_to_async_generator(self, sync_gen: Generator) -> AsyncGenerator:
         for item in sync_gen:
             yield item
 
-    def _get_config(self, **kwargs) -> TConfig:
+    def _get_config(self, **kwargs: Any) -> TConfig:
         """Parse kwargs into the config type specified by the child class"""
         # Get the generic parameters using typing.get_args
         # Get the actual config type from the class's generic parameters
