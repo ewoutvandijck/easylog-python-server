@@ -1,7 +1,10 @@
+# Standard library imports
 import logging
 import os
 
 import pymysql
+
+# Third-party imports
 from dotenv import load_dotenv
 from pymysql.connections import Connection
 from sshtunnel import SSHTunnelForwarder
