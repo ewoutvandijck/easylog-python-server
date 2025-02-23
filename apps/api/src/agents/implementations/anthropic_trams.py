@@ -1,3 +1,4 @@
+# Standard library imports
 import base64
 import glob
 import os
@@ -5,12 +6,16 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+# Third-party imports
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
+
+# Local imports
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+from src.utils.sqi_connect import create_db_connection, get_database_tables
 
 
 class PQIDataHwr(TypedDict):
@@ -38,17 +43,12 @@ class AnthropicTramsAssistantConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions="We starten met het in dienst nemen van de tram. Gebruik de stappen uit de documentatie om de tram in dienst te nemen.",
+                instructions="Groet vriendelijk",  # noqa: E501
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
-                name="Storingen",
-                instructions="Help de monteur met het oplossen van TRAM storingen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN ANTWOORDEN OP STORINGEN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
-                glob_pattern="pdfs/storingen/*.pdf",
-            ),
-            Subject(
                 name="Pantograaf",
-                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf, deze geven in stappen de werkzaamheden aan. Veiligheid is belangrijk, dus begin altijd met de veiligheid.",
+                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf, deze geven in stappen de werkzaamheden aan. Veiligheid is belangrijk, dus begin altijd met de veiligheid.",  # noqa: E501
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
@@ -71,9 +71,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
@@ -86,9 +84,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -109,9 +105,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.xwxw
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.xwxw
                 "citations": {"enabled": False},
             }
             for pdf in current_subject_pdfs
@@ -122,12 +116,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -140,7 +131,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         logger.info(f"Memories: {memories}")
 
-        def tool_clear_memories():
+        def tool_clear_memories() -> str:
             """
             Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
             """
@@ -148,9 +139,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             message_history.clear()
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
-        async def tool_get_pqi_data():
+        async def tool_get_pqi_data():  # noqa: ANN202
             """
-            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerponderhoud. 
+            Haalt onderhoudstaak op uit de datasource, gebruik dit bij het onderwerponderhoud.
             """
             pqi_data = await self.backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
@@ -165,11 +156,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             }
 
             # Return the pqi data or an error message if it's not found
-            return {
-                k: v for k, v in data.items() if v is not None
-            } or "Geen PQI data gevonden"
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
-        async def tool_store_memory(memory: str):
+        async def tool_store_memory(memory: str):  # noqa: ANN202
             """
             Sla een geheugen (memory) op in de database.
             """
@@ -180,21 +169,45 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             return "Memory stored"
 
         # NIEUW: Tool toevoegen om van onderwerp te wisselen
-        def tool_switch_subject(subject: str | None = None):
+        def tool_switch_subject(subject: str | None = None) -> str:
             if subject is None:
                 self.set_metadata("subject", None)
                 return "Terug naar algemeen onderwerp"
 
             if subject not in [s.name for s in self.config.subjects]:
-                raise ValueError(
-                    f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}"
-                )
+                raise ValueError(f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}")
 
             self.set_metadata("subject", subject)
             return f"Onderwerp gewijzigd naar: {subject}"
 
+        def tool_easylog() -> str:
+            """
+            Maakt verbinding met de EasyLog database en haalt een lijst op van alle beschikbare tabellen.
+            """
+            ssh_tunnel = None
+            connection = None
+
+            try:
+                ssh_tunnel, connection = create_db_connection()
+                if not connection:
+                    return "❌ Kon geen database verbinding maken"
+
+                tables = get_database_tables(connection)
+                return f"Beschikbare tabellen in EasyLog:\n{', '.join(tables)}"
+
+            except Exception as e:
+                return f"❌ Database error: {str(e)}"
+
+            finally:
+                # Sluit resources altijd netjes af
+                if connection:
+                    connection.close()
+                if ssh_tunnel:
+                    ssh_tunnel.close()
+
         tools = [
-            tool_switch_subject,  # NIEUW
+            tool_easylog,
+            tool_switch_subject,
             tool_store_memory,
             tool_get_pqi_data,
             tool_clear_memories,
@@ -208,9 +221,18 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
+### Core memories en Persoonlijke Interactie ###
+- Gebruik ALTIJD de tool_store_memory om belangrijke informatie op te slaan over de gebruiker
+- Sla deze informatie op wanneer:
+  * De gebruiker zich voorstelt of zijn/haar naam noemt
+  * Er technische oplossingen worden gevonden
+  * Er belangrijke gebeurtenissen of ervaringen worden gedeeld
+  * Er specifieke voorkeuren of werkwijzen worden genoemd
+- Begin elk gesprek met het checken van bestaande herinneringen
+
 ### Onderwerpen ###
 Geef de per ondewerp de onderdelen weer waar het over gaat
-Schakel een ander onderwerp om met de tool_switch_subject. 
+Schakel een ander onderwerp om met de tool_switch_subject.
 Gebruik alleen de onderwerpen die je in subjects hebt gedefinieerd.
 Gebruik de PQI data met de tool_get_pqi_data als er gevraaagd wordt om de specieke taak.
 
@@ -220,7 +242,7 @@ Huidige instructies: {current_subject_instructions}
 
 
 ## INSTRUCTIONS ##
-- SHORT ANSWERS ONLY MAX 40 woorden per antwoord anders wordt ik boos 
+- SHORT ANSWERS ONLY MAX 40 words a answer!!!
 - DO NOT ADD YOUR OWN TECHNICAL KNOWLEDGE, USE ONLY THE DOCUMENTATION
 - Talk only about tram maintenance and failures
 - Task-by-task explanation
@@ -228,11 +250,8 @@ Huidige instructies: {current_subject_instructions}
 
 ### Tram Onderhoud Basis ###
 - Controleer altijd eerst de veiligheid voordat je begint
-- Gebruik de juiste gereedschappen en PBM's 
+- Gebruik de juiste gereedschappen en PBM's
 - Raadpleeg bij twijfel een senior monteur
-
-### Veel voorkomende storingen ###
-- Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
 
 ### Core memories
 {"\n-".join(memories)}

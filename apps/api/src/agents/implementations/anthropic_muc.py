@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -51,9 +52,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -90,9 +89,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -113,9 +110,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
                 "citations": {"enabled": True},
             }
             for pdf in current_subject_pdfs
@@ -126,12 +121,9 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -146,7 +138,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
 
-        def tool_switch_subject(subject: str | None = None):
+        def tool_switch_subject(subject: str | None = None) -> str:
             """
             Switch to a different subject.
             """
@@ -164,7 +156,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
             return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
         # This tool is used to store a memory in the database.
-        async def tool_store_memory(memory: str):
+        async def tool_store_memory(memory: str) -> str:
             """
             Store a memory in the database.
             """
@@ -181,7 +173,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
             return "Memory stored"
 
         # Aangepaste tool om memories en thread te wissen
-        def tool_clear_memories():
+        def tool_clear_memories() -> str:
             """
             Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
             """
@@ -225,7 +217,7 @@ Core memories zijn belangrij ke informatie die je moet onthouden over een gebrui
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
-            """,
+            """,  # noqa: E501
             messages=message_history,
             # Give Claude access to our special tools
             # This is like giving Claude a toolbox to help answer questions
