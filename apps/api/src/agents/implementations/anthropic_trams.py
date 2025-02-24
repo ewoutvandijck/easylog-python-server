@@ -24,6 +24,14 @@ class PQIDataHwr(TypedDict):
     typematerieel: str
 
 
+class EasylogData(TypedDict):
+    """
+    Defines the structure for Easylog data
+    """
+
+    status: str
+
+
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
 
@@ -176,10 +184,17 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             self.set_metadata("subject", subject)
             return f"Onderwerp gewijzigd naar: {subject}"
 
+        async def tool_get_easylog_data():
+            """
+            Haalt de status van de Easylog data op.
+            """
+            return "De stand van de EasyLog data is goed"
+
         tools = [
             tool_switch_subject,  # NIEUW
             tool_store_memory,
             tool_get_pqi_data,
+            tool_get_easylog_data,  # Nieuwe tool toegevoegd
             tool_clear_memories,
         ]
 
@@ -199,16 +214,12 @@ Huidige instructies: {current_subject_instructions}
 ### BELANGRIJKE REGELS:
 - Vul NOOIT aan met eigen technische kennis
 - Spreek alleen over tram onderhoud en storingen
-- Stap-voor-stap uitleg geven
-- Korte antwoorden voor mobiel gebruik
+- Korte antwoorden max 100 woorden
 
 ### Tram Onderhoud Basis ###
 - Controleer altijd eerst de veiligheid voordat je begint
 - Gebruik de juiste gereedschappen en PBM's
 - Raadpleeg bij twijfel een senior monteur
-
-### Veel voorkomende storingen ###
-- Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
 
 ### Core memories
 {"\n-".join(memories)}
