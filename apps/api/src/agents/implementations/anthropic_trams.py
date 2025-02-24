@@ -241,7 +241,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         async def tool_get_easylog_data():
             """
             Haalt de follow-up entries op uit EasyLog en maakt ze leesbaar.
-            Deze versie haalt de velden datum, omschrijving en statusobject op.
+            Deze versie haalt de velden datum, object en statusobject op.
             """
             try:
                 if not self.db_connection:
@@ -251,7 +251,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     query = """
                         SELECT 
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.omschrijving')) as omschrijving,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject
                         FROM follow_up_entries
                         ORDER BY created_at DESC
@@ -265,8 +265,14 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
                     results = ["🔍 Laatste follow-up entries:"]
                     for entry in entries:
-                        datum, omschrijving, statusobject = entry
-                        results.append(f"Datum: {datum}, Omschrijving: {omschrijving}, Status object: {statusobject}")
+                        datum, object_value, statusobject = entry
+                        # Pas de statusobject waarde aan
+                        if statusobject == "Ja":
+                            statusobject = "Akkoord"
+                        elif statusobject == "Nee":
+                            statusobject = "Niet akkoord"
+
+                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
                     return "\n".join(results)
 
             except Exception as e:
