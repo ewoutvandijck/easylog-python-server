@@ -251,7 +251,6 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     query = """
                         SELECT 
                             id,
-                            nummer,
                             object,
                             omschrijving,
                             DATE(created_at) as aanmaakdatum,
@@ -274,7 +273,6 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     for entry in entries:
                         (
                             entry_id,
-                            nummer,
                             objectnaam,
                             omschrijving,
                             aanmaakdatum,
@@ -287,7 +285,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                         # Basis informatie
                         result_entry = [
                             f"\n📋 Entry #{entry_id}",
-                            f"#{nummer} - {objectnaam}",
+                            f"🔧 Object: {objectnaam}",
                             f"📅 Aangemaakt op: {aanmaakdatum}",
                             f"📝 Omschrijving: {omschrijving}",
                             f"🚩 Status: {status}",
