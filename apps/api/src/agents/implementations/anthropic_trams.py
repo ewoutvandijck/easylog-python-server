@@ -21,8 +21,7 @@ from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 from src.utils.sqi_connect import create_db_connection
 
 # Laad alle variabelen uit .env
-load_dotenv()
-
+load_dotenv()        
 class PQIDataHwr(TypedDict):
     """
     Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components
@@ -289,8 +288,10 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
         start_time = time.time()
 
         stream = await self.client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            # Gebruik Claude 3.7 Sonnet model
+            model="claude-3-7-sonnet-20250219",
             max_tokens=1024,
+            # De thinking parameter is verwijderd
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
