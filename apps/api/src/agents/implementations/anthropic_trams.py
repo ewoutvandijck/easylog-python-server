@@ -204,7 +204,7 @@ Huidige instructies: {current_subject_instructions}
 
 ### Tram Onderhoud Basis ###
 - Controleer altijd eerst de veiligheid voordat je begint
-- Gebruik de juiste gereedschappen en PBM's 
+- Gebruik de juiste gereedschappen en PBM's
 - Raadpleeg bij twijfel een senior monteur
 
 ### Veel voorkomende storingen ###
