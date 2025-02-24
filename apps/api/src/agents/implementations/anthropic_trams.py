@@ -25,9 +25,12 @@ load_dotenv()
 
 class PQIDataHwr(TypedDict):
     """
-    Defines the structure for PQI data from projects
+    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components
     """
-    name: str
+
+    taak: str
+    component: str
+    typematerieel: str
 
 
 class EasylogData(TypedDict):
@@ -197,19 +200,20 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             """
             Haalt de PQI data op uit de datasource voor HWR 450.
             """
-            try:
-                pqi_data = await self.backend.get_datasource_entry(
-                    datasource_slug="projecten",
-                    entry_id="100",
-                    data_type=PQIDataHwr,
-                )
+            pqi_data = await self.backend.get_datasource_entry(
+                datasource_slug="pqi-data-tram",
+                entry_id="443",
+                data_type=PQIDataHwr,
+            )
 
-                if pqi_data and pqi_data.data.get("name"):
-                    return {"name": pqi_data.data["name"]}
-                return "Geen PQI data gevonden"
-                
-            except Exception as e:
-                return f"Fout bij ophalen PQI data: {str(e)}"
+            data = {
+                "taak": pqi_data.data["taak"],
+                "component": pqi_data.data["component"],
+                "typematerieel": pqi_data.data["typematerieel"],
+            }
+
+            # Return the pqi data or an error message if it's not found
+            return {k: v for k, v in data.items() if v is not None} or "Geen PQI data gevonden"
 
         async def tool_store_memory(memory: str):
             """
