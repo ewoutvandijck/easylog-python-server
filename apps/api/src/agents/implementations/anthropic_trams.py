@@ -1,3 +1,4 @@
+# Python standard library imports
 import base64
 import glob
 import os
@@ -5,13 +6,19 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+# Third-party imports
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
+# Local application imports
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+
+# Laad alle variabelen uit .env
+load_dotenv()
 
 
 class PQIDataHwr(TypedDict):
