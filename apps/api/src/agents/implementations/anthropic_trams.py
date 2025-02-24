@@ -1,7 +1,6 @@
 # Python standard library imports
 import base64
 import glob
-import json
 import os
 import time
 from collections.abc import AsyncGenerator
@@ -241,7 +240,8 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_easylog_data():
             """
-            Haalt alle follow-up entries op uit EasyLog en maakt ze leesbaar
+            Haalt de follow-up entries op uit EasyLog en maakt ze leesbaar.
+            Deze versie haalt alleen de velden datum en nummer op.
             """
             try:
                 if not self.db_connection:
@@ -250,14 +250,8 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                 with self.db_connection.cursor() as cursor:
                     query = """
                         SELECT 
-                            id,
-                            object,
-                            omschrijving,
-                            DATE(created_at) as aanmaakdatum,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.opmerking')) as opmerking,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.statusactie')) as status,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle')) as controles,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.verwerking')) as acties
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.nummer')) as nummer
                         FROM follow_up_entries
                         ORDER BY created_at DESC
                         LIMIT 10
@@ -269,62 +263,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                         return "Geen follow-up entries gevonden"
 
                     results = ["🔍 Laatste follow-up entries:"]
-
                     for entry in entries:
-                        (
-                            entry_id,
-                            objectnaam,
-                            omschrijving,
-                            aanmaakdatum,
-                            opmerking,
-                            status,
-                            controles_json,
-                            acties_json,
-                        ) = entry
-
-                        # Basis informatie
-                        result_entry = [
-                            f"\n📋 Entry #{entry_id}",
-                            f"🔧 Object: {objectnaam}",
-                            f"📅 Aangemaakt op: {aanmaakdatum}",
-                            f"📝 Omschrijving: {omschrijving}",
-                            f"🚩 Status: {status}",
-                            f"💡 Opmerking: {opmerking}",
-                        ]
-
-                        # Controle details
-                        if controles_json:
-                            try:
-                                controles = json.loads(controles_json)
-                                result_entry.append("\n🔎 Controles:")
-                                for i, controle in enumerate(controles, 1):
-                                    result_entry.append(
-                                        f"  {i}. Datum: {controle.get('datum')}\n"
-                                        f"     Gebreken: {', '.join(controle.get('gebrek', []))}\n"
-                                        f"     Oorzaak: {controle.get('oorzaak')}\n"
-                                        f"     Checks: {', '.join(controle.get('checkodh', []))}"
-                                    )
-                            except json.JSONDecodeError:
-                                result_entry.append("\n⚠️ Fout bij lezen controles")
-
-                        # Actie details
-                        if acties_json:
-                            try:
-                                acties = json.loads(acties_json)
-                                result_entry.append("\n📌 Acties:")
-                                for i, actie in enumerate(acties, 1):
-                                    result_entry.append(
-                                        f"  {i}. {actie.get('actie')}\n"
-                                        f"     Uitgevoerd door: {actie.get('actiepersoon')}\n"
-                                        f"     Deadline: {actie.get('datumdeadline')}\n"
-                                        f"     Status: {'✅ Afgerond' if actie.get('actieafgerond') == 'Ja' else '❌ Nog open'}"
-                                    )
-                            except json.JSONDecodeError:
-                                result_entry.append("\n⚠️ Fout bij lezen acties")
-
-                        results.append("\n".join(result_entry))
-                        results.append("\n――――――――――――――――――――――")
-
+                        datum, nummer = entry
+                        results.append(f"Datum: {datum}, Nummer: {nummer}")
                     return "\n".join(results)
 
             except Exception as e:
