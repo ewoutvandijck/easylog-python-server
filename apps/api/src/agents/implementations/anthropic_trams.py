@@ -4,7 +4,7 @@ import glob
 import os
 import time
 from collections.abc import AsyncGenerator
-from typing import TypedDict
+from typing import TypedDict, Optional
 
 # Third-party imports
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
@@ -16,6 +16,9 @@ from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+from src.utils.sqi_connect import create_db_connection
+from sshtunnel import SSHTunnelForwarder
+from pymysql.connections import Connection
 
 # Laad alle variabelen uit .env
 load_dotenv()
@@ -69,6 +72,50 @@ class AnthropicTramsAssistantConfig(BaseModel):
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Initialiseer database connectie attributen
+        self.ssh_tunnel: Optional[SSHTunnelForwarder] = None
+        self.db_connection: Optional[Connection] = None
+        self._setup_db_connection()
+
+    def _setup_db_connection(self) -> None:
+        """
+        Zet de database connectie op via SSH tunnel
+        """
+        try:
+            print("\n\n==========================================")
+            print("�� DATABASE CONNECTIE SETUP START 🔌")
+            print("==========================================")
+            
+            self.ssh_tunnel, self.db_connection = create_db_connection()
+            if self.db_connection:
+                success_msg = "✅ Database verbinding succesvol opgezet"
+                logger.info(success_msg)
+                print(f"\n{success_msg}\n")
+            else:
+                error_msg = "❌ Kon geen database verbinding maken"
+                logger.error(error_msg)
+                print(f"\n{error_msg}\n")
+        except Exception as e:
+            error_msg = f"❌ Fout bij opzetten database verbinding: {str(e)}"
+            logger.error(error_msg)
+            print(f"\n{error_msg}\n")
+        
+        print("==========================================")
+        print("🔌 DATABASE CONNECTIE SETUP EINDE 🔌")
+        print("==========================================\n\n")
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Sluit de database connectie en SSH tunnel bij afsluiten
+        """
+        if self.db_connection:
+            self.db_connection.close()
+        if self.ssh_tunnel and self.ssh_tunnel.is_active:
+            self.ssh_tunnel.close()
+        await super().__aexit__(exc_type, exc_val, exc_tb)
+
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
@@ -193,9 +240,52 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_easylog_data():
             """
-            Haalt de status van de Easylog data op.
+            Haalt alle statussen op uit de entity_statuses tabel van EasyLog.
             """
-            return "De stand van de EasyLog data is goed"
+            try:
+                if not self.db_connection:
+                    return "Geen database verbinding beschikbaar"
+                    
+                with self.db_connection.cursor() as cursor:
+                    query = """
+                        SELECT 
+                            id,
+                            entity_datum_id,
+                            user_id,
+                            source_type,
+                            source_id,
+                            color,
+                            message,
+                            created_at,
+                            updated_at
+                        FROM entity_statuses 
+                        ORDER BY created_at DESC
+                        LIMIT 20
+                    """
+                    cursor.execute(query)
+                    statuses = cursor.fetchall()
+                    
+                    if not statuses:
+                        return "Geen statussen gevonden"
+                    
+                    results = ["Recent geregistreerde statussen:"]
+                    for status in statuses:
+                        (id, entity_datum_id, user_id, source_type, source_id, 
+                         color, message, created_at, updated_at) = status
+                        results.append(
+                            f"Status ID: {id}\n"
+                            f"Bericht: {message}\n"
+                            f"Kleur: {color}\n"
+                            f"Type: {source_type}\n"
+                            f"Datum: {created_at}\n"
+                            f"-------------------"
+                        )
+                    
+                    return "\n".join(results)
+                    
+            except Exception as e:
+                logger.error(f"Fout bij ophalen statussen: {str(e)}")
+                return f"Er is een fout opgetreden: {str(e)}"
 
         tools = [
             tool_switch_subject,  # NIEUW
