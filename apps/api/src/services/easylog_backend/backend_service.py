@@ -13,7 +13,12 @@ class BackendService:
         self.bearer_token = bearer_token
         self.client = AsyncClient(
             base_url=base_url,
-            headers={"Authorization": f"Bearer {self.bearer_token}"},
+            headers={
+                "Authorization": f"Bearer {self.bearer_token}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            follow_redirects=True
         )
 
     async def get_datasources(self) -> PaginatedResponse[Datasource]:
