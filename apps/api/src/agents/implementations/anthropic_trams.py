@@ -23,15 +23,12 @@ from src.utils.sqi_connect import create_db_connection
 # Laad alle variabelen uit .env
 load_dotenv()
 
-
 class PQIDataHwr(TypedDict):
     """
-    Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components
+    Projecten 
     """
 
-    taak: str
-    component: str
-    typematerieel: str
+    name: str
 
 
 class EasylogData(TypedDict):
@@ -202,8 +199,8 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             Haalt de PQI data op uit de datasource voor HWR 450.
             """
             pqi_data = await self.backend.get_datasource_entry(
-                datasource_slug="pqi-data-tram",
-                entry_id="443",
+                datasource_slug="projecten",
+                entry_id="902",
                 data_type=PQIDataHwr,
             )
 
