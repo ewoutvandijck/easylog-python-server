@@ -24,7 +24,7 @@ class EasylogSqlService:
         db_port: int = 3306,
         db_user: str = "easylog",
         db_name: str = "easylog",
-        db_password: str | None = None,
+        db_password: str = "",
         connect_timeout: int = 10,
     ) -> None:
         if self._initialized:
@@ -38,7 +38,7 @@ class EasylogSqlService:
         self.db_port = db_port
         self.db_user = db_user
         self.db_name = db_name
-        self.db_password = db_password or os.getenv("DB_PASSWORD")
+        self.db_password = db_password
         self.connect_timeout = connect_timeout
 
         self.ssh_tunnel = None
@@ -67,7 +67,7 @@ class EasylogSqlService:
 
         try:
             if not self.db_password:
-                raise ValueError("DB_PASSWORD not set in environment or constructor")
+                raise ValueError("Password not provided")
 
             if self.use_ssh:
                 if not self.ssh_key_path or not os.path.exists(self.ssh_key_path):
