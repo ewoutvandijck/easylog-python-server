@@ -4,6 +4,7 @@ services:
       context: ./apps/api
       dockerfile: Dockerfile
     container_name: easylog-python-server.api
+    network_mode: 'host'
     ports:
       - 8000:8000
     env_file:
@@ -19,6 +20,7 @@ services:
       - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    network_mode: 'host'
     ports:
       - 5432:5432
     restart: unless-stopped
@@ -26,6 +28,7 @@ services:
   nginx:
     image: nginx:latest
     container_name: easylog-python-server.nginx
+    network_mode: 'host'
     ports:
       - 8001:80
     volumes:
