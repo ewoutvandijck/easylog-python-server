@@ -10,18 +10,17 @@ from typing import TypedDict
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from pymysql.connections import Connection
-from sshtunnel import SSHTunnelForwarder
 
 # Local application imports
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
-from src.utils.sqi_connect import create_db_connection
 
 # Laad alle variabelen uit .env
-load_dotenv()        
+load_dotenv()
+
+
 class PQIDataHwr(TypedDict):
     """
     Defines the structure for PQI (Product Quality Inspection) data specifically for Tram components
@@ -70,50 +69,6 @@ class AnthropicTramsAssistantConfig(BaseModel):
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
 class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Initialiseer database connectie attributen
-        self.ssh_tunnel: SSHTunnelForwarder | None = None
-        self.db_connection: Connection | None = None
-        self._setup_db_connection()
-
-    def _setup_db_connection(self) -> None:
-        """
-        Zet de database connectie op via SSH tunnel
-        """
-        try:
-            print("\n\n==========================================")
-            print("�� DATABASE CONNECTIE SETUP START 🔌")
-            print("==========================================")
-
-            self.ssh_tunnel, self.db_connection = create_db_connection()
-            if self.db_connection:
-                success_msg = "✅ Database verbinding succesvol opgezet"
-                logger.info(success_msg)
-                print(f"\n{success_msg}\n")
-            else:
-                error_msg = "❌ Kon geen database verbinding maken"
-                logger.error(error_msg)
-                print(f"\n{error_msg}\n")
-        except Exception as e:
-            error_msg = f"❌ Fout bij opzetten database verbinding: {str(e)}"
-            logger.error(error_msg)
-            print(f"\n{error_msg}\n")
-
-        print("==========================================")
-        print("🔌 DATABASE CONNECTIE SETUP EINDE 🔌")
-        print("==========================================\n\n")
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """
-        Sluit de database connectie en SSH tunnel bij afsluiten
-        """
-        if self.db_connection:
-            self.db_connection.close()
-        if self.ssh_tunnel and self.ssh_tunnel.is_active:
-            self.ssh_tunnel.close()
-        await super().__aexit__(exc_type, exc_val, exc_tb)
-
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
@@ -242,10 +197,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             Deze versie haalt de velden datum, object en statusobject op.
             """
             try:
-                if not self.db_connection:
-                    return "Geen database verbinding beschikbaar"
-
-                with self.db_connection.cursor() as cursor:
+                with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
