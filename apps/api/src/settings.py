@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     API_ROOT_PATH: str = Field(default="/")
 
     # SSH Settings
-    EASYLOG_SSH_KEY_PATH: str = Field(default="~/.ssh/id_ed25519")
-    EASYLOG_SSH_HOST: str = Field(default="staging.easylog.nu")
-    EASYLOG_SSH_USERNAME: str = Field(default="forge")
+    EASYLOG_SSH_KEY_PATH: str | None = Field(default=None)  # ~/.ssh/id_ed25519
+    EASYLOG_SSH_HOST: str | None = Field(default=None)  # staging.easylog.nu
+    EASYLOG_SSH_USERNAME: str | None = Field(default=None)  # forge
 
     # Database Settings
     EASYLOG_DB_HOST: str = Field(default="127.0.0.1")

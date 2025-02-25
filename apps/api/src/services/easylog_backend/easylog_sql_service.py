@@ -17,9 +17,9 @@ class EasylogSqlService:
 
     def __init__(
         self,
-        ssh_key_path: str = "~/.ssh/id_ed25519",
-        ssh_host: str = "staging.easylog.nu",
-        ssh_username: str = "forge",
+        ssh_key_path: str | None = None,
+        ssh_host: str | None = None,
+        ssh_username: str | None = None,
         db_host: str = "127.0.0.1",
         db_port: int = 3306,
         db_user: str = "easylog",
@@ -30,7 +30,8 @@ class EasylogSqlService:
         if self._initialized:
             return
 
-        self.ssh_key_path = os.path.expanduser(ssh_key_path)
+        self.use_ssh = all([ssh_key_path, ssh_host, ssh_username])
+        self.ssh_key_path = os.path.expanduser(ssh_key_path) if ssh_key_path else None
         self.ssh_host = ssh_host
         self.ssh_username = ssh_username
         self.db_host = db_host
@@ -68,24 +69,29 @@ class EasylogSqlService:
             if not self.db_password:
                 raise ValueError("DB_PASSWORD not set in environment or constructor")
 
-            if not os.path.exists(self.ssh_key_path):
-                raise FileNotFoundError(f"SSH key not found at path: {self.ssh_key_path}")
+            if self.use_ssh:
+                if not self.ssh_key_path or not os.path.exists(self.ssh_key_path):
+                    raise FileNotFoundError(f"SSH key not found at path: {self.ssh_key_path}")
 
-            logger.info("Establishing SSH tunnel connection...")
-            ssh_tunnel = SSHTunnelForwarder(
-                self.ssh_host,
-                ssh_username=self.ssh_username,
-                ssh_pkey=self.ssh_key_path,
-                remote_bind_address=(self.db_host, self.db_port),
-            )
+                logger.info("Establishing SSH tunnel connection...")
+                ssh_tunnel = SSHTunnelForwarder(
+                    self.ssh_host,
+                    ssh_username=self.ssh_username,
+                    ssh_pkey=self.ssh_key_path,
+                    remote_bind_address=(self.db_host, self.db_port),
+                )
 
-            ssh_tunnel.start()
-            logger.info(f"SSH tunnel successfully started on local port: {ssh_tunnel.local_bind_port}")
+                ssh_tunnel.start()
+                logger.info(f"SSH tunnel successfully started on local port: {ssh_tunnel.local_bind_port}")
+                connection_port = ssh_tunnel.local_bind_port
+            else:
+                logger.info("Direct database connection without SSH tunnel...")
+                connection_port = self.db_port
 
             logger.info("Establishing database connection...")
             connection = pymysql.connect(
                 host=self.db_host,
-                port=ssh_tunnel.local_bind_port,
+                port=connection_port,
                 user=self.db_user,
                 password=self.db_password,
                 database=self.db_name,
