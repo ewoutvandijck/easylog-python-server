@@ -193,8 +193,8 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
 
         async def tool_get_easylog_data():
             """
-            Haalt de follow-up entries op uit EasyLog en maakt ze leesbaar.
-            Deze versie haalt de velden datum, object en statusobject op.
+            Haalt de controles op uit EasyLog en maakt ze leesbaar.
+         
             """
             try:
                 with self.easylog_db.cursor() as cursor:
@@ -211,9 +211,9 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     entries = cursor.fetchall()
 
                     if not entries:
-                        return "Geen follow-up entries gevonden"
+                        return "Geen controles gevonden"
 
-                    results = ["🔍 Laatste follow-up entries:"]
+                    results = ["🔍 Laatste controles:"]
                     for entry in entries:
                         datum, object_value, statusobject = entry
                         # Pas de statusobject waarde aan
