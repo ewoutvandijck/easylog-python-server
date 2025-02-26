@@ -205,7 +205,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject
                         FROM follow_up_entries
                         ORDER BY created_at DESC
-                        LIMIT 10
+                        LIMIT 50
                     """
                     cursor.execute(query)
                     entries = cursor.fetchall()
