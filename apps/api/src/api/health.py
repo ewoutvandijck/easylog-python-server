@@ -23,6 +23,7 @@ async def health():
         ssh_host=settings.EASYLOG_SSH_HOST,
         ssh_username=settings.EASYLOG_SSH_USERNAME,
         db_password=settings.EASYLOG_DB_PASSWORD,
+        db_user=settings.EASYLOG_DB_USER,
         db_host=settings.EASYLOG_DB_HOST,
         db_port=settings.EASYLOG_DB_PORT,
         db_name=settings.EASYLOG_DB_NAME,
