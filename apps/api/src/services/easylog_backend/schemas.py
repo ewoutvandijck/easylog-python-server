@@ -98,7 +98,7 @@ class Allocation(BaseModel):
     comment: str | None = ""
     start: datetime
     end: datetime
-    fields: dict = Field(default_factory=dict)
+    fields: dict | list = Field(default_factory=dict)
     conflicts: list[Conflict] = Field(default_factory=list)
     worked_days: dict | None = Field(default_factory=dict)
     created_at: datetime

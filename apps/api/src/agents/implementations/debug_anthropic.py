@@ -205,6 +205,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                         "color": p.color,
                         "report_visible": p.report_visible,
                         "exclude_in_workdays": p.exclude_in_workdays,
+                        "extra_data": p.extra_data,
                         "start": p.start.isoformat() if p.start else None,
                         "end": p.end.isoformat() if p.end else None,
                     }
@@ -217,7 +218,21 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             Get a planning project by id.
             """
-            return (await self.easylog_backend.get_planning_project(project_id)).model_dump_json(indent=2)
+            project = await self.easylog_backend.get_planning_project(project_id)
+
+            return json.dumps(
+                {
+                    "id": project.data.id,
+                    "name": project.data.name,
+                    "color": project.data.color,
+                    "report_visible": project.data.report_visible,
+                    "exclude_in_workdays": project.data.exclude_in_workdays,
+                    "extra_data": project.data.extra_data,
+                    "start": project.data.start.isoformat() if project.data.start else None,
+                    "end": project.data.end.isoformat() if project.data.end else None,
+                },
+                indent=2,
+            )
 
         async def tool_update_planning_project(
             project_id: int,
@@ -247,19 +262,44 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 ),
             )
 
-            return "Planning project updated"
+            return await tool_get_planning_project(project_id)
 
         async def tool_get_planning_phases(project_id: int) -> str:
             """
             Get all planning phases for a project.
             """
-            return (await self.easylog_backend.get_planning_phases(project_id)).model_dump_json(indent=2)
+            phases = await self.easylog_backend.get_planning_phases(project_id)
+
+            return json.dumps(
+                [
+                    {
+                        "id": p.id,
+                        "project_id": p.project_id,
+                        "slug": p.slug,
+                        "start": p.start.isoformat() if p.start else None,
+                        "end": p.end.isoformat() if p.end else None,
+                    }
+                    for p in phases.data
+                ],
+                indent=2,
+            )
 
         async def tool_get_planning_phase(project_id: int, phase_id: int) -> str:
             """
             Get a planning phase by id.
             """
-            return (await self.easylog_backend.get_planning_phase(project_id, phase_id)).model_dump_json(indent=2)
+            phase = await self.easylog_backend.get_planning_phase(project_id, phase_id)
+
+            return json.dumps(
+                {
+                    "id": phase.data.id,
+                    "project_id": phase.data.project_id,
+                    "slug": phase.data.slug,
+                    "start": phase.data.start.isoformat() if phase.data.start else None,
+                    "end": phase.data.end.isoformat() if phase.data.end else None,
+                },
+                indent=2,
+            )
 
         # Set up the tools that Claude can use
         tools = [
