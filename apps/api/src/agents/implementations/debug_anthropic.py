@@ -227,22 +227,22 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 to_date=parser.parse(to_date) if to_date else None,
             )
 
-            return json.dumps(
-                [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "color": p.color,
-                        "report_visible": p.report_visible,
-                        "exclude_in_workdays": p.exclude_in_workdays,
-                        "extra_data": p.extra_data,
-                        "start": p.start.isoformat() if p.start else None,
-                        "end": p.end.isoformat() if p.end else None,
-                    }
-                    for p in planning_projects.data
-                ],
-                indent=2,
-            )
+            result = []
+            for p in planning_projects.data:
+                project_text = f"- Project {p.id}\n"
+                project_text += f"  - naam: {p.name}\n"
+                project_text += f"  - kleur: {p.color}\n"
+                project_text += f"  - zichtbaar in rapport: {p.report_visible}\n"
+                project_text += f"  - uitsluiten in werkdagen: {p.exclude_in_workdays}\n"
+                project_text += f"  - start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
+                project_text += f"  - eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
+
+                if p.extra_data:
+                    project_text += f"  - extra data: {p.extra_data}\n"
+
+                result.append(project_text)
+
+            return "\n".join(result) if result else "Geen projecten gevonden."
 
         async def tool_get_planning_project(project_id: int) -> str:
             """
@@ -250,19 +250,19 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             project = await self.easylog_backend.get_planning_project(project_id)
 
-            return json.dumps(
-                {
-                    "id": project.data.id,
-                    "name": project.data.name,
-                    "color": project.data.color,
-                    "report_visible": project.data.report_visible,
-                    "exclude_in_workdays": project.data.exclude_in_workdays,
-                    "extra_data": project.data.extra_data,
-                    "start": project.data.start.isoformat() if project.data.start else None,
-                    "end": project.data.end.isoformat() if project.data.end else None,
-                },
-                indent=2,
-            )
+            p = project.data
+            result = f"Project {p.id}\n"
+            result += f"- naam: {p.name}\n"
+            result += f"- kleur: {p.color}\n"
+            result += f"- zichtbaar in rapport: {p.report_visible}\n"
+            result += f"- uitsluiten in werkdagen: {p.exclude_in_workdays}\n"
+            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
+            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
+
+            if p.extra_data:
+                result += f"- extra data: {p.extra_data}\n"
+
+            return result
 
         async def tool_update_planning_project(
             project_id: int,
@@ -301,19 +301,17 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phases = await self.easylog_backend.get_planning_phases(project_id)
 
-            return json.dumps(
-                [
-                    {
-                        "id": p.id,
-                        "project_id": p.project_id,
-                        "slug": p.slug,
-                        "start": p.start.isoformat() if p.start else None,
-                        "end": p.end.isoformat() if p.end else None,
-                    }
-                    for p in phases.data
-                ],
-                indent=2,
-            )
+            result = []
+            for p in phases.data:
+                phase_text = f"- Fase {p.id}\n"
+                phase_text += f"  - project_id: {p.project_id}\n"
+                phase_text += f"  - slug: {p.slug}\n"
+                phase_text += f"  - start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
+                phase_text += f"  - eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
+
+                result.append(phase_text)
+
+            return "\n".join(result) if result else "Geen fases gevonden."
 
         async def tool_get_planning_phase(project_id: int, phase_id: int) -> str:
             """
@@ -321,16 +319,14 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phase = await self.easylog_backend.get_planning_phase(project_id, phase_id)
 
-            return json.dumps(
-                {
-                    "id": phase.data.id,
-                    "project_id": phase.data.project_id,
-                    "slug": phase.data.slug,
-                    "start": phase.data.start.isoformat() if phase.data.start else None,
-                    "end": phase.data.end.isoformat() if phase.data.end else None,
-                },
-                indent=2,
-            )
+            p = phase.data
+            result = f"Fase {p.id}\n"
+            result += f"- project_id: {p.project_id}\n"
+            result += f"- slug: {p.slug}\n"
+            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
+            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
+
+            return result
 
         async def tool_update_planning_phase(
             project_id: int,
@@ -362,16 +358,14 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
             )
 
-            return json.dumps(
-                {
-                    "id": phase.data.id,
-                    "project_id": phase.data.project_id,
-                    "slug": phase.data.slug,
-                    "start": phase.data.start.isoformat() if phase.data.start else None,
-                    "end": phase.data.end.isoformat() if phase.data.end else None,
-                },
-                indent=2,
-            )
+            p = phase.data
+            result = f"Nieuwe fase {p.id} aangemaakt:\n"
+            result += f"- project_id: {p.project_id}\n"
+            result += f"- slug: {p.slug}\n"
+            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
+            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
+
+            return result
 
         async def tool_get_resources() -> str:
             """
@@ -379,19 +373,17 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             resources = await self.easylog_backend.get_resources()
 
-            return json.dumps(
-                [
-                    {
-                        "id": r.id,
-                        "name": r.name,
-                        "label": r.label,
-                        "created_at": r.created_at.isoformat() if r.created_at else None,
-                        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
-                    }
-                    for r in resources.data
-                ],
-                indent=2,
-            )
+            result = []
+            for r in resources.data:
+                resource_text = f"- Resource {r.id}\n"
+                resource_text += f"  - naam: {r.name}\n"
+                resource_text += f"  - label: {r.label}\n"
+                resource_text += f"  - aangemaakt op: {r.created_at.isoformat() if r.created_at else 'Onbekend'}\n"
+                resource_text += f"  - bijgewerkt op: {r.updated_at.isoformat() if r.updated_at else 'Onbekend'}\n"
+
+                result.append(resource_text)
+
+            return "\n".join(result) if result else "Geen resources gevonden."
 
         async def tool_get_projects_of_resource(resource_id: int, slug: str) -> str:
             """
@@ -399,22 +391,21 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             projects = await self.easylog_backend.get_projects_of_resource(resource_id, slug)
 
-            return json.dumps(
-                [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "color": p.color,
-                        "report_visible": p.report_visible,
-                        "exclude_in_workdays": p.exclude_in_workdays,
-                        "extra_data": p.extra_data,
-                        "start": p.start.isoformat() if p.start else None,
-                        "end": p.end.isoformat() if p.end else None,
-                    }
-                    for p in projects.data
-                ],
-                indent=2,
-            )
+            # Convert the Pydantic model to a dictionary
+            projects_dict = projects.model_dump()
+
+            result = []
+            result.append(f"Projecten voor resource {resource_id} (slug: {slug}):")
+
+            if "data" in projects_dict and projects_dict["data"]:
+                for p in projects_dict["data"]:
+                    project_text = f"- Project {p.get('id')}\n"
+                    for key, value in p.items():
+                        if key != "id":
+                            project_text += f"  - {key}: {value}\n"
+                    result.append(project_text)
+
+            return "\n".join(result) if len(result) > 1 else "Geen projecten gevonden voor deze resource."
 
         async def tool_get_resource_groups(resource_id: int, slug: str) -> str:
             """
@@ -422,20 +413,20 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             resource_groups = await self.easylog_backend.get_resource_groups(resource_id, slug)
 
-            return json.dumps(
-                [
-                    {
-                        "id": rg.id,
-                        "name": rg.name,
-                        "label": rg.label,
-                        "slug": rg.slug,
-                        "created_at": rg.created_at.isoformat() if rg.created_at else None,
-                        "updated_at": rg.updated_at.isoformat() if rg.updated_at else None,
-                    }
-                    for rg in resource_groups.items
-                ],
-                indent=2,
-            )
+            result = []
+            result.append(f"Resource groepen voor resource {resource_id} (slug: {slug}):")
+
+            for rg in resource_groups.items:
+                group_text = f"- Groep {rg.id}\n"
+                group_text += f"  - naam: {rg.name}\n"
+                group_text += f"  - label: {rg.label}\n"
+                group_text += f"  - slug: {rg.slug}\n"
+                group_text += f"  - aangemaakt op: {rg.created_at.isoformat() if rg.created_at else 'Onbekend'}\n"
+                group_text += f"  - bijgewerkt op: {rg.updated_at.isoformat() if rg.updated_at else 'Onbekend'}\n"
+
+                result.append(group_text)
+
+            return "\n".join(result) if len(result) > 1 else "Geen resource groepen gevonden."
 
         async def tool_create_multiple_allocations(
             project_id: int,
@@ -485,7 +476,17 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 ),
             )
 
-            return json.dumps(allocations.data, indent=2)
+            result = []
+            result.append(f"Allocaties aangemaakt voor project {project_id}, groep {group}:")
+
+            for a in allocations.data:
+                allocation_text = f"- Allocatie {a.id}\n"
+                for key, value in a.model_dump().items():
+                    if key != "id":
+                        allocation_text += f"  - {key}: {value}\n"
+                result.append(allocation_text)
+
+            return "\n".join(result) if len(result) > 1 else "Geen allocaties aangemaakt."
 
         tools = [
             tool_switch_subject,
