@@ -123,7 +123,7 @@ class BackendService:
         response.raise_for_status()
         return DataEntry[list[PlanningPhase]].model_validate_json(response.text)
 
-    async def get_planning_phase(self, project_id: int, phase_id: int) -> DataEntry[PlanningPhase]:
+    async def get_planning_phase(self, phase_id: int) -> DataEntry[PlanningPhase]:
         """
         Get a planning phase by id
         """

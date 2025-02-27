@@ -438,11 +438,11 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return "\n".join(result) if result else "Geen fases gevonden."
 
-        async def tool_get_planning_phase(project_id: int, phase_id: int) -> str:
+        async def tool_get_planning_phase(phase_id: int) -> str:
             """
             Get a planning phase by id.
             """
-            phase = await self.easylog_backend.get_planning_phase(project_id, phase_id)
+            phase = await self.easylog_backend.get_planning_phase(phase_id)
 
             p = phase.data
             result = f"Fase {p.id}\n"
