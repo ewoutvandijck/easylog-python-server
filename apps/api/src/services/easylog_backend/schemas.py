@@ -38,12 +38,12 @@ class PaginationLinks(BaseModel):
 
 class PaginationMeta(BaseModel):
     current_page: int
-    from_: int = Field(alias="from")
+    from_: int | None = Field(alias="from")
     last_page: int
     links: list[PaginationLink]
     path: str
     per_page: int
-    to: int
+    to: int | None
     total: int
 
 
