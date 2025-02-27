@@ -95,12 +95,12 @@ class Allocation(BaseModel):
     label: str
     type: str | None
     group: str
-    comment: str
+    comment: str | None = ""
     start: datetime
     end: datetime
-    fields: dict
-    conflicts: list[Conflict]
-    worked_days: dict
+    fields: dict = Field(default_factory=dict)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    worked_days: dict | None = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
