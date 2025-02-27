@@ -190,6 +190,29 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             message_history.clear()  # Wist de gespreksgeschiedenis
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
+        async def tool_get_datasources():
+            """
+            Get all datasources.
+            """
+            datasources = await self.easylog_backend.get_datasources()
+
+            return [
+                {
+                    "id": ds.id,
+                    "types": ds.types,
+                    "category_id": ds.category_id,
+                    "name": ds.name,
+                    "description": ds.description,
+                    "slug": ds.slug,
+                    "resource_groups": ds.resource_groups,
+                    "extra_data_fields": ds.extra_data_fields,
+                    "allocation_types": ds.allocation_types,
+                    "created_at": ds.created_at.isoformat() if ds.created_at else None,
+                    "updated_at": ds.updated_at.isoformat() if ds.updated_at else None,
+                }
+                for ds in datasources.data
+            ]
+
         async def tool_get_planning_projects(
             from_date: str | None = None,
             to_date: str | None = None,
@@ -372,7 +395,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         async def tool_get_projects_of_resource(resource_id: int, slug: str) -> str:
             """
-            Get all projects of a resource.
+            Get all projects of a resource. The slug should be a datasource slug.
             """
             projects = await self.easylog_backend.get_projects_of_resource(resource_id, slug)
 
@@ -467,12 +490,15 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         tools = [
             tool_switch_subject,
             tool_store_memory,
-            tool_clear_memories,  # Voeg de nieuwe tool toe
+            tool_clear_memories,
+            tool_get_datasources,
             tool_update_planning_project,
             tool_get_planning_projects,
             tool_get_planning_project,
             tool_get_planning_phases,
             tool_get_planning_phase,
+            tool_update_planning_phase,
+            tool_create_planning_phase,
             tool_get_resources,
             tool_get_projects_of_resource,
             tool_get_resource_groups,
