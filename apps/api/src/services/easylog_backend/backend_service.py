@@ -2,6 +2,8 @@ from datetime import date
 
 from httpx import AsyncClient
 
+from src.logger import logger
+
 from .schemas import (
     DataEntry,
     Datasource,
@@ -29,8 +31,8 @@ class BackendService:
             PaginatedResponse[Datasource]: The datasources
         """
         response = await self.client.get("/datasources")
+        logger.info(response.text)
         response.raise_for_status()
-
         return PaginatedResponse[Datasource].model_validate_json(response.text)
 
     async def get_datasource_entry(
@@ -69,6 +71,7 @@ class BackendService:
                 "to_date": to_date.isoformat() if to_date else None,
             },
         )
+        logger.info(response.text)
         response.raise_for_status()
         return PaginatedResponse[PlanningProject].model_validate_json(response.text)
 
@@ -77,6 +80,7 @@ class BackendService:
         Get a planning project by id
         """
         response = await self.client.get(f"/datasources/projects/{project_id}")
+        logger.info(response.text)
         response.raise_for_status()
         return DataEntry[PlanningProject].model_validate_json(response.text)
 
@@ -91,6 +95,7 @@ class BackendService:
         response = await self.client.put(
             f"/datasources/projects/{project_id}", json=update_planning_project.model_dump()
         )
+        logger.info(response.text)
         response.raise_for_status()
 
     async def delete_planning_project(self, project_id: int) -> None:
@@ -98,4 +103,5 @@ class BackendService:
         Delete a planning project
         """
         response = await self.client.delete(f"/datasources/projects/{project_id}")
+        logger.info(response.text)
         response.raise_for_status()
