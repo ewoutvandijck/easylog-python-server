@@ -3,6 +3,7 @@ from datetime import date
 from httpx import AsyncClient
 
 from .schemas import (
+    DataEntry,
     Datasource,
     DatasourceDataEntry,
     DatasourceDataType,
@@ -62,11 +63,19 @@ class BackendService:
         Get all planning projects
         """
         response = await self.client.get(
-            "/planning/projects",
+            "/datasources/projects",
             params={"from_date": from_date.isoformat(), "to_date": to_date.isoformat()},
         )
         response.raise_for_status()
         return PaginatedResponse[PlanningProject].model_validate_json(response.text)
+
+    async def get_datasource_planning_project(self, project_id: int) -> DataEntry[PlanningProject]:
+        """
+        Get a planning project by id
+        """
+        response = await self.client.get(f"/datasources/projects/{project_id}")
+        response.raise_for_status()
+        return DataEntry[PlanningProject].model_validate_json(response.text)
 
     async def update_planning_project(self, project_id: int, update_planning_project: UpdatePlanningProject) -> None:
         """
@@ -76,12 +85,14 @@ class BackendService:
             project_id: The id of the project
             update_planning_project: The update planning project
         """
-        response = await self.client.put(f"/planning/projects/{project_id}", json=update_planning_project.model_dump())
+        response = await self.client.put(
+            f"/datasources/projects/{project_id}", json=update_planning_project.model_dump()
+        )
         response.raise_for_status()
 
     async def delete_planning_project(self, project_id: int) -> None:
         """
         Delete a planning project
         """
-        response = await self.client.delete(f"/planning/projects/{project_id}")
+        response = await self.client.delete(f"/datasources/projects/{project_id}")
         response.raise_for_status()

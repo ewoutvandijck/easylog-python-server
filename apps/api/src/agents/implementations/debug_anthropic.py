@@ -3,12 +3,15 @@ import glob
 import os
 import time
 from collections.abc import AsyncGenerator
+from datetime import date
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
+from src.services.easylog_backend.schemas import UpdatePlanningProject
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
@@ -51,9 +54,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -90,9 +91,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -113,9 +112,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -125,12 +122,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -188,11 +182,66 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             message_history.clear()  # Wist de gespreksgeschiedenis
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
+        async def tool_get_planning_projects(
+            from_date: str,
+            to_date: str,
+        ):
+            """
+            Get all planning projects.
+
+            Dates should be in the format YYYY-MM-DD.
+            """
+            return (
+                await self.easylog_backend.get_datasource_planning_projects(
+                    from_date=date.fromisoformat(from_date),
+                    to_date=date.fromisoformat(to_date),
+                )
+            ).model_dump_json()
+
+        async def tool_get_planning_project(project_id: int) -> str:
+            """
+            Get a planning project by id.
+            """
+            return (await self.easylog_backend.get_datasource_planning_project(project_id)).model_dump_json(indent=2)
+
+        async def tool_update_planning_project(
+            project_id: int,
+            name: str | None = None,
+            color: str | None = None,
+            report_visible: bool | None = None,
+            exclude_in_workdays: bool | None = None,
+            start: str | None = None,
+            end: str | None = None,
+            extra_data: dict | None = None,
+        ) -> str:
+            """
+            Update a planning project, you can update the name, color, report_visible, exclude_in_workdays, start and end date.
+
+            Dates should be in the format YYYY-MM-DD.
+            """
+            await self.easylog_backend.update_planning_project(
+                project_id,
+                UpdatePlanningProject(
+                    name=name,
+                    color=color,
+                    report_visible=report_visible,
+                    exclude_in_workdays=exclude_in_workdays,
+                    start=date.fromisoformat(start) if start else None,
+                    end=date.fromisoformat(end) if end else None,
+                    extra_data=extra_data,
+                ),
+            )
+
+            return "Planning project updated"
+
         # Set up the tools that Claude can use
         tools = [
             tool_switch_subject,
             tool_store_memory,
             tool_clear_memories,  # Voeg de nieuwe tool toe
+            tool_update_planning_project,
+            tool_get_planning_projects,
+            tool_get_planning_project,
         ]
 
         # Start measuring how long the operation takes

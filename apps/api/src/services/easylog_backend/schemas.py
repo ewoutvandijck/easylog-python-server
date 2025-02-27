@@ -61,6 +61,10 @@ class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
     updated_at: datetime
 
 
+class DataEntry(BaseModel, Generic[DatasourceDataType]):
+    data: DatasourceDataType
+
+
 class AllocationType(BaseModel):
     id: int
     name: str
