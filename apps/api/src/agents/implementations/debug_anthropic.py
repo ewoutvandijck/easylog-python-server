@@ -205,8 +205,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                         "color": p.color,
                         "report_visible": p.report_visible,
                         "exclude_in_workdays": p.exclude_in_workdays,
-                        "start": p.start,
-                        "end": p.end,
+                        "start": p.start.isoformat() if p.start else None,
+                        "end": p.end.isoformat() if p.end else None,
                     }
                     for p in planning_projects.data
                 ],
