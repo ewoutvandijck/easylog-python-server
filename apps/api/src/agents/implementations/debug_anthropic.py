@@ -243,12 +243,13 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             exclude_in_workdays: bool | None = None,
             start: str | None = None,
             end: str | None = None,
-            extra_data: str | dict | None = None,
+            extra_data: dict | None = None,
         ) -> str:
             """
             Update a planning project, you can update the name, color, report_visible, exclude_in_workdays, start and end date.
 
             Dates should be in the format YYYY-MM-DD.
+            Extra data should be a JSON object.
             """
             await self.easylog_backend.update_planning_project(
                 project_id,
