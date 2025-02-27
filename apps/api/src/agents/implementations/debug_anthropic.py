@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator
 from datetime import date
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from dateutil import parser
 from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
@@ -193,8 +194,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             Dates should be in the format YYYY-MM-DD.
             """
             planning_projects = await self.easylog_backend.get_planning_projects(
-                from_date=date.fromisoformat(from_date) if from_date else None,
-                to_date=date.fromisoformat(to_date) if to_date else None,
+                from_date=parser.parse(from_date) if from_date else None,
+                to_date=parser.parse(to_date) if to_date else None,
             )
 
             return json.dumps(
