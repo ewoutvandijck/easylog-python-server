@@ -1,3 +1,4 @@
+# Python standard library imports
 import base64
 import glob
 import os
@@ -5,13 +6,18 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+# Third-party imports
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+
+# Laad alle variabelen uit .env
+load_dotenv()
 
 
 class PQIDataHwr(TypedDict):
@@ -22,6 +28,14 @@ class PQIDataHwr(TypedDict):
     taak: str
     component: str
     typematerieel: str
+
+
+class EasylogData(TypedDict):
+    """
+    Defines the structure for Easylog data
+    """
+
+    status: str
 
 
 # Configuration class for AnthropicNew agent
@@ -39,17 +53,12 @@ class AnthropicTramsAssistantConfig(BaseModel):
         default=[
             Subject(
                 name="Algemeen",
-                instructions="We starten met het in dienst nemen van de tram. Gebruik de stappen uit de documentatie om de tram in dienst te nemen.",
+                instructions="Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.",
                 glob_pattern="pdfs/algemeen/*.pdf",
             ),
             Subject(
-                name="Storingen",
-                instructions="Help de monteur met het oplossen van TRAM storingen. GEBRUIK HET STORINGSBOEKJE VOOR DE 1E ANALYSE EN ANTWOORDEN OP STORINGEN BIJ EEN STORING.  Sla de gemelde storingen en storing codes altijd op in jouw geheugen met de tool_store_memory.",
-                glob_pattern="pdfs/storingen/*.pdf",
-            ),
-            Subject(
                 name="Pantograaf",
-                instructions="Help de monteur met zijn technische werkzaamheden aan de pantograaf. Werk met de instructies uit de documentatie van de pantograaf, deze geven in stappen de werkzaamheden aan. Veiligheid is belangrijk, dus begin altijd met de veiligheid.",
+                instructions="Help de monteur met zijn technische TRAM werkzaamheden aan de pantograaf. Werk alleen met de instructies uit de documentatie van de pantograaf.",
                 glob_pattern="pdfs/pantograaf/*.pdf",
             ),
         ]
@@ -106,7 +115,7 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.xwxw
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
                 "citations": {"enabled": False},
             }
             for pdf in current_subject_pdfs
@@ -181,46 +190,76 @@ class AnthropicTrams(AnthropicAgent[AnthropicTramsAssistantConfig]):
             self.set_metadata("subject", subject)
             return f"Onderwerp gewijzigd naar: {subject}"
 
+        async def tool_get_easylog_data():
+            """
+            Haalt de follow-up entries op uit EasyLog en maakt ze leesbaar.
+            Deze versie haalt de velden datum, object en statusobject op.
+            """
+            try:
+                with self.easylog_db.cursor() as cursor:
+                    query = """
+                        SELECT 
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject
+                        FROM follow_up_entries
+                        ORDER BY created_at DESC
+                        LIMIT 10
+                    """
+                    cursor.execute(query)
+                    entries = cursor.fetchall()
+
+                    if not entries:
+                        return "Geen follow-up entries gevonden"
+
+                    results = ["🔍 Laatste follow-up entries:"]
+                    for entry in entries:
+                        datum, object_value, statusobject = entry
+                        # Pas de statusobject waarde aan
+                        if statusobject == "Ja":
+                            statusobject = "Akkoord"
+                        elif statusobject == "Nee":
+                            statusobject = "Niet akkoord"
+
+                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
+                    return "\n".join(results)
+
+            except Exception as e:
+                logger.error(f"Fout bij ophalen follow-up entries: {str(e)}")
+                return f"Er is een fout opgetreden: {str(e)}"
+
         tools = [
             tool_switch_subject,  # NIEUW
             tool_store_memory,
             tool_get_pqi_data,
+            tool_get_easylog_data,  # Nieuwe tool toegevoegd
             tool_clear_memories,
         ]
 
         start_time = time.time()
 
         stream = await self.client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            # Gebruik Claude 3.7 Sonnet model
+            model="claude-3-7-sonnet-20250219",
             max_tokens=1024,
+            # De thinking parameter is verwijderd
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
-
-### Onderwerpen ###
-Geef de per ondewerp de onderdelen weer waar het over gaat
-Schakel een ander onderwerp om met de tool_switch_subject. 
-Gebruik alleen de onderwerpen die je in subjects hebt gedefinieerd.
-Gebruik de PQI data met de tool_get_pqi_data als er gevraaagd wordt om de specieke taak.
 
 Alle onderwerpen: {", ".join([s.name for s in self.config.subjects])}
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
 
 
-## INSTRUCTIONS ##
-- SHORT ANSWERS ONLY MAX 40 woorden per antwoord anders wordt ik boos 
-- DO NOT ADD YOUR OWN TECHNICAL KNOWLEDGE, USE ONLY THE DOCUMENTATION
-- Talk only about tram maintenance and failures
-- Task-by-task explanation
--
+### BELANGRIJKE REGELS:
+- Vul NOOIT aan met eigen technische kennis
+- Spreek alleen over tram onderhoud en storingen
+- Korte antwoorden max 100 woorden
 
 ### Tram Onderhoud Basis ###
 - Controleer altijd eerst de veiligheid voordat je begint
-- Gebruik de juiste gereedschappen en PBM's 
+- Gebruik de juiste gereedschappen en PBM's
 - Raadpleeg bij twijfel een senior monteur
-
-### Veel voorkomende storingen ###
-- Pantograaf storingen: Controleer de pantograaf op slijtage en de afdichtingen
 
 ### Core memories
 {"\n-".join(memories)}

@@ -13,6 +13,7 @@ from typing import (
     get_args,
 )
 
+import pymysql
 from prisma.models import processed_pdfs, threads
 from pydantic import BaseModel
 
@@ -20,6 +21,8 @@ from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, TextContent
 from src.services.easylog_backend.backend_service import BackendService
+from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
+from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
 
@@ -38,6 +41,17 @@ class BaseAgent(Generic[TConfig]):
         self.thread_id = thread_id
         self._backend = backend
         self._raw_config = kwargs
+
+        self.easylog_sql_service = EasylogSqlService(
+            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
+            ssh_host=settings.EASYLOG_SSH_HOST,
+            ssh_username=settings.EASYLOG_SSH_USERNAME,
+            db_host=settings.EASYLOG_DB_HOST,
+            db_port=settings.EASYLOG_DB_PORT,
+            db_user=settings.EASYLOG_DB_USER,
+            db_name=settings.EASYLOG_DB_NAME,
+            db_password=settings.EASYLOG_DB_PASSWORD,
+        )
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
@@ -125,6 +139,13 @@ class BaseAgent(Generic[TConfig]):
     @property
     def logger(self) -> logging.Logger:
         return logger
+
+    @property
+    def easylog_db(self) -> pymysql.Connection:
+        if not self.easylog_sql_service.db:
+            raise ValueError("Easylog database connection not initialized")
+
+        return self.easylog_sql_service.db
 
     def _get_thread(self) -> threads:
         """Get the thread for the agent."""

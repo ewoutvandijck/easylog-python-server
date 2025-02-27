@@ -138,7 +138,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
         # Define helper tools that Claude can use
         # These are like special commands Claude can run to get extra information
 
-        def tool_switch_subject(subject: str | None = None):
+        def tool_switch_subject(subject: str | None = None) -> str:
             """
             Switch to a different subject.
             """
@@ -156,7 +156,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
             return f"Je bent nu overgestapt naar het onderwerp: {subject}"
 
         # This tool is used to store a memory in the database.
-        async def tool_store_memory(memory: str):
+        async def tool_store_memory(memory: str) -> str:
             """
             Store a memory in the database.
             """
@@ -173,7 +173,7 @@ class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
             return "Memory stored"
 
         # Aangepaste tool om memories en thread te wissen
-        def tool_clear_memories():
+        def tool_clear_memories() -> str:
             """
             Wis alle opgeslagen herinneringen en de gespreksgeschiedenis.
             """
@@ -217,7 +217,7 @@ Core memories zijn belangrij ke informatie die je moet onthouden over een gebrui
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
-            """,
+            """,  # noqa: E501
             messages=message_history,
             # Give Claude access to our special tools
             # This is like giving Claude a toolbox to help answer questions
