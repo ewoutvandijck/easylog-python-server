@@ -57,14 +57,17 @@ class BackendService:
         return DatasourceDataEntry[data_type].model_validate_json(response.text)
 
     async def get_datasource_planning_projects(
-        self, from_date: date, to_date: date
+        self, from_date: date | None = None, to_date: date | None = None
     ) -> PaginatedResponse[PlanningProject]:
         """
         Get all planning projects
         """
         response = await self.client.get(
             "/datasources/projects",
-            params={"from_date": from_date.isoformat(), "to_date": to_date.isoformat()},
+            params={
+                "from_date": from_date.isoformat() if from_date else None,
+                "to_date": to_date.isoformat() if to_date else None,
+            },
         )
         response.raise_for_status()
         return PaginatedResponse[PlanningProject].model_validate_json(response.text)

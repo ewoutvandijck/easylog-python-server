@@ -19,5 +19,7 @@ class Settings(BaseSettings):
     EASYLOG_DB_NAME: str = Field(default="easylog")
     EASYLOG_DB_PASSWORD: str
 
+    EASYLOG_API_URL: str = Field(default="https://staging.easylog.nu/api/v2")
+
 
 settings = Settings()  # type: ignore

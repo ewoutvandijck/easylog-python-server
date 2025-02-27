@@ -7,7 +7,6 @@ from datetime import date
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -54,7 +53,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -91,7 +92,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
 
         if subject is not None:
             current_subject_name = subject.name
@@ -112,7 +115,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -122,9 +127,12 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -183,8 +191,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
         async def tool_get_planning_projects(
-            from_date: str,
-            to_date: str,
+            from_date: str | None = None,
+            to_date: str | None = None,
         ):
             """
             Get all planning projects.
@@ -193,8 +201,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             return (
                 await self.easylog_backend.get_datasource_planning_projects(
-                    from_date=date.fromisoformat(from_date),
-                    to_date=date.fromisoformat(to_date),
+                    from_date=date.fromisoformat(from_date) if from_date else None,
+                    to_date=date.fromisoformat(to_date) if to_date else None,
                 )
             ).model_dump_json()
 
@@ -202,7 +210,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             Get a planning project by id.
             """
-            return (await self.easylog_backend.get_datasource_planning_project(project_id)).model_dump_json(indent=2)
+            return (
+                await self.easylog_backend.get_datasource_planning_project(project_id)
+            ).model_dump_json(indent=2)
 
         async def tool_update_planning_project(
             project_id: int,
