@@ -66,10 +66,12 @@ class DataEntry(BaseModel, Generic[DatasourceDataType]):
 
 
 class AllocationType(BaseModel):
-    id: int
+    id: int | None = None
     name: str
     label: str
     slug: str
+    start: datetime | None = None
+    end: datetime | None = None
 
 
 class Conflict(BaseModel):
@@ -116,12 +118,14 @@ class PlanningProject(BaseModel):
     datasource_id: int
     label: str
     name: str
-    start: datetime
-    end: datetime
+    start: datetime | None = None
+    end: datetime | None = None
     color: str
-    extra_data: dict
+    extra_data: dict | None = None
+    report_visible: bool | None = None
+    exclude_in_workdays: bool | None = None
     allocation_types: list[AllocationType]
-    allocations_grouped: list[AllocationGroup] | None
+    allocations_grouped: list[AllocationGroup] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -134,3 +138,11 @@ class UpdatePlanningProject(BaseModel):
     start: date | None = None
     end: date | None = None
     extra_data: dict | None = None
+
+
+class PlanningPhase(BaseModel):
+    id: int
+    slug: str
+    project_id: int
+    start: datetime
+    end: datetime

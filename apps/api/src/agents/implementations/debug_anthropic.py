@@ -200,7 +200,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             Dates should be in the format YYYY-MM-DD.
             """
             return (
-                await self.easylog_backend.get_datasource_planning_projects(
+                await self.easylog_backend.get_planning_projects(
                     from_date=date.fromisoformat(from_date) if from_date else None,
                     to_date=date.fromisoformat(to_date) if to_date else None,
                 )
@@ -211,7 +211,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             Get a planning project by id.
             """
             return (
-                await self.easylog_backend.get_datasource_planning_project(project_id)
+                await self.easylog_backend.get_planning_project(project_id)
             ).model_dump_json(indent=2)
 
         async def tool_update_planning_project(
@@ -244,6 +244,22 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return "Planning project updated"
 
+        async def tool_get_planning_phases(project_id: int) -> str:
+            """
+            Get all planning phases for a project.
+            """
+            return (
+                await self.easylog_backend.get_planning_phases(project_id)
+            ).model_dump_json(indent=2)
+
+        async def tool_get_planning_phase(project_id: int, phase_id: int) -> str:
+            """
+            Get a planning phase by id.
+            """
+            return (
+                await self.easylog_backend.get_planning_phase(project_id, phase_id)
+            ).model_dump_json(indent=2)
+
         # Set up the tools that Claude can use
         tools = [
             tool_switch_subject,
@@ -252,6 +268,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             tool_update_planning_project,
             tool_get_planning_projects,
             tool_get_planning_project,
+            tool_get_planning_phases,
+            tool_get_planning_phase,
         ]
 
         # Start measuring how long the operation takes

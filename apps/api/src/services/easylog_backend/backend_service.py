@@ -10,6 +10,7 @@ from .schemas import (
     DatasourceDataEntry,
     DatasourceDataType,
     PaginatedResponse,
+    PlanningPhase,
     PlanningProject,
     UpdatePlanningProject,
 )
@@ -58,7 +59,7 @@ class BackendService:
         response.raise_for_status()
         return DatasourceDataEntry[data_type].model_validate_json(response.text)
 
-    async def get_datasource_planning_projects(
+    async def get_planning_projects(
         self, from_date: date | None = None, to_date: date | None = None
     ) -> PaginatedResponse[PlanningProject]:
         """
@@ -75,7 +76,7 @@ class BackendService:
         response.raise_for_status()
         return PaginatedResponse[PlanningProject].model_validate_json(response.text)
 
-    async def get_datasource_planning_project(self, project_id: int) -> DataEntry[PlanningProject]:
+    async def get_planning_project(self, project_id: int) -> DataEntry[PlanningProject]:
         """
         Get a planning project by id
         """
@@ -105,3 +106,21 @@ class BackendService:
         response = await self.client.delete(f"/datasources/projects/{project_id}")
         logger.info(response.text)
         response.raise_for_status()
+
+    async def get_planning_phases(self, project_id: int) -> PaginatedResponse[PlanningPhase]:
+        """
+        Get all planning phases
+        """
+        response = await self.client.get(f"/datasources/projects/{project_id}/phases")
+        logger.info(response.text)
+        response.raise_for_status()
+        return PaginatedResponse[PlanningPhase].model_validate_json(response.text)
+
+    async def get_planning_phase(self, project_id: int, phase_id: int) -> DataEntry[PlanningPhase]:
+        """
+        Get a planning phase by id
+        """
+        response = await self.client.get(f"/datasources/projects/{project_id}/phases/{phase_id}")
+        logger.info(response.text)
+        response.raise_for_status()
+        return DataEntry[PlanningPhase].model_validate_json(response.text)
