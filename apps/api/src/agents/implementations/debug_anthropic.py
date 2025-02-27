@@ -242,7 +242,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             exclude_in_workdays: bool | None = None,
             start: str | None = None,
             end: str | None = None,
-            extra_data: dict | None = None,
+            extra_data: str | dict | None = None,
         ) -> str:
             """
             Update a planning project, you can update the name, color, report_visible, exclude_in_workdays, start and end date.
@@ -258,7 +258,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     exclude_in_workdays=exclude_in_workdays,
                     start=date.fromisoformat(start) if start else None,
                     end=date.fromisoformat(end) if end else None,
-                    extra_data=extra_data,
+                    extra_data=json.loads(extra_data) if isinstance(extra_data, str) else extra_data,
                 ),
             )
 
