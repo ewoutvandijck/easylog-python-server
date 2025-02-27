@@ -94,7 +94,7 @@ class BackendService:
             update_planning_project: The update planning project
         """
         response = await self.client.put(
-            f"/datasources/projects/{project_id}", json=update_planning_project.model_dump()
+            f"/datasources/projects/{project_id}", json=update_planning_project.model_dump(mode="json")
         )
         logger.info(response.text)
         response.raise_for_status()
