@@ -147,11 +147,13 @@ class UpdatePlanningProject(BaseModel):
 
 
 class PlanningPhase(BaseModel):
-    id: int
-    slug: str
-    project_id: int
-    start: datetime
-    end: datetime
+    id: int | None = None
+    slug: str | None = None
+    project_id: int | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class UpdatePlanningPhase(BaseModel):
