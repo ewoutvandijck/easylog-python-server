@@ -111,7 +111,7 @@ class BackendService:
         """
         Get all planning phases
         """
-        response = await self.client.get(f"/datasources/projects/{project_id}/phases")
+        response = await self.client.get(f"/datasources/project/{project_id}/phases")
         logger.info(response.text)
         response.raise_for_status()
         return PaginatedResponse[PlanningPhase].model_validate_json(response.text)
@@ -120,7 +120,7 @@ class BackendService:
         """
         Get a planning phase by id
         """
-        response = await self.client.get(f"/datasources/projects/{project_id}/phases/{phase_id}")
+        response = await self.client.get(f"/datasources/project/{project_id}/phases/{phase_id}")
         logger.info(response.text)
         response.raise_for_status()
         return DataEntry[PlanningPhase].model_validate_json(response.text)
