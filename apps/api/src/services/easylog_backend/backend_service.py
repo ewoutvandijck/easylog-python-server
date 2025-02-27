@@ -107,14 +107,14 @@ class BackendService:
         logger.info(response.text)
         response.raise_for_status()
 
-    async def get_planning_phases(self, project_id: int) -> PaginatedResponse[PlanningPhase]:
+    async def get_planning_phases(self, project_id: int) -> DataEntry[list[PlanningPhase]]:
         """
         Get all planning phases
         """
         response = await self.client.get(f"/datasources/project/{project_id}/phases")
         logger.info(response.text)
         response.raise_for_status()
-        return PaginatedResponse[PlanningPhase].model_validate_json(response.text)
+        return DataEntry[list[PlanningPhase]].model_validate_json(response.text)
 
     async def get_planning_phase(self, project_id: int, phase_id: int) -> DataEntry[PlanningPhase]:
         """
