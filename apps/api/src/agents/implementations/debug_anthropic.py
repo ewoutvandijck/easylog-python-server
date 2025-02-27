@@ -194,25 +194,149 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             Get all datasources.
             """
-            datasources = await self.easylog_backend.get_datasources()
+            # Hardcoded response instead of calling the API
+            return """- Datasource 20
+  - naam: Projecten
+  - beschrijving: Test
+  - slug: projecten
+  - types: Projecten
+  - category_id: Geen
+  - resource_groups: Geen
+  - extra_data_fields: 
+    - Soort project (select): Roadshow, Sport
+    - Aantal benodigde objecten (select): 1-10
+    - Aantal benodigde voertuigen (select): 1-10
+    - Aantal benodigde operators (select): 1-10
+    - Project status (select): Optie, Reservering, Bevestigd
+    - Status kleur (text)
+  - allocation_types: 
+    - Modificaties Inbouw
+    - Branding
+    - Reservering
+    - Training
+    - Voorbereiding
+    - Operationeel
+    - Nazorg
+    - Modificaties Uitbouw
+  - aangemaakt op: 2024-09-26T11:56:58+00:00
+  - bijgewerkt op: 2025-02-18T16:28:02+00:00
 
-            result = []
-            for ds in datasources.data:
-                datasource_text = f"- Datasource {ds.id}\n"
-                datasource_text += f"  - naam: {ds.name}\n"
-                datasource_text += f"  - beschrijving: {ds.description}\n"
-                datasource_text += f"  - slug: {ds.slug}\n"
-                datasource_text += f"  - types: {ds.types}\n"
-                datasource_text += f"  - category_id: {ds.category_id}\n"
-                datasource_text += f"  - resource_groups: {ds.resource_groups}\n"
-                datasource_text += f"  - extra_data_fields: {ds.extra_data_fields}\n"
-                datasource_text += f"  - allocation_types: {ds.allocation_types}\n"
-                datasource_text += f"  - aangemaakt op: {ds.created_at.isoformat() if ds.created_at else 'Onbekend'}\n"
-                datasource_text += f"  - bijgewerkt op: {ds.updated_at.isoformat() if ds.updated_at else 'Onbekend'}\n"
+- Datasource 21
+  - naam: Extra dagen
+  - beschrijving: Planning
+  - slug: extra-dagen
+  - types: Dateless
+  - category_id: Geen
+  - resource_groups: Geen
+  - extra_data_fields: Geen
+  - allocation_types: 
+    - Verlof
+    - Service & Maintanance
+  - aangemaakt op: 2024-09-26T13:13:41+00:00
+  - bijgewerkt op: 2024-12-15T12:36:55+00:00
 
-                result.append(datasource_text)
+- Datasource 22
+  - naam: Voertuigen
+  - beschrijving: Planning
+  - slug: voertuigen
+  - types: Resource
+  - category_id: Geen
+  - resource_groups: 
+    - Object
+    - Voertuig
+  - extra_data_fields: Geen
+  - allocation_types: Geen
+  - aangemaakt op: 2024-09-26T13:15:07+00:00
+  - bijgewerkt op: 2024-09-26T13:30:52+00:00
 
-            return "\n".join(result) if result else "Geen datasources gevonden."
+- Datasource 23
+  - naam: Medewerkers
+  - beschrijving: Planning
+  - slug: medewerkers
+  - types: Resource
+  - category_id: Geen
+  - resource_groups: 
+    - Event Operator
+    - Staff
+    - TD
+  - extra_data_fields: Geen
+  - allocation_types: Geen
+  - aangemaakt op: 2024-09-26T13:15:40+00:00
+  - bijgewerkt op: 2025-02-18T16:28:17+00:00
+
+- Datasource 24
+  - naam: Wegwerkzaamheden
+  - beschrijving: Rijkswaterstaat planning
+  - slug: wegwerkzaamheden
+  - types: Project
+  - category_id: Geen
+  - resource_groups: Geen
+  - extra_data_fields:
+    - Regio (select): Noord, Midden, Zuid
+    - Type werk (select): Asfaltering, Onderhoud, Verbreding
+    - Prioriteit (select): Laag, Middel, Hoog
+  - allocation_types:
+    - Voorbereiding
+    - Uitvoering
+    - Afronding
+  - aangemaakt op: 2024-10-15T09:22:33+00:00
+  - bijgewerkt op: 2025-01-10T14:15:22+00:00
+
+- Datasource 25
+  - naam: Materieel
+  - beschrijving: Beschikbaar materieel
+  - slug: materieel
+  - types: Resource
+  - category_id: Geen
+  - resource_groups:
+    - Zwaar materieel
+    - Licht materieel
+    - Signalering
+  - extra_data_fields:
+    - Aanschafdatum (date)
+    - Onderhoudsstatus (select): Goed, Matig, Slecht
+  - allocation_types:
+    - In gebruik
+    - Onderhoud
+    - Opslag
+  - aangemaakt op: 2024-10-18T11:30:45+00:00
+  - bijgewerkt op: 2025-01-22T08:45:12+00:00
+
+- Datasource 26
+  - naam: Verkeersmaatregelen
+  - beschrijving: Planning verkeersmaatregelen
+  - slug: verkeersmaatregelen
+  - types: Project
+  - category_id: Geen
+  - resource_groups: Geen
+  - extra_data_fields:
+    - Type maatregel (select): Afsluiting, Omleiding, Snelheidsbeperking
+    - Impact (select): Laag, Middel, Hoog
+  - allocation_types:
+    - Tijdelijk
+    - Permanent
+  - aangemaakt op: 2024-11-05T15:42:18+00:00
+  - bijgewerkt op: 2025-02-01T10:33:27+00:00
+
+- Datasource 27
+  - naam: Specialisten
+  - beschrijving: Externe specialisten
+  - slug: specialisten
+  - types: Resource
+  - category_id: Geen
+  - resource_groups:
+    - Verkeerskundigen
+    - Ingenieurs
+    - Projectleiders
+  - extra_data_fields:
+    - Certificeringen (text)
+    - Ervaring jaren (number)
+  - allocation_types:
+    - Consultancy
+    - Projectleiding
+    - Inspectie
+  - aangemaakt op: 2024-11-12T13:25:09+00:00
+  - bijgewerkt op: 2025-02-10T09:18:44+00:00"""
 
         async def tool_get_planning_projects(
             from_date: str | None = None,

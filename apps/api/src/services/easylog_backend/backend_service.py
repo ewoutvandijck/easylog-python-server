@@ -187,6 +187,13 @@ class BackendService:
     ) -> PaginatedItemsResponse[ResourceGroup]:
         """
         Get a list of resource groups for a resource
+
+        Args:
+            resource_id: The id of the resource
+            slug: The slug of the resource group
+
+        Returns:
+            PaginatedItemsResponse[ResourceGroup]: The resource groups
         """
         response = await self.client.get(f"/datasources/resources/{resource_id}/{slug or ''}")
         logger.debug(response.text)
