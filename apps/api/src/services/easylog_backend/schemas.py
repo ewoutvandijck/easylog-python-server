@@ -16,9 +16,9 @@ class Datasource(BaseModel):
     name: str
     description: str
     slug: str
-    resource_groups: dict | None
-    extra_data_fields: dict | None
-    allocation_types: dict | None
+    resource_groups: dict | list[dict] | None
+    extra_data_fields: dict | list[dict] | None
+    allocation_types: dict | list[dict] | None
     created_at: datetime
     updated_at: datetime
 
@@ -104,7 +104,7 @@ class Allocation(BaseModel):
     comment: str | None = ""
     start: datetime
     end: datetime
-    fields: dict | list = Field(default_factory=dict)
+    fields: dict | list[dict] = Field(default_factory=dict)
     conflicts: list[Conflict] = Field(default_factory=list)
     worked_days: dict | None = Field(default_factory=dict)
     created_at: datetime
