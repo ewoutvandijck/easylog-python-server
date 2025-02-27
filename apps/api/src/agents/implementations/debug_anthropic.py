@@ -463,7 +463,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             result = []
             result.append(f"Resource groepen voor resource {resource_id} (slug: {slug}):")
 
-            for rg in resource_groups.items:
+            for rg in resource_groups.data or []:
                 group_text = f"- Groep {rg.id}\n"
                 group_text += f"  - naam: {rg.name}\n"
                 group_text += f"  - label: {rg.label}\n"
