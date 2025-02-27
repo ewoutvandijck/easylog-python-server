@@ -49,14 +49,14 @@ class PaginationMeta(BaseModel):
 
 class PaginatedResponse(BaseModel, Generic[PaginatedResponseType]):
     data: list[PaginatedResponseType]
-    links: PaginationLinks
-    meta: PaginationMeta
+    links: PaginationLinks | None = None
+    meta: PaginationMeta | None = None
 
 
 class PaginatedItemsResponse(BaseModel, Generic[PaginatedResponseType]):
     items: list[PaginatedResponseType]
-    links: PaginationLinks
-    meta: PaginationMeta
+    links: PaginationLinks | None = None
+    meta: PaginationMeta | None = None
 
 
 class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
