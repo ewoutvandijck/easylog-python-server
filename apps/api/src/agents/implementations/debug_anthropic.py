@@ -13,7 +13,13 @@ from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
-from src.services.easylog_backend.schemas import UpdatePlanningProject
+from src.services.easylog_backend.schemas import (
+    CreateMultipleAllocations,
+    CreatePlanningPhase,
+    CreateResourceAllocation,
+    UpdatePlanningPhase,
+    UpdatePlanningProject,
+)
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 
@@ -303,7 +309,154 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 indent=2,
             )
 
-        # Set up the tools that Claude can use
+        async def tool_update_planning_phase(
+            project_id: int,
+            phase_id: int,
+            start: str,
+            end: str,
+        ) -> str:
+            """
+            Update a planning phase.
+            """
+            await self.easylog_backend.update_planning_phase(
+                phase_id,
+                UpdatePlanningPhase(start=parser.parse(start), end=parser.parse(end)),
+            )
+
+            return await tool_get_planning_phase(project_id, phase_id)
+
+        async def tool_create_planning_phase(
+            project_id: int,
+            slug: str,
+            start: str,
+            end: str,
+        ) -> str:
+            """
+            Create a planning phase.
+            """
+            phase = await self.easylog_backend.create_planning_phase(
+                project_id,
+                CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
+            )
+
+            return json.dumps(
+                {
+                    "id": phase.data.id,
+                    "project_id": phase.data.project_id,
+                    "slug": phase.data.slug,
+                    "start": phase.data.start.isoformat() if phase.data.start else None,
+                    "end": phase.data.end.isoformat() if phase.data.end else None,
+                },
+                indent=2,
+            )
+
+        async def tool_get_resources() -> str:
+            """
+            Get all resources.
+            """
+            resources = await self.easylog_backend.get_resources()
+
+            return json.dumps(
+                [
+                    {
+                        "id": r.id,
+                        "name": r.name,
+                        "label": r.label,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                    }
+                    for r in resources.data
+                ],
+                indent=2,
+            )
+
+        async def tool_get_projects_of_resource(resource_id: int, slug: str | None = None) -> str:
+            """
+            Get all projects of a resource.
+            """
+            projects = await self.easylog_backend.get_projects_of_resource(resource_id, slug)
+
+            return json.dumps(
+                [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "color": p.color,
+                        "report_visible": p.report_visible,
+                        "exclude_in_workdays": p.exclude_in_workdays,
+                        "extra_data": p.extra_data,
+                        "start": p.start.isoformat() if p.start else None,
+                        "end": p.end.isoformat() if p.end else None,
+                    }
+                    for p in projects.data
+                ],
+                indent=2,
+            )
+
+        async def tool_get_resource_groups(resource_id: int, slug: str | None = None) -> str:
+            """
+            Get all resource groups for a resource.
+            """
+            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, slug)
+
+            return json.dumps(
+                [
+                    {
+                        "id": rg.id,
+                        "name": rg.name,
+                        "label": rg.label,
+                        "slug": rg.slug,
+                        "created_at": rg.created_at.isoformat() if rg.created_at else None,
+                        "updated_at": rg.updated_at.isoformat() if rg.updated_at else None,
+                    }
+                    for rg in resource_groups.data
+                ],
+                indent=2,
+            )
+
+        async def tool_create_multiple_allocations(
+            project_id: int,
+            group: str,
+            resources: list[dict],
+        ) -> str:
+            """
+            Create multiple allocations.
+
+            Example:
+            @example
+            {
+              "project_id": 510,
+              "group": "dokter",
+              "resources": [
+                {
+                  "resource_id": 508,
+                  "type": "hpcvoor",
+                  "comment": "string",
+                  "start": "10-2-2023",
+                  "end": "10-2-2024",
+                  "fields": {
+                    "roadcaptain": 1
+                  }
+                }
+              ]
+            }
+            """
+
+            allocations = await self.easylog_backend.create_multiple_allocations(
+                CreateMultipleAllocations(
+                    project_id=project_id,
+                    group=group,
+                    resources=[
+                        CreateResourceAllocation(**r)
+                        if isinstance(r, dict)
+                        else CreateResourceAllocation(**json.loads(r))
+                        for r in resources
+                    ],
+                ),
+            )
+
+            return json.dumps(allocations.data, indent=2)
+
         tools = [
             tool_switch_subject,
             tool_store_memory,
@@ -313,6 +466,10 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             tool_get_planning_project,
             tool_get_planning_phases,
             tool_get_planning_phase,
+            tool_get_resources,
+            tool_get_projects_of_resource,
+            tool_get_resource_groups,
+            tool_create_multiple_allocations,
         ]
 
         # Start measuring how long the operation takes

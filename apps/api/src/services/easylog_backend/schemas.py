@@ -146,3 +146,54 @@ class PlanningPhase(BaseModel):
     project_id: int
     start: datetime
     end: datetime
+
+
+class UpdatePlanningPhase(BaseModel):
+    start: datetime
+    end: datetime
+
+
+class CreatePlanningPhase(BaseModel):
+    slug: str
+    start: datetime
+    end: datetime
+
+
+class Resource(BaseModel):
+    id: int
+    label: str
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResourceGroup(BaseModel):
+    id: int
+    label: str
+    name: str
+    slug: str
+    data: list[Resource]
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreateResourceAllocation(BaseModel):
+    resource_id: int
+    type: str
+    comment: str | None = None
+    start: date
+    end: date
+    fields: dict | None = None
+
+
+class CreateMultipleAllocations(BaseModel):
+    project_id: int
+    group: str
+    resources: list[CreateResourceAllocation]
+
+
+class UpdateResourceAllocation(BaseModel):
+    comment: str | None = None
+    start: date | None = None
+    end: date | None = None
+    fields: dict | None = None
