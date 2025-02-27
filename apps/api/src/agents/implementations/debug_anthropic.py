@@ -370,7 +370,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 indent=2,
             )
 
-        async def tool_get_projects_of_resource(resource_id: int, slug: str | None = None) -> str:
+        async def tool_get_projects_of_resource(resource_id: int, slug: str) -> str:
             """
             Get all projects of a resource.
             """
@@ -393,7 +393,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 indent=2,
             )
 
-        async def tool_get_resource_groups(resource_id: int, slug: str | None = None) -> str:
+        async def tool_get_resource_groups(resource_id: int, slug: str) -> str:
             """
             Get all resource groups for a resource.
             """
@@ -409,7 +409,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                         "created_at": rg.created_at.isoformat() if rg.created_at else None,
                         "updated_at": rg.updated_at.isoformat() if rg.updated_at else None,
                     }
-                    for rg in resource_groups.data
+                    for rg in resource_groups.items
                 ],
                 indent=2,
             )
@@ -417,13 +417,13 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         async def tool_create_multiple_allocations(
             project_id: int,
             group: str,
-            resources: list[dict],
+            resources: dict,
         ) -> str:
             """
             Create multiple allocations.
 
             Example:
-            @example
+
             {
               "project_id": 510,
               "group": "dokter",
@@ -442,14 +442,21 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             }
             """
 
+            resources = json.loads(resources) if isinstance(resources, str) else resources
+
             allocations = await self.easylog_backend.create_multiple_allocations(
                 CreateMultipleAllocations(
                     project_id=project_id,
                     group=group,
                     resources=[
-                        CreateResourceAllocation(**r)
-                        if isinstance(r, dict)
-                        else CreateResourceAllocation(**json.loads(r))
+                        CreateResourceAllocation(
+                            resource_id=r.get("resource_id"),
+                            type=r.get("type"),
+                            comment=r.get("comment"),
+                            start=date.fromisoformat(r.get("start")),
+                            end=date.fromisoformat(r.get("end")),
+                            fields=r.get("fields"),
+                        )
                         for r in resources
                     ],
                 ),

@@ -12,6 +12,7 @@ from .schemas import (
     Datasource,
     DatasourceDataEntry,
     DatasourceDataType,
+    PaginatedItemsResponse,
     PaginatedResponse,
     PlanningPhase,
     PlanningProject,
@@ -181,14 +182,16 @@ class BackendService:
         response.raise_for_status()
         return PaginatedResponse[PlanningProject].model_validate_json(response.text)
 
-    async def get_resource_groups(self, resource_id: int, slug: str | None = None) -> PaginatedResponse[ResourceGroup]:
+    async def get_resource_groups(
+        self, resource_id: int, slug: str | None = None
+    ) -> PaginatedItemsResponse[ResourceGroup]:
         """
         Get a list of resource groups for a resource
         """
         response = await self.client.get(f"/datasources/resources/{resource_id}/{slug or ''}")
         logger.debug(response.text)
         response.raise_for_status()
-        return PaginatedResponse[ResourceGroup].model_validate_json(response.text)
+        return PaginatedItemsResponse[ResourceGroup].model_validate_json(response.text)
 
     async def create_multiple_allocations(
         self, create_multiple_allocations: CreateMultipleAllocations

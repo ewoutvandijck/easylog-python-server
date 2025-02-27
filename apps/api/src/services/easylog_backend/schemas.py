@@ -53,6 +53,12 @@ class PaginatedResponse(BaseModel, Generic[PaginatedResponseType]):
     meta: PaginationMeta
 
 
+class PaginatedItemsResponse(BaseModel, Generic[PaginatedResponseType]):
+    items: list[PaginatedResponseType]
+    links: PaginationLinks
+    meta: PaginationMeta
+
+
 class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
     id: int
     datasource_id: int
