@@ -171,6 +171,7 @@ class Resource(BaseModel):
     id: int
     label: str
     name: str
+    slug: str
     created_at: datetime
     updated_at: datetime
 
@@ -180,7 +181,7 @@ class ResourceGroup(BaseModel):
     label: str
     name: str
     slug: str
-    data: list[Resource]
+    data: list[Resource] | None = None
     created_at: datetime
     updated_at: datetime
 

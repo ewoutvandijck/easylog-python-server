@@ -414,9 +414,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return result
 
-        async def tool_get_resources() -> str:
+        async def tool_get_resource_groups() -> str:
             """
-            Get all resources.
+            Get all resource groups
             """
             resources = await self.easylog_backend.get_resources()
 
@@ -454,14 +454,14 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return "\n".join(result) if len(result) > 1 else "Geen projecten gevonden voor deze resource."
 
-        async def tool_get_resource_groups(resource_id: int, slug: str) -> str:
+        async def tool_get_resources(resource_id: int, resource_group_slug: str) -> str:
             """
             Get all resource groups for a resource.
             """
-            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, slug)
+            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, resource_group_slug)
 
             result = []
-            result.append(f"Resource groepen voor resource {resource_id} (slug: {slug}):")
+            result.append(f"Resource groepen voor resource {resource_id} (slug: {resource_group_slug}):")
 
             for rg in resource_groups.data or []:
                 group_text = f"- Groep {rg.id}\n"
@@ -470,6 +470,17 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 group_text += f"  - slug: {rg.slug}\n"
                 group_text += f"  - aangemaakt op: {rg.created_at.isoformat() if rg.created_at else 'Onbekend'}\n"
                 group_text += f"  - bijgewerkt op: {rg.updated_at.isoformat() if rg.updated_at else 'Onbekend'}\n"
+
+                for r in rg.data or []:
+                    resource_text = f"    - Resource {r.id}\n"
+                    resource_text += f"      - naam: {r.name}\n"
+                    resource_text += f"      - label: {r.label}\n"
+                    resource_text += (
+                        f"      - aangemaakt op: {r.created_at.isoformat() if r.created_at else 'Onbekend'}\n"
+                    )
+                    resource_text += (
+                        f"      - bijgewerkt op: {r.updated_at.isoformat() if r.updated_at else 'Onbekend'}\n"
+                    )
 
                 result.append(group_text)
 
