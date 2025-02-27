@@ -414,9 +414,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return result
 
-        async def tool_get_resource_groups() -> str:
+        async def tool_get_resources() -> str:
             """
-            Get all resource groups
+            Get all resources
             """
             resources = await self.easylog_backend.get_resources()
 
@@ -454,7 +454,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return "\n".join(result) if len(result) > 1 else "Geen projecten gevonden voor deze resource."
 
-        async def tool_get_resources(resource_id: int, resource_group_slug: str) -> str:
+        async def tool_get_resource_groups(resource_id: int, resource_group_slug: str) -> str:
             """
             Get all resource groups for a resource.
             """
