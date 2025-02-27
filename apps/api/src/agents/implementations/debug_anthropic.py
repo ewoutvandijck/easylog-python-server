@@ -196,22 +196,23 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             datasources = await self.easylog_backend.get_datasources()
 
-            return [
-                {
-                    "id": ds.id,
-                    "types": ds.types,
-                    "category_id": ds.category_id,
-                    "name": ds.name,
-                    "description": ds.description,
-                    "slug": ds.slug,
-                    "resource_groups": ds.resource_groups,
-                    "extra_data_fields": ds.extra_data_fields,
-                    "allocation_types": ds.allocation_types,
-                    "created_at": ds.created_at.isoformat() if ds.created_at else None,
-                    "updated_at": ds.updated_at.isoformat() if ds.updated_at else None,
-                }
-                for ds in datasources.data
-            ]
+            result = []
+            for ds in datasources.data:
+                datasource_text = f"- Datasource {ds.id}\n"
+                datasource_text += f"  - naam: {ds.name}\n"
+                datasource_text += f"  - beschrijving: {ds.description}\n"
+                datasource_text += f"  - slug: {ds.slug}\n"
+                datasource_text += f"  - types: {ds.types}\n"
+                datasource_text += f"  - category_id: {ds.category_id}\n"
+                datasource_text += f"  - resource_groups: {ds.resource_groups}\n"
+                datasource_text += f"  - extra_data_fields: {ds.extra_data_fields}\n"
+                datasource_text += f"  - allocation_types: {ds.allocation_types}\n"
+                datasource_text += f"  - aangemaakt op: {ds.created_at.isoformat() if ds.created_at else 'Onbekend'}\n"
+                datasource_text += f"  - bijgewerkt op: {ds.updated_at.isoformat() if ds.updated_at else 'Onbekend'}\n"
+
+                result.append(datasource_text)
+
+            return "\n".join(result) if result else "Geen datasources gevonden."
 
         async def tool_get_planning_projects(
             from_date: str | None = None,
