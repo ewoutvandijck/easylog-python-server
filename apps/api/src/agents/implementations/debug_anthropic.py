@@ -454,7 +454,6 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             return result
 
         async def tool_update_planning_phase(
-            project_id: int,
             phase_id: int,
             start: str,
             end: str,
@@ -467,7 +466,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 UpdatePlanningPhase(start=parser.parse(start), end=parser.parse(end)),
             )
 
-            return await tool_get_planning_phase(project_id, phase_id)
+            return await tool_get_planning_phase(phase_id)
 
         async def tool_create_planning_phase(
             project_id: int,
