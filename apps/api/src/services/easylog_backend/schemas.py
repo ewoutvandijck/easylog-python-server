@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -59,3 +59,74 @@ class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
     data: DatasourceDataType
     created_at: datetime
     updated_at: datetime
+
+
+class AllocationType(BaseModel):
+    id: int
+    name: str
+    label: str
+    slug: str
+
+
+class Conflict(BaseModel):
+    id: int
+    label: str
+    project_id: int
+    project_label: str
+    type: str
+    group: str
+    start: datetime
+    end: datetime
+    conflict_start: datetime
+    conflict_end: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
+class Allocation(BaseModel):
+    id: int
+    resource_id: int
+    label: str
+    type: str | None
+    group: str
+    comment: str
+    start: datetime
+    end: datetime
+    fields: dict
+    conflicts: list[Conflict]
+    worked_days: dict
+    created_at: datetime
+    updated_at: datetime
+
+
+class AllocationGroup(BaseModel):
+    id: int
+    name: str
+    label: str
+    slug: str
+    allocations: list[Allocation]
+
+
+class PlanningProject(BaseModel):
+    id: int
+    datasource_id: int
+    label: str
+    name: str
+    start: datetime
+    end: datetime
+    color: str
+    extra_data: dict
+    allocation_types: list[AllocationType]
+    allocations_grouped: list[AllocationGroup] | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UpdatePlanningProject(BaseModel):
+    name: str | None = None
+    color: str | None = None
+    report_visible: bool | None = None
+    exclude_in_workdays: bool | None = None
+    start: date | None = None
+    end: date | None = None
+    extra_data: dict | None = None
