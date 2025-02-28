@@ -14,8 +14,8 @@ def object_to_formatted_text(obj: Any, indent_level: int = 0) -> str:
 
     Examples:
         >>> object_to_formatted_text({"a": 1, "b": 2})
-        "a: 1
-        b: 2"
+        "a → 1
+        b → 2"
 
         >>> object_to_formatted_text([1, 2, 3])
         "- 1
@@ -34,11 +34,11 @@ def object_to_formatted_text(obj: Any, indent_level: int = 0) -> str:
         lines = []
         for k, v in obj.items():
             if isinstance(v, (dict, list)) and v:
-                lines.append(f"{indent}{k}:")
+                lines.append(f"{indent}{k}")
                 lines.append(object_to_formatted_text(v, indent_level + 1))
             else:
                 formatted_value = object_to_formatted_text(v, 0)
-                lines.append(f"{indent}{k}: {formatted_value}")
+                lines.append(f"{indent}{k} → {formatted_value}")
 
         return "\n".join(lines)
 
