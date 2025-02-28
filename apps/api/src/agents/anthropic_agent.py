@@ -183,7 +183,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     )
 
                     # Convert the tool's result to a string
-                    tool_result.content = json.dumps(function_result)
+                    tool_result.content = str(function_result)
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
