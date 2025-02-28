@@ -9,6 +9,7 @@ from datetime import date
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from dateutil import parser
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -20,7 +21,7 @@ from src.services.easylog_backend.schemas import (
     UpdatePlanningProject,
 )
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
-from src.utils.object_to_formatted_text import object_to_formatted_text
+from src.utils.truncate import truncate
 
 
 class Subject(BaseModel):
@@ -45,6 +46,7 @@ class DebugAnthropicConfig(BaseModel):
         ]
     )
     default_subject: str | None = Field(default="WerkenSnelweg")
+    tool_result_max_length: int = Field(default=2000)
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
@@ -62,9 +64,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -101,9 +101,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -124,9 +122,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -136,12 +132,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -206,7 +199,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             datasources = await self.easylog_backend.get_datasources()
 
-            return object_to_formatted_text(datasources.model_dump(mode="json"))
+            return truncate(datasources.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_get_planning_projects(
             from_date: str | None = None,
@@ -222,7 +215,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 to_date=parser.parse(to_date) if to_date else None,
             )
 
-            return object_to_formatted_text(planning_projects.model_dump(mode="json"))
+            return truncate(planning_projects.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_get_planning_project(project_id: int) -> str:
             """
@@ -234,7 +227,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             project = await self.easylog_backend.get_planning_project(project_id)
 
-            return object_to_formatted_text(project.model_dump(mode="json"))
+            return truncate(project.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_update_planning_project(
             project_id: int,
@@ -261,9 +254,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     exclude_in_workdays=exclude_in_workdays,
                     start=date.fromisoformat(start) if start else None,
                     end=date.fromisoformat(end) if end else None,
-                    extra_data=json.loads(extra_data)
-                    if isinstance(extra_data, str)
-                    else extra_data,
+                    extra_data=json.loads(extra_data) if isinstance(extra_data, str) else extra_data,
                 ),
             )
 
@@ -275,7 +266,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phases = await self.easylog_backend.get_planning_phases(project_id)
 
-            return object_to_formatted_text(phases.model_dump(mode="json"))
+            return truncate(phases.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_get_planning_phase(phase_id: int) -> str:
             """
@@ -283,7 +274,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phase = await self.easylog_backend.get_planning_phase(phase_id)
 
-            return object_to_formatted_text(phase.model_dump(mode="json"))
+            return truncate(phase.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_update_planning_phase(
             phase_id: int,
@@ -311,12 +302,10 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phase = await self.easylog_backend.create_planning_phase(
                 project_id,
-                CreatePlanningPhase(
-                    slug=slug, start=parser.parse(start), end=parser.parse(end)
-                ),
+                CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
             )
 
-            return object_to_formatted_text(phase.model_dump(mode="json"))
+            return truncate(phase.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_get_resources() -> str:
             """
@@ -324,31 +313,23 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             resources = await self.easylog_backend.get_resources()
 
-            return object_to_formatted_text(resources.model_dump(mode="json"))
+            return truncate(resources.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
-        async def tool_get_projects_of_resource(
-            resource_group_id: int, slug: str
-        ) -> str:
+        async def tool_get_projects_of_resource(resource_group_id: int, slug: str) -> str:
             """
             This will return all the projects of a resource. The slug should be a slug like "td" or "modificaties", so basically the slug of the allocation type.
             """
-            projects = await self.easylog_backend.get_projects_of_resource(
-                resource_group_id, slug
-            )
+            projects = await self.easylog_backend.get_projects_of_resource(resource_group_id, slug)
 
-            return object_to_formatted_text(projects.model_dump(mode="json"))
+            return truncate(projects.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
-        async def tool_get_resource_groups(
-            resource_id: int, resource_group_slug: str
-        ) -> str:
+        async def tool_get_resource_groups(resource_id: int, resource_group_slug: str) -> str:
             """
             This will return all the resource groups for a resource.
             """
-            resource_groups = await self.easylog_backend.get_resource_groups(
-                resource_id, resource_group_slug
-            )
+            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, resource_group_slug)
 
-            return object_to_formatted_text(resource_groups.model_dump(mode="json"))
+            return truncate(resource_groups.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         async def tool_create_multiple_allocations(
             project_id: int,
@@ -382,9 +363,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             }
             """
 
-            resources = (
-                json.loads(resources) if isinstance(resources, str) else resources
-            )
+            resources = json.loads(resources) if isinstance(resources, str) else resources
 
             allocations = await self.easylog_backend.create_multiple_allocations(
                 CreateMultipleAllocations(
@@ -404,7 +383,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 ),
             )
 
-            return object_to_formatted_text(allocations.model_dump(mode="json"))
+            return truncate(allocations.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
 
         tools = [
             tool_switch_subject,
