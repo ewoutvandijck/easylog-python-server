@@ -91,7 +91,7 @@ class Conflict(BaseModel):
     label: str
     project_id: int
     project_label: str
-    type: str
+    type: str | None = None
     group: str
     start: datetime
     end: datetime
