@@ -183,7 +183,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     )
 
                     # Convert the tool's result to a string
-                    tool_result.content = str(function_result)
+                    tool_result.content = json.dumps(function_result)
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
@@ -277,7 +277,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # For regular text messages
                     {
                         "type": "text",
-                        "text": content.content,
+                        "text": content.content or "[empty]",
                     }
                     if isinstance(content, TextContent)
                     # For when Claude wants to use a tool
@@ -317,7 +317,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     if isinstance(content, PDFContent)
                     else {
                         "type": "text",
-                        "text": "",
+                        "text": "[empty]",
                     }
                     for content in message.content
                 ],
