@@ -185,8 +185,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Convert the tool's result to a string
                     result_str = str(function_result)
 
-                    # Limit the result to 15 characters
-                    tool_result.content = result_str[:15] if len(result_str) > 15 else result_str
+                    # Limit the result to 1500 characters
+                    tool_result.content = result_str[:1500] if len(result_str) > 1500 else result_str
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
