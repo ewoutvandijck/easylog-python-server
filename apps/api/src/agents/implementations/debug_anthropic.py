@@ -9,7 +9,6 @@ from datetime import date
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from dateutil import parser
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -21,6 +20,7 @@ from src.services.easylog_backend.schemas import (
     UpdatePlanningProject,
 )
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+from src.utils.object_to_formatted_text import object_to_formatted_text
 
 
 class Subject(BaseModel):
@@ -62,7 +62,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -99,7 +101,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
+        subject = next(
+            (s for s in self.config.subjects if s.name == current_subject), None
+        )
 
         if subject is not None:
             current_subject_name = subject.name
@@ -120,7 +124,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -130,9 +136,12 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -197,76 +206,14 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             datasources = await self.easylog_backend.get_datasources()
 
-            result = []
-            for ds in datasources.data:
-                datasource_text = f"- Datasource {ds.id}\n"
-                datasource_text += f"  - naam: {ds.name}\n"
-                datasource_text += f"  - beschrijving: {ds.description}\n"
-                datasource_text += f"  - slug: {ds.slug}\n"
-                datasource_text += f"  - types: {', '.join(ds.types) if ds.types else 'Geen'}\n"
-                datasource_text += f"  - category_id: {ds.category_id if ds.category_id else 'Geen'}\n"
-
-                # Handle resource_groups
-                if ds.resource_groups:
-                    if isinstance(ds.resource_groups, list):
-                        resource_groups = [
-                            rg.get("name", rg) if isinstance(rg, dict) else rg for rg in ds.resource_groups
-                        ]
-                        datasource_text += f"  - resource_groups: \n    - {'\n    - '.join(resource_groups)}\n"
-                    else:
-                        datasource_text += f"  - resource_groups: {ds.resource_groups}\n"
-                else:
-                    datasource_text += "  - resource_groups: Geen\n"
-
-                # Handle extra_data_fields
-                if ds.extra_data_fields:
-                    datasource_text += "  - extra_data_fields: \n"
-                    if isinstance(ds.extra_data_fields, list):
-                        for field in ds.extra_data_fields:
-                            if isinstance(field, dict):
-                                field_name = field.get("name", "")
-                                field_type = field.get("type", "")
-                                field_options = field.get("options", [])
-
-                                if field_options:
-                                    options_str = ", ".join(field_options)
-                                    datasource_text += f"    - {field_name} ({field_type}): {options_str}\n"
-                                else:
-                                    datasource_text += f"    - {field_name} ({field_type})\n"
-                            else:
-                                datasource_text += f"    - {field}\n"
-                    else:
-                        datasource_text += f"    {ds.extra_data_fields}\n"
-                else:
-                    datasource_text += "  - extra_data_fields: Geen\n"
-
-                # Handle allocation_types
-                if ds.allocation_types:
-                    datasource_text += "  - allocation_types: \n"
-                    if isinstance(ds.allocation_types, list):
-                        for alloc_type in ds.allocation_types:
-                            if isinstance(alloc_type, dict):
-                                datasource_text += f"    - {alloc_type.get('name', alloc_type)}\n"
-                            else:
-                                datasource_text += f"    - {alloc_type}\n"
-                    else:
-                        datasource_text += f"    {ds.allocation_types}\n"
-                else:
-                    datasource_text += "  - allocation_types: Geen\n"
-
-                datasource_text += f"  - aangemaakt op: {ds.created_at.isoformat()}\n"
-                datasource_text += f"  - bijgewerkt op: {ds.updated_at.isoformat()}\n"
-
-                result.append(datasource_text)
-
-            return "\n".join(result) if result else "Geen datasources gevonden."
+            return object_to_formatted_text(datasources.model_dump(mode="json"))
 
         async def tool_get_planning_projects(
             from_date: str | None = None,
             to_date: str | None = None,
         ):
             """
-            Get all planning projects.
+            This will return all the projects that you can allocate to.
 
             Dates should be in the format YYYY-MM-DD.
             """
@@ -275,42 +222,19 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 to_date=parser.parse(to_date) if to_date else None,
             )
 
-            result = []
-            for p in planning_projects.data:
-                project_text = f"- Project {p.id}\n"
-                project_text += f"  - naam: {p.name}\n"
-                project_text += f"  - kleur: {p.color}\n"
-                project_text += f"  - zichtbaar in rapport: {p.report_visible}\n"
-                project_text += f"  - uitsluiten in werkdagen: {p.exclude_in_workdays}\n"
-                project_text += f"  - start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
-                project_text += f"  - eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
-
-                if p.extra_data:
-                    project_text += f"  - extra data: {p.extra_data}\n"
-
-                result.append(project_text)
-
-            return "\n".join(result) if result else "Geen projecten gevonden."
+            return object_to_formatted_text(planning_projects.model_dump(mode="json"))
 
         async def tool_get_planning_project(project_id: int) -> str:
             """
-            Get a planning project by id.
+            This is the most important tool, it will return all the information about a project.
+
+            This will return allocation types (which are phases usually), and the resource groups that you can allocate to.
+
+            You can get the allocation group to figure out what resources you can assign to this project, and phase.
             """
             project = await self.easylog_backend.get_planning_project(project_id)
 
-            p = project.data
-            result = f"Project {p.id}\n"
-            result += f"- naam: {p.name}\n"
-            result += f"- kleur: {p.color}\n"
-            result += f"- zichtbaar in rapport: {p.report_visible}\n"
-            result += f"- uitsluiten in werkdagen: {p.exclude_in_workdays}\n"
-            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
-            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
-
-            if p.extra_data:
-                result += f"- extra data: {p.extra_data}\n"
-
-            return result
+            return object_to_formatted_text(project.model_dump(mode="json"))
 
         async def tool_update_planning_project(
             project_id: int,
@@ -337,7 +261,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     exclude_in_workdays=exclude_in_workdays,
                     start=date.fromisoformat(start) if start else None,
                     end=date.fromisoformat(end) if end else None,
-                    extra_data=json.loads(extra_data) if isinstance(extra_data, str) else extra_data,
+                    extra_data=json.loads(extra_data)
+                    if isinstance(extra_data, str)
+                    else extra_data,
                 ),
             )
 
@@ -345,36 +271,19 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         async def tool_get_planning_phases(project_id: int) -> str:
             """
-            Get all planning phases for a project.
+            Get all planning phases for a project. This is the same as getting the allocation types from the tool "get_planning_project".
             """
             phases = await self.easylog_backend.get_planning_phases(project_id)
 
-            result = []
-            for p in phases.data:
-                phase_text = f"- Fase {p.id}\n"
-                phase_text += f"  - project_id: {p.project_id}\n"
-                phase_text += f"  - slug: {p.slug}\n"
-                phase_text += f"  - start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
-                phase_text += f"  - eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
-
-                result.append(phase_text)
-
-            return "\n".join(result) if result else "Geen fases gevonden."
+            return object_to_formatted_text(phases.model_dump(mode="json"))
 
         async def tool_get_planning_phase(phase_id: int) -> str:
             """
-            Get a planning phase by id.
+            Get a planning phase by id. This is the same as getting a single allocation type from the tool "get_planning_project".
             """
             phase = await self.easylog_backend.get_planning_phase(phase_id)
 
-            p = phase.data
-            result = f"Fase {p.id}\n"
-            result += f"- project_id: {p.project_id}\n"
-            result += f"- slug: {p.slug}\n"
-            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
-            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
-
-            return result
+            return object_to_formatted_text(phase.model_dump(mode="json"))
 
         async def tool_update_planning_phase(
             phase_id: int,
@@ -402,119 +311,80 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phase = await self.easylog_backend.create_planning_phase(
                 project_id,
-                CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
+                CreatePlanningPhase(
+                    slug=slug, start=parser.parse(start), end=parser.parse(end)
+                ),
             )
 
-            p = phase.data
-            result = f"Nieuwe fase {p.id} aangemaakt:\n"
-            result += f"- project_id: {p.project_id}\n"
-            result += f"- slug: {p.slug}\n"
-            result += f"- start: {p.start.isoformat() if p.start else 'Niet ingesteld'}\n"
-            result += f"- eind: {p.end.isoformat() if p.end else 'Niet ingesteld'}\n"
-
-            return result
+            return object_to_formatted_text(phase.model_dump(mode="json"))
 
         async def tool_get_resources() -> str:
             """
-            Get all resources
+            This will return all the resources. This is rarely used.
             """
             resources = await self.easylog_backend.get_resources()
 
-            result = []
-            for r in resources.data:
-                resource_text = f"- Resource {r.id}\n"
-                resource_text += f"  - naam: {r.name}\n"
-                resource_text += f"  - label: {r.label}\n"
-                resource_text += f"  - aangemaakt op: {r.created_at.isoformat() if r.created_at else 'Onbekend'}\n"
-                resource_text += f"  - bijgewerkt op: {r.updated_at.isoformat() if r.updated_at else 'Onbekend'}\n"
+            return object_to_formatted_text(resources.model_dump(mode="json"))
 
-                result.append(resource_text)
-
-            return "\n".join(result) if result else "Geen resources gevonden."
-
-        async def tool_get_projects_of_resource(resource_id: int, slug: str) -> str:
+        async def tool_get_projects_of_resource(
+            resource_group_id: int, slug: str
+        ) -> str:
             """
-            Get all projects of a resource. The slug should be a datasource slug.
+            This will return all the projects of a resource. The slug should be a slug like "td" or "modificaties", so basically the slug of the allocation type.
             """
-            projects = await self.easylog_backend.get_projects_of_resource(resource_id, slug)
+            projects = await self.easylog_backend.get_projects_of_resource(
+                resource_group_id, slug
+            )
 
-            # Convert the Pydantic model to a dictionary
-            projects_dict = projects.model_dump()
+            return object_to_formatted_text(projects.model_dump(mode="json"))
 
-            result = []
-            result.append(f"Projecten voor resource {resource_id} (slug: {slug}):")
-
-            if "data" in projects_dict and projects_dict["data"]:
-                for p in projects_dict["data"]:
-                    project_text = f"- Project {p.get('id')}\n"
-                    for key, value in p.items():
-                        if key != "id":
-                            project_text += f"  - {key}: {value}\n"
-                    result.append(project_text)
-
-            return "\n".join(result) if len(result) > 1 else "Geen projecten gevonden voor deze resource."
-
-        async def tool_get_resource_groups(resource_id: int, resource_group_slug: str) -> str:
+        async def tool_get_resource_groups(
+            resource_id: int, resource_group_slug: str
+        ) -> str:
             """
-            Get all resource groups for a resource.
+            This will return all the resource groups for a resource.
             """
-            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, resource_group_slug)
+            resource_groups = await self.easylog_backend.get_resource_groups(
+                resource_id, resource_group_slug
+            )
 
-            result = []
-            result.append(f"Resource groepen voor resource {resource_id} (slug: {resource_group_slug}):")
-
-            for rg in resource_groups.data or []:
-                group_text = f"- Groep {rg.id}\n"
-                group_text += f"  - naam: {rg.name}\n"
-                group_text += f"  - label: {rg.label}\n"
-                group_text += f"  - slug: {rg.slug}\n"
-                group_text += f"  - aangemaakt op: {rg.created_at.isoformat() if rg.created_at else 'Onbekend'}\n"
-                group_text += f"  - bijgewerkt op: {rg.updated_at.isoformat() if rg.updated_at else 'Onbekend'}\n"
-
-                for r in rg.data or []:
-                    resource_text = f"    - Resource {r.id}\n"
-                    resource_text += f"      - naam: {r.name}\n"
-                    resource_text += f"      - label: {r.label}\n"
-                    resource_text += (
-                        f"      - aangemaakt op: {r.created_at.isoformat() if r.created_at else 'Onbekend'}\n"
-                    )
-                    resource_text += (
-                        f"      - bijgewerkt op: {r.updated_at.isoformat() if r.updated_at else 'Onbekend'}\n"
-                    )
-
-                result.append(group_text)
-
-            return "\n".join(result) if len(result) > 1 else "Geen resource groepen gevonden."
+            return object_to_formatted_text(resource_groups.model_dump(mode="json"))
 
         async def tool_create_multiple_allocations(
             project_id: int,
             group: str,
-            resources: dict,
+            resources: list,
         ) -> str:
             """
-            Create multiple allocations.
+            You can use this tool to allocate resources to a project. For each project you can allocate resources to a group.
+            The group is the name of the group you want to allocate to. You can get the groups with the tool "get_resource_groups".
+            The resources are the resources you want to allocate. You can get the resources with the tool "get_resources".
 
             Example:
 
             {
-              "project_id": 510,
-              "group": "dokter",
-              "resources": [
-                {
-                  "resource_id": 508,
-                  "type": "hpcvoor",
-                  "comment": "string",
-                  "start": "10-2-2023",
-                  "end": "10-2-2024",
-                  "fields": {
-                    "roadcaptain": 1
-                  }
-                }
-              ]
+                "project_id": 2315,
+                "group": "td",
+                "resources": [
+                    {
+                        "resource_id": 440, // This is a
+                        "start": "2025-02-20T00:00:00.000000Z",
+                        "end": "2025-02-24T00:00:00.000000Z",
+                        "type": "modificatiesi" // Allocation type
+                    },
+                    {
+                        "resource_id": 441,
+                        "start": "2025-02-20T00:00:00.000000Z",
+                        "end": "2025-02-24T00:00:00.000000Z",
+                        "type": "modificatiesi"
+                    }
+                ]
             }
             """
 
-            resources = json.loads(resources) if isinstance(resources, str) else resources
+            resources = (
+                json.loads(resources) if isinstance(resources, str) else resources
+            )
 
             allocations = await self.easylog_backend.create_multiple_allocations(
                 CreateMultipleAllocations(
@@ -525,8 +395,10 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                             resource_id=r.get("resource_id"),
                             type=r.get("type"),
                             comment=r.get("comment"),
-                            start=date.fromisoformat(r.get("start")),
-                            end=date.fromisoformat(r.get("end")),
+                            start=parser.parse(r.get("start"))
+                            if r.get("start")
+                            else None,
+                            end=parser.parse(r.get("end")) if r.get("end") else None,
                             fields=r.get("fields"),
                         )
                         for r in resources
@@ -534,26 +406,16 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                 ),
             )
 
-            result = []
-            result.append(f"Allocaties aangemaakt voor project {project_id}, groep {group}:")
-
-            for a in allocations.data:
-                allocation_text = f"- Allocatie {a.id}\n"
-                for key, value in a.model_dump().items():
-                    if key != "id":
-                        allocation_text += f"  - {key}: {value}\n"
-                result.append(allocation_text)
-
-            return "\n".join(result) if len(result) > 1 else "Geen allocaties aangemaakt."
+            return object_to_formatted_text(allocations.model_dump(mode="json"))
 
         tools = [
             tool_switch_subject,
             tool_store_memory,
             tool_clear_memories,
             tool_get_datasources,
-            tool_update_planning_project,
             tool_get_planning_projects,
             tool_get_planning_project,
+            tool_update_planning_project,
             tool_get_planning_phases,
             tool_get_planning_phase,
             tool_update_planning_phase,

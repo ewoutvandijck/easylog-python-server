@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from src.logger import logger
 
 from .schemas import (
-    Allocation,
+    AllocationWithDetails,
     CreateMultipleAllocations,
     CreatePlanningPhase,
     DataEntry,
@@ -71,12 +71,15 @@ class BackendService:
         """
         Get all planning projects
         """
+
+        params = {
+            "from_date": from_date.isoformat() if from_date else None,
+            "to_date": to_date.isoformat() if to_date else None,
+        }
+
         response = await self.client.get(
             "/datasources/projects",
-            params={
-                "from_date": from_date.isoformat() if from_date else None,
-                "to_date": to_date.isoformat() if to_date else None,
-            },
+            params={k: v for k, v in params.items() if v is not None},
         )
         logger.debug(response.text)
         response.raise_for_status()
@@ -137,7 +140,8 @@ class BackendService:
         """
 
         response = await self.client.put(
-            f"/datasources/phases/{phase_id}", json=update_planning_phase.model_dump(mode="json")
+            f"/datasources/phases/{phase_id}",
+            json=update_planning_phase.model_dump(mode="json", exclude_none=True),
         )
         logger.debug(response.text)
         response.raise_for_status()
@@ -170,12 +174,14 @@ class BackendService:
         """
         Get a list if all projects of every resource
         """
+        params = {
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None,
+        }
+
         response = await self.client.get(
             f"/datasources/resources/{resource_id}/projects/{slug or ''}",
-            params={
-                "start_date": start_date.isoformat() if start_date else None,
-                "end_date": end_date.isoformat() if end_date else None,
-            },
+            params={k: v for k, v in params.items() if v is not None},
         )
         logger.debug(response.text)
         response.raise_for_status()
@@ -198,14 +204,15 @@ class BackendService:
         return PaginatedResponse[ResourceGroup].model_validate_json(response.text)
 
     async def create_multiple_allocations(
-        self, create_multiple_allocations: CreateMultipleAllocations
-    ) -> DataEntry[list[Allocation]]:
+        self, data: CreateMultipleAllocations
+    ) -> DataEntry[list[AllocationWithDetails]]:
         """
-        Store an allocation
+        Create multiple resource allocations at once
         """
         response = await self.client.post(
-            "/datasources/allocations/multiple", json=create_multiple_allocations.model_dump(mode="json")
+            "/datasources/allocations/multiple",
+            json=data.model_dump(mode="json", exclude_none=True),
         )
         logger.debug(response.text)
         response.raise_for_status()
-        return DataEntry[list[Allocation]].model_validate_json(response.text)
+        return DataEntry[list[AllocationWithDetails]].model_validate_json(response.text)

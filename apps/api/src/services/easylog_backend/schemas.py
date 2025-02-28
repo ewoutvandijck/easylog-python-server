@@ -9,6 +9,12 @@ PaginatedResponseType = TypeVar("PaginatedResponseType")
 DatasourceDataType = TypeVar("DatasourceDataType")
 
 
+class ResourceGroupInfo(BaseModel):
+    slug: str
+    name: str
+    label: str
+
+
 class Datasource(BaseModel):
     id: int
     types: list[str]
@@ -16,9 +22,9 @@ class Datasource(BaseModel):
     name: str
     description: str
     slug: str
-    resource_groups: dict | list[dict] | None
-    extra_data_fields: dict | list[dict] | None
-    allocation_types: dict | list[dict] | None
+    resource_groups: list[ResourceGroupInfo] | None = None
+    extra_data_fields: dict | list[dict] | None = None
+    allocation_types: list["AllocationType"] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -106,7 +112,7 @@ class Allocation(BaseModel):
     end: datetime
     fields: dict | list[dict] = Field(default_factory=dict)
     conflicts: list[Conflict] = Field(default_factory=list)
-    worked_days: dict | None = Field(default_factory=dict)
+    worked_days: dict | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -169,18 +175,16 @@ class CreatePlanningPhase(BaseModel):
 
 class Resource(BaseModel):
     id: int
-    label: str
-    name: str
-    slug: str
+    label: str | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class ResourceGroup(BaseModel):
     id: int
-    label: str
-    name: str
-    slug: str
+    label: str | None = None
+    name: str | None = None
+    slug: str | None = None
     data: list[Resource] | None = None
     created_at: datetime
     updated_at: datetime
@@ -188,10 +192,10 @@ class ResourceGroup(BaseModel):
 
 class CreateResourceAllocation(BaseModel):
     resource_id: int
+    start: datetime
+    end: datetime
     type: str
     comment: str | None = None
-    start: date
-    end: date
     fields: dict | None = None
 
 
@@ -199,6 +203,22 @@ class CreateMultipleAllocations(BaseModel):
     project_id: int
     group: str
     resources: list[CreateResourceAllocation]
+
+
+class AllocationWithDetails(BaseModel):
+    id: int
+    project_id: int
+    resource_id: int
+    group: str
+    type: str | None
+    comment: str | None
+    start: datetime
+    end: datetime
+    fields: list
+    project: PlanningProject
+    resource: Resource
+    created_at: datetime
+    updated_at: datetime
 
 
 class UpdateResourceAllocation(BaseModel):

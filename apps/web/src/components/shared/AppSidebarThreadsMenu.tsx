@@ -7,14 +7,16 @@ import useThreadId from '@/hooks/use-thread-id';
 import useIsConnectionHealthy from '@/hooks/use-is-connection-healthy';
 
 const AppSidebarThreadsMenu = () => {
-  const { data: threads } = useThreads();
+  const { data: threads, isLoading, error } = useThreads();
   const { data: isConnected } = useIsConnectionHealthy();
+
+  console.log(threads, isLoading, error);
 
   const threadId = useThreadId();
 
   return (
     <SidebarMenu>
-      {threads?.data.map((item) => (
+      {threads?.map((item) => (
         <SidebarMenuItem key={item.id}>
           <SidebarMenuButton
             asChild

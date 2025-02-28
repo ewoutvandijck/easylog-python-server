@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import useThreadMessages from './use-thread-messages';
 import { useCallback } from 'react';
 import { atom, useAtom } from 'jotai';
+import useConfigurations from './use-configurations';
 
 type PartialMessageContent = {
   type: 'text';
@@ -22,6 +23,7 @@ const loadingAtom = atom<boolean>(false);
 
 const useSendMessage = () => {
   const { activeConnection } = useConnections();
+  const { activeConfiguration } = useConfigurations();
 
   const { refetch } = useThreadMessages();
 
@@ -51,6 +53,7 @@ const useSendMessage = () => {
           method: 'POST',
           headers: {
             'X-API-KEY': activeConnection.secret,
+            Authorization: `Bearer ${activeConfiguration?.easylogApiKey}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(message),
@@ -92,6 +95,7 @@ const useSendMessage = () => {
     [
       activeConnection.secret,
       activeConnection.url,
+      activeConfiguration?.easylogApiKey,
       refetch,
       setAssistantMessage,
       setIsLoading,
