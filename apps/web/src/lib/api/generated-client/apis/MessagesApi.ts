@@ -16,19 +16,19 @@
 import * as runtime from '../runtime';
 import type {
   HTTPValidationError,
-  MessageContent,
   MessageCreateInput,
   PaginationMessages,
+  ResponseCreateMessageThreadsThreadIdMessagesPost,
 } from '../models/index';
 import {
     HTTPValidationErrorFromJSON,
     HTTPValidationErrorToJSON,
-    MessageContentFromJSON,
-    MessageContentToJSON,
     MessageCreateInputFromJSON,
     MessageCreateInputToJSON,
     PaginationMessagesFromJSON,
     PaginationMessagesToJSON,
+    ResponseCreateMessageThreadsThreadIdMessagesPostFromJSON,
+    ResponseCreateMessageThreadsThreadIdMessagesPostToJSON,
 } from '../models/index';
 
 export interface CreateMessageThreadsThreadIdMessagesPostRequest {
@@ -57,7 +57,7 @@ export class MessagesApi extends runtime.BaseAPI {
      * Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.
      * Create Message
      */
-    async createMessageThreadsThreadIdMessagesPostRaw(requestParameters: CreateMessageThreadsThreadIdMessagesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<MessageContent>> {
+    async createMessageThreadsThreadIdMessagesPostRaw(requestParameters: CreateMessageThreadsThreadIdMessagesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ResponseCreateMessageThreadsThreadIdMessagesPost>> {
         if (requestParameters['threadId'] == null) {
             throw new runtime.RequiredError(
                 'threadId',
@@ -82,6 +82,14 @@ export class MessagesApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads/{thread_id}/messages`.replace(`{${"thread_id"}}`, encodeURIComponent(String(requestParameters['threadId']))),
             method: 'POST',
@@ -90,14 +98,14 @@ export class MessagesApi extends runtime.BaseAPI {
             body: MessageCreateInputToJSON(requestParameters['messageCreateInput']),
         }, initOverrides);
 
-        return new runtime.JSONApiResponse(response, (jsonValue) => MessageContentFromJSON(jsonValue));
+        return new runtime.JSONApiResponse(response, (jsonValue) => ResponseCreateMessageThreadsThreadIdMessagesPostFromJSON(jsonValue));
     }
 
     /**
      * Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.
      * Create Message
      */
-    async createMessageThreadsThreadIdMessagesPost(requestParameters: CreateMessageThreadsThreadIdMessagesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<MessageContent> {
+    async createMessageThreadsThreadIdMessagesPost(requestParameters: CreateMessageThreadsThreadIdMessagesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ResponseCreateMessageThreadsThreadIdMessagesPost> {
         const response = await this.createMessageThreadsThreadIdMessagesPostRaw(requestParameters, initOverrides);
         return await response.value();
     }
@@ -128,6 +136,14 @@ export class MessagesApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads/{thread_id}/messages/{message_id}`.replace(`{${"thread_id"}}`, encodeURIComponent(String(requestParameters['threadId']))).replace(`{${"message_id"}}`, encodeURIComponent(String(requestParameters['messageId']))),
             method: 'DELETE',
@@ -182,6 +198,14 @@ export class MessagesApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads/{thread_id}/messages`.replace(`{${"thread_id"}}`, encodeURIComponent(String(requestParameters['threadId']))),
             method: 'GET',

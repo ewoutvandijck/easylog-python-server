@@ -52,7 +52,7 @@ const ChatNewDialog = ({ children }: React.PropsWithChildren) => {
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
     await createThread({
-      chatCreateInput: {
+      threadCreateInput: {
         external_id: data.external_id
       }
     });

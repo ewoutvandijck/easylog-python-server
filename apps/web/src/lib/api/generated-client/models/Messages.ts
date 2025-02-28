@@ -20,6 +20,13 @@ import {
     ThreadsToJSON,
     ThreadsToJSONTyped,
 } from './Threads';
+import type { MessageRole } from './MessageRole';
+import {
+    MessageRoleFromJSON,
+    MessageRoleFromJSONTyped,
+    MessageRoleToJSON,
+    MessageRoleToJSONTyped,
+} from './MessageRole';
 import type { MessageContents } from './MessageContents';
 import {
     MessageContentsFromJSON,
@@ -54,10 +61,10 @@ export interface Messages {
     thread_id: string;
     /**
      * 
-     * @type {string}
+     * @type {MessageRole}
      * @memberof Messages
      */
-    role: string;
+    role: MessageRole;
     /**
      * 
      * @type {Array<MessageContents>}
@@ -83,6 +90,8 @@ export interface Messages {
      */
     updated_at: Date;
 }
+
+
 
 /**
  * Check if a given object implements the Messages interface.
@@ -110,7 +119,7 @@ export function MessagesFromJSONTyped(json: any, ignoreDiscriminator: boolean): 
         'id': json['id'],
         'thread': json['thread'] == null ? undefined : ThreadsFromJSON(json['thread']),
         'thread_id': json['thread_id'],
-        'role': json['role'],
+        'role': MessageRoleFromJSON(json['role']),
         'contents': json['contents'] == null ? undefined : ((json['contents'] as Array<any>).map(MessageContentsFromJSON)),
         'agent_class': json['agent_class'],
         'created_at': (new Date(json['created_at'])),
@@ -132,7 +141,7 @@ export function MessagesToJSONTyped(value?: Messages | null, ignoreDiscriminator
         'id': value['id'],
         'thread': ThreadsToJSON(value['thread']),
         'thread_id': value['thread_id'],
-        'role': value['role'],
+        'role': MessageRoleToJSON(value['role']),
         'contents': value['contents'] == null ? undefined : ((value['contents'] as Array<any>).map(MessageContentsToJSON)),
         'agent_class': value['agent_class'],
         'created_at': ((value['created_at']).toISOString()),

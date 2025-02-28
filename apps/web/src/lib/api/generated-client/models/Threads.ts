@@ -53,6 +53,12 @@ export interface Threads {
     updated_at: Date;
     /**
      * 
+     * @type {string}
+     * @memberof Threads
+     */
+    metadata?: string | null;
+    /**
+     * 
      * @type {Array<Messages>}
      * @memberof Threads
      */
@@ -83,6 +89,7 @@ export function ThreadsFromJSONTyped(json: any, ignoreDiscriminator: boolean): T
         'external_id': json['external_id'] == null ? undefined : json['external_id'],
         'created_at': (new Date(json['created_at'])),
         'updated_at': (new Date(json['updated_at'])),
+        'metadata': json['metadata'] == null ? undefined : json['metadata'],
         'messages': json['messages'] == null ? undefined : ((json['messages'] as Array<any>).map(MessagesFromJSON)),
     };
 }
@@ -102,6 +109,7 @@ export function ThreadsToJSONTyped(value?: Threads | null, ignoreDiscriminator: 
         'external_id': value['external_id'],
         'created_at': ((value['created_at']).toISOString()),
         'updated_at': ((value['updated_at']).toISOString()),
+        'metadata': value['metadata'],
         'messages': value['messages'] == null ? undefined : ((value['messages'] as Array<any>).map(MessagesToJSON)),
     };
 }

@@ -40,6 +40,14 @@ export class HealthApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/health`,
             method: 'GET',

@@ -13,6 +13,13 @@
  */
 
 import { mapValues } from '../runtime';
+import type { MessageContentType } from './MessageContentType';
+import {
+    MessageContentTypeFromJSON,
+    MessageContentTypeFromJSONTyped,
+    MessageContentTypeToJSON,
+    MessageContentTypeToJSONTyped,
+} from './MessageContentType';
 import type { Messages } from './Messages';
 import {
     MessagesFromJSON,
@@ -47,16 +54,52 @@ export interface MessageContents {
     message_id: string;
     /**
      * 
-     * @type {string}
+     * @type {MessageContentType}
      * @memberof MessageContents
      */
-    content_type: string;
+    type: MessageContentType;
     /**
      * 
      * @type {string}
      * @memberof MessageContents
      */
-    content: string;
+    tool_use_id?: string | null;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof MessageContents
+     */
+    tool_use_is_error?: boolean | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageContents
+     */
+    tool_use_name?: string | null;
+    /**
+     * 
+     * @type {}
+     * @memberof MessageContents
+     */
+    tool_use_input?:  | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageContents
+     */
+    content?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageContents
+     */
+    content_type?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageContents
+     */
+    data?: string | null;
     /**
      * 
      * @type {Date}
@@ -71,14 +114,15 @@ export interface MessageContents {
     updated_at: Date;
 }
 
+
+
 /**
  * Check if a given object implements the MessageContents interface.
  */
 export function instanceOfMessageContents(value: object): value is MessageContents {
     if (!('id' in value) || value['id'] === undefined) return false;
     if (!('message_id' in value) || value['message_id'] === undefined) return false;
-    if (!('content_type' in value) || value['content_type'] === undefined) return false;
-    if (!('content' in value) || value['content'] === undefined) return false;
+    if (!('type' in value) || value['type'] === undefined) return false;
     if (!('created_at' in value) || value['created_at'] === undefined) return false;
     if (!('updated_at' in value) || value['updated_at'] === undefined) return false;
     return true;
@@ -97,8 +141,14 @@ export function MessageContentsFromJSONTyped(json: any, ignoreDiscriminator: boo
         'id': json['id'],
         'message': json['message'] == null ? undefined : MessagesFromJSON(json['message']),
         'message_id': json['message_id'],
-        'content_type': json['content_type'],
-        'content': json['content'],
+        'type': MessageContentTypeFromJSON(json['type']),
+        'tool_use_id': json['tool_use_id'] == null ? undefined : json['tool_use_id'],
+        'tool_use_is_error': json['tool_use_is_error'] == null ? undefined : json['tool_use_is_error'],
+        'tool_use_name': json['tool_use_name'] == null ? undefined : json['tool_use_name'],
+        'tool_use_input': json['tool_use_input'] == null ? undefined : FromJSON(json['tool_use_input']),
+        'content': json['content'] == null ? undefined : json['content'],
+        'content_type': json['content_type'] == null ? undefined : json['content_type'],
+        'data': json['data'] == null ? undefined : json['data'],
         'created_at': (new Date(json['created_at'])),
         'updated_at': (new Date(json['updated_at'])),
     };
@@ -118,8 +168,14 @@ export function MessageContentsToJSONTyped(value?: MessageContents | null, ignor
         'id': value['id'],
         'message': MessagesToJSON(value['message']),
         'message_id': value['message_id'],
-        'content_type': value['content_type'],
+        'type': MessageContentTypeToJSON(value['type']),
+        'tool_use_id': value['tool_use_id'],
+        'tool_use_is_error': value['tool_use_is_error'],
+        'tool_use_name': value['tool_use_name'],
+        'tool_use_input': ToJSON(value['tool_use_input']),
         'content': value['content'],
+        'content_type': value['content_type'],
+        'data': value['data'],
         'created_at': ((value['created_at']).toISOString()),
         'updated_at': ((value['updated_at']).toISOString()),
     };

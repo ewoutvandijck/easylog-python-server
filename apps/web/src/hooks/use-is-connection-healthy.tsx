@@ -10,7 +10,7 @@ const useIsConnectionHealthy = () => {
     queryFn: async () => {
       try {
         const response = await health.healthHealthGet();
-        return response.status === 'healthy';
+        return response.api === 'healthy' && response.main_db === 'healthy';
       } catch {
         return false;
       }

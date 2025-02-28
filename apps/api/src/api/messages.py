@@ -1,7 +1,8 @@
 import json
+from collections.abc import AsyncGenerator
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, Query, Security
+from fastapi import APIRouter, HTTPException, Path, Query, Response, Security
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from prisma.models import Messages
@@ -32,7 +33,7 @@ async def get_messages(
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
-):
+) -> Pagination[Messages]:
     messages = prisma.messages.find_many(
         where={
             "OR": [
@@ -59,13 +60,12 @@ async def get_messages(
 )
 async def create_message(
     message: MessageCreateInput,
-    background_tasks: BackgroundTasks,
     thread_id: str = Path(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
     auth: HTTPAuthorizationCredentials | None = Security(optional_bearer_header),
-):
+) -> StreamingResponse:
     logger.info(f"Authorization: {auth}")
 
     thread = prisma.threads.find_first(
@@ -91,7 +91,7 @@ async def create_message(
         bearer_token=auth.credentials if auth else None,
     )
 
-    async def stream():
+    async def stream() -> AsyncGenerator[str, None]:
         try:
             async for chunk in forward_message_generator:
                 sse_event = create_sse_event("delta", chunk.model_dump_json())
@@ -119,11 +119,19 @@ async def create_message(
     name="delete_message",
 )
 async def delete_message(
-    # TODO: Validate the user has permission to delete the message
     thread_id: str = Path(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
     message_id: str = Path(..., description="The unique identifier of the message."),
-):
-    return prisma.messages.delete(where={"id": message_id})
+) -> Response:
+    prisma.messages.delete_many(
+        where={
+            "AND": [
+                {"id": message_id},
+                {"thread_id": thread_id},
+            ],
+        }
+    )
+
+    return Response(status_code=204)

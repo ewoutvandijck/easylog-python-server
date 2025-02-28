@@ -20,13 +20,13 @@ import {
     AgentConfigToJSON,
     AgentConfigToJSONTyped,
 } from './AgentConfig';
-import type { MessageContent } from './MessageContent';
+import type { MessageCreateInputContentInner } from './MessageCreateInputContentInner';
 import {
-    MessageContentFromJSON,
-    MessageContentFromJSONTyped,
-    MessageContentToJSON,
-    MessageContentToJSONTyped,
-} from './MessageContent';
+    MessageCreateInputContentInnerFromJSON,
+    MessageCreateInputContentInnerFromJSONTyped,
+    MessageCreateInputContentInnerToJSON,
+    MessageCreateInputContentInnerToJSONTyped,
+} from './MessageCreateInputContentInner';
 
 /**
  * 
@@ -36,10 +36,10 @@ import {
 export interface MessageCreateInput {
     /**
      * The content of the message.
-     * @type {Array<MessageContent>}
+     * @type {Array<MessageCreateInputContentInner>}
      * @memberof MessageCreateInput
      */
-    content: Array<MessageContent>;
+    content: Array<MessageCreateInputContentInner>;
     /**
      * The configuration for the agent that generated the message. Requires at least a `agent_class` key.
      * @type {AgentConfig}
@@ -67,7 +67,7 @@ export function MessageCreateInputFromJSONTyped(json: any, ignoreDiscriminator: 
     }
     return {
         
-        'content': ((json['content'] as Array<any>).map(MessageContentFromJSON)),
+        'content': ((json['content'] as Array<any>).map(MessageCreateInputContentInnerFromJSON)),
         'agent_config': AgentConfigFromJSON(json['agent_config']),
     };
 }
@@ -83,7 +83,7 @@ export function MessageCreateInputToJSONTyped(value?: MessageCreateInput | null,
 
     return {
         
-        'content': ((value['content'] as Array<any>).map(MessageContentToJSON)),
+        'content': ((value['content'] as Array<any>).map(MessageCreateInputContentInnerToJSON)),
         'agent_config': AgentConfigToJSON(value['agent_config']),
     };
 }
