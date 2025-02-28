@@ -29,7 +29,7 @@ def test_empty_collections():
 
 def test_simple_dict():
     obj = {"a": 1, "b": 2, "c": "hello"}
-    expected = "a: 1\nb: 2\nc: hello"
+    expected = "a → 1\nb → 2\nc → hello"
     assert object_to_formatted_text(obj) == expected
 
 
@@ -41,7 +41,7 @@ def test_simple_list():
 
 def test_nested_dict():
     obj = {"a": 1, "b": {"c": 2, "d": 3}}
-    expected = "a: 1\nb:\n    c: 2\n    d: 3"
+    expected = "a → 1\nb\n    c → 2\n    d → 3"
     assert object_to_formatted_text(obj) == expected
 
 
@@ -53,7 +53,7 @@ def test_nested_list():
 
 def test_complex_nested_structure():
     obj = {"a": 1, "b": [2, 3, {"c": 4}], "d": {"e": [5, 6]}}
-    expected = "a: 1\nb:\n    - 2\n    - 3\n    - \n      c: 4\nd:\n    e:\n        - 5\n        - 6"
+    expected = "a → 1\nb\n    - 2\n    - 3\n    - \n      c → 4\nd\n    e\n        - 5\n        - 6"
     assert object_to_formatted_text(obj) == expected
 
 
@@ -71,20 +71,20 @@ def test_pydantic_models():
     result = object_to_formatted_text(obj.model_dump())
 
     expected = (
-        "a: 1\n"
-        "b: 2\n"
-        "c:\n"
-        "    c: 42\n"
-        "d:\n"
+        "a → 1\n"
+        "b → 2\n"
+        "c\n"
+        "    c → 42\n"
+        "d\n"
         "    - \n"
-        "      c: 3\n"
+        "      c → 3\n"
         "    - \n"
-        "      c: 4\n"
-        "e:\n"
-        "    x:\n"
-        "        c: 5\n"
-        "    y:\n"
-        "        c: 6"
+        "      c → 4\n"
+        "e\n"
+        "    x\n"
+        "        c → 5\n"
+        "    y\n"
+        "        c → 6"
     )
 
     assert result == expected
@@ -92,5 +92,5 @@ def test_pydantic_models():
 
 def test_indentation_level():
     obj = {"a": 1, "b": 2}
-    expected = "        a: 1\n        b: 2"
+    expected = "        a → 1\n        b → 2"
     assert object_to_formatted_text(obj, indent_level=2) == expected

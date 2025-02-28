@@ -182,11 +182,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         else function(**message_contents[-1].input)
                     )
 
-                    # Convert the tool's result to a string
-                    result_str = str(function_result)
-
-                    # Limit the result to 1500 characters
-                    tool_result.content = result_str[:1500] if len(result_str) > 1500 else result_str
+                    tool_result.content = str(function_result)
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
