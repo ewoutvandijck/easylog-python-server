@@ -9,6 +9,7 @@ from datetime import date
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from dateutil import parser
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -62,9 +63,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
         return pdfs
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -101,9 +100,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         if current_subject is None:
             current_subject = self.config.default_subject
 
-        subject = next(
-            (s for s in self.config.subjects if s.name == current_subject), None
-        )
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
 
         if subject is not None:
             current_subject_name = subject.name
@@ -124,9 +121,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     "media_type": "application/pdf",
                     "data": pdf,
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
             }
             for pdf in current_subject_pdfs
         ]
@@ -136,12 +131,9 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
         for message in reversed(message_history):
             if (
                 message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -261,9 +253,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                     exclude_in_workdays=exclude_in_workdays,
                     start=date.fromisoformat(start) if start else None,
                     end=date.fromisoformat(end) if end else None,
-                    extra_data=json.loads(extra_data)
-                    if isinstance(extra_data, str)
-                    else extra_data,
+                    extra_data=json.loads(extra_data) if isinstance(extra_data, str) else extra_data,
                 ),
             )
 
@@ -311,9 +301,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             """
             phase = await self.easylog_backend.create_planning_phase(
                 project_id,
-                CreatePlanningPhase(
-                    slug=slug, start=parser.parse(start), end=parser.parse(end)
-                ),
+                CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
             )
 
             return object_to_formatted_text(phase.model_dump(mode="json"))
@@ -326,27 +314,19 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
 
             return object_to_formatted_text(resources.model_dump(mode="json"))
 
-        async def tool_get_projects_of_resource(
-            resource_group_id: int, slug: str
-        ) -> str:
+        async def tool_get_projects_of_resource(resource_group_id: int, slug: str) -> str:
             """
             This will return all the projects of a resource. The slug should be a slug like "td" or "modificaties", so basically the slug of the allocation type.
             """
-            projects = await self.easylog_backend.get_projects_of_resource(
-                resource_group_id, slug
-            )
+            projects = await self.easylog_backend.get_projects_of_resource(resource_group_id, slug)
 
             return object_to_formatted_text(projects.model_dump(mode="json"))
 
-        async def tool_get_resource_groups(
-            resource_id: int, resource_group_slug: str
-        ) -> str:
+        async def tool_get_resource_groups(resource_id: int, resource_group_slug: str) -> str:
             """
             This will return all the resource groups for a resource.
             """
-            resource_groups = await self.easylog_backend.get_resource_groups(
-                resource_id, resource_group_slug
-            )
+            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, resource_group_slug)
 
             return object_to_formatted_text(resource_groups.model_dump(mode="json"))
 
@@ -382,9 +362,7 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             }
             """
 
-            resources = (
-                json.loads(resources) if isinstance(resources, str) else resources
-            )
+            resources = json.loads(resources) if isinstance(resources, str) else resources
 
             allocations = await self.easylog_backend.create_multiple_allocations(
                 CreateMultipleAllocations(
@@ -395,10 +373,8 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
                             resource_id=r.get("resource_id"),
                             type=r.get("type"),
                             comment=r.get("comment"),
-                            start=parser.parse(r.get("start"))
-                            if r.get("start")
-                            else None,
-                            end=parser.parse(r.get("end")) if r.get("end") else None,
+                            start=parser.parse(r.get("start")),
+                            end=parser.parse(r.get("end")),
                             fields=r.get("fields"),
                         )
                         for r in resources
