@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Generic
+from typing import Any, Generic
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
@@ -25,6 +25,7 @@ from src.models.messages import (
     ToolResultContent,
     ToolUseContent,
 )
+from src.services.easylog_backend.backend_service import BackendService
 from src.utils.pydantic_to_anthropic_tool import pydantic_to_anthropic_tool
 
 
@@ -52,7 +53,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     # Keep track of any PDF documents we're working with
     pdfs: list[str] = []
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
         """
         Sets up the agent with necessary connections and settings.
 
@@ -60,8 +61,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         1. Set up basic tools (from BaseAgent)
         2. Establish connection to Claude (Anthropic's API)
         """
-        # Initialize the basic agent features
-        super().__init__(*args, **kwargs)
+        super().__init__(thread_id, backend, **kwargs)
 
         # Create a connection to Anthropic using our API key
         # This is like logging into a special service
@@ -226,7 +226,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     async def handle_stream(
         self,
         stream: AsyncStream[RawMessageStreamEvent],
-        messages: list[Message],
         tools: list[Callable] = [],
     ) -> AsyncGenerator[MessageContent, None]:
         """

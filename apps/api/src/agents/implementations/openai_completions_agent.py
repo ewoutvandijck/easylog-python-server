@@ -9,7 +9,7 @@ from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, TextContent
 
 
-class OpenAICompletionsConfig(BaseModel):
+class OpenAICompletionsAgentConfig(BaseModel):
     model: ChatModel = Field(default="o3-mini")
     system_message: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
@@ -20,7 +20,7 @@ class OpenAICompletionsConfig(BaseModel):
     timeout: float = Field(default=90.0, description="Timeout in seconds for API calls")
 
 
-class OpenAICompletions(OpenAIAgent[OpenAICompletionsConfig]):
+class OpenAICompletionsAgent(OpenAIAgent[OpenAICompletionsAgentConfig]):
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
         """An agent that uses OpenAI's simpler chat completions API to generate responses...
         Unlike the full Assistants API, this uses a more straightforward approach

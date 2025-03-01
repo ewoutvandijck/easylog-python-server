@@ -7,13 +7,13 @@ from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
 
-class DebugEchoConfig(BaseModel):
+class DebugEchoAgentConfig(BaseModel):
     debug_interval_ms: int = Field(default=100)
     debug_chunk_size: int = Field(default=10)
 
 
-class DebugEcho(BaseAgent[DebugEchoConfig]):
-    def __init__(self, *args, **kwargs):
+class DebugEchoAgent(BaseAgent[DebugEchoAgentConfig]):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:

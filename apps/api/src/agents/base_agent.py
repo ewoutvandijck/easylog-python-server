@@ -30,14 +30,7 @@ TConfig = TypeVar("TConfig", bound=BaseModel)
 class BaseAgent(Generic[TConfig]):
     """Base class for all agents."""
 
-    thread_id: str
-    _backend: BackendService | None = None
-    _thread: threads | None = None
-    _raw_config: dict[str, Any] = {}
-
-    _type_T: Any
-
-    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: Any):
+    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
         self.thread_id = thread_id
         self._backend = backend
         self._raw_config = kwargs
@@ -56,9 +49,33 @@ class BaseAgent(Generic[TConfig]):
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
     def __init_subclass__(cls) -> None:
-        cls._type_T = get_args(cls.__orig_bases__[0])[0]  # type: ignore
+        cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
 
         logger.info(f"Initialized subclass: {cls.__name__}")
+
+    @property
+    def easylog_backend(self) -> BackendService:
+        if self._backend is None:
+            raise ValueError(
+                "Backend is not initalized. This is usually because an authentication token wasn't provided in the request"
+            )
+
+        return self._backend
+
+    @property
+    def config(self) -> TConfig:
+        return self._get_config(**self._raw_config)
+
+    @property
+    def logger(self) -> logging.Logger:
+        return logger
+
+    @property
+    def easylog_db(self) -> pymysql.Connection:
+        if not self.easylog_sql_service.db:
+            raise ValueError("Easylog database connection not initialized")
+
+        return self.easylog_sql_service.db
 
     @abstractmethod
     def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
@@ -107,7 +124,7 @@ class BaseAgent(Generic[TConfig]):
 
         return generator
 
-    def get_metadata(self, key: str, default: Any = None) -> Any:
+    def get_metadata(self, key: str, default: Any | None = None) -> Any:
         metadata: dict = json.loads((self._get_thread()).metadata or "{}")
 
         return metadata.get(key, default)
@@ -123,30 +140,6 @@ class BaseAgent(Generic[TConfig]):
             include={"object": True},
         )
 
-    @property
-    def easylog_backend(self) -> BackendService:
-        if self._backend is None:
-            raise ValueError(
-                "Backend is not initalized. This is usually because an authentication token wasn't provided in the request"
-            )
-
-        return self._backend
-
-    @property
-    def config(self) -> TConfig:
-        return self._get_config(**self._raw_config)
-
-    @property
-    def logger(self) -> logging.Logger:
-        return logger
-
-    @property
-    def easylog_db(self) -> pymysql.Connection:
-        if not self.easylog_sql_service.db:
-            raise ValueError("Easylog database connection not initialized")
-
-        return self.easylog_sql_service.db
-
     def _get_thread(self) -> threads:
         """Get the thread for the agent."""
 
@@ -159,24 +152,24 @@ class BaseAgent(Generic[TConfig]):
         for item in sync_gen:
             yield item
 
-    def _get_config(self, **kwargs: Any) -> TConfig:
+    def _get_config(self, **kwargs: dict[str, Any]) -> TConfig:
         """Parse kwargs into the config type specified by the child class"""
         # Get the generic parameters using typing.get_args
         # Get the actual config type from the class's generic parameters
 
-        if not self._type_T:
+        if not self._config_type:
             raise ValueError("Could not determine config type from class definition")
 
         # Handle Union types by trying each type until one works
-        if (hasattr(self._type_T, "__origin__") and self._type_T.__origin__ is Union) or isinstance(
-            self._type_T, UnionType
+        if (hasattr(self._config_type, "__origin__") and self._config_type.__origin__ is Union) or isinstance(
+            self._config_type, UnionType
         ):
-            for type_option in get_args(self._type_T):
+            for type_option in get_args(self._config_type):
                 try:
                     return type_option(**kwargs)
                 except (ValueError, TypeError):
                     continue
-            raise ValueError(f"None of the union types {self._type_T} could parse the config")
+            raise ValueError(f"None of the union types {self._config_type} could parse the config")
 
         # Handle single type
-        return self._type_T(**kwargs)
+        return self._config_type(**kwargs)

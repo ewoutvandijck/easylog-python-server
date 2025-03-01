@@ -7,11 +7,11 @@ from src.agents.openai_agent import OpenAIAgent
 from src.models.messages import Message, MessageContent, TextContent
 
 
-class OpenAIAssistantConfigWithId(BaseModel):
+class OpenAIAssistantAgentConfigWithId(BaseModel):
     assistant_id: str
 
 
-class OpenAIAssistantConfigWithParams(BaseModel):
+class OpenAIAssistantAgentConfigWithParams(BaseModel):
     model: ChatModel = Field(default="o1-mini")
     name: str | None = Field(default=None)
     description: str | None = Field(default=None)
@@ -20,7 +20,7 @@ class OpenAIAssistantConfigWithParams(BaseModel):
     top_p: float | None = Field(default=None)
 
 
-class OpenAIAssistant(OpenAIAgent[OpenAIAssistantConfigWithId | OpenAIAssistantConfigWithParams]):
+class OpenAIAssistantAgent(OpenAIAgent[OpenAIAssistantAgentConfigWithId | OpenAIAssistantAgentConfigWithParams]):
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """An agent that uses OpenAI Assistants to generate responses.
         This class handles all the communication with OpenAI's assistant feature,
@@ -41,7 +41,7 @@ class OpenAIAssistant(OpenAIAgent[OpenAIAssistantConfigWithId | OpenAIAssistantC
         # There are three ways to get an assistant:
 
         # Option 1: Use an existing assistant ID provided in the config
-        if isinstance(self.config, OpenAIAssistantConfigWithId):
+        if isinstance(self.config, OpenAIAssistantAgentConfigWithId):
             self.logger.info("Using existing assistant with provided ID")
             assistant = await self.client.beta.assistants.retrieve(self.config.assistant_id)
         # Option 2: Use a previously created assistant from our cache
@@ -51,7 +51,7 @@ class OpenAIAssistant(OpenAIAgent[OpenAIAssistantConfigWithId | OpenAIAssistantC
                 extra={"config_hash": config_hash},
             )
 
-            assistant = await self.client.beta.assistants.retrieve(assistant_id=self.get_metadata(config_hash))
+            assistant = await self.client.beta.assistants.retrieve(assistant_id=str(self.get_metadata(config_hash)))
         # Option 3: Create a new assistant and cache it for future use
         else:
             self.logger.info(
@@ -76,7 +76,7 @@ class OpenAIAssistant(OpenAIAgent[OpenAIAssistantConfigWithId | OpenAIAssistantC
         # A thread is like a conversation container in OpenAI's system
 
         # Check if we already have an ongoing conversation (thread)
-        thread_id: str = self.get_metadata("thread_id")
+        thread_id: str | None = self.get_metadata("thread_id")
         if thread_id:
             self.logger.info("Continuing existing conversation thread")
             thread = await self.client.beta.threads.retrieve(thread_id=thread_id)

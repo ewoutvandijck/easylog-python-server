@@ -17,12 +17,12 @@ from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
 
-class GeminiConfig(BaseModel):
+class GeminiAgentConfig(BaseModel):
     glob_pattern: str = Field(default="pdfs/sneltram_utrecht/*.pdf")
 
 
-class GeminiAssistant(BaseAgent[GeminiConfig]):
-    def __init__(self, *args, **kwargs):
+class GeminiAgent(BaseAgent[GeminiAgentConfig]):
+    def __init__(self, *args, **kwargs) -> None:
         self.client = genai.Client(api_key=self.get_env("GEMINI_API_KEY"))
 
         super().__init__(*args, **kwargs)
