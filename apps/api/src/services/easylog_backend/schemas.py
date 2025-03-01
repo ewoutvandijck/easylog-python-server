@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -9,6 +9,12 @@ PaginatedResponseType = TypeVar("PaginatedResponseType")
 DatasourceDataType = TypeVar("DatasourceDataType")
 
 
+class ResourceGroupInfo(BaseModel):
+    slug: str
+    name: str
+    label: str
+
+
 class Datasource(BaseModel):
     id: int
     types: list[str]
@@ -16,9 +22,9 @@ class Datasource(BaseModel):
     name: str
     description: str
     slug: str
-    resource_groups: dict | None
-    extra_data_fields: dict | None
-    allocation_types: dict | None
+    resource_groups: list[ResourceGroupInfo] | None = None
+    extra_data_fields: dict | list[dict] | None = None
+    allocation_types: list["AllocationType"] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -38,19 +44,25 @@ class PaginationLinks(BaseModel):
 
 class PaginationMeta(BaseModel):
     current_page: int
-    from_: int = Field(alias="from")
+    from_: int | None = Field(alias="from")
     last_page: int
     links: list[PaginationLink]
     path: str
     per_page: int
-    to: int
+    to: int | None
     total: int
 
 
 class PaginatedResponse(BaseModel, Generic[PaginatedResponseType]):
     data: list[PaginatedResponseType]
-    links: PaginationLinks
-    meta: PaginationMeta
+    links: PaginationLinks | None = None
+    meta: PaginationMeta | None = None
+
+
+class PaginatedItemsResponse(BaseModel, Generic[PaginatedResponseType]):
+    items: list[PaginatedResponseType]
+    links: PaginationLinks | None = None
+    meta: PaginationMeta | None = None
 
 
 class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
@@ -59,3 +71,158 @@ class DatasourceDataEntry(BaseModel, Generic[DatasourceDataType]):
     data: DatasourceDataType
     created_at: datetime
     updated_at: datetime
+
+
+class DataEntry(BaseModel, Generic[DatasourceDataType]):
+    data: DatasourceDataType
+
+
+class AllocationType(BaseModel):
+    id: int | None = None
+    name: str
+    label: str
+    slug: str
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+class Conflict(BaseModel):
+    id: int
+    label: str
+    project_id: int
+    project_label: str
+    type: str | None = None
+    group: str
+    start: datetime
+    end: datetime
+    conflict_start: datetime
+    conflict_end: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
+class Allocation(BaseModel):
+    id: int
+    resource_id: int
+    label: str
+    type: str | None
+    group: str
+    comment: str | None = ""
+    start: datetime
+    end: datetime
+    fields: dict | list[dict] = Field(default_factory=dict)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    worked_days: dict | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AllocationGroup(BaseModel):
+    id: int
+    name: str
+    label: str
+    slug: str
+    allocations: list[Allocation]
+
+
+class PlanningProject(BaseModel):
+    id: int
+    datasource_id: int
+    label: str
+    name: str
+    start: datetime | None = None
+    end: datetime | None = None
+    color: str
+    extra_data: dict | None = None
+    report_visible: bool | None = None
+    exclude_in_workdays: bool | None = None
+    allocation_types: list[AllocationType]
+    allocations_grouped: list[AllocationGroup] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UpdatePlanningProject(BaseModel):
+    name: str | None = None
+    color: str | None = None
+    report_visible: bool | None = None
+    exclude_in_workdays: bool | None = None
+    start: date | None = None
+    end: date | None = None
+    extra_data: dict | None = None
+
+
+class PlanningPhase(BaseModel):
+    id: int | None = None
+    slug: str | None = None
+    project_id: int | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UpdatePlanningPhase(BaseModel):
+    start: datetime
+    end: datetime
+
+
+class CreatePlanningPhase(BaseModel):
+    slug: str
+    start: datetime
+    end: datetime
+
+
+class Resource(BaseModel):
+    id: int
+    label: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResourceGroup(BaseModel):
+    id: int
+    label: str | None = None
+    name: str | None = None
+    slug: str | None = None
+    data: list[Resource] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreateResourceAllocation(BaseModel):
+    resource_id: int
+    start: datetime
+    end: datetime
+    type: str
+    comment: str | None = None
+    fields: dict | None = None
+
+
+class CreateMultipleAllocations(BaseModel):
+    project_id: int
+    group: str
+    resources: list[CreateResourceAllocation]
+
+
+class AllocationWithDetails(BaseModel):
+    id: int
+    project_id: int
+    resource_id: int
+    group: str
+    type: str | None
+    comment: str | None
+    start: datetime
+    end: datetime
+    fields: list
+    project: PlanningProject
+    resource: Resource
+    created_at: datetime
+    updated_at: datetime
+
+
+class UpdateResourceAllocation(BaseModel):
+    comment: str | None = None
+    start: date | None = None
+    end: date | None = None
+    fields: dict | None = None

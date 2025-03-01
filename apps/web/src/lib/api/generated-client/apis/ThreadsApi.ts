@@ -15,24 +15,24 @@
 
 import * as runtime from '../runtime';
 import type {
-  ChatCreateInput,
   HTTPValidationError,
   PaginationThreads,
+  ThreadCreateInput,
   Threads,
 } from '../models/index';
 import {
-    ChatCreateInputFromJSON,
-    ChatCreateInputToJSON,
     HTTPValidationErrorFromJSON,
     HTTPValidationErrorToJSON,
     PaginationThreadsFromJSON,
     PaginationThreadsToJSON,
+    ThreadCreateInputFromJSON,
+    ThreadCreateInputToJSON,
     ThreadsFromJSON,
     ThreadsToJSON,
 } from '../models/index';
 
 export interface CreateThreadThreadsPostRequest {
-    chatCreateInput: ChatCreateInput;
+    threadCreateInput: ThreadCreateInput;
 }
 
 export interface DeleteThreadThreadsIdDeleteRequest {
@@ -59,10 +59,10 @@ export class ThreadsApi extends runtime.BaseAPI {
      * Create Thread
      */
     async createThreadThreadsPostRaw(requestParameters: CreateThreadThreadsPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Threads>> {
-        if (requestParameters['chatCreateInput'] == null) {
+        if (requestParameters['threadCreateInput'] == null) {
             throw new runtime.RequiredError(
-                'chatCreateInput',
-                'Required parameter "chatCreateInput" was null or undefined when calling createThreadThreadsPost().'
+                'threadCreateInput',
+                'Required parameter "threadCreateInput" was null or undefined when calling createThreadThreadsPost().'
             );
         }
 
@@ -76,12 +76,20 @@ export class ThreadsApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads`,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-            body: ChatCreateInputToJSON(requestParameters['chatCreateInput']),
+            body: ThreadCreateInputToJSON(requestParameters['threadCreateInput']),
         }, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ThreadsFromJSON(jsonValue));
@@ -116,6 +124,14 @@ export class ThreadsApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads/{id}`.replace(`{${"id"}}`, encodeURIComponent(String(requestParameters['id']))),
             method: 'DELETE',
@@ -159,6 +175,14 @@ export class ThreadsApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads/{id}`.replace(`{${"id"}}`, encodeURIComponent(String(requestParameters['id']))),
             method: 'GET',
@@ -203,6 +227,14 @@ export class ThreadsApi extends runtime.BaseAPI {
             headerParameters["X-API-KEY"] = await this.configuration.apiKey("X-API-KEY"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("OptionalHTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const response = await this.request({
             path: `/threads`,
             method: 'GET',

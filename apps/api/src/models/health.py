@@ -4,4 +4,6 @@ from openai import BaseModel
 
 
 class HealthResponse(BaseModel):
-    status: Literal["healthy"]
+    api: Literal["healthy"]
+    main_db: Literal["healthy", "unhealthy"]
+    easylog_db: Literal["healthy", "unhealthy"]

@@ -20,6 +20,7 @@ from src.models.messages import (
     ToolUseContent,
 )
 from src.services.easylog_backend.backend_service import BackendService
+from src.settings import settings
 
 
 class AgentNotFoundError(Exception):
@@ -54,7 +55,7 @@ class MessageService:
             Iterator[TextContent]: A generator of message chunks.
         """
 
-        backend_service = BackendService(bearer_token) if bearer_token else None
+        backend_service = BackendService(bearer_token, settings.EASYLOG_API_URL) if bearer_token else None
 
         logger.info(f"Loading agent {agent_class}")
 

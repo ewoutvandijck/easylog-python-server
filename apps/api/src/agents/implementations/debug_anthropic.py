@@ -2,18 +2,28 @@ import base64
 import json
 import time
 from collections.abc import AsyncGenerator
+from datetime import date
 
+import parser
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
+from src.services.easylog_backend.schemas import (
+    CreateMultipleAllocations,
+    CreatePlanningPhase,
+    CreateResourceAllocation,
+    UpdatePlanningPhase,
+    UpdatePlanningProject,
+)
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+from src.utils.truncate import truncate
 
 
 class DebugAnthropicConfig(BaseModel):
-    pass
+    tool_result_max_length: int = Field(default=2000)
 
 
 class ActivePDF(BaseModel):
@@ -157,12 +167,216 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             message_history.clear()  # Wist de gespreksgeschiedenis
             return "Alle herinneringen en de gespreksgeschiedenis zijn gewist."
 
-        # Set up the tools that Claude can use
+        async def tool_get_datasources():
+            """
+            Get all datasources.
+            """
+
+            datasources = await self.easylog_backend.get_datasources()
+
+            return truncate(datasources.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_planning_projects(
+            from_date: str | None = None,
+            to_date: str | None = None,
+        ):
+            """
+            This will return all the projects that you can allocate to.
+
+            Dates should be in the format YYYY-MM-DD.
+            """
+            planning_projects = await self.easylog_backend.get_planning_projects(
+                from_date=parser.parse(from_date) if from_date else None,
+                to_date=parser.parse(to_date) if to_date else None,
+            )
+
+            return truncate(planning_projects.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_planning_project(project_id: int) -> str:
+            """
+            This is the most important tool, it will return all the information about a project.
+
+            This will return allocation types (which are phases usually), and the resource groups that you can allocate to.
+
+            You can get the allocation group to figure out what resources you can assign to this project, and phase.
+            """
+            project = await self.easylog_backend.get_planning_project(project_id)
+
+            return truncate(project.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_update_planning_project(
+            project_id: int,
+            name: str | None = None,
+            color: str | None = None,
+            report_visible: bool | None = None,
+            exclude_in_workdays: bool | None = None,
+            start: str | None = None,
+            end: str | None = None,
+            extra_data: dict | None = None,
+        ) -> str:
+            """
+            Update a planning project, you can update the name, color, report_visible, exclude_in_workdays, start and end date.
+
+            Dates should be in the format YYYY-MM-DD.
+            Extra data should be a JSON object.
+            """
+            await self.easylog_backend.update_planning_project(
+                project_id,
+                UpdatePlanningProject(
+                    name=name,
+                    color=color,
+                    report_visible=report_visible,
+                    exclude_in_workdays=exclude_in_workdays,
+                    start=date.fromisoformat(start) if start else None,
+                    end=date.fromisoformat(end) if end else None,
+                    extra_data=json.loads(extra_data) if isinstance(extra_data, str) else extra_data,
+                ),
+            )
+
+            return await tool_get_planning_project(project_id)
+
+        async def tool_get_planning_phases(project_id: int) -> str:
+            """
+            Get all planning phases for a project. This is the same as getting the allocation types from the tool "get_planning_project".
+            """
+            phases = await self.easylog_backend.get_planning_phases(project_id)
+
+            return truncate(phases.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_planning_phase(phase_id: int) -> str:
+            """
+            Get a planning phase by id. This is the same as getting a single allocation type from the tool "get_planning_project".
+            """
+            phase = await self.easylog_backend.get_planning_phase(phase_id)
+
+            return truncate(phase.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_update_planning_phase(
+            phase_id: int,
+            start: str,
+            end: str,
+        ) -> str:
+            """
+            Update a planning phase.
+            """
+            await self.easylog_backend.update_planning_phase(
+                phase_id,
+                UpdatePlanningPhase(start=parser.parse(start), end=parser.parse(end)),
+            )
+
+            return await tool_get_planning_phase(phase_id)
+
+        async def tool_create_planning_phase(
+            project_id: int,
+            slug: str,
+            start: str,
+            end: str,
+        ) -> str:
+            """
+            Create a planning phase.
+            """
+            phase = await self.easylog_backend.create_planning_phase(
+                project_id,
+                CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
+            )
+
+            return truncate(phase.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_resources() -> str:
+            """
+            This will return all the resources. This is rarely used.
+            """
+            resources = await self.easylog_backend.get_resources()
+
+            return truncate(resources.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_projects_of_resource(resource_group_id: int, slug: str) -> str:
+            """
+            This will return all the projects of a resource. The slug should be a slug like "td" or "modificaties", so basically the slug of the allocation type.
+            """
+            projects = await self.easylog_backend.get_projects_of_resource(resource_group_id, slug)
+
+            return truncate(projects.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_get_resource_groups(resource_id: int, resource_group_slug: str) -> str:
+            """
+            This will return all the resource groups for a resource.
+            """
+            resource_groups = await self.easylog_backend.get_resource_groups(resource_id, resource_group_slug)
+
+            return truncate(resource_groups.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
+        async def tool_create_multiple_allocations(
+            project_id: int,
+            group: str,
+            resources: list,
+        ) -> str:
+            """
+            You can use this tool to allocate resources to a project. For each project you can allocate resources to a group.
+            The group is the name of the group you want to allocate to. You can get the groups with the tool "get_resource_groups".
+            The resources are the resources you want to allocate. You can get the resources with the tool "get_resources".
+
+            Example:
+
+            {
+                "project_id": 2315,
+                "group": "td",
+                "resources": [
+                    {
+                        "resource_id": 440, // This is a
+                        "start": "2025-02-20T00:00:00.000000Z",
+                        "end": "2025-02-24T00:00:00.000000Z",
+                        "type": "modificatiesi" // Allocation type
+                    },
+                    {
+                        "resource_id": 441,
+                        "start": "2025-02-20T00:00:00.000000Z",
+                        "end": "2025-02-24T00:00:00.000000Z",
+                        "type": "modificatiesi"
+                    }
+                ]
+            }
+            """
+
+            resources = json.loads(resources) if isinstance(resources, str) else resources
+
+            allocations = await self.easylog_backend.create_multiple_allocations(
+                CreateMultipleAllocations(
+                    project_id=project_id,
+                    group=group,
+                    resources=[
+                        CreateResourceAllocation(
+                            resource_id=r.get("resource_id"),
+                            type=r.get("type"),
+                            comment=r.get("comment"),
+                            start=parser.parse(r.get("start")),
+                            end=parser.parse(r.get("end")),
+                            fields=r.get("fields"),
+                        )
+                        for r in resources
+                    ],
+                ),
+            )
+
+            return truncate(allocations.model_dump_json(exclude_none=True), self.config.tool_result_max_length)
+
         tools = [
             tool_search_pdf,
             tool_store_memory,
             tool_clear_memories,
             tool_load_image,
+            tool_get_datasources,
+            tool_get_planning_projects,
+            tool_get_planning_project,
+            tool_update_planning_project,
+            tool_get_planning_phases,
+            tool_get_planning_phase,
+            tool_update_planning_phase,
+            tool_create_planning_phase,
+            tool_get_resources,
+            tool_get_projects_of_resource,
+            tool_get_resource_groups,
+            tool_create_multiple_allocations,
         ]
 
         # Start measuring how long the operation takes
@@ -179,9 +393,24 @@ class DebugAnthropic(AnthropicAgent[DebugAnthropicConfig]):
             max_tokens=1024,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""
+            system=f"""Je bent een behulpzame planning assistent die gebruikers helpt bij het beheren van projecten, fases en resources in EasyLog.
+
+### Wat je kunt doen
+- Projecten bekijken, aanmaken en bijwerken
+- Projectfases plannen en aanpassen
+- Resources toewijzen aan projecten
+- Planning visualiseren en optimaliseren
+- Conflicten in planning identificeren en oplossen
+
+### Hoe je helpt
+- Leg planningsconcepten duidelijk uit
+- Geef praktische suggesties voor efficiënte resourceallocatie
+- Help bij het maken van realistische tijdlijnen
+- Assisteer bij het organiseren van projectfases
+- Bied inzicht in beschikbare resources en hun capaciteiten
+
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories. Ook als die een fout heeft opgelost.
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
 
 Je huidige core memories zijn:
 {"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}

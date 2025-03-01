@@ -16,22 +16,32 @@ router = APIRouter()
     description="Returns a 200 status code if the API is healthy.",
 )
 async def health():
-    prisma.query_raw("select 1")
+    main_db = "healthy"
+    easylog_db = "healthy"
 
-    db = EasylogSqlService(
-        ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
-        ssh_host=settings.EASYLOG_SSH_HOST,
-        ssh_username=settings.EASYLOG_SSH_USERNAME,
-        db_password=settings.EASYLOG_DB_PASSWORD,
-        db_user=settings.EASYLOG_DB_USER,
-        db_host=settings.EASYLOG_DB_HOST,
-        db_port=settings.EASYLOG_DB_PORT,
-        db_name=settings.EASYLOG_DB_NAME,
-    ).db
-    if not db:
-        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        prisma.query_raw("select 1")
+    except Exception:
+        main_db = "unhealthy"
 
-    with db.cursor() as cursor:
-        cursor.execute("select 1")
+    try:
+        db = EasylogSqlService(
+            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
+            ssh_host=settings.EASYLOG_SSH_HOST,
+            ssh_username=settings.EASYLOG_SSH_USERNAME,
+            db_password=settings.EASYLOG_DB_PASSWORD,
+            db_user=settings.EASYLOG_DB_USER,
+            db_host=settings.EASYLOG_DB_HOST,
+            db_port=settings.EASYLOG_DB_PORT,
+            db_name=settings.EASYLOG_DB_NAME,
+        ).db
 
-    return HealthResponse(status="healthy")
+        if not db:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+
+        with db.cursor() as cursor:
+            cursor.execute("select 1")
+    except Exception:
+        easylog_db = "unhealthy"
+
+    return HealthResponse(api="healthy", main_db=main_db, easylog_db=easylog_db)

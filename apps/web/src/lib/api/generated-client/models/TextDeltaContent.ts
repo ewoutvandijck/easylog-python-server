@@ -16,19 +16,19 @@ import { mapValues } from '../runtime';
 /**
  * 
  * @export
- * @interface MessageContent
+ * @interface TextDeltaContent
  */
-export interface MessageContent {
+export interface TextDeltaContent {
     /**
-     * The type of content in the message.
+     * 
      * @type {string}
-     * @memberof MessageContent
+     * @memberof TextDeltaContent
      */
-    type?: MessageContentTypeEnum;
+    type?: TextDeltaContentTypeEnum;
     /**
-     * The content of the message.
+     * The text of the delta.
      * @type {string}
-     * @memberof MessageContent
+     * @memberof TextDeltaContent
      */
     content: string;
 }
@@ -37,25 +37,25 @@ export interface MessageContent {
 /**
  * @export
  */
-export const MessageContentTypeEnum = {
-    Text: 'text'
+export const TextDeltaContentTypeEnum = {
+    TextDelta: 'text_delta'
 } as const;
-export type MessageContentTypeEnum = typeof MessageContentTypeEnum[keyof typeof MessageContentTypeEnum];
+export type TextDeltaContentTypeEnum = typeof TextDeltaContentTypeEnum[keyof typeof TextDeltaContentTypeEnum];
 
 
 /**
- * Check if a given object implements the MessageContent interface.
+ * Check if a given object implements the TextDeltaContent interface.
  */
-export function instanceOfMessageContent(value: object): value is MessageContent {
+export function instanceOfTextDeltaContent(value: object): value is TextDeltaContent {
     if (!('content' in value) || value['content'] === undefined) return false;
     return true;
 }
 
-export function MessageContentFromJSON(json: any): MessageContent {
-    return MessageContentFromJSONTyped(json, false);
+export function TextDeltaContentFromJSON(json: any): TextDeltaContent {
+    return TextDeltaContentFromJSONTyped(json, false);
 }
 
-export function MessageContentFromJSONTyped(json: any, ignoreDiscriminator: boolean): MessageContent {
+export function TextDeltaContentFromJSONTyped(json: any, ignoreDiscriminator: boolean): TextDeltaContent {
     if (json == null) {
         return json;
     }
@@ -66,11 +66,11 @@ export function MessageContentFromJSONTyped(json: any, ignoreDiscriminator: bool
     };
 }
 
-export function MessageContentToJSON(json: any): MessageContent {
-    return MessageContentToJSONTyped(json, false);
+export function TextDeltaContentToJSON(json: any): TextDeltaContent {
+    return TextDeltaContentToJSONTyped(json, false);
 }
 
-export function MessageContentToJSONTyped(value?: MessageContent | null, ignoreDiscriminator: boolean = false): any {
+export function TextDeltaContentToJSONTyped(value?: TextDeltaContent | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

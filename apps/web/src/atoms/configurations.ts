@@ -5,6 +5,7 @@ export type Configuration = {
   agentConfig: {
     agent_class: string;
   } & Record<string, unknown>;
+  easylogApiKey: string;
 };
 
 const configurationsAtom = atomWithStorage<Configuration[]>('configurations', [
@@ -13,7 +14,8 @@ const configurationsAtom = atomWithStorage<Configuration[]>('configurations', [
     agentConfig: {
       agent_class: 'OpenAIAssistant',
       assistant_id: 'asst_1234567890'
-    }
+    },
+    easylogApiKey: ''
   }
 ]);
 

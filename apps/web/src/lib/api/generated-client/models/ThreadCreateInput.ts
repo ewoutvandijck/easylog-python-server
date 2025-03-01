@@ -16,29 +16,29 @@ import { mapValues } from '../runtime';
 /**
  * 
  * @export
- * @interface ChatCreateInput
+ * @interface ThreadCreateInput
  */
-export interface ChatCreateInput {
+export interface ThreadCreateInput {
     /**
      * 
      * @type {string}
-     * @memberof ChatCreateInput
+     * @memberof ThreadCreateInput
      */
     external_id?: string | null;
 }
 
 /**
- * Check if a given object implements the ChatCreateInput interface.
+ * Check if a given object implements the ThreadCreateInput interface.
  */
-export function instanceOfChatCreateInput(value: object): value is ChatCreateInput {
+export function instanceOfThreadCreateInput(value: object): value is ThreadCreateInput {
     return true;
 }
 
-export function ChatCreateInputFromJSON(json: any): ChatCreateInput {
-    return ChatCreateInputFromJSONTyped(json, false);
+export function ThreadCreateInputFromJSON(json: any): ThreadCreateInput {
+    return ThreadCreateInputFromJSONTyped(json, false);
 }
 
-export function ChatCreateInputFromJSONTyped(json: any, ignoreDiscriminator: boolean): ChatCreateInput {
+export function ThreadCreateInputFromJSONTyped(json: any, ignoreDiscriminator: boolean): ThreadCreateInput {
     if (json == null) {
         return json;
     }
@@ -48,11 +48,11 @@ export function ChatCreateInputFromJSONTyped(json: any, ignoreDiscriminator: boo
     };
 }
 
-export function ChatCreateInputToJSON(json: any): ChatCreateInput {
-    return ChatCreateInputToJSONTyped(json, false);
+export function ThreadCreateInputToJSON(json: any): ThreadCreateInput {
+    return ThreadCreateInputToJSONTyped(json, false);
 }
 
-export function ChatCreateInputToJSONTyped(value?: ChatCreateInput | null, ignoreDiscriminator: boolean = false): any {
+export function ThreadCreateInputToJSONTyped(value?: ThreadCreateInput | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

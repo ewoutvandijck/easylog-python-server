@@ -25,24 +25,56 @@ export interface HealthResponse {
      * @type {string}
      * @memberof HealthResponse
      */
-    status: HealthResponseStatusEnum;
+    api: HealthResponseApiEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof HealthResponse
+     */
+    main_db: HealthResponseMainDbEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof HealthResponse
+     */
+    easylog_db: HealthResponseEasylogDbEnum;
 }
 
 
 /**
  * @export
  */
-export const HealthResponseStatusEnum = {
+export const HealthResponseApiEnum = {
     Healthy: 'healthy'
 } as const;
-export type HealthResponseStatusEnum = typeof HealthResponseStatusEnum[keyof typeof HealthResponseStatusEnum];
+export type HealthResponseApiEnum = typeof HealthResponseApiEnum[keyof typeof HealthResponseApiEnum];
+
+/**
+ * @export
+ */
+export const HealthResponseMainDbEnum = {
+    Healthy: 'healthy',
+    Unhealthy: 'unhealthy'
+} as const;
+export type HealthResponseMainDbEnum = typeof HealthResponseMainDbEnum[keyof typeof HealthResponseMainDbEnum];
+
+/**
+ * @export
+ */
+export const HealthResponseEasylogDbEnum = {
+    Healthy: 'healthy',
+    Unhealthy: 'unhealthy'
+} as const;
+export type HealthResponseEasylogDbEnum = typeof HealthResponseEasylogDbEnum[keyof typeof HealthResponseEasylogDbEnum];
 
 
 /**
  * Check if a given object implements the HealthResponse interface.
  */
 export function instanceOfHealthResponse(value: object): value is HealthResponse {
-    if (!('status' in value) || value['status'] === undefined) return false;
+    if (!('api' in value) || value['api'] === undefined) return false;
+    if (!('main_db' in value) || value['main_db'] === undefined) return false;
+    if (!('easylog_db' in value) || value['easylog_db'] === undefined) return false;
     return true;
 }
 
@@ -57,7 +89,9 @@ export function HealthResponseFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
             ...json,
-        'status': json['status'],
+        'api': json['api'],
+        'main_db': json['main_db'],
+        'easylog_db': json['easylog_db'],
     };
 }
 
@@ -73,7 +107,9 @@ export function HealthResponseToJSONTyped(value?: HealthResponse | null, ignoreD
     return {
         
             ...value,
-        'status': value['status'],
+        'api': value['api'],
+        'main_db': value['main_db'],
+        'easylog_db': value['easylog_db'],
     };
 }
 

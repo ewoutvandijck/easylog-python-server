@@ -27,7 +27,8 @@ const schema = z.object({
     .object({
       agent_class: z.string()
     })
-    .and(z.record(z.any()))
+    .and(z.record(z.any())),
+  easylogApiKey: z.string().default('')
 });
 
 export interface ConfigurationUpdateDialogProps {
@@ -50,7 +51,8 @@ const ConfigurationUpdateDialog = ({
   const form = useZodForm(schema, {
     defaultValues: {
       name: configuration?.name ?? '',
-      agentConfig: configuration?.agentConfig ?? {}
+      agentConfig: configuration?.agentConfig ?? {},
+      easylogApiKey: configuration?.easylogApiKey ?? ''
     }
   });
 
@@ -95,6 +97,12 @@ const ConfigurationUpdateDialog = ({
                   />
                 )}
               />
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 py-4 w-full">
+            <Label htmlFor="easylogApiKey">Easylog API key</Label>
+            <div className="flex flex-col gap-1.5 col-span-3">
+              <Input id="easylogApiKey" {...form.register('easylogApiKey')} />
             </div>
           </div>
           <DialogFooter>

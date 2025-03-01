@@ -124,7 +124,7 @@ class BaseAgent(Generic[TConfig]):
         )
 
     @property
-    def backend(self) -> BackendService:
+    def easylog_backend(self) -> BackendService:
         if self._backend is None:
             raise ValueError(
                 "Backend is not initalized. This is usually because an authentication token wasn't provided in the request"
