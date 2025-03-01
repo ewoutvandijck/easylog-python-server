@@ -187,6 +187,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
 ### Hoe je helpt
 - Leg planningsconcepten duidelijk uit
+- Doorlopende projecten zijn losse dagen die gepland worden, geef deze niet weer in het project overzicht maar bij Verlof en Service en Maintenance dagen.
 - Geef praktische suggesties voor efficiënte resourceallocatie
 - Help bij het maken van realistische tijdlijnen
 - Assisteer bij het organiseren van projectfases
