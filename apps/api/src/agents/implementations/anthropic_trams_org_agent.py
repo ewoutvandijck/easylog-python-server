@@ -1,3 +1,4 @@
+# Python standard library imports
 import base64
 import glob
 import os
@@ -5,13 +6,18 @@ import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
+# Third-party imports
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+
+# Laad alle variabelen uit .env
+load_dotenv()
 
 
 class PQIDataHwr(TypedDict):
@@ -24,6 +30,14 @@ class PQIDataHwr(TypedDict):
     typematerieel: str
 
 
+class EasylogData(TypedDict):
+    """
+    Defines the structure for Easylog data
+    """
+
+    status: str
+
+
 # Configuration class for AnthropicNew agent
 # Specifies the directory path where PDF files are stored
 
@@ -34,7 +48,7 @@ class Subject(BaseModel):
     glob_pattern: str
 
 
-class AnthropicTramsOrgAgentConfig(BaseModel):
+class AnthropicTramsAgentConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
@@ -53,7 +67,7 @@ class AnthropicTramsOrgAgentConfig(BaseModel):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicTramsOrgAgent(AnthropicAgent[AnthropicTramsOrgAgentConfig]):
+class AnthropicTramsAgent(AnthropicAgent[AnthropicTramsAgentConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
@@ -137,7 +151,7 @@ class AnthropicTramsOrgAgent(AnthropicAgent[AnthropicTramsOrgAgentConfig]):
 
         async def tool_get_pqi_data():
             """
-            Haalt de PQI data op uit de datasource voor HWR 450.
+            Haalt onderhoudsopdracht op uit de datasource, gebruik dit bij het onderwerponderhoud.
             """
             pqi_data = await self.easylog_backend.get_datasource_entry(
                 datasource_slug="pqi-data-tram",
@@ -176,18 +190,59 @@ class AnthropicTramsOrgAgent(AnthropicAgent[AnthropicTramsOrgAgentConfig]):
             self.set_metadata("subject", subject)
             return f"Onderwerp gewijzigd naar: {subject}"
 
+        async def tool_get_easylog_data():
+            """
+            Haalt de controles op uit EasyLog en maakt ze leesbaar.
+
+            """
+            try:
+                with self.easylog_db.cursor() as cursor:
+                    query = """
+                        SELECT 
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject
+                        FROM follow_up_entries
+                        ORDER BY created_at DESC
+                        LIMIT 100
+                    """
+                    cursor.execute(query)
+                    entries = cursor.fetchall()
+
+                    if not entries:
+                        return "Geen controles gevonden"
+
+                    results = ["🔍 Laatste controles:"]
+                    for entry in entries:
+                        datum, object_value, statusobject = entry
+                        # Pas de statusobject waarde aan
+                        if statusobject == "Ja":
+                            statusobject = "Akkoord"
+                        elif statusobject == "Nee":
+                            statusobject = "Niet akkoord"
+
+                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
+                    return "\n".join(results)
+
+            except Exception as e:
+                logger.error(f"Fout bij ophalen follow-up entries: {str(e)}")
+                return f"Er is een fout opgetreden: {str(e)}"
+
         tools = [
             tool_switch_subject,  # NIEUW
             tool_store_memory,
             tool_get_pqi_data,
+            tool_get_easylog_data,  # Nieuwe tool toegevoegd
             tool_clear_memories,
         ]
 
         start_time = time.time()
 
         stream = await self.client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            # Gebruik Claude 3.7 Sonnet model
+            model="claude-3-7-sonnet-20250219",
             max_tokens=1024,
+            # De thinking parameter is verwijderd
             system=f"""Je bent een vriendelijke en behulpzame technische assistent voor tram monteurs.
 Je taak is om te helpen bij het oplossen van storingen en het uitvoeren van onderhoud.
 
