@@ -17,15 +17,14 @@ async def upload_pdf_document(file: UploadFile, background_tasks: BackgroundTask
     if not file.content_type == "application/pdf" or not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
-    # TODO: generate an import job id
     file_id = str(uuid.uuid4())
 
     background_tasks.add_task(
         ingest_from_upload_file_job,
-        file_data=file.file.read(),
+        file_data=await file.read(),
         file_name=file.filename,
         bucket="knowledge",
         target_path=file_id,
     )
 
-    return Response(status_code=204)
+    return Response(status_code=200)
