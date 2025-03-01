@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Any, Generic
+from typing import Any, Generic, cast
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
@@ -16,6 +16,7 @@ from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import (
+    ContentType,
     ImageContent,
     Message,
     MessageContent,
@@ -340,7 +341,12 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         else function(**message_contents[-1].input)
                     )
 
-                    tool_result.content = str(function_result)
+                    # Support for images
+                    if function_result.startswith("data:image/"):
+                        tool_result.content_type = cast(ContentType, function_result.split(";")[0].split(":")[1])
+                        tool_result.content = function_result.split(";")[1].split(",")[1]
+                    else:
+                        tool_result.content = function_result
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:

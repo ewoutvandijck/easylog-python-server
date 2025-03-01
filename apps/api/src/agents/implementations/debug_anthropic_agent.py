@@ -173,7 +173,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             model="claude-3-7-sonnet-20250219",
             # Maximum number of words Claude can respond with
             # This prevents responses from being too long
-            max_tokens=1024,
+            max_tokens=2048,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
             system=f"""Je bent een behulpzame planning assistent die gebruikers helpt bij het beheren van projecten, fases en resources in EasyLog.

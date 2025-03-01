@@ -22,7 +22,7 @@ class PlanningTools:
     This class provides methods to retrieve, create, and update planning data through the backend service.
     """
 
-    def __init__(self, backend: BackendService, max_tool_result_length: int = 2000) -> None:
+    def __init__(self, backend: BackendService, max_tool_result_length: int = 3250) -> None:
         """
         Initialize the PlanningTools with a backend service.
 

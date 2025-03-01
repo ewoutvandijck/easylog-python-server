@@ -30,10 +30,13 @@ TConfig = TypeVar("TConfig", bound=BaseModel)
 class BaseAgent(Generic[TConfig]):
     """Base class for all agents."""
 
+    _thread: threads | None = None
+
     def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
-        self.thread_id = thread_id
+        self._thread_id = thread_id
         self._backend = backend
         self._raw_config = kwargs
+        self._thread = None
 
         self.easylog_sql_service = EasylogSqlService(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
@@ -133,7 +136,7 @@ class BaseAgent(Generic[TConfig]):
         metadata: dict = json.loads((self._get_thread()).metadata or "{}")
         metadata[key] = value
 
-        prisma.threads.update(where={"id": self.thread_id}, data={"metadata": json.dumps(metadata)})
+        prisma.threads.update(where={"id": self._thread_id}, data={"metadata": json.dumps(metadata)})
 
     def get_knowledge(self) -> list[processed_pdfs]:
         return prisma.processed_pdfs.find_many(
@@ -144,7 +147,7 @@ class BaseAgent(Generic[TConfig]):
         """Get the thread for the agent."""
 
         if self._thread is None:
-            self._thread = prisma.threads.find_first_or_raise(where={"id": self.thread_id})
+            self._thread = prisma.threads.find_first_or_raise(where={"id": self._thread_id})
 
         return self._thread
 

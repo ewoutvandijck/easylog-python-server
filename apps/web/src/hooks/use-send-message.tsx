@@ -1,4 +1,8 @@
-import { MessageCreateInput } from '@/lib/api/generated-client';
+import {
+  MessageContents,
+  MessageCreateInput,
+  MessageCreateInputContentInner
+} from '@/lib/api/generated-client';
 import useConnections from './use-connections';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { toast } from 'sonner';
@@ -7,18 +11,14 @@ import { useCallback } from 'react';
 import { atom, useAtom } from 'jotai';
 import useConfigurations from './use-configurations';
 
-type PartialMessageContent = {
-  type: 'text';
-  content: string;
-};
-
-type PartialMessage = {
-  role: 'assistant' | 'user';
-  contents: PartialMessageContent[];
-};
-
-const assistantMessageAtom = atom<PartialMessage | null>(null);
-const userMessageAtom = atom<PartialMessage | null>(null);
+const assistantMessageAtom = atom<{
+  role: 'assistant';
+  contents: MessageContents[];
+} | null>(null);
+const userMessageAtom = atom<{
+  role: 'user';
+  contents: MessageCreateInputContentInner[];
+} | null>(null);
 const loadingAtom = atom<boolean>(false);
 
 const useSendMessage = () => {
@@ -35,10 +35,7 @@ const useSendMessage = () => {
     async (threadId: string, message: MessageCreateInput) => {
       setUserMessage({
         role: 'user',
-        contents: message.content.map((content) => ({
-          type: 'text',
-          content: content.content
-        }))
+        contents: message.content
       });
 
       setIsLoading(true);
@@ -67,10 +64,7 @@ const useSendMessage = () => {
             if (ev.event === 'delta') {
               setAssistantMessage((prev) => ({
                 role: 'assistant',
-                contents: [
-                  ...(prev?.contents ?? []),
-                  { type: 'text', content: data.content }
-                ]
+                contents: [...(prev?.contents ?? []), data]
               }));
             }
           },
