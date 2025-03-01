@@ -12,7 +12,7 @@ class OpenAIAssistantAgentConfigWithId(BaseModel):
 
 
 class OpenAIAssistantAgentConfigWithParams(BaseModel):
-    model: ChatModel = Field(default="o1-mini")
+    model: ChatModel = Field(default="gpt-4.5-preview-2025-02-27")
     name: str | None = Field(default=None)
     description: str | None = Field(default=None)
     temperature: float | None = Field(default=None)
