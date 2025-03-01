@@ -102,9 +102,18 @@ class BackendService:
             project_id: The id of the project
             update_planning_project: The update planning project
         """
+        # Set allow_redirects to False to prevent automatic redirection
         response = await self.client.put(
-            f"/datasources/projects/{project_id}", json=update_planning_project.model_dump(mode="json")
+            f"/datasources/projects/{project_id}", 
+            json=update_planning_project.model_dump(mode="json", exclude_none=True),
+            follow_redirects=False
         )
+        
+        # If we get a redirect, it might be an authentication issue
+        if response.status_code in (301, 302, 303, 307, 308):
+            logger.error(f"Redirect detected when updating project {project_id}: {response.headers.get('location')}")
+            raise ValueError(f"Authentication error when updating project {project_id}. Please check your credentials.")
+            
         logger.debug(response.text)
         response.raise_for_status()
 
