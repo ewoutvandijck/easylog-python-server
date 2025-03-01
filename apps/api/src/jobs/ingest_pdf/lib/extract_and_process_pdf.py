@@ -31,6 +31,30 @@ CONTENT_TYPE_EXTRACTOR = r"/([^/]+?)(?:\[\d+\])?$"
 def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
     logger.info("Starting PDF processing")
 
+    # Extract the PDF content using Adobe service
+    json_data, zf = extract_pdf_content(file_data)
+
+    # Process the extracted data
+    elements_df, images = process_extracted_data(json_data, zf)
+
+    # Generate summaries and markdown content
+    short_summary = generate_summary(elements_df, is_short=True)
+    long_summary = generate_summary(elements_df, is_short=False)
+    markdown_content = generate_markdown(elements_df)
+
+    logger.info("PDF processing completed successfully")
+
+    return ProcessedPDF(
+        short_summary=short_summary,
+        long_summary=long_summary,
+        markdown_content=markdown_content,
+        file_type="application/pdf",
+        images=images,
+    )
+
+
+def extract_pdf_content(file_data: bytes) -> tuple[dict, zipfile.ZipFile]:
+    """Extract PDF content using Adobe service and return structured data and zip file."""
     # Upload the source file as an asset
     logger.debug("Uploading PDF to Adobe service")
     input_asset = adobe_client.upload(input_stream=file_data, mime_type=PDFServicesMediaType.PDF)
@@ -65,6 +89,11 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
     logger.debug("Parsing structured JSON data")
     json_data = json.loads(zf.read("structuredData.json"))
 
+    return json_data, zf
+
+
+def process_extracted_data(json_data: dict, zf: zipfile.ZipFile) -> tuple[pd.DataFrame, list[ProcessedPDFImage]]:
+    """Process the extracted data, including figures and tables."""
     df = pd.DataFrame(json_data["elements"])
 
     # Set alternate text to NA for all rows
@@ -74,6 +103,21 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
     df["table_data"] = None
 
     # Process figures and generate alternative text
+    images = process_figures(df, zf)
+
+    # Process tables
+    process_tables(df, zf)
+
+    # Clean up the dataframe
+    logger.debug("Cleaning up extracted data")
+    columns_to_remove = ["ObjectID", "attributes", "Font", "HasClip", "Lang", "TextSize", "ClipBounds"]
+    elements_df = df.drop(columns=columns_to_remove, errors="ignore")
+
+    return elements_df, images
+
+
+def process_figures(df: pd.DataFrame, zf: zipfile.ZipFile) -> list[ProcessedPDFImage]:
+    """Process figures and generate alternative text."""
     logger.info("Processing figures and generating alternative text")
     figures_mask = df["Path"].str.extract(CONTENT_TYPE_EXTRACTOR)[0] == "Figure"
     figures = df[figures_mask]
@@ -99,39 +143,29 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
         with zf.open(image_path) as image_file:
             image_data = image_file.read()
             logger.debug(f"Generating alt text for figure {image_path}")
-            response = gemini_client.models.generate_content(
-                model="gemini-2.0-flash",
-                config=GenerateContentConfig(
-                    system_instruction="""Generate the alternative text for this figure for accessibility purposes. Describe the meaning of the figure and the key components or elements shown.
-                    The text should be in Dutch. Be concise and to the point. Just the description of the figure, no introduction or other text.
-                    """,
-                ),
-                contents=[
-                    Content(
-                        parts=[
-                            Part.from_text(text="Here is the figure:"),
-                            Part.from_bytes(data=image_data, mime_type="image/png"),
-                        ],
-                    )
-                ],
-            )
+            alt_text = generate_alt_text(image_data)
 
             progress = f"{float(idx + 1.0) / len(figures) * 100:.1f}%"
             logger.info(f"Progress: {progress} - Generated alt text for figure {image_path}")
-            print(f"{progress}: {response.text.strip() if response.text else ''}")
+            print(f"{progress}: {alt_text}")
 
-            df.at[row_hash, "alternate_text"] = response.text
+            df.at[row_hash, "alternate_text"] = alt_text
 
             images.append(
                 ProcessedPDFImage(
                     file_name=image_path,
                     file_type="image/png",
                     file_data=image_data,
-                    summary=response.text or "",
+                    summary=alt_text,
                     page=figure["Page"],
                 )
             )
-    # Process tables
+
+    return images
+
+
+def process_tables(df: pd.DataFrame, zf: zipfile.ZipFile) -> None:
+    """Process tables from the document."""
     logger.info("Processing tables from the document")
     table_mask = df["Path"].str.extract(CONTENT_TYPE_EXTRACTOR)[0] == "Table"
     tables_df = df[table_mask]
@@ -146,17 +180,40 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
             table_df = pd.read_excel(excel_file)
             df.at[row_hash, "table_data"] = table_df.to_dict()
 
-    # Clean up the dataframe
-    logger.debug("Cleaning up extracted data")
-    columns_to_remove = ["ObjectID", "attributes", "Font", "HasClip", "Lang", "TextSize", "ClipBounds"]
-    elements_df = df.drop(columns=columns_to_remove, errors="ignore")
 
-    # Generate document summary
-    logger.info("Generating short summary using Gemini")
-    short_summary_response = gemini_client.models.generate_content(
+def generate_alt_text(image_data: bytes) -> str:
+    """Generate alternative text for an image using Gemini."""
+    response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
-            system_instruction="Generate a short summary of the goal of the procedure in the following document in dutch. Maximum 10 words."
+            system_instruction="""Generate the alternative text for this figure for accessibility purposes. Describe the meaning of the figure and the key components or elements shown.
+            The text should be in Dutch. Be concise and to the point. Just the description of the figure, no introduction or other text.
+            """,
+        ),
+        contents=[
+            Content(
+                parts=[
+                    Part.from_text(text="Here is the figure:"),
+                    Part.from_bytes(data=image_data, mime_type="image/png"),
+                ],
+            )
+        ],
+    )
+
+    return response.text or ""
+
+
+def generate_summary(elements_df: pd.DataFrame, is_short: bool = True) -> str:
+    """Generate a summary of the document using Gemini."""
+    summary_type = "short" if is_short else "long"
+    max_words = "10" if is_short else "100"
+
+    logger.info(f"Generating {summary_type} summary using Gemini")
+
+    response = gemini_client.models.generate_content(
+        model="gemini-2.0-flash",
+        config=GenerateContentConfig(
+            system_instruction=f"Generate a {summary_type} summary of the goal of the procedure in the following document in dutch. Maximum {max_words} words."
         ),
         contents=[
             Content(
@@ -167,29 +224,15 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
         ],
     )
 
-    logger.info(f"Short summary: {short_summary_response.text}")
+    logger.info(f"{summary_type.capitalize()} summary: {response.text}")
+    return response.text or ""
 
-    logger.info("Generating long summary using Gemini")
 
-    long_summary_response = gemini_client.models.generate_content(
-        model="gemini-2.0-flash",
-        config=GenerateContentConfig(
-            system_instruction="Generate a long summary of the goal of the procedure in the following document in dutch. Maximum 100 words."
-        ),
-        contents=[
-            Content(
-                parts=[
-                    Part.from_text(text=json.dumps(elements_df.to_dict(orient="records"), indent=2)),
-                ],
-            )
-        ],
-    )
-
-    logger.info(f"Long summary: {long_summary_response.text}")
-
+def generate_markdown(elements_df: pd.DataFrame) -> str:
+    """Generate markdown content from the document data using Gemini."""
     logger.info("Generating markdown content using Gemini")
 
-    markdown_response = gemini_client.models.generate_content(
+    response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
             system_instruction="Generate markdown from the following data. Render each row in this data as a markdown item. I don't want a single table. I want a nicely formatted markdown document. So headings should be headings, and images should be images. etc. For images use the alt text to describe the image."
@@ -203,14 +246,5 @@ def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
         ],
     )
 
-    logger.info(f"Markdown content: {markdown_response.text}")
-
-    logger.info("PDF processing completed successfully")
-
-    return ProcessedPDF(
-        short_summary=short_summary_response.text or "",
-        long_summary=long_summary_response.text or "",
-        markdown_content=markdown_response.text or "",
-        file_type="application/pdf",
-        images=images,
-    )
+    logger.info(f"Markdown content: {response.text}")
+    return response.text or ""
