@@ -8,8 +8,8 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api import health, messages, threads
-from src.db.prisma import prisma
+from src.api import health, knowledge, messages, threads
+from src.lib.prisma import prisma
 from src.logger import logger
 from src.security.api_token import verify_api_key
 from src.security.optional_http_bearer import optional_bearer_header
@@ -76,3 +76,4 @@ async def log_requests(request: Request, call_next: Callable[[Request], Awaitabl
 app.include_router(health.router)
 app.include_router(threads.router)
 app.include_router(messages.router)
+app.include_router(knowledge.router)

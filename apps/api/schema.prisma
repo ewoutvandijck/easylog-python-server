@@ -1,57 +1,158 @@
+generator client {
+    provider        = "prisma-client-py"
+    previewFeatures = ["multiSchema"]
+    interface       = "sync"
+}
+
 datasource db {
     provider = "postgresql"
     url      = env("DATABASE_URL")
+    schemas  = ["public", "storage"]
 }
 
-generator client {
-    provider  = "prisma-client-py"
-    interface = "sync"
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buckets {
+    id                         String                       @id
+    name                       String                       @unique(map: "bname")
+    owner                      String?                      @db.Uuid
+    created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+    updated_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+    public                     Boolean?                     @default(false)
+    avif_autodetection         Boolean?                     @default(false)
+    file_size_limit            BigInt?
+    allowed_mime_types         String[]
+    owner_id                   String?
+    objects                    objects[]
+    s3_multipart_uploads       s3_multipart_uploads[]
+    s3_multipart_uploads_parts s3_multipart_uploads_parts[]
+
+    @@schema("storage")
 }
 
-enum MessageContentType {
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model migrations {
+    id          Int       @id
+    name        String    @unique @db.VarChar(100)
+    hash        String    @db.VarChar(40)
+    executed_at DateTime? @default(now()) @db.Timestamp(6)
+
+    @@schema("storage")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model objects {
+    id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    bucket_id            String?
+    name                 String?
+    owner                String?               @db.Uuid
+    created_at           DateTime?             @default(now()) @db.Timestamptz(6)
+    updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
+    last_accessed_at     DateTime?             @default(now()) @db.Timestamptz(6)
+    metadata             Json?
+    path_tokens          String[]              @default(dbgenerated("string_to_array(name, '/'::text)"))
+    version              String?
+    owner_id             String?
+    user_metadata        Json?
+    buckets              buckets?              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
+    processed_pdfs       processed_pdfs?
+    processed_pdf_images processed_pdf_images?
+
+    @@unique([bucket_id, name], map: "bucketid_objname")
+    @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
+    @@index([name], map: "name_prefix_search")
+    @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model s3_multipart_uploads {
+    id                         String                       @id
+    in_progress_size           BigInt                       @default(0)
+    upload_signature           String
+    bucket_id                  String
+    key                        String
+    version                    String
+    owner_id                   String?
+    created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+    user_metadata              Json?
+    buckets                    buckets                      @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    s3_multipart_uploads_parts s3_multipart_uploads_parts[]
+
+    @@index([bucket_id, key, created_at], map: "idx_multipart_uploads_list")
+    @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model s3_multipart_uploads_parts {
+    id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    upload_id            String
+    size                 BigInt               @default(0)
+    part_number          Int
+    bucket_id            String
+    key                  String
+    etag                 String
+    owner_id             String?
+    version              String
+    created_at           DateTime             @default(now()) @db.Timestamptz(6)
+    buckets              buckets              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    s3_multipart_uploads s3_multipart_uploads @relation(fields: [upload_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+    @@schema("storage")
+}
+
+enum message_content_type {
     text
     image
     pdf
     tool_use
     tool_result
+
+    @@map("message_content_type")
+    @@schema("public")
 }
 
-enum MessageRole {
+enum message_role {
     user
     assistant
     system
     developer
+
+    @@map("message_role")
+    @@schema("public")
 }
 
-model Threads {
+model threads {
     id          String     @id @default(cuid())
     external_id String?    @unique
     created_at  DateTime   @default(now())
     updated_at  DateTime   @updatedAt
     metadata    String?
-    messages    Messages[]
+    messages    messages[]
 
     @@map("threads")
+    @@schema("public")
 }
 
-model Messages {
-    id          String            @id @default(cuid())
-    thread      Threads           @relation(fields: [thread_id], references: [id], onDelete: Cascade)
+model messages {
+    id          String             @id @default(cuid())
+    thread      threads            @relation(fields: [thread_id], references: [id], onDelete: Cascade)
     thread_id   String
-    role        MessageRole       @default(user)
-    contents    MessageContents[]
+    role        message_role       @default(user)
+    contents    message_contents[]
     agent_class String
-    created_at  DateTime          @default(now())
-    updated_at  DateTime          @updatedAt
+    created_at  DateTime           @default(now())
+    updated_at  DateTime           @updatedAt
 
     @@map("messages")
+    @@schema("public")
 }
 
-model MessageContents {
-    id                String             @id @default(cuid())
-    message           Messages           @relation(fields: [message_id], references: [id], onDelete: Cascade)
+model message_contents {
+    id                String               @id @default(cuid())
+    message           messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
     message_id        String
-    type              MessageContentType @default(text)
+    type              message_content_type @default(text)
     tool_use_id       String?
     tool_use_is_error Boolean?
     tool_use_name     String?
@@ -59,8 +160,41 @@ model MessageContents {
     content           String?
     content_type      String?
     data              String?
-    created_at        DateTime           @default(now())
-    updated_at        DateTime           @updatedAt
+    created_at        DateTime             @default(now())
+    updated_at        DateTime             @updatedAt
 
     @@map("message_contents")
+    @@schema("public")
+}
+
+model processed_pdfs {
+    id               String                 @id @default(cuid())
+    long_summary     String
+    short_summary    String
+    markdown_content String
+    file_type        String
+    object_id        String                 @unique @db.Uuid
+    object           objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
+    images           processed_pdf_images[]
+    created_at       DateTime               @default(now())
+    updated_at       DateTime               @updatedAt
+
+    @@map("processed_pdfs")
+    @@schema("public")
+}
+
+model processed_pdf_images {
+    id                 String         @id @default(cuid())
+    processed_pdf_id   String
+    processed_pdf      processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
+    object_id          String         @unique @db.Uuid
+    object             objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
+    original_file_name String
+    summary            String
+    page               Int
+    created_at         DateTime       @default(now())
+    updated_at         DateTime       @updatedAt
+
+    @@map("processed_pdf_images")
+    @@schema("public")
 }

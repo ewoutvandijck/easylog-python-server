@@ -98,7 +98,8 @@ const AppSidebarConfigurationMenu = () => {
                 agentConfig: {
                   agent_class: 'OpenAIAssistant',
                   assistant_id: 'asst_1234567890'
-                }
+                },
+                easylogApiKey: '1234567890'
               })
             }
           >

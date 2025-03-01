@@ -25,6 +25,9 @@ class ToolUseContent(BaseModel):
     input: dict = Field(..., description="The arguments of the tool.")
 
 
+ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+
 class ToolResultContent(BaseModel):
     type: Literal["tool_result"] = Field(default="tool_result")
 
@@ -32,10 +35,12 @@ class ToolResultContent(BaseModel):
 
     content: str = Field(..., description="The result of the tool.")
 
+    content_type: ContentType | None = Field(
+        default=None,
+        description="The content type of the image, must start with `image/`",
+    )
+
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
-
-
-ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
 
 
 class ImageContent(BaseModel):

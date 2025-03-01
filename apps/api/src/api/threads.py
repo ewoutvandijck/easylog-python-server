@@ -1,9 +1,9 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Query
-from prisma.models import Threads
+from fastapi import APIRouter, HTTPException, Path, Query, Response
+from prisma.models import threads
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.models.pagination import Pagination
 from src.models.threads import ThreadCreateInput
 
@@ -14,7 +14,7 @@ router = APIRouter()
     "/threads",
     name="get_threads",
     tags=["threads"],
-    response_model=Pagination[Threads],
+    response_model=Pagination[threads],
     description="Retrieves all threads. Returns a list of all threads with their messages by default in descending chronological order (newest first). Each message includes its full content.",
 )
 async def get_threads(
@@ -25,7 +25,7 @@ async def get_threads(
     ),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="desc"),
-):
+) -> Pagination[threads]:
     threads = prisma.threads.find_many(
         take=limit,
         skip=offset,
@@ -47,23 +47,24 @@ async def get_threads(
     "/threads/{id}",
     name="get_thread_by_id",
     tags=["threads"],
-    response_model=Threads,
+    response_model=threads,
     responses={
         404: {"description": "Thread not found"},
     },
     description="Retrieves a specific thread by its unique ID. Returns the thread details along with its messages in descending chronological order (newest first). Each message includes its full content.",
 )
 async def get_thread_by_id(
-    id: str = Path(
+    _id: str = Path(
         ...,
+        alias="id",
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
-):
+) -> threads:
     thread = prisma.threads.find_first(
         where={
             "OR": [
-                {"id": id},
-                {"external_id": id},
+                {"id": _id},
+                {"external_id": _id},
             ]
         },
         include={
@@ -86,10 +87,10 @@ async def get_thread_by_id(
     "/threads",
     name="create_thread",
     tags=["threads"],
-    response_model=Threads,
+    response_model=threads,
     description="Creates a new thread or returns the existing thread if it already exists.",
 )
-async def create_thread(thread: ThreadCreateInput):
+async def create_thread(thread: ThreadCreateInput) -> threads:
     if thread.external_id:
         return prisma.threads.upsert(
             where={
@@ -129,16 +130,19 @@ async def create_thread(thread: ThreadCreateInput):
     description="Deletes a thread by its internal or external ID.",
 )
 async def delete_thread(
-    id: str = Path(
+    _id: str = Path(
         ...,
+        alias="id",
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
-):
-    return prisma.threads.delete_many(
+) -> Response:
+    prisma.threads.delete_many(
         where={
             "OR": [
-                {"id": id},
-                {"external_id": id},
+                {"id": _id},
+                {"external_id": _id},
             ]
         }
     )
+
+    return Response(status_code=204)

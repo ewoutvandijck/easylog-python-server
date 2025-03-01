@@ -5,9 +5,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Path, Query, Response, Security
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
-from prisma.models import Messages
+from prisma.models import messages
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
@@ -22,7 +22,7 @@ router = APIRouter()
     "/threads/{thread_id}/messages",
     name="get_messages",
     tags=["messages"],
-    response_model=Pagination[Messages],
+    response_model=Pagination[messages],
     description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
 )
 async def get_messages(
@@ -33,7 +33,7 @@ async def get_messages(
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
-) -> Pagination[Messages]:
+) -> Pagination[messages]:
     messages = prisma.messages.find_many(
         where={
             "OR": [

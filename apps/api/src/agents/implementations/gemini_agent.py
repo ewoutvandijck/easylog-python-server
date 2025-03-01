@@ -1,6 +1,7 @@
 import glob
 import os
-from typing import AsyncGenerator, List, cast
+from collections.abc import AsyncGenerator
+from typing import cast
 
 from anthropic import BaseModel
 from google import genai
@@ -11,16 +12,17 @@ from google.genai.types import (
     Part,
 )
 from pydantic import Field
+
 from src.agents.base_agent import BaseAgent
 from src.models.messages import Message, TextContent
 
 
-class GeminiConfig(BaseModel):
+class GeminiAgentConfig(BaseModel):
     glob_pattern: str = Field(default="pdfs/sneltram_utrecht/*.pdf")
 
 
-class GeminiAssistant(BaseAgent[GeminiConfig]):
-    def __init__(self, *args, **kwargs):
+class GeminiAgent(BaseAgent[GeminiAgentConfig]):
+    def __init__(self, *args, **kwargs) -> None:
         self.client = genai.Client(api_key=self.get_env("GEMINI_API_KEY"))
 
         super().__init__(*args, **kwargs)
@@ -39,10 +41,8 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
                     with open(file, "rb") as f:
                         pdf_content = f.read()
                         pdfs.append(pdf_content)
-                        self.logger.info(
-                            f"PDF succesvol geladen: {file} ({len(pdf_content)} bytes)"
-                        )
-                except IOError as e:
+                        self.logger.info(f"PDF succesvol geladen: {file} ({len(pdf_content)} bytes)")
+                except OSError as e:
                     self.logger.error(f"Kon PDF bestand niet lezen: {file}. Fout: {e}")
 
             if not pdfs:
@@ -55,9 +55,7 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
             self.logger.error(f"Fout bij het laden van PDFs: {e}")
             return []
 
-    async def on_message(
-        self, messages: List[Message]
-    ) -> AsyncGenerator[TextContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
         """
         Verwerkt berichten en genereert antwoorden.
 
@@ -75,18 +73,10 @@ class GeminiAssistant(BaseAgent[GeminiConfig]):
         history = []
         for message in messages[:-1]:  # Alle berichten behalve het laatste
             role = "user" if message.role == "user" else "model"
-            text_contents = [
-                content.content
-                for content in message.content
-                if isinstance(content, TextContent)
-            ]
+            text_contents = [content.content for content in message.content if isinstance(content, TextContent)]
 
             if text_contents:  # Alleen toevoegen als er tekst content is
-                history.append(
-                    Content(
-                        role=role, parts=[Part(text=text) for text in text_contents]
-                    )
-                )
+                history.append(Content(role=role, parts=[Part(text=text) for text in text_contents]))
 
         current_message = messages[-1]
 

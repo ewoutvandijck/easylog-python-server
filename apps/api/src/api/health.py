@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.models.health import HealthResponse
 from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
 from src.settings import settings
@@ -15,7 +15,7 @@ router = APIRouter()
     response_model=HealthResponse,
     description="Returns a 200 status code if the API is healthy.",
 )
-async def health():
+async def health() -> HealthResponse:
     main_db = "healthy"
     easylog_db = "healthy"
 

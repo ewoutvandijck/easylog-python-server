@@ -1,17 +1,22 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Generic
+from typing import Any, Generic, cast
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
-from prisma.enums import MessageRole
+from prisma.enums import message_role
+from prisma.models import processed_pdfs
 
 from src.agents.base_agent import BaseAgent, TConfig
+from src.agents.models import PDFSearchResult
+from src.lib.prisma import prisma
+from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import (
+    ContentType,
     ImageContent,
     Message,
     MessageContent,
@@ -21,6 +26,8 @@ from src.models.messages import (
     ToolResultContent,
     ToolUseContent,
 )
+from src.services.easylog_backend.backend_service import BackendService
+from src.utils.pydantic_to_anthropic_tool import pydantic_to_anthropic_tool
 
 
 class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
@@ -47,7 +54,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     # Keep track of any PDF documents we're working with
     pdfs: list[str] = []
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
         """
         Sets up the agent with necessary connections and settings.
 
@@ -55,8 +62,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         1. Set up basic tools (from BaseAgent)
         2. Establish connection to Claude (Anthropic's API)
         """
-        # Initialize the basic agent features
-        super().__init__(*args, **kwargs)
+        super().__init__(thread_id, backend, **kwargs)
 
         # Create a connection to Anthropic using our API key
         # This is like logging into a special service
@@ -64,10 +70,163 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
 
+    def _format_academic_citation(self, citation: Citation) -> str:
+        """
+        Formats a citation location object into a formal academic-style citation.
+
+        Args:
+            citation: A CitationCharLocation, CitationPageLocation, or CitationContentBlockLocation object
+
+        Returns:
+            str: A formatted academic-style citation string
+        """
+        # If no document title is provided, use a generic reference
+        doc_reference = citation.document_title if citation.document_title else f"Document {citation.document_index}"
+
+        if citation.type == "page_location":
+            # Page-based citation (similar to academic page citations)
+            if citation.start_page_number == citation.end_page_number:
+                location = f"p. {citation.start_page_number}"
+            else:
+                location = f"pp. {citation.start_page_number}-{citation.end_page_number}"
+            return f"{doc_reference}, {location}."
+
+        elif citation.type == "char_location":
+            # Character-based citation (less common in academic writing)
+            return f"{doc_reference}, char. {citation.start_char_index}-{citation.end_char_index}."
+
+        elif citation.type == "content_block_location":
+            # Block-based citation (similar to paragraph or section citations)
+            if citation.start_block_index == citation.end_block_index:
+                location = f"block {citation.start_block_index}"
+            else:
+                location = f"blocks {citation.start_block_index}-{citation.end_block_index}"
+            return f"{doc_reference}, {location}."
+
+    def _format_inline_citation(self, citation: Citation) -> str:
+        """
+        Formats a citation for inline use with quoted text.
+        """
+        base_citation = self._format_academic_citation(citation).rstrip(".")  # Remove trailing period
+        return f'"{citation.cited_text}" ({base_citation})'
+
+    def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
+        """
+        Translates messages into a language Claude can understand.
+
+        Think of this like translating between English and Spanish:
+        - We have our way of writing messages
+        - Claude has its own way of understanding messages
+        - This function converts between the two
+
+        Example:
+            Our format:
+                Message(role="user", content="What's 2+2?")
+
+            Claude's format:
+                {
+                    "role": "user",
+                    "content": [{
+                        "type": "text",
+                        "text": "What's 2+2?"
+                    }]
+                }
+
+        Args:
+            messages: Our version of the messages
+
+        Returns:
+            Claude's version of the same messages
+        """
+
+        message_history: list[MessageParam] = [
+            {
+                "role": message.role,
+                "content": [
+                    # For regular text messages
+                    {
+                        "type": "text",
+                        "text": content.content,
+                    }
+                    if isinstance(content, TextContent)
+                    # For when Claude wants to use a tool
+                    else {
+                        "type": "tool_use",
+                        "id": content.id,
+                        "input": content.input,
+                        "name": content.name,
+                    }
+                    if isinstance(content, ToolUseContent)
+                    # For tool results we want to tell Claude about
+                    else {
+                        "type": "tool_result",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": content.content_type,
+                                    "data": content.content,
+                                },
+                            }
+                        ]
+                        if content.content_type
+                        else content.content,
+                        "tool_use_id": str(content.tool_use_id),
+                        "is_error": content.is_error,
+                    }
+                    if isinstance(content, ToolResultContent)
+                    else {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": content.content_type,
+                            "data": content.content,
+                        },
+                    }
+                    if isinstance(content, ImageContent)
+                    else {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": content.content,
+                        },
+                        "citations": {"enabled": True},
+                    }
+                    if isinstance(content, PDFContent)
+                    else {
+                        "type": "text",
+                        "text": "",
+                    }
+                    for content in message.content
+                ],
+            }
+            for message in messages
+            if message.role in [message_role.user, message_role.assistant]
+        ]
+
+        # Remove messages with empty content and their following message
+        # FIXME: We should not even allow this kind of data in the database
+        i = len(message_history) - 1
+        while i >= 0:
+            # Check if current message has empty content
+            if not message_history[i]["content"]:
+                self.logger.warning(f"Removing message {i} with empty content and its following message")
+
+                # Remove current message
+                message_history.pop(i)
+
+                # Remove next message if it exists
+                if i < len(message_history):
+                    message_history.pop(i)
+            i -= 1
+
+        return message_history
+
     async def handle_stream(
         self,
         stream: AsyncStream[RawMessageStreamEvent],
-        messages: list[Message],
         tools: list[Callable] = [],
     ) -> AsyncGenerator[MessageContent, None]:
         """
@@ -176,13 +335,18 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously
-                    function_result = (
+                    function_result = str(
                         await function(**message_contents[-1].input)
                         if asyncio.iscoroutinefunction(function)
                         else function(**message_contents[-1].input)
                     )
 
-                    tool_result.content = str(function_result)
+                    # Support for images
+                    if function_result.startswith("data:image/"):
+                        tool_result.content_type = cast(ContentType, function_result.split(";")[0].split(":")[1])
+                        tool_result.content = function_result.split(";")[1].split(",")[1]
+                    else:
+                        tool_result.content = function_result
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
@@ -200,145 +364,75 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Clear the partial JSON buffer, regardless of success or failure
                     partial_json = ""
 
-    def _format_academic_citation(self, citation: Citation) -> str:
-        """
-        Formats a citation location object into a formal academic-style citation.
+    async def search_knowledge(self, query: str) -> processed_pdfs | None:
+        knowledge = self.get_knowledge()
 
-        Args:
-            citation: A CitationCharLocation, CitationPageLocation, or CitationContentBlockLocation object
+        knowledge_items = "\n".join([f"ID: {item.object_id}\nSummary: {item.short_summary}" for item in knowledge])
 
-        Returns:
-            str: A formatted academic-style citation string
-        """
-        # If no document title is provided, use a generic reference
-        doc_reference = citation.document_title if citation.document_title else f"Document {citation.document_index}"
+        response = await self.client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=1000,
+            system=f"""
+            From the following list of documents, find the most relevant document to the query if any.
 
-        if citation.type == "page_location":
-            # Page-based citation (similar to academic page citations)
-            if citation.start_page_number == citation.end_page_number:
-                location = f"p. {citation.start_page_number}"
-            else:
-                location = f"pp. {citation.start_page_number}-{citation.end_page_number}"
-            return f"{doc_reference}, {location}."
+            {knowledge_items}
+            """,
+            messages=[
+                {"role": "user", "content": query},
+            ],
+            tools=[
+                pydantic_to_anthropic_tool(
+                    PDFSearchResult,
+                    "Search for a document in the knowledge base",
+                )
+            ],
+            tool_choice={
+                "type": "tool",
+                "name": PDFSearchResult.__name__,
+            },
+        )
 
-        elif citation.type == "char_location":
-            # Character-based citation (less common in academic writing)
-            return f"{doc_reference}, char. {citation.start_char_index}-{citation.end_char_index}."
+        self.logger.debug(f"Response: {response}")
 
-        elif citation.type == "content_block_location":
-            # Block-based citation (similar to paragraph or section citations)
-            if citation.start_block_index == citation.end_block_index:
-                location = f"block {citation.start_block_index}"
-            else:
-                location = f"blocks {citation.start_block_index}-{citation.end_block_index}"
-            return f"{doc_reference}, {location}."
+        result: PDFSearchResult | None = None
+        for tool_use in response.content:
+            self.logger.debug(f"Content: {tool_use}")
+            if tool_use.type == "tool_use":
+                result = PDFSearchResult(**json.loads(json.dumps(tool_use.input)))
 
-    def _format_inline_citation(self, citation: Citation) -> str:
-        """
-        Formats a citation for inline use with quoted text.
-        """
-        base_citation = self._format_academic_citation(citation).rstrip(".")  # Remove trailing period
-        return f'"{citation.cited_text}" ({base_citation})'
+        if not result:
+            return None
 
-    def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
-        """
-        Translates messages into a language Claude can understand.
+        return next((item for item in knowledge if item.object_id == result.id), None)
 
-        Think of this like translating between English and Spanish:
-        - We have our way of writing messages
-        - Claude has its own way of understanding messages
-        - This function converts between the two
-
-        Example:
-            Our format:
-                Message(role="user", content="What's 2+2?")
-
-            Claude's format:
-                {
-                    "role": "user",
-                    "content": [{
-                        "type": "text",
-                        "text": "What's 2+2?"
-                    }]
+    async def load_image(self, content_id: str, file_name: str) -> bytes:
+        file_data = prisma.processed_pdfs.find_first(
+            where={
+                "id": content_id,
+            },
+            include={
+                "images": {
+                    "include": {
+                        "object": True,
+                    },
+                    "where": {
+                        "original_file_name": file_name,
+                    },
                 }
+            },
+        )
 
-        Args:
-            messages: Our version of the messages
+        if not file_data:
+            raise ValueError("File not found")
 
-        Returns:
-            Claude's version of the same messages
-        """
+        if not file_data.images:
+            raise ValueError("No images found")
 
-        message_history: list[MessageParam] = [
-            {
-                "role": message.role,
-                "content": [
-                    # For regular text messages
-                    {
-                        "type": "text",
-                        "text": content.content or "[empty]",
-                    }
-                    if isinstance(content, TextContent)
-                    # For when Claude wants to use a tool
-                    else {
-                        "type": "tool_use",
-                        "id": content.id,
-                        "input": content.input,
-                        "name": content.name,
-                    }
-                    if isinstance(content, ToolUseContent)
-                    # For tool results we want to tell Claude about
-                    else {
-                        "type": "tool_result",
-                        "content": str(content.content),
-                        "tool_use_id": str(content.tool_use_id),
-                        "is_error": content.is_error,
-                    }
-                    if isinstance(content, ToolResultContent)
-                    else {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": content.content_type,
-                            "data": content.content,
-                        },
-                    }
-                    if isinstance(content, ImageContent)
-                    else {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": content.content,
-                        },
-                        "citations": {"enabled": True},
-                    }
-                    if isinstance(content, PDFContent)
-                    else {
-                        "type": "text",
-                        "text": "[empty]",
-                    }
-                    for content in message.content
-                ],
-            }
-            for message in messages
-            if message.role in [MessageRole.user, MessageRole.assistant]
-        ]
+        image = file_data.images[0]
 
-        # Remove messages with empty content and their following message
-        # FIXME: We should not even allow this kind of data in the database
-        i = len(message_history) - 1
-        while i >= 0:
-            # Check if current message has empty content
-            if not message_history[i]["content"]:
-                self.logger.warning(f"Removing message {i} with empty content and its following message")
+        if not image.object or not image.object.name or not image.object.bucket_id:
+            raise ValueError("Image object not found")
 
-                # Remove current message
-                message_history.pop(i)
+        self.logger.info(f"Loading image {image.object.name} from bucket {image.object.bucket_id}")
 
-                # Remove next message if it exists
-                if i < len(message_history):
-                    message_history.pop(i)
-            i -= 1
-
-        return message_history
+        return supabase.storage.from_(image.object.bucket_id).download(image.object.name)

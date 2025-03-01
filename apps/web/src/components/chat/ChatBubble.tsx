@@ -1,8 +1,8 @@
-import { MessageContent } from '@/lib/api/generated-client';
+import { MessageContents } from '@/lib/api/generated-client';
 import { cn } from '@/lib/utils';
 
 export interface ChatBubbleProps {
-  contents: MessageContent[];
+  contents: Partial<MessageContents>[];
   role: 'user' | 'assistant';
 }
 

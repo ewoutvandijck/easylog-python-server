@@ -5,7 +5,7 @@ import pytest
 from fastapi import BackgroundTasks
 from fastapi.testclient import TestClient
 
-from src.db.prisma import prisma
+from src.lib.prisma import prisma
 from src.main import app
 from src.models.messages import ImageContent, PDFContent, TextContent
 from src.services.messages.message_service import MessageService

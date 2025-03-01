@@ -19,7 +19,7 @@ class Subject(BaseModel):
     glob_pattern: str
 
 
-class AnthropicMUCConfig(BaseModel):
+class AnthropicMUCAgentConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
@@ -38,7 +38,7 @@ class AnthropicMUCConfig(BaseModel):
 
 
 # Agent class that integrates with Anthropic's Claude API and handles PDF documents
-class AnthropicMUC(AnthropicAgent[AnthropicMUCConfig]):
+class AnthropicMUCAgent(AnthropicAgent[AnthropicMUCAgentConfig]):
     def _load_pdfs(self, glob_pattern: str = "pdfs/*.pdf") -> list[str]:
         pdfs: list[str] = []
 
@@ -236,7 +236,6 @@ Je huidige core memories zijn:
         # This is like receiving a long message one sentence at a time
         async for content in self.handle_stream(
             stream,
-            messages,
             tools,
         ):
             yield content
