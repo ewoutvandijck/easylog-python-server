@@ -93,7 +93,7 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
                     "content": [
                         {
                             "type": "text",
-                            "text": content.content,
+                            "text": content.content or "[empty]",
                         }
                         for content in message.content
                         if isinstance(content, TextContent)
