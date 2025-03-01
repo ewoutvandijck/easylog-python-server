@@ -5790,7 +5790,7 @@ snapshots:
   supabase@2.12.1:
     dependencies:
       bin-links: 5.0.0
-      https-proxy-agent: 7.0.5
+      https-proxy-agent: 7.0.6
       node-fetch: 3.3.2
       tar: 7.4.3
     transitivePeerDependencies:
