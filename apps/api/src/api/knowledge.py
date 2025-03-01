@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 
 from src.jobs.ingest_pdf.ingest_from_upload_file_job import ingest_from_upload_file_job
 
@@ -13,7 +13,7 @@ router = APIRouter()
     tags=["knowledge"],
     description="Upload a PDF document to be processed and stored in the knowledge base",
 )
-async def create_upload_file(file: UploadFile, background_tasks: BackgroundTasks):
+async def upload_pdf_document(file: UploadFile, background_tasks: BackgroundTasks) -> Response:
     if not file.content_type == "application/pdf" or not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
@@ -28,4 +28,4 @@ async def create_upload_file(file: UploadFile, background_tasks: BackgroundTasks
         target_path=file_id,
     )
 
-    return {"id": file_id}
+    return Response(status_code=204)

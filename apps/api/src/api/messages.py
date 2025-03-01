@@ -33,7 +33,7 @@ async def get_messages(
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
-) -> Pagination[Messages]:
+) -> Pagination[messages]:
     messages = prisma.messages.find_many(
         where={
             "OR": [

@@ -15,7 +15,7 @@ router = APIRouter()
     response_model=HealthResponse,
     description="Returns a 200 status code if the API is healthy.",
 )
-async def health():
+async def health() -> HealthResponse:
     main_db = "healthy"
     easylog_db = "healthy"
 

@@ -28,7 +28,7 @@ from src.logger import logger
 CONTENT_TYPE_EXTRACTOR = r"/([^/]+?)(?:\[\d+\])?$"
 
 
-def process_pdf_process(file_data: bytes) -> ProcessedPDF:
+def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
     logger.info("Starting PDF processing")
 
     # Upload the source file as an asset

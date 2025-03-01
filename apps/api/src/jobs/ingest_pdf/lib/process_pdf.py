@@ -1,6 +1,6 @@
 import os
 
-from src.jobs.ingest_pdf.lib.process_pdf_process import process_pdf_process
+from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 
@@ -10,8 +10,8 @@ async def process_pdf(
     file_name: str | None = None,
     target_bucket: str = "knowledge",
     target_path: str = "/",
-):
-    processed_pdf = process_pdf_process(file_data)
+) -> None:
+    processed_pdf = extract_and_process_pdf(file_data)
 
     if file_name:
         processed_pdf.file_name = file_name
