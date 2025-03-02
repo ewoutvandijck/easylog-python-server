@@ -1,10 +1,11 @@
 import base64
 import json
 import time
+import traceback
 from collections.abc import AsyncGenerator
 
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
@@ -29,7 +30,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-
+        self.logger.info("Initializing DebugAnthropicAgent with enhanced logging")
         self._planning_tools = PlanningTools(self.easylog_backend)
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
@@ -60,123 +61,167 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             An async generator that yields parts of the AI's response as they're generated
         """
 
-        # Convert messages to a format Claude understands
-        # This is like translating from one language to another
-        message_history = self._convert_messages_to_anthropic_format(messages)
+        # Add debug logging for input messages
+        self.logger.info(f"on_message called with {len(messages)} messages")
+        try:
+            # Convert messages to a format Claude understands
+            message_history = self._convert_messages_to_anthropic_format(messages)
+            self.logger.debug(f"Converted message history: {json.dumps(message_history, indent=2)}")
 
-        # Create special blocks for each PDF that Claude can read
-        # This is like creating a digital package for each PDF
-        pdf_content_block: BetaBase64PDFBlockParam | None = (
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
-                },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
-            }
-            if self._active_pdf
-            else None
-        )
-
-        # Claude won't respond to tool results if there is a PDF in the message.
-        # So we add the PDF to the last user message that doesn't contain a tool result.
-        for message in reversed(message_history):
-            if (
-                pdf_content_block is not None
-                and message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
-                and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
-                )  # Skip messages that contain tool results
-            ):
-                # Add PDF content blocks to eligible messages
-                # This ensures Claude can reference PDFs when responding to user queries
-                message["content"].append(pdf_content_block)
-                break
-
-        # Memories are a way to store important information about a user.
-        memories = self.get_metadata("memories", default=[])
-        self.logger.info(f"Memories: {memories}")
-
-        # Define helper tools that Claude can use
-        # These are like special commands Claude can run to get extra information
-
-        async def tool_search_pdf(query: str) -> str:
-            """
-            Search for a PDF in the knowledge base.
-            """
-            knowledge_result = await self.search_knowledge(query)
-
-            if (
-                knowledge_result is None
-                or knowledge_result.object is None
-                or knowledge_result.object.name is None
-                or knowledge_result.object.bucket_id is None
-            ):
-                return "Geen PDF gevonden"
-
-            return json.dumps(
+            # Create special blocks for each PDF that Claude can read
+            # This is like creating a digital package for each PDF
+            pdf_content_block: BetaBase64PDFBlockParam | None = (
                 {
-                    "id": knowledge_result.id,
-                    "markdown_content": knowledge_result.markdown_content,
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
+                    },
+                    "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
                 }
+                if self._active_pdf
+                else None
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> str:
-            """
-            Load an image from the database. Id is the id of the pdf file, and in the markdown you'll find many references to images. Use the exact file path to load the image.
-            """
+            # Claude won't respond to tool results if there is a PDF in the message.
+            # So we add the PDF to the last user message that doesn't contain a tool result.
+            for message in reversed(message_history):
+                if (
+                    pdf_content_block is not None
+                    and message["role"] == "user"  # Only attach PDFs to user messages
+                    and isinstance(message["content"], list)  # Content must be a list to extend
+                    and not any(
+                        isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    )  # Skip messages that contain tool results
+                ):
+                    # Add PDF content blocks to eligible messages
+                    # This ensures Claude can reference PDFs when responding to user queries
+                    message["content"].append(pdf_content_block)
+                    break
 
-            image_data = await self.load_image(_id, file_name)
+            # Memories are a way to store important information about a user.
+            memories = self.get_metadata("memories", default=[])
+            self.logger.info(f"Memories: {memories}")
 
-            return f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+            # Define helper tools that Claude can use
+            # These are like special commands Claude can run to get extra information
 
-        async def tool_store_memory(memory: str) -> str:
-            """
-            Store a memory in the database.
-            """
+            async def tool_search_pdf(query: str) -> str:
+                """
+                Search for a PDF in the knowledge base.
+                """
+                knowledge_result = await self.search_knowledge(query)
 
-            current_memory = self.get_metadata("memories", default=[])
-            current_memory.append(memory)
+                if (
+                    knowledge_result is None
+                    or knowledge_result.object is None
+                    or knowledge_result.object.name is None
+                    or knowledge_result.object.bucket_id is None
+                ):
+                    return "Geen PDF gevonden"
 
-            self.logger.info(f"Storing memory: {memory}")
+                return json.dumps(
+                    {
+                        "id": knowledge_result.id,
+                        "markdown_content": knowledge_result.markdown_content,
+                    }
+                )
 
-            self.set_metadata("memories", current_memory)
+            async def tool_load_image(_id: str, file_name: str) -> str:
+                """
+                Load an image from the database. Id is the id of the pdf file, and in the markdown you'll find many references to images. Use the exact file path to load the image.
+                """
 
-            return "Memory stored"
+                image_data = await self.load_image(_id, file_name)
 
-        def tool_clear_memories() -> str:
-            """
-            Clear all stored memories and the conversation history.
-            """
-            self.set_metadata("memories", [])
-            return "All memories and the conversation history have been cleared."
+                return f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
 
-        tools = [
-            tool_search_pdf,
-            tool_store_memory,
-            tool_clear_memories,
-            tool_load_image,
-            *self._planning_tools.all_tools,
-        ]
+            async def tool_store_memory(memory: str) -> str:
+                """
+                Store a memory in the database.
+                """
 
-        # Start measuring how long the operation takes
-        # This is like starting a stopwatch
-        start_time = time.time()
+                current_memory = self.get_metadata("memories", default=[])
+                current_memory.append(memory)
 
-        # Create a streaming message request to Claude
-        # Think of this like starting a live chat with Claude where responses come in piece by piece
-        stream = await self.client.messages.create(
-            # Tell Claude which version to use (like choosing which expert to talk to)
-            model="claude-3-7-sonnet-20250219",
-            # Maximum number of words Claude can respond with
-            # This prevents responses from being too long
-            max_tokens=2048,
-            # Special instructions that tell Claude how to behave
-            # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame planning assistent die gebruikers helpt bij het beheren van projecten, fases en resources in EasyLog.
+                self.logger.info(f"Storing memory: {memory}")
+
+                self.set_metadata("memories", current_memory)
+
+                return "Memory stored"
+
+            def tool_clear_memories() -> str:
+                """
+                Clear all stored memories and the conversation history.
+                """
+                self.set_metadata("memories", [])
+                return "All memories and the conversation history have been cleared."
+
+            # Add more detailed logging for tool setup
+            self.logger.info(f"Setting up {len(self._planning_tools.all_tools)} planning tools")
+            
+            # Wrap the original tools with logging
+            original_tools = [
+                tool_search_pdf,
+                tool_store_memory,
+                tool_clear_memories,
+                tool_load_image,
+                *self._planning_tools.all_tools,
+            ]
+            
+            # Create logging wrappers for each tool
+            tools = []
+            for tool in original_tools:
+                # Create a wrapper that logs before and after each tool execution
+                async def logging_wrapper(*args, **kwargs):
+                    tool_name = tool.__name__
+                    self.logger.info(f"Calling tool '{tool_name}' with args: {args}, kwargs: {kwargs}")
+                    try:
+                        # For async tools
+                        if callable(getattr(tool, "__await__", None)):
+                            result = await tool(*args, **kwargs)
+                        else:
+                            # For non-async tools
+                            result = tool(*args, **kwargs)
+                        
+                        # Log a truncated version of the result to avoid overly large logs
+                        result_str = str(result)
+                        truncated_result = result_str[:500] + "..." if len(result_str) > 500 else result_str
+                        self.logger.info(f"Tool '{tool_name}' completed with result: {truncated_result}")
+                        
+                        # Log the full raw result at debug level
+                        self.logger.debug(f"Full result from tool '{tool_name}': {result}")
+                        
+                        return result
+                    except ValidationError as e:
+                        self.logger.error(f"Validation error in tool '{tool_name}': {e}")
+                        # Log the detailed error with field locations and values
+                        for error in e.errors():
+                            self.logger.error(f"Field: {'.'.join(str(loc) for loc in error['loc'])}, Error: {error['msg']}")
+                        raise
+                    except Exception as e:
+                        self.logger.error(f"Error in tool '{tool_name}': {str(e)}")
+                        self.logger.error(traceback.format_exc())
+                        raise
+                
+                # Make the wrapper look like the original function for anthropic's tool conversion
+                logging_wrapper.__name__ = tool.__name__
+                logging_wrapper.__doc__ = tool.__doc__
+                logging_wrapper.__annotations__ = tool.__annotations__
+                
+                tools.append(logging_wrapper)
+
+            # Start measuring how long the operation takes
+            start_time = time.time()
+            self.logger.info("Creating message stream to Claude")
+
+            try:
+                # Create a streaming message request to Claude
+                stream = await self.client.messages.create(
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens=2048,
+                    system=f"""Je bent een behulpzame planning assistent die gebruikers helpt bij het beheren van projecten, fases en resources in EasyLog.
 
 ### Wat je kunt doen ####
 - Projecten bekijken, aanmaken en bijwerken
@@ -205,25 +250,47 @@ Je huidige core memories zijn:
 Gebruik de tool "search_pdf" om een PDF te zoeken in de kennisbasis.
 
 G
-            """,
-            messages=message_history,
-            # Give Claude access to our special tools
-            # This is like giving Claude a toolbox to help answer questions
-            tools=[function_to_anthropic_tool(tool) for tool in tools],
-            # Tell Claude to send responses as they're ready (piece by piece)
-            # Instead of waiting for the complete answer
-            stream=True,
-        )
+                    """,
+                    messages=message_history,
+                    tools=[function_to_anthropic_tool(tool) for tool in tools],
+                    stream=True,
+                )
+                
+                end_time = time.time()
+                self.logger.info(f"Time taken to create message stream: {end_time - start_time} seconds")
 
-        # Calculate how long the operation took
-        # This is like stopping our stopwatch
-        end_time = time.time()
-        self.logger.info(f"Time taken: {end_time - start_time} seconds")
+                # Process Claude's response piece by piece and send it back
+                async for content in self.handle_stream(stream, tools):
+                    yield content
+            
+            except Exception as e:
+                self.logger.error(f"Error in Claude API call: {str(e)}")
+                self.logger.error(traceback.format_exc())
+                # Return error to user
+                yield MessageContent(
+                    content=f"Er is een fout opgetreden bij het verwerken van uw bericht: {str(e)}",
+                    content_type="text",
+                    is_error=True,
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Unhandled exception in on_message: {str(e)}")
+            self.logger.error(traceback.format_exc())
+            yield MessageContent(
+                content=f"Er is een onverwachte fout opgetreden: {str(e)}",
+                content_type="text",
+                is_error=True,
+            )
 
-        # Process Claude's response piece by piece and send it back
-        # This is like receiving a long message one sentence at a time
-        async for content in self.handle_stream(
-            stream,
-            tools,
-        ):
-            yield content
+    # Add logging to handle_stream as well
+    async def handle_stream(self, stream, tools):
+        try:
+            return await super().handle_stream(stream, tools)
+        except Exception as e:
+            self.logger.error(f"Error in handle_stream: {str(e)}")
+            self.logger.error(traceback.format_exc())
+            yield MessageContent(
+                content=f"Fout bij het verwerken van de respons: {str(e)}",
+                content_type="text",
+                is_error=True,
+            )
