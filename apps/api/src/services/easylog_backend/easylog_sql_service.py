@@ -1,3 +1,4 @@
+import contextlib
 import os
 
 import pymysql
@@ -7,8 +8,6 @@ from src.logger import logger
 
 
 class EasylogSqlService:
-    _instance = None
-
     def __init__(
         self,
         ssh_key_path: str | None = None,
@@ -32,25 +31,10 @@ class EasylogSqlService:
         self.db_password = db_password
         self.connect_timeout = connect_timeout
 
+        # We'll create connections on demand
         self.ssh_tunnel = None
         self.connection = None
-        self._setup_db_connection()
-        self._initialized = True
-
-    def _setup_db_connection(self) -> None:
-        """
-        Sets up the database connection via SSH tunnel
-        """
-        try:
-            logger.info("Starting database connection setup")
-            self.ssh_tunnel, self.connection = self._create_db_connection()
-
-            if self.connection:
-                logger.info("Database connection successfully established")
-            else:
-                logger.error("Could not establish database connection")
-        except Exception as e:
-            logger.error(f"Error setting up database connection: {str(e)}")
+        logger.info("EasylogSqlService initialized (connections will be created on demand)")
 
     def _create_db_connection(self) -> tuple[SSHTunnelForwarder | None, pymysql.Connection | None]:
         ssh_tunnel = None
@@ -103,18 +87,72 @@ class EasylogSqlService:
                 ssh_tunnel.close()
             return None, None
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    @contextlib.contextmanager
+    def get_connection(self):
         """
-        Closes the database connection and SSH tunnel on exit
+        Context manager that provides a fresh database connection and ensures it's properly closed.
+
+        Usage:
+            with sql_service.get_connection() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM table")
+                    results = cursor.fetchall()
+        """
+        ssh_tunnel, connection = self._create_db_connection()
+        try:
+            if connection is None:
+                raise RuntimeError("Failed to establish database connection")
+            yield connection
+        finally:
+            if connection:
+                connection.close()
+            if ssh_tunnel and ssh_tunnel.is_active:
+                ssh_tunnel.close()
+            logger.debug("Database connection and SSH tunnel closed")
+
+    def execute_query(self, query: str, params=None):
+        """
+        Execute a query with a fresh connection and return results
+        """
+        try:
+            with self.get_connection() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, params)
+
+                    # Fetch results if it's a SELECT query
+                    if query.strip().upper().startswith("SELECT"):
+                        return cursor.fetchall()
+                    else:
+                        connection.commit()
+                        return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Query execution error: {str(e)}")
+            return None
+
+    def close(self):
+        """
+        Explicitly close any open connections
         """
         if self.connection:
             self.connection.close()
+            self.connection = None
         if self.ssh_tunnel and self.ssh_tunnel.is_active:
             self.ssh_tunnel.close()
+            self.ssh_tunnel = None
+        logger.info("Database connections closed")
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Close connections on exit
+        """
+        self.close()
 
     @property
     def db(self) -> pymysql.Connection | None:
         """
-        Public access to the database connection
+        Get a connection to the database.
+        Note: The caller is responsible for closing this connection.
         """
+        if self.connection is None:
+            self.ssh_tunnel, self.connection = self._create_db_connection()
         return self.connection
