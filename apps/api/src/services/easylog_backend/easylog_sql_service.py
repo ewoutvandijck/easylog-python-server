@@ -21,9 +21,6 @@ class EasylogSqlService:
         db_password: str = "",
         connect_timeout: int = 10,
     ) -> None:
-        if self._initialized:
-            return
-
         self.use_ssh = all([ssh_key_path, ssh_host, ssh_username])
         self.ssh_key_path = os.path.expanduser(ssh_key_path) if ssh_key_path else None
         self.ssh_host = ssh_host
