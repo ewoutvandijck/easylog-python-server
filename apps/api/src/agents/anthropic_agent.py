@@ -165,12 +165,12 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                                 "type": "image",
                                 "source": {
                                     "type": "base64",
-                                    "media_type": guess_media_type(content.content, content.content_type),
+                                    "media_type": guess_media_type(content.content),
                                     "data": extract_base64_content(content.content),
                                 },
                             }
                         ]
-                        if content.content_format == "image" or str(content.content_type).startswith("image/")
+                        if content.content_format == "image"
                         else content.content,
                         "tool_use_id": str(content.tool_use_id),
                         "is_error": content.is_error,

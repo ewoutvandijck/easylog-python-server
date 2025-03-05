@@ -91,9 +91,6 @@ class MessageService:
                         else ToolResultContent(
                             tool_use_id=message_content.tool_use_id or "",
                             content=message_content.content or "",
-                            content_type=cast(ContentType, message_content.content_type)
-                            if message_content.content_type
-                            else None,
                             content_format=cast(Literal["image", "unknown"], message_content.content_format),
                             is_error=message_content.tool_use_is_error or False,
                         )

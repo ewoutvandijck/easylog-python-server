@@ -37,12 +37,6 @@ class ToolResultContent(BaseModel):
 
     content_format: Literal["image", "unknown"] = Field(default="unknown", description="The format of the content.")
 
-    content_type: ContentType | None = Field(
-        default=None,
-        description="The content type of the image, must start with `image/`",
-        deprecated="Use content_format instead",
-    )
-
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
