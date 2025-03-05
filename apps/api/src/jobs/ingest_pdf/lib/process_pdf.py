@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
@@ -6,13 +5,13 @@ from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 
 
-async def process_pdf(
+def process_pdf(
     file_data: bytes,
     file_name: str | None = None,
     target_bucket: str = "knowledge",
     target_path: str = "/",
 ) -> None:
-    processed_pdf = await asyncio.to_thread(extract_and_process_pdf, file_data)
+    processed_pdf = extract_and_process_pdf(file_data)
 
     if file_name:
         processed_pdf.file_name = file_name
