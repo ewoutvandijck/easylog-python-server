@@ -1,7 +1,5 @@
 # Python standard library imports
-import base64
 import json
-import os
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
@@ -24,6 +22,7 @@ class EasylogData(TypedDict):
     """
     Defines the structure for Easylog data
     """
+
     status: str
     datum: str
     object: str
@@ -33,13 +32,9 @@ class EasylogData(TypedDict):
 # Configuration class for AnthropicEasylog agent
 class AnthropicEasylogAgentConfig(BaseModel):
     max_report_entries: int = Field(
-        default=100,
-        description="Maximum number of entries to fetch from the database for reports"
+        default=100, description="Maximum number of entries to fetch from the database for reports"
     )
-    debug_mode: bool = Field(
-        default=False,
-        description="Enable debug mode with additional logging"
-    )
+    debug_mode: bool = Field(default=False, description="Enable debug mode with additional logging")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -52,21 +47,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
         Detecteert automatisch belangrijke informatie in het bericht van de gebruiker
-        
+
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker
-            
+
         Returns:
             Een lijst met gedetecteerde informatie
         """
         detected_info = []
-        
+
         # Namen detecteren
         name_patterns = [
             r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij)\s+([A-Za-z\s]+)",
             r"(?i)naam(?:\s+is)?\s+([A-Za-z\s]+)",
         ]
-        
+
         for pattern in name_patterns:
             matches = re.findall(pattern, message_text)
             for match in matches:
@@ -74,13 +69,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
-        
+
         # Functietitels detecteren
         role_patterns = [
             r"(?i)(?:ik ben|ik werk als)(?:\s+de|een|)?\s+([A-Za-z\s]+manager|[A-Za-z\s]+directeur|[A-Za-z\s]+analist|[A-Za-z\s]+medewerker|[A-Za-z\s]+monteur)",
             r"(?i)functie(?:\s+is)?\s+([A-Za-z\s]+)",
         ]
-        
+
         for pattern in role_patterns:
             matches = re.findall(pattern, message_text)
             for match in matches:
@@ -88,13 +83,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Functie: {role}")
                     self.logger.info(f"Detected user role: {role}")
-        
+
         # Afdelingen detecteren
         department_patterns = [
             r"(?i)(?:ik werk bij|ik zit bij)(?:\s+de)?\s+afdeling\s+([A-Za-z\s]+)",
             r"(?i)afdeling(?:\s+is)?\s+([A-Za-z\s]+)",
         ]
-        
+
         for pattern in department_patterns:
             matches = re.findall(pattern, message_text)
             for match in matches:
@@ -102,55 +97,55 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Afdeling: {department}")
                     self.logger.info(f"Detected user department: {department}")
-        
+
         # Rapportagevoorkeuren detecteren
         report_patterns = [
             r"(?i)(?:ik wil|graag|liefst)(?:\s+\w+)?\s+(dagelijks|wekelijks|maandelijks|kwartaal|jaarlijks)e?\s+rapport",
             r"(?i)rapport(?:en|ages)?(?:\s+graag)?\s+(dagelijks|wekelijks|maandelijks|kwartaal|jaarlijks)",
         ]
-        
+
         for pattern in report_patterns:
             matches = re.findall(pattern, message_text)
             for match in matches:
                 frequency = match.strip().lower()
                 detected_info.append(f"Voorkeur: {frequency}e rapportages")
                 self.logger.info(f"Detected reporting preference: {frequency}")
-        
+
         return detected_info
 
     async def _store_detected_name(self, message_text: str):
         """
         Detecteert en slaat belangrijke informatie op uit het bericht van de gebruiker
-        
+
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker
         """
         detected_info = self._extract_user_info(message_text)
-        
+
         if not detected_info:
             return
-            
+
         # Direct store_memory aanroepen voor elke gedetecteerde informatie
         for info in detected_info:
             await self._store_memory_internal(info)
-            
+
     async def _store_memory_internal(self, memory: str):
         """
         Interne functie om herinneringen op te slaan met controle op duplicaten
-        
+
         Args:
             memory: De herinnering die moet worden opgeslagen
         """
         memory = memory.strip()
         if not memory:
             return
-            
+
         # Haal huidige herinneringen op
         current_memories = self.get_metadata("memories", default=[])
-        
+
         # Extract type (alles voor de eerste ":")
         memory_type = memory.split(":", 1)[0].strip().lower() if ":" in memory else ""
-        
+
         # Zoek naar bestaande herinnering van hetzelfde type
         existing_index = -1
         for i, existing_memory in enumerate(current_memories):
@@ -158,7 +153,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             if memory_type and existing_type == memory_type:
                 existing_index = i
                 break
-                
+
         # Update bestaande of voeg nieuwe toe
         if existing_index >= 0:
             # Vervang bestaande herinnering
@@ -168,7 +163,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             # Voeg nieuwe herinnering toe
             current_memories.append(memory)
             self.logger.info(f"Added new memory: {memory}")
-            
+
         # Sla bijgewerkte herinneringen op
         self.set_metadata("memories", current_memories)
 
@@ -186,7 +181,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         # Convert messages to a format Claude understands
         message_history = self._convert_messages_to_anthropic_format(messages)
-        
+
         if self.config.debug_mode:
             self.logger.debug(f"Converted message history: {message_history}")
 
@@ -284,11 +279,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     for entry in entries:
                         datum, object_value, statusobject, created_at = entry
-                        
+
                         # Object toevoegen aan set voor unieke telling
                         if object_value:
                             objects.add(object_value)
-                            
+
                         # Status tellen
                         if statusobject == "Ja":
                             status_counts["Akkoord"] += 1
@@ -299,26 +294,35 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Maandnamen in Nederlands
                     month_names = {
-                        1: "januari", 2: "februari", 3: "maart", 4: "april",
-                        5: "mei", 6: "juni", 7: "juli", 8: "augustus",
-                        9: "september", 10: "oktober", 11: "november", 12: "december"
+                        1: "januari",
+                        2: "februari",
+                        3: "maart",
+                        4: "april",
+                        5: "mei",
+                        6: "juni",
+                        7: "juli",
+                        8: "augustus",
+                        9: "september",
+                        10: "oktober",
+                        11: "november",
+                        12: "december",
                     }
-                    
+
                     month_name = month_names.get(month, str(month))
-                    
+
                     # Rapportopbouw
                     report = [
                         f"📊 **Maandrapport {month_name} {year}**",
-                        f"",
-                        f"**Samenvatting:**",
+                        "",
+                        "**Samenvatting:**",
                         f"- Totaal aantal controles: {len(entries)}",
                         f"- Unieke objecten gecontroleerd: {len(objects)}",
-                        f"- Status verdeling:",
-                        f"  - Akkoord: {status_counts['Akkoord']} ({round(status_counts['Akkoord']/len(entries)*100)}%)",
-                        f"  - Niet akkoord: {status_counts['Niet akkoord']} ({round(status_counts['Niet akkoord']/len(entries)*100)}%)",
-                        f"  - Anders: {status_counts['Anders']} ({round(status_counts['Anders']/len(entries)*100)}%)",
+                        "- Status verdeling:",
+                        f"  - Akkoord: {status_counts['Akkoord']} ({round(status_counts['Akkoord'] / len(entries) * 100)}%)",
+                        f"  - Niet akkoord: {status_counts['Niet akkoord']} ({round(status_counts['Niet akkoord'] / len(entries) * 100)}%)",
+                        f"  - Anders: {status_counts['Anders']} ({round(status_counts['Anders'] / len(entries) * 100)}%)",
                     ]
-                    
+
                     return "\n".join(report)
 
             except Exception as e:
@@ -351,17 +355,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         return f"Geen geschiedenis gevonden voor object: {object_name}"
 
                     results = [f"📜 **Geschiedenis voor {object_name}:**"]
-                    
+
                     for entry in entries:
                         datum, statusobject, created_at = entry
-                        
+
                         if statusobject == "Ja":
                             statusobject = "Akkoord"
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
-                            
+
                         results.append(f"Datum: {datum}, Status: {statusobject}")
-                        
+
                     return "\n".join(results)
 
             except Exception as e:
@@ -375,12 +379,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             """
             debug_info = {
                 "agent_type": "AnthropicEasylogAgent",
-                "config": {
-                    "max_report_entries": self.config.max_report_entries,
-                    "debug_mode": self.config.debug_mode
-                },
+                "config": {"max_report_entries": self.config.max_report_entries, "debug_mode": self.config.debug_mode},
                 "memory_count": len(memories),
-                "message_history_length": len(message_history)
+                "message_history_length": len(message_history),
             }
             self.logger.info(f"Debug info requested: {debug_info}")
             return json.dumps(debug_info, indent=2)
@@ -447,7 +448,7 @@ Je huidige core memories zijn:
         end_time = time.time()
         execution_time = end_time - start_time
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
-        
+
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
@@ -457,4 +458,4 @@ Je huidige core memories zijn:
         ):
             if self.config.debug_mode:
                 self.logger.debug(f"Streaming content: {str(content)[:100]}...")
-            yield content 
+            yield content
