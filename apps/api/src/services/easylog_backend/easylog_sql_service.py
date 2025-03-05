@@ -98,6 +98,9 @@ class EasylogSqlService:
                 connect_timeout=self.connect_timeout,
             )
             logger.info("Database connection successfully established")
+            logger.info(
+                f"db_host: {self.db_host}, db_port: {connection_port}, db_user: {self.db_user}, db_name: {self.db_name}"
+            )
 
             return ssh_tunnel, connection
 
