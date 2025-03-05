@@ -23,11 +23,14 @@ from .schemas import (
 
 
 class BackendService:
-    def __init__(self, bearer_token: str, base_url: str = "https://staging.easylog.nu/api/v2") -> None:
+    def __init__(self, bearer_token: str = "", base_url: str = "https://staging.easylog.nu/api/v2") -> None:
+        if not bearer_token:
+            logger.warning("No bearer token provided. This is probably not what you want.")
+
         self.bearer_token = bearer_token
         self.client = AsyncClient(
             base_url=base_url,
-            headers={"Authorization": f"Bearer {self.bearer_token}"},
+            headers={"Authorization": f"Bearer {bearer_token}"} if bearer_token else None,
         )
 
     async def get_datasources(self) -> PaginatedResponse[Datasource]:

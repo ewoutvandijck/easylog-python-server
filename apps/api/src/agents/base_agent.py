@@ -32,12 +32,12 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
 
-    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, thread_id: str, backend: BackendService, **kwargs: dict[str, Any]) -> None:
         self._thread_id = thread_id
-        self._backend = backend
         self._raw_config = kwargs
         self._thread = None
 
+        self.easylog_backend = backend
         self.easylog_sql_service = EasylogSqlService(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
             ssh_host=settings.EASYLOG_SSH_HOST,
@@ -55,15 +55,6 @@ class BaseAgent(Generic[TConfig]):
         cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
 
         logger.info(f"Initialized subclass: {cls.__name__}")
-
-    @property
-    def easylog_backend(self) -> BackendService:
-        if self._backend is None:
-            raise ValueError(
-                "Backend is not initalized. This is usually because an authentication token wasn't provided in the request"
-            )
-
-        return self._backend
 
     @property
     def config(self) -> TConfig:

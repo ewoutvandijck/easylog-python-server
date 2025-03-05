@@ -55,12 +55,12 @@ class MessageService:
             Iterator[TextContent]: A generator of message chunks.
         """
 
-        backend_service = BackendService(bearer_token, settings.EASYLOG_API_URL) if bearer_token else None
+        backend_service = BackendService(bearer_token=bearer_token or "", base_url=settings.EASYLOG_API_URL)
 
         logger.info(f"Loading agent {agent_class}")
 
         # Try to load the agent
-        agent = AgentLoader.get_agent(agent_class, thread_id, agent_config, backend_service)
+        agent = AgentLoader.get_agent(agent_class, thread_id, backend_service, agent_config)
 
         if not agent:
             raise AgentNotFoundError(f"Agent class {agent_class} not found")
@@ -94,6 +94,7 @@ class MessageService:
                             content_type=cast(ContentType, message_content.content_type)
                             if message_content.content_type
                             else None,
+                            content_format=cast(Literal["image", "unknown"], message_content.content_format),
                             is_error=message_content.tool_use_is_error or False,
                         )
                         if message_content.type == message_content_type.tool_result
@@ -236,7 +237,7 @@ class MessageService:
                         else {
                             "type": "tool_result",
                             "content": content_chunk.content,
-                            "content_type": content_chunk.content_type,
+                            "content_format": content_chunk.content_format,
                             "tool_use_is_error": content_chunk.is_error,
                             "tool_use_id": content_chunk.tool_use_id,
                         }

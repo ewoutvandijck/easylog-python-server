@@ -12,8 +12,8 @@ class AgentLoader:
     def get_agent(
         agent_class: str,
         thread_id: str,
+        backend: BackendService,
         agent_config: dict = {},
-        backend: BackendService | None = None,
     ) -> BaseAgent | None:
         logger.debug(f"Attempting to load agent class: {agent_class}")
         agents_dir = Path("src/agents/implementations")
@@ -43,13 +43,8 @@ class AgentLoader:
                     logger.debug(f"Class {name} inheritance: {obj.__bases__}")
                     if issubclass(obj, BaseAgent) and obj != BaseAgent and obj.__name__ == agent_class:
                         logger.debug(f"Found matching agent class: {obj}")
-
-                        try:
-                            logger.debug(f"Initializing agent with config: {agent_config}")
-                            return obj(thread_id=thread_id, backend=backend, **agent_config)
-                        except Exception as e:
-                            logger.error(f"Error initializing agent {obj}: {e}")
-                            return None
+                        logger.debug(f"Initializing agent with config: {agent_config}")
+                        return obj(thread_id=thread_id, backend=backend, **agent_config)
 
         logger.warning(f"No matching agent found for class: {agent_class}")
         return None

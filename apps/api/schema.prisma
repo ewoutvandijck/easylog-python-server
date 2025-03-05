@@ -122,6 +122,14 @@ enum message_role {
     @@schema("public")
 }
 
+enum message_content_format {
+    image
+    unknown
+
+    @@map("message_content_format")
+    @@schema("public")
+}
+
 model threads {
     id          String     @id @default(cuid())
     external_id String?    @unique
@@ -149,19 +157,20 @@ model messages {
 }
 
 model message_contents {
-    id                String               @id @default(cuid())
-    message           messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    id                String                 @id @default(cuid())
+    message           messages               @relation(fields: [message_id], references: [id], onDelete: Cascade)
     message_id        String
-    type              message_content_type @default(text)
+    type              message_content_type   @default(text)
     tool_use_id       String?
     tool_use_is_error Boolean?
     tool_use_name     String?
     tool_use_input    Json?
     content           String?
     content_type      String?
+    content_format    message_content_format @default(unknown)
     data              String?
-    created_at        DateTime             @default(now())
-    updated_at        DateTime             @updatedAt
+    created_at        DateTime               @default(now())
+    updated_at        DateTime               @updatedAt
 
     @@map("message_contents")
     @@schema("public")

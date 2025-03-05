@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Any, Generic, cast
+from typing import Any, Generic
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.citations_delta import Citation
@@ -16,7 +16,6 @@ from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
 from src.models.messages import (
-    ContentType,
     ImageContent,
     Message,
     MessageContent,
@@ -27,6 +26,7 @@ from src.models.messages import (
     ToolUseContent,
 )
 from src.services.easylog_backend.backend_service import BackendService
+from src.utils.media_detection import extract_base64_content, guess_media_type
 from src.utils.pydantic_to_anthropic_tool import pydantic_to_anthropic_tool
 
 
@@ -54,7 +54,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
     # Keep track of any PDF documents we're working with
     pdfs: list[str] = []
 
-    def __init__(self, thread_id: str, backend: BackendService | None = None, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, thread_id: str, backend: BackendService, **kwargs: dict[str, Any]) -> None:
         """
         Sets up the agent with necessary connections and settings.
 
@@ -165,12 +165,12 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                                 "type": "image",
                                 "source": {
                                     "type": "base64",
-                                    "media_type": content.content_type,
-                                    "data": content.content,
+                                    "media_type": guess_media_type(content.content, content.content_type),
+                                    "data": extract_base64_content(content.content),
                                 },
                             }
                         ]
-                        if content.content_type
+                        if content.content_format == "image" or str(content.content_type).startswith("image/")
                         else content.content,
                         "tool_use_id": str(content.tool_use_id),
                         "is_error": content.is_error,
@@ -197,7 +197,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     if isinstance(content, PDFContent)
                     else {
                         "type": "text",
-                        "text": "",
+                        "text": "[empty]",
                     }
                     for content in message.content
                 ],
@@ -335,18 +335,14 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously
-                    function_result = str(
+                    tool_result.content = str(
                         await function(**message_contents[-1].input)
                         if asyncio.iscoroutinefunction(function)
                         else function(**message_contents[-1].input)
                     )
 
-                    # Support for images
-                    if function_result.startswith("data:image/"):
-                        tool_result.content_type = cast(ContentType, function_result.split(";")[0].split(":")[1])
-                        tool_result.content = function_result.split(";")[1].split(",")[1]
-                    else:
-                        tool_result.content = function_result
+                    if tool_result.content.startswith("data:image/"):
+                        tool_result.content_format = "image"
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
