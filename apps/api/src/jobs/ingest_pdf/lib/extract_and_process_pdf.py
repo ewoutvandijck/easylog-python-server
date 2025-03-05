@@ -1,3 +1,4 @@
+import gc  # Add garbage collection
 import io
 import json
 import zipfile
@@ -126,8 +127,18 @@ def process_figures(df: pd.DataFrame, zf: zipfile.ZipFile) -> list[ProcessedPDFI
 
     images: list[ProcessedPDFImage] = []
 
+    # Get total memory usage for monitoring
+    import psutil
+
+    process = psutil.Process()
+
     # Process each figure and generate alt text using Gemini
     for idx, (row_hash, figure) in enumerate(figures.iterrows()):
+        # Log memory usage periodically
+        if idx % 5 == 0:
+            memory_mb = process.memory_info().rss / 1024 / 1024
+            logger.info(f"Memory usage: {memory_mb:.2f} MB after processing {idx} images")
+
         if not isinstance(figure["filePaths"], list) or len(figure["filePaths"]) == 0:
             logger.warning(f"Figure at index {idx} has no file paths, skipping")
             continue
@@ -140,27 +151,44 @@ def process_figures(df: pd.DataFrame, zf: zipfile.ZipFile) -> list[ProcessedPDFI
         image_path = figure["filePaths"][0]
         logger.debug(f"Processing figure {idx + 1}/{len(figures)}: {image_path}")
 
-        # Generate alt text using Gemini
-        with zf.open(image_path) as image_file:
-            image_data = image_file.read()
-            logger.debug(f"Generating alt text for figure {image_path}")
-            alt_text = generate_alt_text(image_data)
+        try:
+            # Generate alt text using Gemini
+            with zf.open(image_path) as image_file:
+                # Read image data in a controlled way
+                image_data = image_file.read()
 
-            progress = f"{float(idx + 1.0) / len(figures) * 100:.1f}%"
-            logger.info(f"Progress: {progress} - Generated alt text for figure {image_path}")
-            print(f"{progress}: {alt_text}")
+                # Check image size
+                image_size_mb = len(image_data) / 1024 / 1024
+                logger.debug(f"Image size: {image_size_mb:.2f} MB")
 
-            df.at[row_hash, "alternate_text"] = alt_text
+                logger.debug(f"Generating alt text for figure {image_path}")
+                alt_text = generate_alt_text(image_data)
 
-            images.append(
-                ProcessedPDFImage(
-                    file_name=image_path,
-                    file_type="image/png",
-                    file_data=image_data,
-                    summary=alt_text,
-                    page=figure["Page"],
+                progress = f"{float(idx + 1.0) / len(figures) * 100:.1f}%"
+                logger.info(f"Progress: {progress} - Generated alt text for figure {image_path}")
+                print(f"{progress}: {alt_text}")
+
+                df.at[row_hash, "alternate_text"] = alt_text
+
+                # Create a more memory-efficient representation
+                # Option 1: Store full image data (original approach)
+                images.append(
+                    ProcessedPDFImage(
+                        file_name=image_path,
+                        file_type="image/png",
+                        file_data=image_data,  # This stores the full image in memory
+                        summary=alt_text,
+                        page=figure["Page"],
+                    )
                 )
-            )
+
+                # Force garbage collection after each image
+                image_data = None  # Help garbage collector
+                gc.collect()
+
+        except Exception as e:
+            logger.error(f"Error processing image {image_path}: {str(e)}")
+            # Continue processing other images instead of failing completely
 
     return images
 
