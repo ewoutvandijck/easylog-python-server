@@ -142,6 +142,13 @@ class MessageService:
                             content_format=content_chunk.content_format,
                             is_error=content_chunk.is_error,
                         )
+
+                    yield ToolResultDeltaContent(
+                        tool_use_id=content_chunk.tool_use_id,
+                        content="",
+                        content_format=content_chunk.content_format,
+                        is_error=content_chunk.is_error,
+                    )
                 else:
                     yield content_chunk
 
