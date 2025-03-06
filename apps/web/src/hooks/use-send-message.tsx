@@ -41,8 +41,7 @@ const useSendMessage = () => {
       setIsLoading(true);
 
       const endpointURL = new URL(
-        `/threads/${threadId}/messages`,
-        activeConnection.url
+        `${activeConnection.url}/threads/${threadId}/messages`
       );
 
       await new Promise(async (resolve, reject) => {
