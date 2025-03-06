@@ -1,5 +1,6 @@
 # Python standard library imports
 import json
+import re
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
@@ -7,7 +8,6 @@ from typing import TypedDict
 # Third-party imports
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
 from src.logger import logger
@@ -32,9 +32,12 @@ class EasylogData(TypedDict):
 # Configuration class for AnthropicEasylog agent
 class AnthropicEasylogAgentConfig(BaseModel):
     max_report_entries: int = Field(
-        default=100, description="Maximum number of entries to fetch from the database for reports"
+        default=100,
+        description="Maximum number of entries to fetch from the database for reports",
     )
-    debug_mode: bool = Field(default=False, description="Enable debug mode with additional logging")
+    debug_mode: bool = Field(
+        default=False, description="Enable debug mode with additional logging"
+    )
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -66,7 +69,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 name = match.strip()
-                if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    name and len(name) > 1
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
 
@@ -80,7 +85,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 role = match.strip()
-                if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    role and len(role) > 3
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Functie: {role}")
                     self.logger.info(f"Detected user role: {role}")
 
@@ -94,7 +101,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 department = match.strip()
-                if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    department and len(department) > 2
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Afdeling: {department}")
                     self.logger.info(f"Detected user department: {department}")
 
@@ -149,7 +158,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Zoek naar bestaande herinnering van hetzelfde type
         existing_index = -1
         for i, existing_memory in enumerate(current_memories):
-            existing_type = existing_memory.split(":", 1)[0].strip().lower() if ":" in existing_memory else ""
+            existing_type = (
+                existing_memory.split(":", 1)[0].strip().lower()
+                if ":" in existing_memory
+                else ""
+            )
             if memory_type and existing_type == memory_type:
                 existing_index = i
                 break
@@ -167,7 +180,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Sla bijgewerkte herinneringen op
         self.set_metadata("memories", current_memories)
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
@@ -175,7 +190,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         if messages and len(messages) > 0:
             last_message = messages[-1]
             if last_message.role == "user" and isinstance(last_message.content, str):
-                self.logger.info(f"Processing user message: {last_message.content[:100]}...")
+                self.logger.info(
+                    f"Processing user message: {last_message.content[:100]}..."
+                )
                 # Automatisch naam detecteren en opslaan
                 await self._store_detected_name(last_message.content)
 
@@ -241,7 +258,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
 
-                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
+                        results.append(
+                            f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
+                        )
                     return "\n".join(results)
 
             except Exception as e:
@@ -334,7 +353,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Haalt de geschiedenis op van een specifiek object.
             """
             try:
-                self.logger.info(f"Fetching history for object: {object_name}, limit: {limit}")
+                self.logger.info(
+                    f"Fetching history for object: {object_name}, limit: {limit}"
+                )
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
@@ -346,7 +367,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         ORDER BY created_at DESC
                         LIMIT %s
                     """
-                    self.logger.debug(f"Executing query with params: {object_name}, {limit}")
+                    self.logger.debug(
+                        f"Executing query with params: {object_name}, {limit}"
+                    )
                     cursor.execute(query, (object_name, limit))
                     entries = cursor.fetchall()
                     self.logger.debug(f"Query returned {len(entries)} entries")
@@ -379,7 +402,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             """
             debug_info = {
                 "agent_type": "AnthropicEasylogAgent",
-                "config": {"max_report_entries": self.config.max_report_entries, "debug_mode": self.config.debug_mode},
+                "config": {
+                    "max_report_entries": self.config.max_report_entries,
+                    "debug_mode": self.config.debug_mode,
+                },
                 "memory_count": len(memories),
                 "message_history_length": len(message_history),
             }
@@ -450,7 +476,9 @@ Je huidige core memories zijn:
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
 
         if execution_time > 5.0:
-            logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
+            logger.warning(
+                f"API call took longer than expected: {execution_time:.2f} seconds"
+            )
 
         async for content in self.handle_stream(
             stream,

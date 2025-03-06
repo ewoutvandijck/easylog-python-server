@@ -1,5 +1,6 @@
 import contextlib
 import os
+from collections.abc import Iterator
 
 import pymysql
 from sshtunnel import SSHTunnelForwarder
@@ -88,7 +89,7 @@ class EasylogSqlService:
             return None, None
 
     @contextlib.contextmanager
-    def get_connection(self):
+    def get_connection(self) -> Iterator[pymysql.Connection]:
         """
         Context manager that provides a fresh database connection and ensures it's properly closed.
 
@@ -110,7 +111,7 @@ class EasylogSqlService:
                 ssh_tunnel.close()
             logger.debug("Database connection and SSH tunnel closed")
 
-    def execute_query(self, query: str, params=None):
+    def execute_query(self, query: str, params=None) -> list[tuple] | int | None:
         """
         Execute a query with a fresh connection and return results
         """
@@ -129,7 +130,7 @@ class EasylogSqlService:
             logger.error(f"Query execution error: {str(e)}")
             return None
 
-    def close(self):
+    def close(self) -> None:
         """
         Explicitly close any open connections
         """

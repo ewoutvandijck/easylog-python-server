@@ -3,9 +3,9 @@ import json
 import time
 from collections.abc import AsyncGenerator
 
+import httpx
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
 from src.models.messages import Message, MessageContent
@@ -32,7 +32,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
         self._planning_tools = PlanningTools(self.easylog_backend)
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -72,9 +74,13 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 "source": {
                     "type": "base64",
                     "media_type": "application/pdf",
-                    "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
+                    "data": base64.standard_b64encode(
+                        self._active_pdf.file_data
+                    ).decode("utf-8"),
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
             }
             if self._active_pdf
             else None
@@ -86,9 +92,12 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             if (
                 pdf_content_block is not None
                 and message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -131,7 +140,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
             image_data = await self.load_image(_id, file_name)
 
-            return f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+            return (
+                f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+            )
 
         async def tool_store_memory(memory: str) -> str:
             """
@@ -154,11 +165,28 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             self.set_metadata("memories", [])
             return "All memories and the conversation history have been cleared."
 
+        def tool_download_image_from_url(url: str) -> str:
+            """
+            Download an image from a URL and return it as a base64-encoded data URL.
+            The image will be returned in a format that can be displayed directly in HTML/markdown.
+
+            Args:
+                url (str): The URL of the image to download
+
+            Returns:
+                str: A data URL containing the base64-encoded image data
+            """
+            image_data = httpx.get(url).content
+            return (
+                f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+            )
+
         tools = [
             tool_search_pdf,
             tool_store_memory,
             tool_clear_memories,
             tool_load_image,
+            tool_download_image_from_url,
             *self._planning_tools.all_tools,
         ]
 
