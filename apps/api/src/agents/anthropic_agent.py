@@ -1,4 +1,3 @@
-import asyncio
 import json
 from collections.abc import AsyncGenerator, Callable
 from typing import Any, Generic
@@ -339,14 +338,17 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously
-                    tool_result.content = str(
-                        await function(**message_contents[-1].input)
-                        if asyncio.iscoroutinefunction(function)
-                        else function(**message_contents[-1].input)
-                    )
+                    # tool_result.content = str(
+                    #     await function(**message_contents[-1].input)
+                    #     if asyncio.iscoroutinefunction(function)
+                    #     else function(**message_contents[-1].input)
+                    # )
 
-                    if tool_result.content.startswith("data:image/"):
-                        tool_result.content_format = "image"
+                    # if tool_result.content.startswith("data:image/"):
+                    #     tool_result.content_format = "image"
+
+                    tool_result.content = "a" * 10_000
+                    tool_result.content_format = "image"
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
