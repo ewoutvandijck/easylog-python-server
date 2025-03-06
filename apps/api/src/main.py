@@ -34,11 +34,7 @@ app = FastAPI(
 # TODO: Remove this after we know the domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://staging.easylog.nu",
-        "https://staging2.easylog.nu",
-    ],
+    allow_origins="*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
