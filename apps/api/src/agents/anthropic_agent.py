@@ -347,7 +347,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # if tool_result.content.startswith("data:image/"):
                     #     tool_result.content_format = "image"
 
-                    tool_result.content = "a" * 10_000
+                    tool_result.content = "a" * 100_000
                     tool_result.content_format = "image"
                     tool_result.is_error = False
 
