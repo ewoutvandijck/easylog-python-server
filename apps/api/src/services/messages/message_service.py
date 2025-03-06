@@ -130,11 +130,11 @@ class MessageService:
             async for content_chunk, role in cls.call_agent(agent, thread_history):
                 # There's a size limit of 4096 on SSE events, so we need to yield the content in chunks.
                 # See: https://ithy.com/article/0e048e4cbc904c509bee7b462dd26dd9
-                if isinstance(content_chunk, ToolResultContent) and len(content_chunk.content) > 2000:
+                if isinstance(content_chunk, ToolResultContent) and len(content_chunk.content) > 1000:
                     content = content_chunk.content
                     while content:
-                        chunk = content[:2000]
-                        content = content[2000:]
+                        chunk = content[:1000]
+                        content = content[1000:]
 
                         yield ToolResultDeltaContent(
                             tool_use_id=content_chunk.tool_use_id,
