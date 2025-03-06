@@ -40,6 +40,18 @@ class ToolResultContent(BaseModel):
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
+class ToolResultDeltaContent(BaseModel):
+    type: Literal["tool_result_delta"] = Field(default="tool_result_delta")
+
+    tool_use_id: str = Field(..., description="The ID of the tool use.")
+
+    content: str = Field(..., description="The result of the tool.")
+
+    content_format: Literal["image", "unknown"] = Field(default="unknown", description="The format of the content.")
+
+    is_error: bool = Field(default=False, description="Whether the tool result is an error.")
+
+
 class ImageContent(BaseModel):
     type: Literal["image"] = Field(default="image")
 
@@ -63,7 +75,15 @@ class PDFContent(BaseModel):
     )
 
 
-MessageContent = TextContent | TextDeltaContent | ToolUseContent | ToolResultContent | ImageContent | PDFContent
+MessageContent = (
+    TextContent
+    | TextDeltaContent
+    | ToolUseContent
+    | ToolResultContent
+    | ToolResultDeltaContent
+    | ImageContent
+    | PDFContent
+)
 
 
 class Message(BaseModel):

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from src.lib.prisma import prisma
 from src.logger import logger
-from src.models.messages import Message, TextContent
+from src.models.messages import Message, MessageContent, TextContent
 from src.services.easylog_backend.backend_service import BackendService
 from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
 from src.settings import settings
@@ -94,7 +94,7 @@ class BaseAgent(Generic[TConfig]):
     def forward(
         self,
         messages: list[Message],
-    ) -> AsyncGenerator[TextContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Forward the messages to the agent. Returns a generator of message contents.
 

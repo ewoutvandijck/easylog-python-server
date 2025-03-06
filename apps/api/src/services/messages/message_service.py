@@ -17,6 +17,7 @@ from src.models.messages import (
     TextContent,
     TextDeltaContent,
     ToolResultContent,
+    ToolResultDeltaContent,
     ToolUseContent,
 )
 from src.services.easylog_backend.backend_service import BackendService
@@ -127,7 +128,22 @@ class MessageService:
 
         try:
             async for content_chunk, role in cls.call_agent(agent, thread_history):
-                yield content_chunk
+                # There's a size limit of 4096 on SSE events, so we need to yield the content in chunks.
+                # See: https://ithy.com/article/0e048e4cbc904c509bee7b462dd26dd9
+                if isinstance(content_chunk, ToolResultContent) and len(content_chunk.content) > 4000:
+                    content = content_chunk.content
+                    while content:
+                        chunk = content[:4000]
+                        content = content[4000:]
+
+                        yield ToolResultDeltaContent(
+                            tool_use_id=content_chunk.tool_use_id,
+                            content=chunk,
+                            content_format=content_chunk.content_format,
+                            is_error=content_chunk.is_error,
+                        )
+                else:
+                    yield content_chunk
 
                 last_message = generated_messages[-1] if len(generated_messages) > 0 else None
 
@@ -173,7 +189,7 @@ class MessageService:
         generated_content: list[MessageContent] = []
 
         async for content_chunk in agent.forward(thread_history):
-            logger.info(f"Received chunk: {content_chunk}")
+            logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
 
             if isinstance(content_chunk, ToolResultContent):
                 yield content_chunk, "user"

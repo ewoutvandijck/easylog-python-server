@@ -70,7 +70,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
 
-    def _format_academic_citation(self, citation: Citation) -> str:
+    def _format_academic_citation(self, citation: Citation) -> str | None:
         """
         Formats a citation location object into a formal academic-style citation.
 
@@ -107,7 +107,11 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         """
         Formats a citation for inline use with quoted text.
         """
-        base_citation = self._format_academic_citation(citation).rstrip(".")  # Remove trailing period
+        base_citation = self._format_academic_citation(citation)
+        if base_citation is None:
+            return ""
+
+        base_citation = base_citation.rstrip(".")  # Remove trailing period
         return f'"{citation.cited_text}" ({base_citation})'
 
     def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
@@ -392,7 +396,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
         result: PDFSearchResult | None = None
         for tool_use in response.content:
-            self.logger.debug(f"Content: {tool_use}")
             if tool_use.type == "tool_use":
                 result = PDFSearchResult(**json.loads(json.dumps(tool_use.input)))
 

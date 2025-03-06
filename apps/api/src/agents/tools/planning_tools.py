@@ -12,7 +12,6 @@ from src.services.easylog_backend.schemas import (
     UpdatePlanningPhase,
     UpdatePlanningProject,
 )
-from src.utils.truncate import truncate
 
 
 class PlanningTools:
@@ -69,7 +68,7 @@ class PlanningTools:
             to_date=parser.parse(to_date) if to_date else None,
         )
 
-        return truncate(planning_projects.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return planning_projects.model_dump_json(exclude_none=True)
 
     async def tool_get_planning_project(self, project_id: int) -> str:
         """
@@ -87,7 +86,7 @@ class PlanningTools:
         """
         project = await self.backend.get_planning_project(project_id)
 
-        return truncate(project.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return project.model_dump_json(exclude_none=True)
 
     async def tool_update_planning_project(
         self,
@@ -146,7 +145,7 @@ class PlanningTools:
         """
         phases = await self.backend.get_planning_phases(project_id)
 
-        return truncate(phases.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return phases.model_dump_json(exclude_none=True)
 
     async def tool_get_planning_phase(self, phase_id: int) -> str:
         """
@@ -160,7 +159,7 @@ class PlanningTools:
         """
         phase = await self.backend.get_planning_phase(phase_id)
 
-        return truncate(phase.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return phase.model_dump_json(exclude_none=True)
 
     async def tool_update_planning_phase(
         self,
@@ -210,7 +209,7 @@ class PlanningTools:
             CreatePlanningPhase(slug=slug, start=parser.parse(start), end=parser.parse(end)),
         )
 
-        return truncate(phase.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return phase.model_dump_json(exclude_none=True)
 
     async def tool_get_resources(self) -> str:
         """
@@ -223,7 +222,7 @@ class PlanningTools:
         """
         resources = await self.backend.get_resources()
 
-        return truncate(resources.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return resources.model_dump_json(exclude_none=True)
 
     async def tool_get_projects_of_resource(self, resource_group_id: int, slug: str) -> str:
         """
@@ -238,7 +237,7 @@ class PlanningTools:
         """
         projects = await self.backend.get_projects_of_resource(resource_group_id, slug)
 
-        return truncate(projects.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return projects.model_dump_json(exclude_none=True)
 
     async def tool_get_resource_groups(self, resource_id: int, resource_group_slug: str) -> str:
         """
@@ -255,7 +254,7 @@ class PlanningTools:
         """
         resource_groups = await self.backend.get_resource_groups(resource_id, resource_group_slug)
 
-        return truncate(resource_groups.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return resource_groups.model_dump_json(exclude_none=True)
 
     async def tool_create_multiple_allocations(
         self,
@@ -321,4 +320,4 @@ class PlanningTools:
             ),
         )
 
-        return truncate(allocations.model_dump_json(exclude_none=True), self.max_tool_result_length)
+        return allocations.model_dump_json(exclude_none=True)
