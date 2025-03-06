@@ -350,7 +350,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     tool_result.content = "a" * 10_000
                     tool_result.content_format = "image"
                     tool_result.is_error = False
-                    tool_result.tool_use_id = "b" * 25
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
