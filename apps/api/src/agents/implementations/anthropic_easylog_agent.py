@@ -435,16 +435,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
                     )
 
-                    # Bereken nieuwe afmetingen (max 600px breed voor betere streaming)
-                    max_width = 600
+                    # Bereken nieuwe afmetingen (max 800px breed voor betere kwaliteit)
+                    max_width = 800
                     if original_width > max_width:
                         scale_factor = max_width / original_width
                         new_width = max_width
                         new_height = int(original_height * scale_factor)
                     else:
-                        # Als de afbeelding al klein is, verklein toch tot 80%
-                        new_width = int(original_width * 0.8)
-                        new_height = int(original_height * 0.8)
+                        # Als de afbeelding al klein is, behoud originele grootte
+                        new_width = original_width
+                        new_height = original_height
 
                     # Verklein de afbeelding
                     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
@@ -452,7 +452,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
                     )
 
-                    # Sla op in buffer met lage kwaliteit voor betere streaming
+                    # Sla op in buffer met zeer hoge kwaliteit voor betere weergave
                     buffer = io.BytesIO()
 
                     # Converteer naar JPEG voor betere compressie
@@ -464,8 +464,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         )  # 3 is het alpha-kanaal
                         img = background
 
-                    # Sla op met hogere kwaliteit (95%)
-                    img.save(buffer, format="JPEG", quality=95, optimize=True)
+                    # Sla op met zeer hoge kwaliteit (98%)
+                    img.save(buffer, format="JPEG", quality=98, optimize=True)
                     buffer.seek(0)
 
                     # Gebruik de verkleinde afbeelding
