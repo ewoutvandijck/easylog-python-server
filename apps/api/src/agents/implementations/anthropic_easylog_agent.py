@@ -419,83 +419,76 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     )
                     return "Fout: kon afbeelding niet downloaden"
 
-                # Altijd de afbeelding verkleinen om streaming problemen te voorkomen
-                try:
-                    # Importeer PIL alleen als nodig
-                    import io
+                # Laad de afbeelding
+                import io
+                from PIL import Image
+                img = Image.open(io.BytesIO(response.content))
+                
+                # Log het originele formaat
+                self.logger.info(f"[DEBUG] Origineel formaat: {img.format}")
+                self.logger.info(f"[DEBUG] Originele mode: {img.mode}")
 
-                    from PIL import Image
+                # Originele afmetingen
+                original_width, original_height = img.size
+                self.logger.info(
+                    f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
+                )
 
-                    # Laad de afbeelding
-                    img = Image.open(io.BytesIO(response.content))
+                # Bereken nieuwe afmetingen (max 800px breed voor betere kwaliteit)
+                max_width = 800
+                if original_width > max_width:
+                    scale_factor = max_width / original_width
+                    new_width = max_width
+                    new_height = int(original_height * scale_factor)
+                else:
+                    # Als de afbeelding al klein is, behoud originele grootte
+                    new_width = original_width
+                    new_height = original_height
 
-                    # Originele afmetingen
-                    original_width, original_height = img.size
-                    self.logger.info(
-                        f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
-                    )
+                # Verklein de afbeelding met hoge kwaliteit
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                self.logger.info(
+                    f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
+                )
 
-                    # Bereken nieuwe afmetingen (max 800px breed voor betere kwaliteit)
-                    max_width = 800
-                    if original_width > max_width:
-                        scale_factor = max_width / original_width
-                        new_width = max_width
-                        new_height = int(original_height * scale_factor)
-                    else:
-                        # Als de afbeelding al klein is, behoud originele grootte
-                        new_width = original_width
-                        new_height = original_height
-
-                    # Verklein de afbeelding
-                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                    self.logger.info(
-                        f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
-                    )
-
-                    # Sla op in buffer met zeer hoge kwaliteit voor betere weergave
-                    buffer = io.BytesIO()
-
-                    # Converteer naar JPEG voor betere compressie
-                    if img.mode in ("RGBA", "LA"):
-                        # Als de afbeelding een alpha-kanaal heeft, converteer naar RGB
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        background.paste(
-                            img, mask=img.split()[3]
-                        )  # 3 is het alpha-kanaal
+                # Converteer naar RGB als het een andere kleurruimte is
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    try:
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        if img.mode == 'RGBA':
+                            background.paste(img, mask=img.split()[3])
+                        else:
+                            background.paste(img)
                         img = background
+                        self.logger.info("[DEBUG] Afbeelding geconverteerd naar RGB")
+                    except Exception as e:
+                        self.logger.error(f"[DEBUG] Fout bij kleurconversie: {str(e)}")
+                        raise
 
-                    # Sla op met zeer hoge kwaliteit (98%)
+                # Sla op met zeer hoge kwaliteit
+                buffer = io.BytesIO()
+                try:
                     img.save(buffer, format="JPEG", quality=98, optimize=True)
                     buffer.seek(0)
-
-                    # Gebruik de verkleinde afbeelding
                     image_data = buffer.getvalue()
                     content_length = len(image_data)
                     self.logger.info(
                         f"[DEBUG] Verkleinde afbeelding: {content_length} bytes"
                     )
-                except ImportError:
-                    self.logger.warning(
-                        "[DEBUG] PIL niet beschikbaar, kan afbeelding niet verkleinen"
-                    )
-                    image_data = response.content
                 except Exception as e:
-                    self.logger.error(
-                        f"[DEBUG] Fout bij verkleinen afbeelding: {str(e)}"
-                    )
-                    image_data = response.content
+                    self.logger.error(f"[DEBUG] Fout bij opslaan JPEG: {str(e)}")
+                    raise
 
-                # Base64 encoderen
-                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                data_url = f"data:image/jpeg;base64,{image_data_b64}"
-
-                # DEBUG-logs: einde
-                self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
-                self.logger.info(
-                    "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
-                )
-
-                return data_url
+                # Base64 encoderen met expliciete MIME type
+                try:
+                    image_data_b64 = base64.b64encode(image_data).decode('utf-8')
+                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                    self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
+                    self.logger.info("[DEBUG] Afbeelding succesvol verwerkt")
+                    return data_url
+                except Exception as e:
+                    self.logger.error(f"[DEBUG] Fout bij base64 encoding: {str(e)}")
+                    raise
 
             except Exception as e:
                 self.logger.error(
