@@ -9,7 +9,7 @@ from prisma.models import messages
 
 from src.lib.prisma import prisma
 from src.logger import logger
-from src.models.messages import MessageContent, MessageCreateInput, TextDeltaContent
+from src.models.messages import MessageContent, MessageCreateInput
 from src.models.pagination import Pagination
 from src.security.optional_http_bearer import optional_bearer_header
 from src.services.messages.message_service import MessageService
@@ -94,9 +94,6 @@ async def create_message(
     async def stream() -> AsyncGenerator[str, None]:
         try:
             async for chunk in forward_message_generator:
-                if not isinstance(chunk, TextDeltaContent):
-                    continue
-
                 sse_event = create_sse_event("delta", chunk.model_dump_json())
                 logger.info(f"Sending sse delta event to client: {sse_event}")
                 yield sse_event
