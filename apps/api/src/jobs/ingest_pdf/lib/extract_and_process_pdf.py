@@ -15,7 +15,6 @@ from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_renditions_e
 )
 from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.table_structure_type import TableStructureType
 from adobe.pdfservices.operation.pdfjobs.result.extract_pdf_result import ExtractPDFResult
-from google import genai
 from google.genai.types import (
     Content,
     GenerateContentConfig,
@@ -24,8 +23,8 @@ from google.genai.types import (
 
 from src.jobs.ingest_pdf.models import ProcessedPDF, ProcessedPDFImage
 from src.lib.adobe import adobe_client
+from src.lib.gemini import gemini_client
 from src.logger import logger
-from src.settings import settings
 
 CONTENT_TYPE_EXTRACTOR = r"/([^/]+?)(?:\[\d+\])?$"
 
@@ -212,7 +211,7 @@ def process_tables(df: pd.DataFrame, zf: zipfile.ZipFile) -> None:
 
 def generate_alt_text(image_data: bytes) -> str:
     """Generate alternative text for an image using Gemini."""
-    response = genai.Client(api_key=settings.GEMINI_API_KEY).models.generate_content(
+    response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
             system_instruction="""Generate the alternative text for this figure for accessibility purposes. Describe the meaning of the figure and the key components or elements shown.
@@ -239,7 +238,7 @@ def generate_summary(elements_df: pd.DataFrame, is_short: bool = True) -> str:
 
     logger.info(f"Generating {summary_type} summary using Gemini")
 
-    response = genai.Client(api_key=settings.GEMINI_API_KEY).models.generate_content(
+    response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
             system_instruction=f"Generate a {summary_type} summary of the goal of the procedure in the following document in dutch. Maximum {max_words} words."
@@ -261,7 +260,7 @@ def generate_markdown(elements_df: pd.DataFrame) -> str:
     """Generate markdown content from the document data using Gemini."""
     logger.info("Generating markdown content using Gemini")
 
-    response = genai.Client(api_key=settings.GEMINI_API_KEY).models.generate_content(
+    response = gemini_client.models.generate_content(
         model="gemini-2.0-flash",
         config=GenerateContentConfig(
             system_instruction="Generate markdown from the following data. Render each row in this data as a markdown item. I don't want a single table. I want a nicely formatted markdown document. So headings should be headings, and images should be images. etc. For images use the alt text to describe the image."
