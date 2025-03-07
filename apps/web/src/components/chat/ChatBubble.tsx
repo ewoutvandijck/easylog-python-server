@@ -14,11 +14,26 @@ const ChatBubble = ({ contents, role }: ChatBubbleProps) => {
         role === 'user' ? 'ml-auto' : 'mr-auto'
       )}
     >
-      {contents.map((content, i) => (
-        <span key={i} className="animate-in fade-in">
-          {content.content}
-        </span>
-      ))}
+      {contents.map((content, i) => {
+        // Check content type
+        if (content.type === 'image' && typeof content.content === 'string') {
+          return (
+            <img
+              key={i}
+              src={content.content}
+              alt="Chat image"
+              className="max-w-full h-auto rounded-md animate-in fade-in"
+            />
+          );
+        }
+
+        // Default to text content
+        return (
+          <span key={i} className="animate-in fade-in">
+            {content.content}
+          </span>
+        );
+      })}
     </div>
   );
 };
