@@ -442,9 +442,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         new_width = max_width
                         new_height = int(original_height * scale_factor)
                     else:
-                        # Als de afbeelding al klein is, verklein toch tot 80%
-                        new_width = int(original_width * 0.8)
-                        new_height = int(original_height * 0.8)
+                        # Als de afbeelding al klein is, behoud originele grootte
+                        new_width = original_width
+                        new_height = original_height
 
                     # Verklein de afbeelding
                     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
@@ -452,7 +452,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
                     )
 
-                    # Sla op in buffer met lage kwaliteit voor betere streaming
+                    # Sla op in buffer met zeer hoge kwaliteit voor betere weergave
                     buffer = io.BytesIO()
 
                     # Converteer naar JPEG voor betere compressie
