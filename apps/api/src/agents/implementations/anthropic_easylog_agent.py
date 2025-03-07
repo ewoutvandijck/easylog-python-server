@@ -1,7 +1,6 @@
 # Python standard library imports
 import base64
 import json
-import mimetypes
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -404,30 +403,105 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL.
             De afbeelding kan dan direct in HTML/markdown weergegeven worden.
             """
-            # DEBUG-logs: start
-            self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
+            try:
+                # DEBUG-logs: start
+                self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
 
-            response = httpx.get(url)
-            content_length = len(response.content)
-            self.logger.info(f"[DEBUG] Status code: {response.status_code}")
-            self.logger.info(f"[DEBUG] Ontvangen bytes: {content_length}")
+                response = httpx.get(url)
+                content_length = len(response.content)
+                self.logger.info(f"[DEBUG] Status code: {response.status_code}")
+                self.logger.info(f"[DEBUG] Ontvangen bytes: {content_length}")
 
-            # Check of de response OK is
-            if response.status_code != 200:
-                self.logger.error(
-                    f"[DEBUG] Fout bij downloaden afbeelding: {response.status_code}"
+                # Check of de response OK is
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"[DEBUG] Fout bij downloaden afbeelding: {response.status_code}"
+                    )
+                    return "Fout: kon afbeelding niet downloaden"
+
+                # Altijd de afbeelding verkleinen om streaming problemen te voorkomen
+                try:
+                    # Importeer PIL alleen als nodig
+                    import io
+
+                    from PIL import Image
+
+                    # Laad de afbeelding
+                    img = Image.open(io.BytesIO(response.content))
+
+                    # Originele afmetingen
+                    original_width, original_height = img.size
+                    self.logger.info(
+                        f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
+                    )
+
+                    # Bereken nieuwe afmetingen (max 600px breed voor betere streaming)
+                    max_width = 600
+                    if original_width > max_width:
+                        scale_factor = max_width / original_width
+                        new_width = max_width
+                        new_height = int(original_height * scale_factor)
+                    else:
+                        # Als de afbeelding al klein is, verklein toch tot 80%
+                        new_width = int(original_width * 0.8)
+                        new_height = int(original_height * 0.8)
+
+                    # Verklein de afbeelding
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    self.logger.info(
+                        f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
+                    )
+
+                    # Sla op in buffer met lage kwaliteit voor betere streaming
+                    buffer = io.BytesIO()
+
+                    # Converteer naar JPEG voor betere compressie
+                    if img.mode in ("RGBA", "LA"):
+                        # Als de afbeelding een alpha-kanaal heeft, converteer naar RGB
+                        background = Image.new("RGB", img.size, (255, 255, 255))
+                        background.paste(
+                            img, mask=img.split()[3]
+                        )  # 3 is het alpha-kanaal
+                        img = background
+
+                    # Sla op met lage kwaliteit (50%)
+                    img.save(buffer, format="JPEG", quality=50, optimize=True)
+                    buffer.seek(0)
+
+                    # Gebruik de verkleinde afbeelding
+                    image_data = buffer.getvalue()
+                    content_length = len(image_data)
+                    self.logger.info(
+                        f"[DEBUG] Verkleinde afbeelding: {content_length} bytes"
+                    )
+                except ImportError:
+                    self.logger.warning(
+                        "[DEBUG] PIL niet beschikbaar, kan afbeelding niet verkleinen"
+                    )
+                    image_data = response.content
+                except Exception as e:
+                    self.logger.error(
+                        f"[DEBUG] Fout bij verkleinen afbeelding: {str(e)}"
+                    )
+                    image_data = response.content
+
+                # Base64 encoderen
+                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                data_url = f"data:image/jpeg;base64,{image_data_b64}"
+
+                # DEBUG-logs: einde
+                self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
+                self.logger.info(
+                    "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
                 )
-                return "Fout: kon afbeelding niet downloaden"
 
-            # Base64 encoderen
-            image_data_b64 = base64.b64encode(response.content).decode("utf-8")
-            data_url = f"data:{mimetypes.guess_type(url)[0]};base64,{image_data_b64}"
+                return data_url
 
-            # DEBUG-logs: einde
-            self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
-            self.logger.info("[DEBUG] Afbeelding is succesvol gedownload en gecodeerd.")
-
-            return data_url
+            except Exception as e:
+                self.logger.error(
+                    f"[DEBUG] Onverwachte fout bij afbeeldingsverwerking: {str(e)}"
+                )
+                return f"Fout bij verwerken afbeelding: {str(e)}"
 
         # Debug helper function
         def tool_debug_info():
