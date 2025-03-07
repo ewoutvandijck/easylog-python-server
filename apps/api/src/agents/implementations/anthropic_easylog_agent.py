@@ -401,17 +401,33 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         def tool_download_image_from_url(url: str) -> str:
             """
-            Download een afbeelding van een URL en geef deze terug als een base64-gecodeerde data URL.
-            De afbeelding wordt geretourneerd in een formaat dat direct in HTML/markdown kan worden weergegeven.
-
-            Args:
-                url (str): De URL van de afbeelding om te downloaden
-
-            Returns:
-                str: Een data URL met de base64-gecodeerde afbeeldingsgegevens
+            Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL.
+            De afbeelding kan dan direct in HTML/markdown weergegeven worden.
             """
-            image_data = httpx.get(url).content
-            return f"data:{mimetypes.guess_type(url)[0]};base64,{base64.b64encode(image_data).decode('utf-8')}"
+            # DEBUG-logs: start
+            self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
+
+            response = httpx.get(url)
+            content_length = len(response.content)
+            self.logger.info(f"[DEBUG] Status code: {response.status_code}")
+            self.logger.info(f"[DEBUG] Ontvangen bytes: {content_length}")
+
+            # Check of de response OK is
+            if response.status_code != 200:
+                self.logger.error(
+                    f"[DEBUG] Fout bij downloaden afbeelding: {response.status_code}"
+                )
+                return "Fout: kon afbeelding niet downloaden"
+
+            # Base64 encoderen
+            image_data_b64 = base64.b64encode(response.content).decode("utf-8")
+            data_url = f"data:{mimetypes.guess_type(url)[0]};base64,{image_data_b64}"
+
+            # DEBUG-logs: einde
+            self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
+            self.logger.info("[DEBUG] Afbeelding is succesvol gedownload en gecodeerd.")
+
+            return data_url
 
         # Debug helper function
         def tool_debug_info():
@@ -464,7 +480,7 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
-- tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als een base64-gecodeerde data URL
+- tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
