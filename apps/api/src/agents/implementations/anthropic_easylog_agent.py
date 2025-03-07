@@ -1,9 +1,13 @@
 # Python standard library imports
+import base64
 import json
+import mimetypes
 import re
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
+
+import httpx
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -395,6 +399,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 logger.error(f"Fout bij ophalen object geschiedenis: {str(e)}")
                 return f"Er is een fout opgetreden: {str(e)}"
 
+        def tool_download_image_from_url(url: str) -> str:
+            """
+            Download een afbeelding van een URL en geef deze terug als een base64-gecodeerde data URL.
+            De afbeelding wordt geretourneerd in een formaat dat direct in HTML/markdown kan worden weergegeven.
+
+            Args:
+                url (str): De URL van de afbeelding om te downloaden
+
+            Returns:
+                str: Een data URL met de base64-gecodeerde afbeeldingsgegevens
+            """
+            image_data = httpx.get(url).content
+            return f"data:{mimetypes.guess_type(url)[0]};base64,{base64.b64encode(image_data).decode('utf-8')}"
+
         # Debug helper function
         def tool_debug_info():
             """
@@ -419,6 +437,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_object_history,
             tool_clear_memories,
             tool_debug_info,  # Debug functie toegevoegd
+            tool_download_image_from_url,  # Image tool toegevoegd
             *self._planning_tools.all_tools,  # Planning tools behouden
         ]
 
@@ -445,6 +464,7 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
+- tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als een base64-gecodeerde data URL
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
