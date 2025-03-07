@@ -429,10 +429,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Laad de afbeelding
                     img = Image.open(io.BytesIO(response.content))
 
-                    # Originele afmetingen
+                    # Log originele afbeeldingsinformatie
                     original_width, original_height = img.size
+                    original_mode = img.mode
+                    original_format = img.format
                     self.logger.info(
-                        f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
+                        f"[DEBUG] Originele afbeelding: {original_width}x{original_height}, Mode: {original_mode}, Format: {original_format}"
                     )
 
                     # Bereken nieuwe afmetingen (max 600px breed voor betere streaming)
@@ -442,22 +444,22 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         new_width = max_width
                         new_height = int(original_height * scale_factor)
                     else:
-                        # Als de afbeelding al klein is, verklein toch tot 80%
                         new_width = int(original_width * 0.8)
                         new_height = int(original_height * 0.8)
 
-                    # Verklein de afbeelding
-                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    # Log resize informatie
                     self.logger.info(
-                        f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
+                        f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height} (schaalfactor: {new_width/original_width:.2f})"
                     )
 
-                    # Sla op in buffer met lage kwaliteit voor betere streaming
-                    buffer = io.BytesIO()
+                    # Verklein de afbeelding
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
                     # Converteer naar JPEG voor betere compressie
                     if img.mode in ("RGBA", "LA"):
-                        # Als de afbeelding een alpha-kanaal heeft, converteer naar RGB
+                        self.logger.info(
+                            f"[DEBUG] Converteren van {img.mode} naar RGB met witte achtergrond"
+                        )
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         background.paste(
                             img, mask=img.split()[3]
@@ -465,6 +467,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         img = background
 
                     # Sla op met hogere kwaliteit (95%)
+                    buffer = io.BytesIO()
                     img.save(buffer, format="JPEG", quality=95, optimize=True)
                     buffer.seek(0)
 
@@ -472,7 +475,22 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     image_data = buffer.getvalue()
                     content_length = len(image_data)
                     self.logger.info(
-                        f"[DEBUG] Verkleinde afbeelding: {content_length} bytes"
+                        f"[DEBUG] Verkleinde afbeelding: {content_length} bytes ({content_length/1024:.1f}KB)"
+                    )
+
+                    # Base64 encoderen
+                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
+
+                    # DEBUG-logs: einde
+                    self.logger.info(
+                        f"[DEBUG] Lengte base64-string: {len(image_data_b64)} chars ({len(image_data_b64)/1024:.1f}KB)"
+                    )
+                    self.logger.info(
+                        f"[DEBUG] Compressie ratio: {content_length/(original_width*original_height*3):.2%} van origineel RGB"
+                    )
+                    self.logger.info(
+                        "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
                     )
                 except ImportError:
                     self.logger.warning(
@@ -484,16 +502,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Fout bij verkleinen afbeelding: {str(e)}"
                     )
                     image_data = response.content
-
-                # Base64 encoderen
-                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                data_url = f"data:image/jpeg;base64,{image_data_b64}"
-
-                # DEBUG-logs: einde
-                self.logger.info(f"[DEBUG] Lengte base64-string: {len(image_data_b64)}")
-                self.logger.info(
-                    "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
-                )
 
                 return data_url
 
