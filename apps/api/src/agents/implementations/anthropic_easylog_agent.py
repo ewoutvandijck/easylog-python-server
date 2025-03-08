@@ -42,7 +42,7 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=True, description="Enable debug mode with additional logging"
     )
     image_max_width: int = Field(
-        default=1200, 
+        default=600, 
         description="Maximum width for processed images in pixels"
     )
     image_quality: int = Field(
