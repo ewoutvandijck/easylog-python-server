@@ -478,42 +478,33 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Bepaal de doelgrootte op basis van bestandsgrootte
                     # Voor extreem grote afbeeldingen, maak een kleine thumbnail
                     if original_size > 8 * 1024 * 1024:  # >8MB
-                        new_width = 2400  # Verhoogd naar 2400px (50% groter)
-                        quality = 95  # Verhoogd naar 95% (bijna verliesloze compressie)
+                        new_width = 2400  # Behouden op 2400px voor maximale zichtbare detail
+                        quality = 95  # Behouden op 95% voor hoge kwaliteit
                         self.logger.info(f"[DEBUG] Zeer grote afbeelding (>8MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        new_width = 3200  # Verhoogd naar 3200px
-                        quality = 98  # Verhoogd naar 98% (vrijwel verliesloze compressie)
+                        new_width = 3200  # Behouden op 3200px voor maximale zichtbare detail
+                        quality = 98  # Behouden op 98% voor hoge kwaliteit
                         self.logger.info(f"[DEBUG] Grote afbeelding (>3MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     else:
-                        new_width = 4000  # Verhoogd naar 4000px voor maximale detail
-                        quality = 100  # Verhoogd naar 100% (volledig verliesloze compressie)
+                        new_width = 4000  # Behouden op 4000px voor maximale zichtbare detail
+                        quality = 100  # Behouden op 100% voor maximale kwaliteit
                         self.logger.info(f"[DEBUG] Normale afbeelding: Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     
-                    self.logger.info(f"[DEBUG] Gekozen target_width: {new_width}")
-                    self.logger.info(f"[DEBUG] Gekozen quality: {quality}%")
+                    # Bereken nieuwe hoogte met behoud van aspectratio
+                    aspect_ratio = original_width / original_height
+                    new_height = int(new_width / aspect_ratio)
                     
-                    # Bereken schaalfactor en nieuwe afmetingen
-                    scale_factor = new_width / original_width
-                    new_width = new_width
-                    new_height = int(original_height * scale_factor)
+                    # Resample de afbeelding met LANCZOS voor hoogste kwaliteit en anti-aliasing
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                     
-                    self.logger.info(f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}, schaalfactor: {scale_factor:.2f}")
+                    # Voeg expliciete verscherping toe voor betere visuele kwaliteit bij inzoomen
+                    from PIL import ImageEnhance
+                    enhancer = ImageEnhance.Sharpness(img)
+                    img = enhancer.enhance(1.3)  # Licht verscherpen voor betere details
                     
-                    # Maak direct een thumbnail met de gewenste afmetingen
-                    # Thumbnail methode is efficiënter dan resize voor sterke verkleining
-                    img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                    
-                    # Convert naar RGB indien nodig (voor PNG met transparantie)
-                    if img.mode in ("RGBA", "LA"):
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
-                        img = background
-                        self.logger.info(f"[DEBUG] Afbeelding geconverteerd van {img.mode} naar RGB")
-                    
-                    # Sla op in buffer met gekozen kwaliteit
+                    # Sla de afbeelding op met hoge kwaliteit
                     buffer = io.BytesIO()
-                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    img.save(buffer, format="JPEG", quality=quality, optimize=True, subsampling=0)
                     buffer.seek(0)
                     image_data = buffer.getvalue()
                     image_size = len(image_data)
@@ -537,7 +528,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         
                         # Originele afbeelding opnieuw laden en verkleinen
                         img = Image.open(io.BytesIO(response.content))
-                        img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
+                        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                         
                         # Converteer naar RGB indien nodig
                         if img.mode in ("RGBA", "LA"):
@@ -547,7 +538,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         
                         # Opnieuw opslaan met nieuwe instellingen
                         buffer = io.BytesIO()
-                        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                        img.save(buffer, format="JPEG", quality=quality, optimize=True, subsampling=0)
                         buffer.seek(0)
                         image_data = buffer.getvalue()
                         image_size = len(image_data)
@@ -627,7 +618,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Voor zeer grote afbeeldingen, voeg waarschuwingstekst toe aan het begin van de response
                 if is_very_large_image:
                     self.logger.info("[DEBUG] Afbeelding is zeer groot, waarschuwingstekst toegevoegd")
-                    return f"⚠️ Dit is een grote afbeelding (>8MB). Als deze niet onmiddellijk zichtbaar is, sluit dan de chat en open deze opnieuw om de afbeelding te zien.\n\n{data_url}"
+                    return f"⚠️ Dit is een grote afbeelding (>8MB). Voor de beste weergavekwaliteit adviseren we om de pagina te verversen als de afbeeldingskwaliteit niet optimaal lijkt.\n\n{data_url}"
+                elif original_size > 3 * 1024 * 1024:
+                    # Toegevoegd voor middelgrote afbeeldingen
+                    self.logger.info("[DEBUG] Middelgrote afbeelding, informatie toegevoegd")
+                    return f"🔍 Afbeelding in hoge kwaliteit ({original_size/1024/1024:.1f}MB). Voor de beste weergave kan het nodig zijn om de pagina te verversen.\n\n{data_url}"
                 
                 return data_url
 
