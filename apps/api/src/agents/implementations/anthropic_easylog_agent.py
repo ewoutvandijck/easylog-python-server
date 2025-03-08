@@ -39,7 +39,15 @@ class AnthropicEasylogAgentConfig(BaseModel):
         description="Maximum number of entries to fetch from the database for reports",
     )
     debug_mode: bool = Field(
-        default=False, description="Enable debug mode with additional logging"
+        default=True, description="Enable debug mode with additional logging"
+    )
+    image_max_width: int = Field(
+        default=1200, 
+        description="Maximum width for processed images in pixels"
+    )
+    image_quality: int = Field(
+        default=85,
+        description="JPEG quality for processed images (1-100)"
     )
 
 
@@ -49,6 +57,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         super().__init__(*args, **kwargs)
         self._planning_tools = PlanningTools(self.easylog_backend)
         self.logger.info("EasylogAgent initialized with planning tools")
+        
+        # Extra debug logging
+        self.logger.info(f"[DEBUG] EasylogAgent initialized with debug_mode: {self.config.debug_mode}")
+        self.logger.info(f"[DEBUG] Image processing settings: max_width={self.config.image_max_width}, quality={self.config.image_quality}")
 
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
@@ -406,6 +418,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             try:
                 # DEBUG-logs: start
                 self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
+                self.logger.info(f"[DEBUG] Debug mode is: {self.config.debug_mode}")
+                self.logger.info(f"[DEBUG] Image max width: {self.config.image_max_width}")
+                self.logger.info(f"[DEBUG] Image quality: {self.config.image_quality}")
 
                 response = httpx.get(url)
                 content_length = len(response.content)
@@ -435,16 +450,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
                     )
 
-                    # Bereken nieuwe afmetingen (max 600px breed voor betere streaming)
-                    max_width = 600
+                    # Bereken nieuwe afmetingen (max 1200px breed voor betere streaming)
+                    max_width = self.config.image_max_width
+                    self.logger.info(f"[DEBUG] Gebruikte max_width: {max_width}")
+                    
                     if original_width > max_width:
                         scale_factor = max_width / original_width
                         new_width = max_width
                         new_height = int(original_height * scale_factor)
+                        self.logger.info(f"[DEBUG] Afbeelding wordt verkleind met schaalfactor: {scale_factor}")
                     else:
                         # Als de afbeelding al klein is, verklein toch tot 80%
                         new_width = int(original_width * 0.8)
                         new_height = int(original_height * 0.8)
+                        self.logger.info(f"[DEBUG] Afbeelding is al klein, verkleind tot 80%")
 
                     # Verklein de afbeelding
                     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
@@ -463,9 +482,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             img, mask=img.split()[3]
                         )  # 3 is het alpha-kanaal
                         img = background
+                        self.logger.info(f"[DEBUG] Afbeelding geconverteerd van {img.mode} naar RGB")
 
-                    # Test met hogere kwaliteit (70%) voor betere beeldkwaliteit
-                    img.save(buffer, format="JPEG", quality=70, optimize=True)
+                    # Test met hogere kwaliteit (85%) voor betere beeldkwaliteit
+                    quality = self.config.image_quality
+                    self.logger.info(f"[DEBUG] Gebruikte JPEG kwaliteit: {quality}%")
+                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
 
                     # Gebruik de verkleinde afbeelding
@@ -473,6 +495,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     content_length = len(image_data)
                     self.logger.info(
                         f"[DEBUG] Verkleinde afbeelding: {content_length} bytes"
+                    )
+                    
+                    # Bereken compressie ratio
+                    original_size = len(response.content)
+                    compression_ratio = (original_size - content_length) / original_size * 100
+                    self.logger.info(
+                        f"[DEBUG] Compressie ratio: {compression_ratio:.2f}% (van {original_size} naar {content_length} bytes)"
                     )
                 except ImportError:
                     self.logger.warning(
@@ -503,22 +532,25 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 )
                 return f"Fout bij verwerken afbeelding: {str(e)}"
 
-        # Debug helper function
         def tool_debug_info():
             """
-            Geeft debug informatie weer voor probleemoplossing.
+            Geeft debug informatie over de huidige staat van de agent.
             """
-            debug_info = {
-                "agent_type": "AnthropicEasylogAgent",
-                "config": {
-                    "max_report_entries": self.config.max_report_entries,
-                    "debug_mode": self.config.debug_mode,
+            memories = self.get_metadata("memories", [])
+            return json.dumps(
+                {
+                    "agent_type": "AnthropicEasylogAgent",
+                    "config": {
+                        "max_report_entries": self.config.max_report_entries,
+                        "debug_mode": self.config.debug_mode,
+                        "image_max_width": self.config.image_max_width,
+                        "image_quality": self.config.image_quality
+                    },
+                    "memory_count": len(memories),
+                    "message_history_length": len(messages),
                 },
-                "memory_count": len(memories),
-                "message_history_length": len(message_history),
-            }
-            self.logger.info(f"Debug info requested: {debug_info}")
-            return json.dumps(debug_info, indent=2)
+                indent=2,
+            )
 
         tools = [
             tool_store_memory,
@@ -526,9 +558,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_generate_monthly_report,
             tool_get_object_history,
             tool_clear_memories,
-            tool_debug_info,  # Debug functie toegevoegd
-            tool_download_image_from_url,  # Image tool toegevoegd
-            *self._planning_tools.all_tools,  # Planning tools behouden
+            tool_debug_info,
+            tool_download_image_from_url,
+            *self._planning_tools.all_tools,
         ]
 
         start_time = time.time()
