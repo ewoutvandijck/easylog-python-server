@@ -45,11 +45,11 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=True, description="Enable debug mode with additional logging"
     )
     image_max_width: int = Field(
-        default=1200, 
+        default=2000, 
         description="Maximum width for processed images in pixels"
     )
     image_quality: int = Field(
-        default=90,
+        default=95,
         description="JPEG quality for processed images (1-100)"
     )
 
@@ -473,20 +473,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     )
 
                     # Maximum gecomprimeerde grootte in bytes (800KB)
-                    MAX_COMPRESSED_SIZE = 800 * 1024
+                    MAX_COMPRESSED_SIZE = 1500 * 1024  # Verhoogd van 800KB naar 1500KB
 
                     # Bepaal de doelgrootte op basis van bestandsgrootte
                     # Voor extreem grote afbeeldingen, maak een kleine thumbnail
                     if original_size > 8 * 1024 * 1024:  # >8MB
-                        new_width = 2400  # Behouden op 2400px voor maximale zichtbare detail
-                        quality = 95  # Behouden op 95% voor hoge kwaliteit
+                        new_width = 3000  # Verhoogd van 2400px naar 3000px
+                        quality = 98  # Verhoogd van 95% naar 98%
                         self.logger.info(f"[DEBUG] Zeer grote afbeelding (>8MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        new_width = 3200  # Behouden op 3200px voor maximale zichtbare detail
-                        quality = 98  # Behouden op 98% voor hoge kwaliteit
+                        new_width = 3600  # Verhoogd van 3200px naar 3600px
+                        quality = 99  # Verhoogd van 98% naar 99%
                         self.logger.info(f"[DEBUG] Grote afbeelding (>3MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     else:
-                        new_width = 4000  # Behouden op 4000px voor maximale zichtbare detail
+                        new_width = 4500  # Verhoogd van 4000px naar 4500px
                         quality = 100  # Behouden op 100% voor maximale kwaliteit
                         self.logger.info(f"[DEBUG] Normale afbeelding: Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     
@@ -569,18 +569,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 base64_size = len(image_data_b64)
                 self.logger.info(f"[DEBUG] Base64 string grootte: {base64_size/1024:.2f}KB")
                 
-                if base64_size > 800 * 1024:  # Als base64 > 800KB (was 650KB)
+                if base64_size > 1500 * 1024:  # Verhoogd van 800KB naar 1500KB
                     try:
                         self.logger.info("[DEBUG] Base64 string te groot, maak zeer kleine thumbnail")
                         # Maak een zeer kleine thumbnail
                         img = Image.open(io.BytesIO(response.content))
                         # Voor 10MB+ afbeeldingen, zeer kleine thumbnails maken
                         if original_size > 8 * 1024 * 1024:
-                            small_width = 1200  # Verhoogd naar 1200px
-                            small_quality = 85  # Verhoogd naar 85%
+                            small_width = 1800  # Verhoogd van 1200px naar 1800px
+                            small_quality = 92  # Verhoogd van 85% naar 92%
                         else:
-                            small_width = 1600  # Verhoogd naar 1600px
-                            small_quality = 90  # Verhoogd naar 90%
+                            small_width = 2200  # Verhoogd van 1600px naar 2200px
+                            small_quality = 95  # Verhoogd van 90% naar 95%
                         
                         # Gebruik thumbnail functie voor optimale verkleining
                         img.thumbnail((small_width, int(original_height * (small_width / original_width))), Image.Resampling.LANCZOS)
