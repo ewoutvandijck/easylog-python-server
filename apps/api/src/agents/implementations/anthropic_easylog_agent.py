@@ -472,22 +472,22 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[DEBUG] Originele bestandsgrootte: {original_size/1024/1024:.2f} MB"
                     )
 
-                    # Maximum gecomprimeerde grootte in bytes (450KB)
-                    MAX_COMPRESSED_SIZE = 450 * 1024
+                    # Maximum gecomprimeerde grootte in bytes (600KB)
+                    MAX_COMPRESSED_SIZE = 600 * 1024
 
                     # Bepaal de doelgrootte op basis van bestandsgrootte
                     # Voor extreem grote afbeeldingen, maak een kleine thumbnail
                     if original_size > 8 * 1024 * 1024:  # >8MB
-                        new_width = 1200  # Verhoogd van 800px naar 1200px voor veel meer detail
-                        quality = 90  # Hoge kwaliteit behouden op 90%
+                        new_width = 1600  # Verhoogd van 1200px naar 1600px voor extreme detail
+                        quality = 92  # Verhoogd van 90% naar 92%
                         self.logger.info(f"[DEBUG] Zeer grote afbeelding (>8MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        new_width = 1800  # Verhoogd van 1200px naar 1800px voor veel meer detail
+                        new_width = 2400  # Verhoogd van 1800px naar 2400px voor extreme detail
                         quality = 95  # Hoge kwaliteit behouden op 95%
                         self.logger.info(f"[DEBUG] Grote afbeelding (>3MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     else:
-                        new_width = 2400  # Verhoogd van 1800px naar 2400px voor maximale detail
-                        quality = 98  # Maximale kwaliteit behouden op 98%
+                        new_width = 3000  # Verhoogd van 2400px naar 3000px voor maximale detail
+                        quality = 99  # Verhoogd van 98% naar 99% voor vrijwel verliesloze compressie
                         self.logger.info(f"[DEBUG] Normale afbeelding: Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     
                     self.logger.info(f"[DEBUG] Gekozen target_width: {new_width}")
@@ -578,18 +578,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 base64_size = len(image_data_b64)
                 self.logger.info(f"[DEBUG] Base64 string grootte: {base64_size/1024:.2f}KB")
                 
-                if base64_size > 550 * 1024:  # Als base64 > 550KB (was 500KB)
+                if base64_size > 650 * 1024:  # Als base64 > 650KB (was 550KB)
                     try:
                         self.logger.info("[DEBUG] Base64 string te groot, maak zeer kleine thumbnail")
                         # Maak een zeer kleine thumbnail
                         img = Image.open(io.BytesIO(response.content))
                         # Voor 10MB+ afbeeldingen, zeer kleine thumbnails maken
                         if original_size > 8 * 1024 * 1024:
-                            small_width = 600  # Verhoogd van 500 naar 600
-                            small_quality = 75  # Behouden op 75%
-                        else:
                             small_width = 800  # Verhoogd van 600 naar 800
-                            small_quality = 80  # Behouden op 80%
+                            small_quality = 80  # Verhoogd van 75% naar 80%
+                        else:
+                            small_width = 1000  # Verhoogd van 800 naar 1000
+                            small_quality = 85  # Verhoogd van 80% naar 85%
                         
                         # Gebruik thumbnail functie voor optimale verkleining
                         img.thumbnail((small_width, int(original_height * (small_width / original_width))), Image.Resampling.LANCZOS)
