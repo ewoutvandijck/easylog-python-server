@@ -46,7 +46,7 @@ class AnthropicEasylogAgentConfig(BaseModel):
         description="Maximum width for processed images in pixels"
     )
     image_quality: int = Field(
-        default=85,
+        default=90,
         description="JPEG quality for processed images (1-100)"
     )
 
@@ -454,24 +454,26 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     max_width = self.config.image_max_width
                     self.logger.info(f"[DEBUG] Gebruikte max_width: {max_width}")
                     
+                    # Bereken de nieuwe afmetingen met behoud van aspect ratio
                     if original_width > max_width:
                         scale_factor = max_width / original_width
                         new_width = max_width
                         new_height = int(original_height * scale_factor)
                         self.logger.info(f"[DEBUG] Afbeelding wordt verkleind met schaalfactor: {scale_factor}")
+                        self.logger.info(f"[DEBUG] Nieuwe afmetingen na schaling: {new_width}x{new_height}")
                     else:
-                        # Als de afbeelding al klein is, verklein toch tot 80%
-                        new_width = int(original_width * 0.8)
-                        new_height = int(original_height * 0.8)
-                        self.logger.info(f"[DEBUG] Afbeelding is al klein, verkleind tot 80%")
+                        # Gebruik originele afmetingen als de afbeelding al kleiner is dan max_width
+                        new_width = original_width
+                        new_height = original_height
+                        self.logger.info(f"[DEBUG] Afbeelding is kleiner dan max_width, originele grootte behouden: {new_width}x{new_height}")
 
-                    # Verklein de afbeelding
+                    # Verklein de afbeelding met hoge kwaliteit
                     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                     self.logger.info(
                         f"[DEBUG] Nieuwe afmetingen: {new_width}x{new_height}"
                     )
 
-                    # Sla op in buffer met lage kwaliteit voor betere streaming
+                    # Sla op in buffer met de geconfigureerde kwaliteit
                     buffer = io.BytesIO()
 
                     # Converteer naar JPEG voor betere compressie
@@ -484,9 +486,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         img = background
                         self.logger.info(f"[DEBUG] Afbeelding geconverteerd van {img.mode} naar RGB")
 
-                    # Test met hogere kwaliteit (85%) voor betere beeldkwaliteit
+                    # Gebruik de geconfigureerde kwaliteitsinstelling
                     quality = self.config.image_quality
                     self.logger.info(f"[DEBUG] Gebruikte JPEG kwaliteit: {quality}%")
+                    
+                    # Sla op met hoge kwaliteit en optimalisatie
                     img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
 
@@ -523,6 +527,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 self.logger.info(
                     "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
                 )
+                
+                # Voeg extra debug-info toe
+                base64_preview = image_data_b64[:50] + "..." if len(image_data_b64) > 50 else image_data_b64
+                self.logger.info(f"[DEBUG] Begin van base64-string: {base64_preview}")
+                self.logger.info(f"[DEBUG] Data URL formaat: {data_url[:30]}...")
 
                 return data_url
 
