@@ -8,6 +8,7 @@ from typing import TypedDict
 from io import BytesIO
 
 import httpx
+from PIL import Image
 
 # Third-party imports
 from dotenv import load_dotenv
