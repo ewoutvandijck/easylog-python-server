@@ -446,13 +446,30 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Originele afmetingen
                     original_width, original_height = img.size
+                    original_size = len(response.content)
                     self.logger.info(
                         f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
                     )
+                    self.logger.info(
+                        f"[DEBUG] Originele bestandsgrootte: {original_size/1024/1024:.2f} MB"
+                    )
 
-                    # Bereken nieuwe afmetingen (max 1200px breed voor betere streaming)
-                    max_width = self.config.image_max_width
-                    self.logger.info(f"[DEBUG] Gebruikte max_width: {max_width}")
+                    # Bepaal de compressieniveaus gebaseerd op de originele grootte
+                    if original_size > 8 * 1024 * 1024:  # > 8MB
+                        max_width = min(800, self.config.image_max_width)
+                        quality = 75  # Agressievere compressie voor zeer grote bestanden
+                        self.logger.info(f"[DEBUG] Zeer grote afbeelding gedetecteerd (>8MB), extra compressie toegepast")
+                    elif original_size > 5 * 1024 * 1024:  # > 5MB
+                        max_width = min(1000, self.config.image_max_width)
+                        quality = 80  # Meer compressie voor grote bestanden
+                        self.logger.info(f"[DEBUG] Grote afbeelding gedetecteerd (>5MB), verhoogde compressie toegepast")
+                    else:
+                        max_width = self.config.image_max_width
+                        quality = self.config.image_quality
+                        self.logger.info(f"[DEBUG] Normale afbeelding, standaard instellingen gebruikt")
+                    
+                    self.logger.info(f"[DEBUG] Gekozen max_width: {max_width}")
+                    self.logger.info(f"[DEBUG] Gekozen quality: {quality}%")
                     
                     # Bereken de nieuwe afmetingen met behoud van aspect ratio
                     if original_width > max_width:
@@ -486,11 +503,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         img = background
                         self.logger.info(f"[DEBUG] Afbeelding geconverteerd van {img.mode} naar RGB")
 
-                    # Gebruik de geconfigureerde kwaliteitsinstelling
-                    quality = self.config.image_quality
+                    # Gebruik de dynamisch bepaalde kwaliteitsinstelling
                     self.logger.info(f"[DEBUG] Gebruikte JPEG kwaliteit: {quality}%")
                     
-                    # Sla op met hoge kwaliteit en optimalisatie
+                    # Sla op met gekozen kwaliteit en optimalisatie
                     img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
 
@@ -503,10 +519,48 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     
                     # Bereken compressie ratio
                     original_size = len(response.content)
-                    compression_ratio = (original_size - content_length) / original_size * 100
+                    compressed_size = len(image_data)
+                    compression_ratio = (original_size - compressed_size) / original_size * 100
                     self.logger.info(
-                        f"[DEBUG] Compressie ratio: {compression_ratio:.2f}% (van {original_size} naar {content_length} bytes)"
+                        f"[DEBUG] Compressie ratio: {compression_ratio:.2f}% (van {original_size} naar {compressed_size} bytes)"
                     )
+                    
+                    # Extra controle voor zeer grote afbeeldingen
+                    # Als de afbeelding nog steeds te groot is, pas dan extra compressie toe
+                    max_base64_size = 1.5 * 1024 * 1024  # 1.5MB max voor base64 data
+                    if compressed_size > max_base64_size:
+                        self.logger.info(f"[DEBUG] Afbeelding is nog steeds te groot ({compressed_size/1024/1024:.2f}MB), extra compressie toepassen")
+                        
+                        # Probeer nogmaals met nog kleinere afmetingen en lagere kwaliteit
+                        scale_factor = 0.7  # Verklein tot 70% van huidige grootte
+                        new_width = int(new_width * scale_factor)
+                        new_height = int(new_height * scale_factor)
+                        emergency_quality = max(60, quality - 15)  # Verlaag kwaliteit, maar niet onder 60%
+                        
+                        self.logger.info(f"[DEBUG] Noodcompressie: nieuwe afmetingen {new_width}x{new_height}, kwaliteit {emergency_quality}%")
+                        
+                        # Herstel de afbeelding en pas opnieuw aan
+                        img = Image.open(io.BytesIO(response.content))
+                        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                        
+                        # Converteer indien nodig naar RGB
+                        if img.mode in ("RGBA", "LA"):
+                            background = Image.new("RGB", img.size, (255, 255, 255))
+                            background.paste(img, mask=img.split()[3])
+                            img = background
+                        
+                        # Sla opnieuw op met emergency instellingen
+                        buffer = io.BytesIO()
+                        img.save(buffer, format="JPEG", quality=emergency_quality, optimize=True)
+                        buffer.seek(0)
+                        image_data = buffer.getvalue()
+                        
+                        # Update statistieken
+                        emergency_size = len(image_data)
+                        emergency_ratio = (compressed_size - emergency_size) / compressed_size * 100
+                        self.logger.info(
+                            f"[DEBUG] Noodcompressie ratio: {emergency_ratio:.2f}% (van {compressed_size} naar {emergency_size} bytes)"
+                        )
                 except ImportError:
                     self.logger.warning(
                         "[DEBUG] PIL niet beschikbaar, kan afbeelding niet verkleinen"
@@ -520,6 +574,37 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                 # Base64 encoderen
                 image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                
+                # Controleer of de base64-string niet te groot is
+                base64_size = len(image_data_b64)
+                if base64_size > 2 * 1024 * 1024:  # Als de base64-string groter is dan 2MB
+                    self.logger.warning(
+                        f"[DEBUG] WAARSCHUWING: Base64-string is extreem groot ({base64_size/1024/1024:.2f}MB), dit kan problemen geven met de weergave"
+                    )
+                    
+                    # Als laatste redmiddel, maak een thumbnail
+                    try:
+                        self.logger.info(f"[DEBUG] Laatste poging: maken van thumbnail met maximaal 400px breedte")
+                        img = Image.open(io.BytesIO(response.content))
+                        
+                        # Maak thumbnail
+                        thumbnail_width = 400
+                        thumbnail_height = int(original_height * (thumbnail_width / original_width))
+                        img.thumbnail((thumbnail_width, thumbnail_height), Image.Resampling.LANCZOS)
+                        
+                        # Sla thumbnail op met lage kwaliteit
+                        buffer = io.BytesIO()
+                        img.save(buffer, format="JPEG", quality=60, optimize=True)
+                        buffer.seek(0)
+                        
+                        # Encodeer thumbnail
+                        thumbnail_data = buffer.getvalue()
+                        image_data_b64 = base64.b64encode(thumbnail_data).decode("utf-8")
+                        self.logger.info(f"[DEBUG] Thumbnail gemaakt: {thumbnail_width}x{thumbnail_height}, {len(thumbnail_data)} bytes")
+                        self.logger.info(f"[DEBUG] Thumbnail base64 grootte: {len(image_data_b64)} bytes")
+                    except Exception as e:
+                        self.logger.error(f"[DEBUG] Fout bij maken thumbnail: {str(e)}")
+                
                 data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                 # DEBUG-logs: einde
