@@ -1,5 +1,6 @@
 # Python standard library imports
 import base64
+import io
 import json
 import re
 import time
@@ -7,6 +8,7 @@ from collections.abc import AsyncGenerator
 from typing import TypedDict
 
 import httpx
+import requests
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -16,6 +18,7 @@ from src.agents.tools.planning_tools import PlanningTools
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
+from PIL import Image
 
 # Laad alle variabelen uit .env
 load_dotenv()
@@ -412,28 +415,34 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         def tool_download_image_from_url(url: str) -> str:
             """
-            Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL.
-            De afbeelding kan dan direct in HTML/markdown weergegeven worden.
+            Download an image from a URL and return it as a base64-encoded data URL.
+            
+            Args:
+                url: The URL to download the image from.
+                
+            Returns:
+                A data URL containing the base64-encoded image.
             """
             try:
-                # DEBUG-logs: start
-                self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
-                self.logger.info(f"[DEBUG] Debug mode is: {self.config.debug_mode}")
-                self.logger.info(f"[DEBUG] Image max width: {self.config.image_max_width}")
-                self.logger.info(f"[DEBUG] Image quality: {self.config.image_quality}")
+                # Debug-logs: begin
+                self.logger.info(f"[DEBUG] Downloaden afbeelding van URL: {url}")
 
+                # Voor zeer grote afbeeldingen (>8MB), voeg een speciale waarschuwingsmarkering toe
+                is_very_large_image = False
+                
                 response = httpx.get(url)
-                content_length = len(response.content)
-                self.logger.info(f"[DEBUG] Status code: {response.status_code}")
-                self.logger.info(f"[DEBUG] Ontvangen bytes: {content_length}")
-
-                # Check of de response OK is
                 if response.status_code != 200:
-                    self.logger.error(
-                        f"[DEBUG] Fout bij downloaden afbeelding: {response.status_code}"
-                    )
-                    return "Fout: kon afbeelding niet downloaden"
-
+                    return f"Fout bij downloaden afbeelding: HTTP {response.status_code}"
+                
+                # Controleer bestandsgrootte
+                original_size = len(response.content)
+                self.logger.info(f"[DEBUG] Originele bestandsgrootte: {original_size/1024/1024:.2f}MB")
+                
+                # Voor zeer grote afbeeldingen (>8MB), toon een speciale waarschuwing
+                if original_size > 8 * 1024 * 1024:
+                    is_very_large_image = True
+                    self.logger.info("[DEBUG] Dit is een zeer grote afbeelding (>8MB), speciale behandeling")
+                
                 # Altijd de afbeelding verkleinen om streaming problemen te voorkomen
                 try:
                     # Importeer PIL alleen als nodig
@@ -615,6 +624,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 self.logger.info(f"[DEBUG] Begin van base64-string: {base64_preview}")
                 self.logger.info(f"[DEBUG] Data URL formaat: {data_url[:30]}...")
 
+                # Voor zeer grote afbeeldingen, voeg waarschuwingstekst toe aan het begin van de response
+                if is_very_large_image:
+                    self.logger.info("[DEBUG] Afbeelding is zeer groot, waarschuwingstekst toegevoegd")
+                    return f"⚠️ Dit is een grote afbeelding (>8MB). Als deze niet onmiddellijk zichtbaar is, sluit dan de chat en open deze opnieuw om de afbeelding te zien.\n\n{data_url}"
+                
                 return data_url
 
             except Exception as e:
