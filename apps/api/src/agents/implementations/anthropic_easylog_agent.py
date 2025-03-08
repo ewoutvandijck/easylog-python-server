@@ -464,8 +464,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         )  # 3 is het alpha-kanaal
                         img = background
 
-                    # Sla op met medium kwaliteit (60%) voor betere streaming
-                    img.save(buffer, format="JPEG", quality=60, optimize=True)
+                    # Test met hogere kwaliteit (70%) voor betere beeldkwaliteit
+                    img.save(buffer, format="JPEG", quality=70, optimize=True)
                     buffer.seek(0)
 
                     # Gebruik de verkleinde afbeelding
