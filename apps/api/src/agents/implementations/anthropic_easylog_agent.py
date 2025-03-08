@@ -436,7 +436,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                 # Save to buffer with quality setting
                 buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=95)
+                img.save(buffer, format='JPEG', quality=95, optimize=True)
                 buffer.seek(0)
                 resized_size = len(buffer.getvalue())
                 
