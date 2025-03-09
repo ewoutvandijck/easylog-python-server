@@ -18,7 +18,7 @@ from src.agents.tools.planning_tools import PlanningTools
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # Laad alle variabelen uit .env
 load_dotenv()
@@ -448,7 +448,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Importeer PIL alleen als nodig
                     import io
 
-                    from PIL import Image
+                    from PIL import Image, ImageDraw, ImageFont
 
                     # Laad de afbeelding
                     img = Image.open(io.BytesIO(response.content))
@@ -468,56 +468,116 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Speciale behandeling ALLEEN voor zeer grote afbeeldingen (>8MB)
                     if original_size > 8 * 1024 * 1024:  # >8MB
-                        # Extra kleine thumbnails voor mobiele apps, max 100KB
-                        MAX_MOBILE_SIZE = 100 * 1024
+                        # NOODAANPAK: Zeer agressieve compressie
+                        # 1. Extreem kleine thumbnail, max 60KB
+                        MAX_MOBILE_SIZE = 60 * 1024
                         
-                        self.logger.info(f"[DEBUG] Zeer grote afbeelding ({original_size/1024/1024:.2f}MB) - Extreme compressie toepassen")
+                        self.logger.info(f"[DEBUG] ZEER GROTE AFBEELDING - NOODAANPAK ACTIVEREN")
+                        self.logger.info(f"[DEBUG] Originele grootte: {original_size/1024/1024:.2f}MB")
                         
-                        # Stap 1: Extreem kleine thumbnail maken
-                        max_width = 300  # Zeer klein om streaming problemen te voorkomen
-                        
-                        # Behoud aspectverhouding
-                        aspect_ratio = original_width / original_height
-                        new_height = int(max_width / aspect_ratio)
-                        
-                        # Maak een kleinere afbeelding met hoge kwaliteit downsampling
-                        small_img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
-                        
-                        # Converteer naar RGB indien nodig
-                        if small_img.mode != 'RGB':
-                            small_img = small_img.convert('RGB')
-                        
-                        # Stap 2: Comprimeer met lage kwaliteit (max 3 pogingen)
-                        buffer = io.BytesIO()
-                        small_img.save(buffer, format="JPEG", quality=40, optimize=True)
-                        buffer.seek(0)
-                        compressed_data = buffer.getvalue()
-                        
-                        # Als nog te groot, extra compressie
-                        if len(compressed_data) > MAX_MOBILE_SIZE:
-                            self.logger.info(f"[DEBUG] Compressie nog te groot: {len(compressed_data)/1024:.1f}KB > {MAX_MOBILE_SIZE/1024:.1f}KB")
+                        try:
+                            # STAP 1: Extreem kleine thumbnail
+                            max_width = 200  # Extreem klein
                             
-                            # Nog kleinere thumbnail maken
-                            max_width = 200
+                            # Behoud aspectverhouding
+                            aspect_ratio = original_width / original_height
                             new_height = int(max_width / aspect_ratio)
+                            
+                            # Maak een kleinere afbeelding met hoge kwaliteit downsampling
                             small_img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
                             
+                            # Converteer naar RGB indien nodig
+                            if small_img.mode != 'RGB':
+                                small_img = small_img.convert('RGB')
+                            
+                            # STAP 2: Comprimeer met zeer lage kwaliteit
                             buffer = io.BytesIO()
-                            small_img.save(buffer, format="JPEG", quality=30, optimize=True)
+                            small_img.save(buffer, format="JPEG", quality=25, optimize=True)  # Verlaagd naar 25%
                             buffer.seek(0)
                             compressed_data = buffer.getvalue()
                             
-                            self.logger.info(f"[DEBUG] Verdere compressie toegepast: {len(compressed_data)/1024:.1f}KB")
+                            self.logger.info(f"[DEBUG] Eerste compressiepoging: {len(compressed_data)/1024:.1f}KB")
+                            
+                            # STAP 3: Als nog steeds te groot, maak een basis placeholder met tekst
+                            if len(compressed_data) > MAX_MOBILE_SIZE:
+                                self.logger.info(f"[DEBUG] Nog steeds te groot! Placeholderbeeld maken")
+                                
+                                # Maak een eenvoudige placeholder afbeelding
+                                placeholder = Image.new('RGB', (400, 300), color=(245, 245, 245))
+                                draw = ImageDraw.Draw(placeholder)
+                                
+                                # Teken een kader
+                                draw.rectangle([(10, 10), (390, 290)], outline=(200, 200, 200), width=2)
+                                
+                                # Voeg tekst toe
+                                try:
+                                    # Probeer een font te laden (werkt mogelijk niet in Docker)
+                                    font = ImageFont.truetype("arial.ttf", 20)
+                                except:
+                                    # Fallback naar default
+                                    font = ImageFont.load_default()
+                                
+                                message = f"Grote afbeelding ({original_size/1024/1024:.1f}MB)"
+                                message2 = "Weergave niet mogelijk"
+                                message3 = "Afbeelding is te groot voor weergave"
+                                
+                                # Centreer tekst
+                                # Gebruik moderne methode (textbbox) of fallback naar schatting
+                                try:
+                                    # Nieuwere PIL versies
+                                    left, top, right, bottom = draw.textbbox((0, 0), message, font=font)
+                                    w, h = right - left, bottom - top
+                                except Exception:
+                                    # Oude textsize of fallback
+                                    w, h = (200, 20)  # Standaard schatting als beide methoden falen
+                                
+                                draw.text(((400-w)/2, 100), message, fill=(100, 100, 100), font=font)
+                                
+                                try:
+                                    # Nieuwere PIL versies
+                                    left, top, right, bottom = draw.textbbox((0, 0), message2, font=font)
+                                    w, h = right - left, bottom - top
+                                except Exception:
+                                    # Fallback
+                                    w, h = (200, 20)
+                                
+                                draw.text(((400-w)/2, 130), message2, fill=(100, 100, 100), font=font)
+                                
+                                try:
+                                    # Nieuwere PIL versies
+                                    left, top, right, bottom = draw.textbbox((0, 0), message3, font=font)
+                                    w, h = right - left, bottom - top
+                                except Exception:
+                                    # Fallback
+                                    w, h = (200, 20)
+                                
+                                draw.text(((400-w)/2, 160), message3, fill=(100, 100, 100), font=font)
+                                
+                                # Sla op met zeer lage kwaliteit
+                                buffer = io.BytesIO()
+                                placeholder.save(buffer, format="JPEG", quality=50)
+                                buffer.seek(0)
+                                compressed_data = buffer.getvalue()
+                                
+                                self.logger.info(f"[DEBUG] Placeholder gemaakt: {len(compressed_data)/1024:.1f}KB")
+                            
+                            # Encodeer naar base64
+                            image_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
+                            
+                            # Maak data URL met waarschuwing
+                            data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                            self.logger.info(f"[DEBUG] Finale base64 grootte: {len(image_data_b64)/1024:.1f}KB")
+                            
+                            # Return direct met waarschuwing
+                            return f"⚠️ Deze afbeelding is zeer groot ({original_size/1024/1024:.1f}MB) en kan mogelijk traag laden of niet volledig weergegeven worden. Een verkleinde versie wordt getoond.\n\n{data_url}"
                         
-                        # Encodeer naar base64
-                        image_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
-                        
-                        # Maak data URL met waarschuwing
-                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                        self.logger.info(f"[DEBUG] Finale base64 grootte: {len(image_data_b64)/1024:.1f}KB")
-                        
-                        # Return direct met waarschuwing
-                        return f"⚠️ Dit is een verkleinde versie van een zeer grote afbeelding ({original_size/1024/1024:.1f}MB). Voor betere weergave is deze gecomprimeerd.\n\n{data_url}"
+                        except Exception as e:
+                            self.logger.error(f"[DEBUG] Fout bij speciale compressie: {str(e)}")
+                            # Fallback naar standaard verwerking
+                            image_data = response.content
+                            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                            data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                            return f"⚠️ Deze afbeelding is zeer groot en kan mogelijk niet correct worden weergegeven. Probeer de app te herstarten als de afbeelding niet laadt.\n\n{data_url}"
                     
                     elif original_size > 3 * 1024 * 1024:  # >3MB
                         self.logger.info(f"[DEBUG] Grote afbeelding ({original_size/1024/1024:.2f}MB) - Significante verkleining toepassen")
