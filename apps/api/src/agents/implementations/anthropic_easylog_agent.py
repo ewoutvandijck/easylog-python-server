@@ -445,7 +445,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
                     # Importeer PIL alleen als nodig
-                    import io
                     from PIL import Image
 
                     # Laad de afbeelding
