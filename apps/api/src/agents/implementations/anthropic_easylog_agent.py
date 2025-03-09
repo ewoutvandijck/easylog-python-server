@@ -657,6 +657,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 indent=2,
             )
 
+        def tool_set_debug_mode(enable: bool = True):
+            """
+            Schakelt debug modus aan of uit.
+            
+            Args:
+                enable: True om debug modus aan te zetten, False om uit te zetten
+            """
+            self.config.debug_mode = enable
+            self.logger.info(f"[CONFIG] Debug mode is now {'enabled' if enable else 'disabled'}")
+            return f"Debug modus is nu {'ingeschakeld' if enable else 'uitgeschakeld'}."
+
         tools = [
             tool_store_memory,
             tool_get_easylog_data,
@@ -664,6 +675,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_object_history,
             tool_clear_memories,
             tool_debug_info,
+            tool_set_debug_mode,
             tool_download_image_from_url,
             *self._planning_tools.all_tools,
         ]
@@ -691,6 +703,7 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
+- tool_set_debug_mode: Schakelt debug modus aan of uit
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 
 ### Core memories
