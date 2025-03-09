@@ -383,7 +383,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         FROM follow_up_entries
                         WHERE JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) = %s
                         ORDER BY created_at DESC
-                        LIMIT %
+                        LIMIT %s
                     """
                     self.logger.debug(
                         f"Executing query with params: {object_name}, {limit}"
