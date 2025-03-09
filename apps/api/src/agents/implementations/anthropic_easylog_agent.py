@@ -473,21 +473,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     )
 
                     # Maximum gecomprimeerde grootte in bytes (250KB)
-                    MAX_COMPRESSED_SIZE = 150 * 1024
+                    MAX_COMPRESSED_SIZE = 180 * 1024
 
                     # Bepaal de doelgrootte op basis van bestandsgrootte
                     # Voor extreem grote afbeeldingen, maak een kleine thumbnail
                     if original_size > 8 * 1024 * 1024:  # >8MB
-                        new_width = 300  # Zeer kleine thumbnail voor 10MB+ afbeeldingen
-                        quality = 50  # Lagere kwaliteit voor betere compressie
+                        new_width = 400  # Verhoogd van 300px naar 400px
+                        quality = 65  # Verhoogd van 50% naar 65%
                         self.logger.info(f"[DEBUG] Zeer grote afbeelding (>8MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        new_width = 500
-                        quality = 65
+                        new_width = 600  # Verhoogd van 500px naar 600px
+                        quality = 75  # Verhoogd van 65% naar 75%
                         self.logger.info(f"[DEBUG] Grote afbeelding (>3MB): Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     else:
-                        new_width = 800
-                        quality = 75
+                        new_width = 1000  # Verhoogd van 800px naar 1000px
+                        quality = 85  # Verhoogd van 75% naar 85%
                         self.logger.info(f"[DEBUG] Normale afbeelding: Thumbnail van {new_width}px breedte met {quality}% kwaliteit")
                     
                     self.logger.info(f"[DEBUG] Gekozen target_width: {new_width}")
@@ -578,18 +578,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 base64_size = len(image_data_b64)
                 self.logger.info(f"[DEBUG] Base64 string grootte: {base64_size/1024:.2f}KB")
                 
-                if base64_size > 200 * 1024:  # Als base64 > 200KB
+                if base64_size > 250 * 1024:  # Als base64 > 250KB (was 200KB)
                     try:
                         self.logger.info("[DEBUG] Base64 string te groot, maak zeer kleine thumbnail")
                         # Maak een zeer kleine thumbnail
                         img = Image.open(io.BytesIO(response.content))
                         # Voor 10MB+ afbeeldingen, zeer kleine thumbnails maken
                         if original_size > 8 * 1024 * 1024:
-                            small_width = 200
-                            small_quality = 40
+                            small_width = 250  # Verhoogd van 200 naar 250
+                            small_quality = 50  # Verhoogd van 40 naar 50
                         else:
-                            small_width = 250
-                            small_quality = 45
+                            small_width = 300  # Verhoogd van 250 naar 300
+                            small_quality = 55  # Verhoogd van 45 naar 55
                         
                         # Gebruik thumbnail functie voor optimale verkleining
                         img.thumbnail((small_width, int(original_height * (small_width / original_width))), Image.Resampling.LANCZOS)
@@ -657,17 +657,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 indent=2,
             )
 
-        def tool_set_debug_mode(enable: bool = True):
-            """
-            Schakelt debug modus aan of uit.
-            
-            Args:
-                enable: True om debug modus aan te zetten, False om uit te zetten
-            """
-            self.config.debug_mode = enable
-            self.logger.info(f"[CONFIG] Debug mode is now {'enabled' if enable else 'disabled'}")
-            return f"Debug modus is nu {'ingeschakeld' if enable else 'uitgeschakeld'}."
-
         tools = [
             tool_store_memory,
             tool_get_easylog_data,
@@ -675,7 +664,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_object_history,
             tool_clear_memories,
             tool_debug_info,
-            tool_set_debug_mode,
             tool_download_image_from_url,
             *self._planning_tools.all_tools,
         ]
@@ -703,7 +691,6 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
-- tool_set_debug_mode: Schakelt debug modus aan of uit
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 
 ### Core memories
