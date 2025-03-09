@@ -613,13 +613,30 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         def tool_set_debug_mode(enable: bool = True):
             """
             Schakelt debug modus aan of uit.
-            
-            Args:
-                enable: True om debug modus aan te zetten, False om uit te zetten
             """
             self.config.debug_mode = enable
-            self.logger.info(f"[CONFIG] Debug mode is now {'enabled' if enable else 'disabled'}")
-            return f"Debug modus is nu {'ingeschakeld' if enable else 'uitgeschakeld'}."
+            return f"Debug modus is nu {'AAN' if enable else 'UIT'}"
+
+        async def tool_search_pdf(query: str) -> str:
+            """
+            Search for a PDF in the knowledge base.
+            """
+            knowledge_result = await self.search_knowledge(query)
+
+            if (
+                knowledge_result is None
+                or knowledge_result.object is None
+                or knowledge_result.object.name is None
+                or knowledge_result.object.bucket_id is None
+            ):
+                return "Geen PDF gevonden"
+
+            return json.dumps(
+                {
+                    "id": knowledge_result.id,
+                    "markdown_content": knowledge_result.markdown_content,
+                }
+            )
 
         tools = [
             tool_store_memory,
@@ -630,6 +647,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_debug_info,
             tool_set_debug_mode,
             tool_download_image_from_url,
+            tool_search_pdf,
             *self._planning_tools.all_tools,
         ]
 
@@ -658,6 +676,7 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
 - tool_set_debug_mode: Schakelt debug modus aan of uit
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
+- tool_search_pdf: Zoek een PDF in de kennisbank
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
