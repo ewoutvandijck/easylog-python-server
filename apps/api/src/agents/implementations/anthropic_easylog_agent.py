@@ -419,69 +419,53 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             De afbeelding kan dan direct in HTML/markdown weergegeven worden.
             """
             try:
-                # Extra debug logging aan het begin
-                print("[DEBUG] Start image processing")
-                self.logger.info("[DEBUG] ===== START AFBEELDING VERWERKING =====")
-                self.logger.info(f"[DEBUG] URL: {url}")
-                self.logger.info(f"[DEBUG] Debug mode: {self.config.debug_mode}")
-                self.logger.info(f"[DEBUG] Image max width: {self.config.image_max_width}")
-                self.logger.info(f"[DEBUG] Image quality: {self.config.image_quality}")
+                # Verbeterde logging met meer focus op grootte metrics
+                self.logger.info("[IMAGE] ===== START AFBEELDING VERWERKING =====")
+                self.logger.info(f"[IMAGE] URL: {url}")
+                self.logger.info(f"[IMAGE] Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%")
 
-                response = httpx.get(url)
+                # Timeout toevoegen om hangende requests te voorkomen
+                response = httpx.get(url, timeout=15.0)
                 content_length = len(response.content)
-                print(f"[DEBUG] Received image size: {content_length/1024/1024:.2f} MB")
-                self.logger.info(f"[DEBUG] Ontvangen afbeeldingsgrootte: {content_length/1024/1024:.2f} MB")
+                self.logger.info(f"[IMAGE] Ontvangen afbeeldingsgrootte: {content_length/1024/1024:.2f} MB")
 
                 # Check of de response OK is
                 if response.status_code != 200:
-                    self.logger.error(
-                        f"[DEBUG] Fout bij downloaden afbeelding: {response.status_code}"
-                    )
+                    self.logger.error(f"[IMAGE] Fout bij downloaden afbeelding: {response.status_code}")
                     return "Fout: kon afbeelding niet downloaden"
+                
+                # Kleinere maximale grootte instellen voor betere streaming
+                MAX_COMPRESSED_SIZE = 600 * 1024  # Van 800KB naar 600KB voor betere streaming performance
                 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
                 
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
-                    # Importeer PIL alleen als nodig
-                    from PIL import Image
-
                     # Laad de afbeelding
                     img = Image.open(io.BytesIO(response.content))
 
                     # Originele afmetingen en grootte
                     original_width, original_height = img.size
                     original_size = len(response.content)
-                    self.logger.info(
-                        f"[DEBUG] Originele afmetingen: {original_width}x{original_height}"
-                    )
-                    self.logger.info(
-                        f"[DEBUG] Originele bestandsgrootte: {original_size/1024/1024:.2f} MB"
-                    )
+                    self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
+                    self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size/1024/1024:.2f} MB")
                     
-                    # Voor zeer grote afbeeldingen, maak een speciale behandeling
+                    # Voor zeer grote afbeeldingen, drastischer verkleinen
                     if original_size > 8 * 1024 * 1024:  # > 8MB
                         is_very_large_image = True
-                        self.logger.info(f"[DEBUG] Zeer grote afbeelding gedetecteerd: {original_size/1024/1024:.2f} MB")
-                    
-                    # Maximum gecomprimeerde grootte in bytes (kleinere waarde voor betere streaming)
-                    MAX_COMPRESSED_SIZE = 800 * 1024  # 800KB maximum voor betere streaming (verhoogd van 400KB)
-                    
-                    # Bepaal de doelgrootte op basis van bestandsgrootte
-                    if original_size > 8 * 1024 * 1024:  # >8MB
-                        target_width = 800  # Grotere breedte voor betere kwaliteit (was 600)
-                        quality = 85  # Hogere kwaliteit voor betere zichtbaarheid (was 70)
-                        self.logger.info(f"[DEBUG] Zeer grote afbeelding (>8MB): target {target_width}px, kwaliteit {quality}%")
+                        self.logger.info(f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size/1024/1024:.2f} MB")
+                        target_width = 700  # Kleinere breedte om grootte te beperken
+                        quality = 80       # Lagere kwaliteit
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        target_width = 1000  # Grotere breedte (was 800)
-                        quality = 90  # Hogere kwaliteit (was 75)
-                        self.logger.info(f"[DEBUG] Grote afbeelding (>3MB): target {target_width}px, kwaliteit {quality}%")
+                        target_width = 900  # Van 1000px naar 900px
+                        quality = 85       # Van 90% naar 85%
                     else:
-                        # Gebruik configuratie voor normale afbeeldingen
+                        # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
                         target_width = self.config.image_max_width
-                        quality = self.config.image_quality
-                        self.logger.info(f"[DEBUG] Normale afbeelding: target {target_width}px, kwaliteit {quality}%")
+                        quality = min(85, self.config.image_quality)  # Kwaliteit begrenzen op 85% voor betere compressie
+                    
+                    self.logger.info(f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
                     
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -491,24 +475,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         
                         # Verklein afbeelding - gebruik LANCZOS voor betere kwaliteit
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        self.logger.info(
-                            f"[DEBUG] Verkleind naar: {img.width}x{img.height}"
-                        )
+                        self.logger.info(f"[IMAGE] Verkleind naar: {img.width}x{img.height}")
                     else:
-                        self.logger.info(
-                            "[DEBUG] Afbeelding is kleiner dan max breedte, geen resize nodig"
-                        )
-                    
-                    # Sla origineel formaat op
-                    original_img_format = img.format
-                    self.logger.info(f"[DEBUG] Origineel afbeeldingsformaat: {original_img_format}")
+                        self.logger.info("[IMAGE] Afbeelding is kleiner dan max breedte, geen resize nodig")
                     
                     # Converteer naar RGB indien nodig (voor PNG met transparantie)
                     if img.mode in ("RGBA", "LA"):
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
                         img = background
-                        self.logger.info("[DEBUG] Transparantie omgezet naar RGB met witte achtergrond")
+                        self.logger.info("[IMAGE] Transparantie omgezet naar RGB")
                     
                     # Sla op in buffer met optimize=True voor betere compressie
                     buffer = io.BytesIO()
@@ -516,44 +492,34 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     buffer.seek(0)
                     image_data = buffer.getvalue()
                     image_size = len(image_data)
-                    self.logger.info(
-                        f"[DEBUG] Gecomprimeerde grootte: {image_size/1024:.2f} KB"
-                    )
+                    self.logger.info(f"[IMAGE] Eerste compressie: {image_size/1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE/1024:.2f} KB)")
                     
-                    # Controleer of de afbeelding nog steeds te groot is voor efficiënte streaming
-                    # Zo ja, pas dan iteratief aan tot we onder het maximum blijven
+                    # Iteratieve compressie algoritme verbeteren
                     attempt = 1
-                    max_attempts = 4  # Verhoog maximum pogingen
+                    max_attempts = 5  # Een extra poging toevoegen
                     
-                    # Adaptieve kwaliteitsreductie - beginnen met kleinere stappen
-                    quality_step = 10
-                    min_quality = 60  # Verhoogd minimum kwaliteit (was 40)
+                    # Begin met meer agressieve verkleining voor grote afbeeldingen
+                    quality_step = 15 if is_very_large_image else 10
+                    min_quality = 50  # Lagere minimum kwaliteit toestaan voor zeer grote afbeeldingen
                     
                     while image_size > MAX_COMPRESSED_SIZE and attempt <= max_attempts:
-                        # Log huidige poging
-                        self.logger.info(f"[DEBUG] Compressie iteratie {attempt}: afbeelding nog te groot ({image_size/1024:.2f} KB > {MAX_COMPRESSED_SIZE/1024:.2f} KB)")
+                        self.logger.info(f"[IMAGE] Compressie iteratie {attempt}: {image_size/1024:.2f} KB > {MAX_COMPRESSED_SIZE/1024:.2f} KB")
                         
                         attempt += 1
                         
-                        # Kleinere reductie in dimensies - meer behoud van kwaliteit
-                        resize_factor = 0.8  # Was 0.6, nu minder agressieve verkleining                        
+                        # Agressievere verkleining voor latere iteraties
+                        resize_factor = 0.7 if attempt > 2 else 0.8
                         new_width = int(img.width * resize_factor)
                         new_height = int(img.height * resize_factor)
                         
-                        # Kleinere kwaliteitsreductie per stap
+                        # Grotere kwaliteitsreductie voor latere pogingen
                         new_quality = max(min_quality, quality - quality_step)
                         quality = new_quality
                         
-                        self.logger.info(f"[DEBUG] Iteratie {attempt}: Nieuwe afmetingen {new_width}x{new_height}, kwaliteit {quality}%")
+                        self.logger.info(f"[IMAGE] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%")
                         
-                        # Maak een nieuwe thumbnail
+                        # Verklein afbeelding
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        
-                        # Converteer naar RGB indien nodig
-                        if img.mode in ("RGBA", "LA"):
-                            background = Image.new("RGB", img.size, (255, 255, 255))
-                            background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
-                            img = background
                         
                         # Opnieuw opslaan met nieuwe instellingen
                         buffer = io.BytesIO()
@@ -562,62 +528,47 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         image_data = buffer.getvalue()
                         image_size = len(image_data)
                         
-                        self.logger.info(f"[DEBUG] Na iteratie {attempt}: {image_size/1024:.2f} KB")
+                        self.logger.info(f"[IMAGE] Na iteratie {attempt}: {image_size/1024:.2f} KB")
                         
-                        # Pas kwaliteitsstap aan voor volgende iteratie als nodig
-                        if attempt > 2:
-                            quality_step = 5  # Kleinere stappen in latere iteraties
-                    
-                    # Rapporteer eindresultaat
-                    compression_ratio = (original_size - image_size) / original_size * 100
-                    self.logger.info(f"[DEBUG] Uiteindelijke compressie: {image_size/1024:.2f} KB")
-                    self.logger.info(f"[DEBUG] Compressie ratio: {compression_ratio:.2f}% verkleind")
-                    self.logger.info(f"[DEBUG] Uiteindelijke afmetingen: {img.width}x{img.height}")
-                    self.logger.info(f"[DEBUG] Uiteindelijke kwaliteit: {quality}%")
-                    
-                except ImportError:
-                    self.logger.warning(
-                        "[DEBUG] PIL niet beschikbaar, kan afbeelding niet verkleinen"
-                    )
-                    image_data = response.content
-                except Exception as e:
-                    self.logger.error(
-                        f"[DEBUG] Fout bij verkleinen afbeelding: {str(e)}"
-                    )
-                    # Meer gedetailleerde foutinformatie
-                    import traceback
-                    self.logger.error(f"[DEBUG] Details fout: {traceback.format_exc()}")
-                    image_data = response.content
+                        # Aanpassing van compressiestappen voor volgende iteratie
+                        quality_step = 8 if attempt > 2 else quality_step
 
-                # Base64 encoderen
-                try:
+                    # Base64 encoderen en resultaatgrootte loggen
                     image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                    base64_size = len(image_data_b64)
+                    
+                    # Logging van eindresultaat
+                    self.logger.info(f"[IMAGE] Compressie resultaat: {image_size/1024:.2f} KB JPG → {base64_size/1024:.2f} KB base64")
+                    compression_ratio = (original_size - image_size) / original_size * 100
+                    self.logger.info(f"[IMAGE] Compressie ratio: {compression_ratio:.2f}% verkleind")
+                    self.logger.info(f"[IMAGE] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%")
+                    
+                    # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
                     
-                    # DEBUG-logs: einde
-                    base64_size = len(image_data_b64)
-                    self.logger.info(f"[DEBUG] Lengte base64-string: {base64_size/1024:.2f} KB")
-                    self.logger.info(
-                        "[DEBUG] Afbeelding is succesvol gedownload en gecodeerd."
-                    )
+                    # Kritische waarschuwing als de base64 string nog steeds te groot is
+                    if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
+                        self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size/1024/1024:.2f} MB)")
+                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
+                        return f"⚠️ **Dit is een grote afbeelding ({base64_size/1024/1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
                     
-                    # Voor zeer grote afbeeldingen, voeg waarschuwing toe
                     if is_very_large_image:
-                        self.logger.info("[DEBUG] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        return f"⚠️ Dit is een grote afbeelding (>8MB). Als deze niet direct zichtbaar is, kun je de chat sluiten en opnieuw openen om de afbeelding te zien.\n\n{data_url}"
+                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
+                        return f"⚠️ **Grote afbeelding verwerkt ({base64_size/1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
                     
-                    self.logger.info("[DEBUG] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
+                    self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
                     return data_url
+                
                 except Exception as e:
-                    self.logger.error(f"[DEBUG] Fout bij base64 encoderen: {str(e)}")
+                    self.logger.error(f"[IMAGE] Fout bij verkleinen afbeelding: {str(e)}")
                     import traceback
-                    self.logger.error(f"[DEBUG] Details base64 fout: {traceback.format_exc()}")
-                    return f"Fout bij encoderen afbeelding: {str(e)}"
+                    self.logger.error(f"[IMAGE] Details fout: {traceback.format_exc()}")
+                    return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
 
             except Exception as e:
-                self.logger.error(
-                    f"[DEBUG] Onverwachte fout bij afbeeldingsverwerking: {str(e)}"
-                )
+                self.logger.error(f"[IMAGE] Onverwachte fout: {str(e)}")
+                import traceback
+                self.logger.error(f"[IMAGE] Stacktrace: {traceback.format_exc()}")
                 return f"Fout bij verwerken afbeelding: {str(e)}"
 
         def tool_debug_info():
