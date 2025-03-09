@@ -419,16 +419,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             De afbeelding kan dan direct in HTML/markdown weergegeven worden.
             """
             try:
-                # DEBUG-logs: start
-                self.logger.info(f"[DEBUG] Start downloaden afbeelding vanaf: {url}")
-                self.logger.info(f"[DEBUG] Debug mode is: {self.config.debug_mode}")
+                # Extra debug logging aan het begin
+                print("[DEBUG] Start image processing")
+                self.logger.info("[DEBUG] ===== START AFBEELDING VERWERKING =====")
+                self.logger.info(f"[DEBUG] URL: {url}")
+                self.logger.info(f"[DEBUG] Debug mode: {self.config.debug_mode}")
                 self.logger.info(f"[DEBUG] Image max width: {self.config.image_max_width}")
                 self.logger.info(f"[DEBUG] Image quality: {self.config.image_quality}")
 
                 response = httpx.get(url)
                 content_length = len(response.content)
-                self.logger.info(f"[DEBUG] Status code: {response.status_code}")
-                self.logger.info(f"[DEBUG] Ontvangen bytes: {content_length}")
+                print(f"[DEBUG] Received image size: {content_length/1024/1024:.2f} MB")
+                self.logger.info(f"[DEBUG] Ontvangen afbeeldingsgrootte: {content_length/1024/1024:.2f} MB")
 
                 # Check of de response OK is
                 if response.status_code != 200:
