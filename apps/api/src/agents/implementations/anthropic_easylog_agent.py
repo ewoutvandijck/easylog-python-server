@@ -674,7 +674,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
             max_tokens=1024,
-            system=f"""Je bent een vriendelijke en behulpzame data-analist voor EasyLog.
+            system=f"""Jij bent een vriendelijke en behulpzame data-analist voor EasyLog.
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
