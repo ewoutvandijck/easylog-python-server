@@ -534,11 +534,41 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
+                    # Implementeer een fallback mechanisme voor problematische beelden
+                    if attempt >= max_attempts and image_size > MAX_COMPRESSED_SIZE:
+                        # Als we na alle pogingen nog steeds te groot zijn, lever een vereenvoudigde versie
+                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=60, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
+                        image_size = len(image_data)
+                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                        self.logger.info(
+                            f"[IMAGE] FALLBACK: Verkleind naar 400px breed, 60% kwaliteit, {image_size / 1024:.2f} KB"
+                        )
+                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
+                        return f"⚠️ **Dit is een grote afbeelding ({image_size / 1024:.2f} KB)**\n\nEr is een fout opgetreden bij het verwerken van de afbeelding. Een vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
+
                     # Voeg een extra check toe om te controleren of afbeeldingen echt te groot zijn
                     if base64_size > 700 * 1024:  # 700KB base64 limit
-                        # Drastische verkleining voor zeer problematische gevallen
-                        target_width = min(500, target_width)  # Maximum 500px breed
-                        quality = 65  # Laagste acceptabele kwaliteit
+                        # Extra verkleining voor zeer grote base64 data
+                        self.logger.warning(
+                            f"[IMAGE] Base64 output is nog te groot: {base64_size / 1024:.2f} KB > 700 KB"
+                        )
+                        img = img.resize((500, int(500 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=65, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
+                        image_size = len(image_data)
+                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                        base64_size = len(image_data_b64)
+                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                        self.logger.info(
+                            f"[IMAGE] EXTRA COMPRESSIE: {image_size / 1024:.2f} KB, base64: {base64_size / 1024:.2f} KB"
+                        )
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
@@ -549,19 +579,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     if is_very_large_image:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
                         return f"⚠️ **Grote afbeelding verwerkt ({base64_size / 1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
-
-                    # Implementeer een fallback mechanisme voor problematische beelden
-                    with io.BytesIO() as buffer:
-                        img.save(buffer, format="JPEG", quality=60, optimize=True)
-                        buffer.seek(0)
-                        image_data = buffer.getvalue()
-                    image_size = len(image_data)
-                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                        image_size = len(image_data)
-                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({base64_size / 1024:.2f} KB)**\n\nEr is een fout opgetreden bij het verwerken van de afbeelding. Een vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
 
                     self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
                     return data_url
