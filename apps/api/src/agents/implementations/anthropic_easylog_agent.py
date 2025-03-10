@@ -411,10 +411,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     return "Fout: kon afbeelding niet downloaden"
 
                 # Verlaag de MAX_COMPRESSED_SIZE voor betere betrouwbaarheid
-                MAX_COMPRESSED_SIZE = 450 * 1024  # Van 600KB naar 450KB
+                MAX_COMPRESSED_SIZE = 250 * 1024  # Van 450KB naar 250KB voor striktere limiet
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
+                is_extremely_large_image = False
 
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
@@ -427,8 +428,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
                     self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB")
 
+                    # Voor extreem grote afbeeldingen, drastischer verkleinen
+                    if original_size > 10 * 1024 * 1024:  # > 10MB
+                        is_extremely_large_image = True
+                        is_very_large_image = True
+                        self.logger.warning(
+                            f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
+                        )
+                        target_width = 600  # Nog kleinere breedte
+                        quality = 70  # Nog lagere kwaliteit
                     # Voor zeer grote afbeeldingen, drastischer verkleinen
-                    if original_size > 8 * 1024 * 1024:  # > 8MB
+                    elif original_size > 8 * 1024 * 1024:  # > 8MB
                         is_very_large_image = True
                         self.logger.info(
                             f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
@@ -466,6 +476,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         img = background
                         self.logger.info("[IMAGE] Transparantie omgezet naar RGB")
 
+                    # Bij extreem grote afbeeldingen direct naar de veilige kleine versie
+                    if is_extremely_large_image:
+                        self.logger.warning("[IMAGE] Direct naar veilige kleine versie voor extreem grote afbeelding")
+                        img = img.resize((500, int(500 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        quality = 65
+
                     # Sla op in buffer met optimize=True voor betere compressie
                     with io.BytesIO() as buffer:  # Gebruik context manager voor automatische cleanup
                         img.save(buffer, format="JPEG", quality=quality, optimize=True)
@@ -475,6 +491,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(
                         f"[IMAGE] Eerste compressie: {image_size / 1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
                     )
+
+                    # Extra snelle check voor grote afbeeldingen die onmiddellijk verkleind moeten worden
+                    if image_size > 2 * MAX_COMPRESSED_SIZE:
+                        self.logger.warning(
+                            f"[IMAGE] Afbeelding nog steeds te groot: {image_size / 1024:.2f} KB, directe verkleining"
+                        )
+                        # Drastischere verkleining
+                        img = img.resize((450, int(450 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=70, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
+                        image_size = len(image_data)
+                        self.logger.info(f"[IMAGE] Na directe verkleining: {image_size / 1024:.2f} KB")
 
                     # Iteratieve compressie algoritme verbeteren
                     attempt = 1
@@ -517,6 +547,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         # Aanpassing van compressiestappen voor volgende iteratie
                         quality_step = 8 if attempt > 2 else quality_step
 
+                    # ALTIJD VEILIGE FALLBACK - ook als beeldgrootte nog te groot is na alle pogingen
                     # Base64 encoderen en resultaatgrootte loggen
                     image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                     base64_size = len(image_data_b64)
@@ -531,54 +562,50 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[IMAGE] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%"
                     )
 
-                    # Check of base64 misschien te groot is voor chat interface
-                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                    # BESLUIT LOGGING - belangrijk voor debugging
+                    self.logger.warning(
+                        f"[IMAGE] BESLUIT CHECK: size={image_size / 1024:.2f}KB, base64={base64_size / 1024:.2f}KB, max={MAX_COMPRESSED_SIZE / 1024:.2f}KB, attempts={attempt}"
+                    )
 
-                    # Implementeer een fallback mechanisme voor problematische beelden
-                    if attempt >= max_attempts and image_size > MAX_COMPRESSED_SIZE:
+                    # Implementeer een fallback mechanisme voor problematische beelden die nog steeds te groot zijn
+                    if image_size > MAX_COMPRESSED_SIZE or base64_size > 700 * 1024:
                         # Als we na alle pogingen nog steeds te groot zijn, lever een vereenvoudigde versie
-                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        self.logger.warning(
+                            f"[IMAGE] Fallback nodig: {image_size / 1024:.2f} KB > {MAX_COMPRESSED_SIZE / 1024:.2f} KB"
+                        )
+
+                        # Maak een GEGARANDEERD kleine versie
+                        img = img.resize((350, int(350 * img.height / img.width)), Image.Resampling.LANCZOS)
                         with io.BytesIO() as buffer:
                             img.save(buffer, format="JPEG", quality=60, optimize=True)
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                         image_size = len(image_data)
                         image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                        self.logger.info(
-                            f"[IMAGE] FALLBACK: Verkleind naar 400px breed, 60% kwaliteit, {image_size / 1024:.2f} KB"
-                        )
-                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({image_size / 1024:.2f} KB)**\n\nEr is een fout opgetreden bij het verwerken van de afbeelding. Een vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
-
-                    # Voeg een extra check toe om te controleren of afbeeldingen echt te groot zijn
-                    if base64_size > 700 * 1024:  # 700KB base64 limit
-                        # Extra verkleining voor zeer grote base64 data
-                        self.logger.warning(
-                            f"[IMAGE] Base64 output is nog te groot: {base64_size / 1024:.2f} KB > 700 KB"
-                        )
-                        img = img.resize((500, int(500 * img.height / img.width)), Image.Resampling.LANCZOS)
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=65, optimize=True)
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
-                        image_size = len(image_data)
-                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                         base64_size = len(image_data_b64)
-                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
+
                         self.logger.info(
-                            f"[IMAGE] EXTRA COMPRESSIE: {image_size / 1024:.2f} KB, base64: {base64_size / 1024:.2f} KB"
+                            f"[IMAGE] FALLBACK: Verkleind naar 350px breed, 60% kwaliteit, {image_size / 1024:.2f} KB"
                         )
+
+                        # Maak de data URL met de fallback versie
+                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
+
+                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
+                        return f"⚠️ **Dit is een grote afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nDe afbeelding is verkleind voor betere weergave.\n\n{data_url}"
+
+                    # Check of base64 misschien te groot is voor chat interface
+                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
                         self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)")
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({base64_size / 1024 / 1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
+                        return f"⚠️ **Dit is een grote afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        return f"⚠️ **Grote afbeelding verwerkt ({base64_size / 1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
+                        return f"⚠️ **Grote afbeelding verwerkt ({original_size / 1024 / 1024:.2f} MB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
 
                     self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
                     return data_url
@@ -588,6 +615,22 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     import traceback
 
                     self.logger.error(f"[IMAGE] Details fout: {traceback.format_exc()}")
+
+                    # Zelfs bij een fout proberen we een fallback te bieden
+                    try:
+                        if img:
+                            # Creëer de meest eenvoudige versie mogelijk
+                            img = img.resize((300, int(300 * img.height / img.width)), Image.Resampling.LANCZOS)
+                            with io.BytesIO() as buffer:
+                                img.save(buffer, format="JPEG", quality=50, optimize=True)
+                                buffer.seek(0)
+                                image_data = buffer.getvalue()
+                            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                            data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                            return f"⚠️ **Er is een fout opgetreden bij het verwerken van de afbeelding**\n\nEen vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
+                    except:
+                        pass
+
                     return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
 
             except Exception as e:
