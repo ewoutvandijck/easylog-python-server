@@ -410,12 +410,19 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.error(f"[IMAGE] Fout bij downloaden afbeelding: {response.status_code}")
                     return "Fout: kon afbeelding niet downloaden"
 
-                # Verlaag de MAX_COMPRESSED_SIZE voor betere betrouwbaarheid
-                MAX_COMPRESSED_SIZE = 250 * 1024  # Van 450KB naar 250KB voor striktere limiet
+                # Kleinere limiet voor trage verbindingen
+                MAX_COMPRESSED_SIZE = 200 * 1024  # Van 250KB naar 200KB voor betere streaming
+
+                # Hard streaming limit voor verbindingsproblemen
+                MAX_STREAMING_SIZE = 400 * 1024  # Maximaal 400KB voor streaming
+
+                # Directe fallback voor zeer grote afbeeldingen bij trage verbindingen
+                FORCE_THUMBNAIL_SIZE = 2 * 1024 * 1024  # 2MB force thumbnail
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
                 is_extremely_large_image = False
+                needs_streaming_optimization = False
 
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
@@ -428,6 +435,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
                     self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB")
 
+                    # Streaming optimalisatie voor grote afbeeldingen (vanaf 5MB)
+                    if original_size > 5 * 1024 * 1024:
+                        needs_streaming_optimization = True
+                        self.logger.warning(
+                            f"[IMAGE] Streaming optimalisatie geactiveerd voor {original_size / 1024 / 1024:.2f} MB afbeelding"
+                        )
+
                     # Voor extreem grote afbeeldingen, drastischer verkleinen
                     if original_size > 10 * 1024 * 1024:  # > 10MB
                         is_extremely_large_image = True
@@ -436,26 +450,55 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
                         )
                         target_width = 600  # Nog kleinere breedte
-                        quality = 70  # Nog lagere kwaliteit
+                        quality = 65  # Nog lagere kwaliteit
                     # Voor zeer grote afbeeldingen, drastischer verkleinen
                     elif original_size > 8 * 1024 * 1024:  # > 8MB
                         is_very_large_image = True
                         self.logger.info(
                             f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
                         )
-                        target_width = 700  # Kleinere breedte om grootte te beperken
-                        quality = 80  # Lagere kwaliteit
+                        target_width = 650  # Kleinere breedte om grootte te beperken
+                        quality = 75  # Lagere kwaliteit
                     elif original_size > 3 * 1024 * 1024:  # >3MB
-                        target_width = 900  # Van 1000px naar 900px
-                        quality = 85  # Van 90% naar 85%
+                        target_width = 800  # Van 900px naar 800px voor betere compressie
+                        quality = 80  # Van 85% naar 80%
                     else:
                         # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
-                        target_width = self.config.image_max_width
+                        target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
                         quality = min(
-                            85, self.config.image_quality
-                        )  # Kwaliteit begrenzen op 85% voor betere compressie
+                            80, self.config.image_quality
+                        )  # Kwaliteit begrenzen op 80% voor betere compressie
 
                     self.logger.info(f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
+
+                    # Streaming optimalisatie: maak direct thumbnail voor grote afbeeldingen
+                    if needs_streaming_optimization and original_size > FORCE_THUMBNAIL_SIZE:
+                        self.logger.warning("[IMAGE] Direct thumbnail genereren voor streaming optimalisatie")
+                        # Twee afbeeldingen: een kleine low-res voor directe weergave en een hogere kwaliteit
+                        thumb_width = 350  # Kleine thumbnail
+                        thumb_quality = 55  # Lagere kwaliteit voor snelle weergave
+
+                        # Creëer thumbnail voor snelle weergave
+                        thumbnail_img = img.copy()
+                        thumbnail_img.thumbnail(
+                            (thumb_width, int(thumb_width * img.height / img.width)), Image.Resampling.LANCZOS
+                        )
+
+                        with io.BytesIO() as buffer:
+                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=True)
+                            buffer.seek(0)
+                            thumbnail_data = buffer.getvalue()
+
+                        thumbnail_size = len(thumbnail_data)
+                        thumbnail_data_b64 = base64.b64encode(thumbnail_data).decode("utf-8")
+
+                        self.logger.info(
+                            f"[IMAGE] Thumbnail gemaakt: {thumb_width}px breed, {thumb_quality}% kwaliteit, {thumbnail_size / 1024:.2f} KB"
+                        )
+
+                        # Stuur snelle thumbnail en bericht dat betere versie volgt
+                        thumb_url = f"data:image/jpeg;base64,{thumbnail_data_b64}"
+                        return f"⚠️ **Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) wordt geladen...**\n\nHier is een voorvertoning:\n\n{thumb_url}\n\n*Vernieuw de chat voor de volledige versie of wacht op betere kwaliteit.*"
 
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -479,8 +522,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Bij extreem grote afbeeldingen direct naar de veilige kleine versie
                     if is_extremely_large_image:
                         self.logger.warning("[IMAGE] Direct naar veilige kleine versie voor extreem grote afbeelding")
-                        img = img.resize((500, int(500 * img.height / img.width)), Image.Resampling.LANCZOS)
-                        quality = 65
+                        img = img.resize((450, int(450 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        quality = 60  # Nog lagere kwaliteit voor extreem grote afbeeldingen
 
                     # Sla op in buffer met optimize=True voor betere compressie
                     with io.BytesIO() as buffer:  # Gebruik context manager voor automatische cleanup
@@ -492,15 +535,30 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[IMAGE] Eerste compressie: {image_size / 1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
                     )
 
+                    # Extra snelle check voor streaming problemen
+                    if needs_streaming_optimization and image_size > MAX_STREAMING_SIZE:
+                        self.logger.warning(
+                            f"[IMAGE] Te groot voor streaming: {image_size / 1024:.2f} KB > {MAX_STREAMING_SIZE / 1024:.2f} KB"
+                        )
+
+                        # Maak een kleinere versie voor betere streaming
+                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=60, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
+                        image_size = len(image_data)
+                        self.logger.info(f"[IMAGE] Streaming optimalisatie: {image_size / 1024:.2f} KB")
+
                     # Extra snelle check voor grote afbeeldingen die onmiddellijk verkleind moeten worden
                     if image_size > 2 * MAX_COMPRESSED_SIZE:
                         self.logger.warning(
                             f"[IMAGE] Afbeelding nog steeds te groot: {image_size / 1024:.2f} KB, directe verkleining"
                         )
                         # Drastischere verkleining
-                        img = img.resize((450, int(450 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
                         with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=70, optimize=True)
+                            img.save(buffer, format="JPEG", quality=65, optimize=True)
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                         image_size = len(image_data)
@@ -508,11 +566,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Iteratieve compressie algoritme verbeteren
                     attempt = 1
-                    max_attempts = 5  # Een extra poging toevoegen
+                    max_attempts = 4  # Van 5 naar 4 pogingen voor snellere afhandeling
 
                     # Begin met meer agressieve verkleining voor grote afbeeldingen
                     quality_step = 15 if is_very_large_image else 10
-                    min_quality = 50  # Lagere minimum kwaliteit toestaan voor zeer grote afbeeldingen
+                    min_quality = 45  # Lagere minimum kwaliteit toestaan voor zeer grote afbeeldingen
 
                     while image_size > MAX_COMPRESSED_SIZE and attempt <= max_attempts:
                         self.logger.info(
@@ -522,7 +580,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         attempt += 1
 
                         # Agressievere verkleining voor latere iteraties
-                        resize_factor = 0.7 if attempt > 2 else 0.8
+                        resize_factor = 0.65 if attempt > 2 else 0.75  # Meer agressief verkleinen
                         new_width = int(img.width * resize_factor)
                         new_height = int(img.height * resize_factor)
 
@@ -567,17 +625,35 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[IMAGE] BESLUIT CHECK: size={image_size / 1024:.2f}KB, base64={base64_size / 1024:.2f}KB, max={MAX_COMPRESSED_SIZE / 1024:.2f}KB, attempts={attempt}"
                     )
 
+                    # Speciale streaming controle voor grote afbeeldingen
+                    if needs_streaming_optimization and base64_size > 500 * 1024:
+                        self.logger.warning(
+                            f"[IMAGE] Streaming limiet overschreden: {base64_size / 1024:.2f}KB > 500KB, extra compressie nodig"
+                        )
+                        # Extra agressieve verkleining voor streaming
+                        img = img.resize((320, int(320 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=55, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
+                        image_size = len(image_data)
+                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                        base64_size = len(image_data_b64)
+                        self.logger.info(
+                            f"[IMAGE] Na streaming optimalisatie: {image_size / 1024:.2f}KB, base64: {base64_size / 1024:.2f}KB"
+                        )
+
                     # Implementeer een fallback mechanisme voor problematische beelden die nog steeds te groot zijn
-                    if image_size > MAX_COMPRESSED_SIZE or base64_size > 700 * 1024:
+                    if image_size > MAX_COMPRESSED_SIZE or base64_size > 600 * 1024:  # Verlaagd naar 600KB voor base64
                         # Als we na alle pogingen nog steeds te groot zijn, lever een vereenvoudigde versie
                         self.logger.warning(
-                            f"[IMAGE] Fallback nodig: {image_size / 1024:.2f} KB > {MAX_COMPRESSED_SIZE / 1024:.2f} KB"
+                            f"[IMAGE] Fallback nodig: {image_size / 1024:.2f} KB > {MAX_COMPRESSED_SIZE / 1024:.2f} KB of base64 {base64_size / 1024:.2f} KB > 600 KB"
                         )
 
                         # Maak een GEGARANDEERD kleine versie
-                        img = img.resize((350, int(350 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        img = img.resize((320, int(320 * img.height / img.width)), Image.Resampling.LANCZOS)
                         with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=60, optimize=True)
+                            img.save(buffer, format="JPEG", quality=55, optimize=True)
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                         image_size = len(image_data)
@@ -585,7 +661,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         base64_size = len(image_data_b64)
 
                         self.logger.info(
-                            f"[IMAGE] FALLBACK: Verkleind naar 350px breed, 60% kwaliteit, {image_size / 1024:.2f} KB"
+                            f"[IMAGE] FALLBACK: Verkleind naar 320px breed, 55% kwaliteit, {image_size / 1024:.2f} KB, base64: {base64_size / 1024:.2f} KB"
                         )
 
                         # Maak de data URL met de fallback versie
@@ -596,6 +672,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
+
+                    # Waarschuwing voor trage verbindingen zonder de afbeelding te vervangen
+                    if needs_streaming_optimization:
+                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) =====")
+                        if not is_very_large_image:  # Alleen voor middelgrote afbeeldingen
+                            return f"⚠️ **Grotere afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nAls de afbeelding niet volledig zichtbaar is, vernieuw dan je chat of wacht even.\n\n{data_url}"
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
@@ -620,7 +702,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     try:
                         if img:
                             # Creëer de meest eenvoudige versie mogelijk
-                            img = img.resize((300, int(300 * img.height / img.width)), Image.Resampling.LANCZOS)
+                            img = img.resize((280, int(280 * img.height / img.width)), Image.Resampling.LANCZOS)
                             with io.BytesIO() as buffer:
                                 img.save(buffer, format="JPEG", quality=50, optimize=True)
                                 buffer.seek(0)
