@@ -449,9 +449,40 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         self.logger.warning(
                             f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
                         )
+
+                        # ALTIJD een thumbnail maken voor 10MB+ afbeeldingen, ongeacht andere criteria
+                        # Dit zorgt ervoor dat er altijd iets zichtbaar is, zelfs bij trage verbindingen
+                        self.logger.warning("[IMAGE] ALTIJD thumbnail genereren voor 10MB+ afbeelding")
+
+                        # Een zeer kleine thumbnail voor zeer snelle weergave
+                        thumb_width = 320  # Kleinere thumbnail
+                        thumb_quality = 55  # Lagere kwaliteit voor snelle weergave
+
+                        # Maak direct een thumbnail voor snelle weergave
+                        thumbnail_img = img.copy()
+                        thumbnail_img.thumbnail(
+                            (thumb_width, int(thumb_width * img.height / img.width)), Image.Resampling.LANCZOS
+                        )
+
+                        with io.BytesIO() as buffer:
+                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=True)
+                            buffer.seek(0)
+                            thumbnail_data = buffer.getvalue()
+
+                        thumbnail_size = len(thumbnail_data)
+                        thumbnail_data_b64 = base64.b64encode(thumbnail_data).decode("utf-8")
+
+                        self.logger.info(
+                            f"[IMAGE] 10MB+ Thumbnail: {thumb_width}px breed, {thumb_quality}% kwaliteit, {thumbnail_size / 1024:.2f} KB"
+                        )
+
+                        # Voor zeer grote afbeeldingen: altijd de thumbnail tonen en volledige versie in achtergrond laden
+                        thumb_url = f"data:image/jpeg;base64,{thumbnail_data_b64}"
+                        return f"⚠️ **Zeer grote afbeelding ({original_size / 1024 / 1024:.2f} MB) wordt geladen...**\n\nHier is een voorvertoning:\n\n{thumb_url}\n\n*Vernieuw de chat om de volledige versie te zien.*"
+
+                        # Oude code blijft staan maar wordt nooit bereikt voor 10MB+ afbeeldingen
                         target_width = 600  # Nog kleinere breedte
                         quality = 65  # Nog lagere kwaliteit
-                    # Voor zeer grote afbeeldingen, drastischer verkleinen
                     elif original_size > 8 * 1024 * 1024:  # > 8MB
                         is_very_large_image = True
                         self.logger.info(
