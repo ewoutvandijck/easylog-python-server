@@ -467,10 +467,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         self.logger.info("[IMAGE] Transparantie omgezet naar RGB")
 
                     # Sla op in buffer met optimize=True voor betere compressie
-                    buffer = io.BytesIO()
-                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                    buffer.seek(0)
-                    image_data = buffer.getvalue()
+                    with io.BytesIO() as buffer:  # Gebruik context manager voor automatische cleanup
+                        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                        buffer.seek(0)
+                        image_data = buffer.getvalue()
                     image_size = len(image_data)
                     self.logger.info(
                         f"[IMAGE] Eerste compressie: {image_size / 1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
@@ -506,10 +506,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
 
                         # Opnieuw opslaan met nieuwe instellingen
-                        buffer = io.BytesIO()
-                        img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                        buffer.seek(0)
-                        image_data = buffer.getvalue()
+                        with io.BytesIO() as buffer:  # Hergebruik buffer in lus
+                            img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                            buffer.seek(0)
+                            image_data = buffer.getvalue()
                         image_size = len(image_data)
 
                         self.logger.info(f"[IMAGE] Na iteratie {attempt}: {image_size / 1024:.2f} KB")
@@ -551,12 +551,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         return f"⚠️ **Grote afbeelding verwerkt ({base64_size / 1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
 
                     # Implementeer een fallback mechanisme voor problematische beelden
-                    if attempt >= max_attempts and image_size > MAX_COMPRESSED_SIZE:
-                        # Als we na alle pogingen nog steeds te groot zijn, lever een vereenvoudigde versie
-                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
-                        buffer = io.BytesIO()
+                    with io.BytesIO() as buffer:
                         img.save(buffer, format="JPEG", quality=60, optimize=True)
+                        buffer.seek(0)
                         image_data = buffer.getvalue()
+                    image_size = len(image_data)
+                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                         image_size = len(image_data)
                         image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
