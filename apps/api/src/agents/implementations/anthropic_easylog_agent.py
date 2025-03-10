@@ -186,6 +186,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         """
         Deze functie handelt elk bericht van de gebruiker af.
         """
+        # Verwijder eventuele debug tools die in de code zijn overgebleven
+        self.logger.info("Removing any debug tools that might still be in code")
+        # Debug mode debug tools verwijderen
+        self.config.debug_mode = False
+
         # Log the incoming message for debugging
         if messages and len(messages) > 0:
             last_message = messages[-1]
@@ -796,6 +801,25 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_clear_memories,
         ]
 
+        # Print alle tools om te debuggen
+        self.logger.info("All tools before filtering:")
+        for tool in tools:
+            self.logger.info(f" - {tool.__name__}")
+
+        # Zet alle tools om naar het Anthropic formaat
+        anthropic_tools = []
+        for tool in tools:
+            # Sla eventuele tool_debug_info over als deze in de planning tools zit
+            if tool.__name__ in ["tool_debug_info", "tool_set_debug_mode"]:
+                self.logger.warning(f"Skipping debug tool: {tool.__name__}")
+                continue
+            anthropic_tools.append(function_to_anthropic_tool(tool))
+
+        # Print alle tools na filtering om te debuggen
+        self.logger.info("All tools after filtering:")
+        for i, tool in enumerate(anthropic_tools):
+            self.logger.info(f" - {i + 1}: {tool.function.name}")
+
         start_time = time.time()
 
         stream = await self.client.messages.create(
@@ -842,7 +866,7 @@ Je huidige core memories zijn:
 - Vat grote datasets bondig samen
             """,
             messages=message_history,
-            tools=[function_to_anthropic_tool(tool) for tool in tools],
+            tools=anthropic_tools,
             stream=True,
         )
 
