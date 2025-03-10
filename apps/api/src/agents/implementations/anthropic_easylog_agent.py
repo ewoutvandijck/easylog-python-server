@@ -8,17 +8,16 @@ from collections.abc import AsyncGenerator
 from typing import TypedDict
 
 import httpx
-import requests
 
 # Third-party imports
 from dotenv import load_dotenv
+from PIL import Image
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
-from PIL import Image
 
 # Laad alle variabelen uit .env
 load_dotenv()
@@ -45,12 +44,10 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=True, description="Enable debug mode with additional logging"
     )
     image_max_width: int = Field(
-        default=1200, 
-        description="Maximum width for processed images in pixels"
+        default=1200, description="Maximum width for processed images in pixels"
     )
     image_quality: int = Field(
-        default=90,
-        description="JPEG quality for processed images (1-100)"
+        default=90, description="JPEG quality for processed images (1-100)"
     )
 
 
@@ -60,10 +57,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         super().__init__(*args, **kwargs)
         self._planning_tools = PlanningTools(self.easylog_backend)
         self.logger.info("EasylogAgent initialized with planning tools")
-        
+
         # Extra debug logging
-        self.logger.info(f"[DEBUG] EasylogAgent initialized with debug_mode: {self.config.debug_mode}")
-        self.logger.info(f"[DEBUG] Image processing settings: max_width={self.config.image_max_width}, quality={self.config.image_quality}")
+        self.logger.info(
+            f"[DEBUG] EasylogAgent initialized with debug_mode: {self.config.debug_mode}"
+        )
+        self.logger.info(
+            f"[DEBUG] Image processing settings: max_width={self.config.image_max_width}, quality={self.config.image_quality}"
+        )
 
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
@@ -422,24 +423,89 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Verbeterde logging met meer focus op grootte metrics
                 self.logger.info("[IMAGE] ===== START AFBEELDING VERWERKING =====")
                 self.logger.info(f"[IMAGE] URL: {url}")
-                self.logger.info(f"[IMAGE] Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%")
+                self.logger.info(
+                    f"[IMAGE] Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%"
+                )
 
-                # Timeout toevoegen om hangende requests te voorkomen
-                response = httpx.get(url, timeout=15.0)
-                content_length = len(response.content)
-                self.logger.info(f"[IMAGE] Ontvangen afbeeldingsgrootte: {content_length/1024/1024:.2f} MB")
+                # Retry mechanisme voor mobiele verbindingen (5G)
+                max_retries = 3
+                retry_delay = 2  # seconden
+                last_error = None
 
-                # Check of de response OK is
-                if response.status_code != 200:
-                    self.logger.error(f"[IMAGE] Fout bij downloaden afbeelding: {response.status_code}")
-                    return "Fout: kon afbeelding niet downloaden"
-                
+                for retry_attempt in range(max_retries):
+                    try:
+                        # Verhoogde timeout voor mobiele verbindingen
+                        timeout = (
+                            25.0 if retry_attempt > 0 else 15.0
+                        )  # Verhoog timeout bij herhaalde pogingen
+
+                        if retry_attempt > 0:
+                            self.logger.info(
+                                f"[IMAGE] Poging {retry_attempt + 1}/{max_retries} om afbeelding te downloaden (timeout: {timeout}s)"
+                            )
+                            self.logger.info(
+                                f"[IMAGE] Vorige poging mislukt: {str(last_error)}"
+                            )
+
+                        # Gebruik een langere timeout en volg redirects automatisch
+                        response = httpx.get(
+                            url,
+                            timeout=timeout,
+                            follow_redirects=True,  # Volg redirects automatisch
+                        )
+
+                        content_length = len(response.content)
+                        self.logger.info(
+                            f"[IMAGE] Ontvangen afbeeldingsgrootte: {content_length / 1024 / 1024:.2f} MB"
+                        )
+
+                        # Check of de response OK is
+                        if response.status_code != 200:
+                            error_msg = f"HTTP status {response.status_code}"
+                            self.logger.error(
+                                f"[IMAGE] Fout bij downloaden afbeelding: {error_msg}"
+                            )
+                            last_error = error_msg
+
+                            if retry_attempt < max_retries - 1:
+                                self.logger.info(
+                                    f"[IMAGE] Wachten {retry_delay} seconden voor nieuwe poging..."
+                                )
+                                time.sleep(retry_delay)
+                                retry_delay *= 1.5  # Exponentiële backoff
+                                continue
+                            return f"Fout: kon afbeelding niet downloaden (HTTP {response.status_code})"
+
+                        # Download is gelukt, breek de retry-lus
+                        break
+
+                    except (
+                        httpx.TimeoutException,
+                        httpx.ConnectError,
+                        httpx.ReadError,
+                        httpx.NetworkError,
+                    ) as e:
+                        error_msg = f"{type(e).__name__}: {str(e)}"
+                        self.logger.error(
+                            f"[IMAGE] Netwerkfout bij downloaden: {error_msg}"
+                        )
+                        last_error = error_msg
+
+                        if retry_attempt < max_retries - 1:
+                            self.logger.info(
+                                f"[IMAGE] Wachten {retry_delay} seconden voor nieuwe poging..."
+                            )
+                            time.sleep(retry_delay)
+                            retry_delay *= 1.5  # Exponentiële backoff
+                            continue
+                        return f"Netwerkfout bij downloaden afbeelding: {error_msg}"
+
                 # Verlaag de MAX_COMPRESSED_SIZE voor betere betrouwbaarheid
                 MAX_COMPRESSED_SIZE = 450 * 1024  # Van 600KB naar 450KB
-                
+
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
-                
+
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
                     # Laad de afbeelding
@@ -448,174 +514,196 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Originele afmetingen en grootte
                     original_width, original_height = img.size
                     original_size = len(response.content)
-                    self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
-                    self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size/1024/1024:.2f} MB")
-                    
+                    self.logger.info(
+                        f"[IMAGE] Originele afmetingen: {original_width}x{original_height}"
+                    )
+                    self.logger.info(
+                        f"[IMAGE] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB"
+                    )
+
                     # Voor zeer grote afbeeldingen, drastischer verkleinen
                     if original_size > 8 * 1024 * 1024:  # > 8MB
                         is_very_large_image = True
-                        self.logger.info(f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size/1024/1024:.2f} MB")
+                        self.logger.info(
+                            f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
+                        )
                         target_width = 700  # Kleinere breedte om grootte te beperken
-                        quality = 80       # Lagere kwaliteit
+                        quality = 80  # Lagere kwaliteit
                     elif original_size > 3 * 1024 * 1024:  # >3MB
                         target_width = 900  # Van 1000px naar 900px
-                        quality = 85       # Van 90% naar 85%
+                        quality = 85  # Van 90% naar 85%
                     else:
                         # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
                         target_width = self.config.image_max_width
-                        quality = min(85, self.config.image_quality)  # Kwaliteit begrenzen op 85% voor betere compressie
-                    
-                    self.logger.info(f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
-                    
+                        quality = min(
+                            85, self.config.image_quality
+                        )  # Kwaliteit begrenzen op 85% voor betere compressie
+
+                    self.logger.info(
+                        f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit"
+                    )
+
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
                         scale_factor = target_width / original_width
                         new_width = target_width
                         new_height = int(original_height * scale_factor)
-                        
+
                         # Verklein afbeelding - gebruik LANCZOS voor betere kwaliteit
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        self.logger.info(f"[IMAGE] Verkleind naar: {img.width}x{img.height}")
+                        self.logger.info(
+                            f"[IMAGE] Verkleind naar: {img.width}x{img.height}"
+                        )
                     else:
-                        self.logger.info("[IMAGE] Afbeelding is kleiner dan max breedte, geen resize nodig")
-                    
+                        self.logger.info(
+                            "[IMAGE] Afbeelding is kleiner dan max breedte, geen resize nodig"
+                        )
+
                     # Converteer naar RGB indien nodig (voor PNG met transparantie)
                     if img.mode in ("RGBA", "LA"):
                         background = Image.new("RGB", img.size, (255, 255, 255))
-                        background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
+                        background.paste(
+                            img, mask=img.split()[3] if len(img.split()) > 3 else None
+                        )
                         img = background
                         self.logger.info("[IMAGE] Transparantie omgezet naar RGB")
-                    
+
                     # Sla op in buffer met optimize=True voor betere compressie
                     buffer = io.BytesIO()
                     img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
                     image_data = buffer.getvalue()
                     image_size = len(image_data)
-                    self.logger.info(f"[IMAGE] Eerste compressie: {image_size/1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE/1024:.2f} KB)")
-                    
+                    self.logger.info(
+                        f"[IMAGE] Eerste compressie: {image_size / 1024:.2f} KB (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
+                    )
+
                     # Iteratieve compressie algoritme verbeteren
                     attempt = 1
                     max_attempts = 5  # Een extra poging toevoegen
-                    
+
                     # Begin met meer agressieve verkleining voor grote afbeeldingen
                     quality_step = 15 if is_very_large_image else 10
                     min_quality = 50  # Lagere minimum kwaliteit toestaan voor zeer grote afbeeldingen
-                    
+
                     while image_size > MAX_COMPRESSED_SIZE and attempt <= max_attempts:
-                        self.logger.info(f"[IMAGE] Compressie iteratie {attempt}: {image_size/1024:.2f} KB > {MAX_COMPRESSED_SIZE/1024:.2f} KB")
-                        
+                        self.logger.info(
+                            f"[IMAGE] Compressie iteratie {attempt}: {image_size / 1024:.2f} KB > {MAX_COMPRESSED_SIZE / 1024:.2f} KB"
+                        )
+
                         attempt += 1
-                        
+
                         # Agressievere verkleining voor latere iteraties
                         resize_factor = 0.7 if attempt > 2 else 0.8
                         new_width = int(img.width * resize_factor)
                         new_height = int(img.height * resize_factor)
-                        
+
                         # Grotere kwaliteitsreductie voor latere pogingen
                         new_quality = max(min_quality, quality - quality_step)
                         quality = new_quality
-                        
-                        self.logger.info(f"[IMAGE] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%")
-                        
+
+                        self.logger.info(
+                            f"[IMAGE] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%"
+                        )
+
                         # Verklein afbeelding
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        
+
                         # Opnieuw opslaan met nieuwe instellingen
                         buffer = io.BytesIO()
                         img.save(buffer, format="JPEG", quality=quality, optimize=True)
                         buffer.seek(0)
                         image_data = buffer.getvalue()
                         image_size = len(image_data)
-                        
-                        self.logger.info(f"[IMAGE] Na iteratie {attempt}: {image_size/1024:.2f} KB")
-                        
+
+                        self.logger.info(
+                            f"[IMAGE] Na iteratie {attempt}: {image_size / 1024:.2f} KB"
+                        )
+
                         # Aanpassing van compressiestappen voor volgende iteratie
                         quality_step = 8 if attempt > 2 else quality_step
 
                     # Base64 encoderen en resultaatgrootte loggen
                     image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                     base64_size = len(image_data_b64)
-                    
+
                     # Logging van eindresultaat
-                    self.logger.info(f"[IMAGE] Compressie resultaat: {image_size/1024:.2f} KB JPG → {base64_size/1024:.2f} KB base64")
-                    compression_ratio = (original_size - image_size) / original_size * 100
-                    self.logger.info(f"[IMAGE] Compressie ratio: {compression_ratio:.2f}% verkleind")
-                    self.logger.info(f"[IMAGE] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%")
-                    
+                    self.logger.info(
+                        f"[IMAGE] Compressie resultaat: {image_size / 1024:.2f} KB JPG → {base64_size / 1024:.2f} KB base64"
+                    )
+                    compression_ratio = (
+                        (original_size - image_size) / original_size * 100
+                    )
+                    self.logger.info(
+                        f"[IMAGE] Compressie ratio: {compression_ratio:.2f}% verkleind"
+                    )
+                    self.logger.info(
+                        f"[IMAGE] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%"
+                    )
+
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                    
+
                     # Voeg een extra check toe om te controleren of afbeeldingen echt te groot zijn
                     if base64_size > 700 * 1024:  # 700KB base64 limit
                         # Drastische verkleining voor zeer problematische gevallen
                         target_width = min(500, target_width)  # Maximum 500px breed
                         quality = 65  # Laagste acceptabele kwaliteit
-                    
+
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
-                        self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size/1024/1024:.2f} MB)")
-                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({base64_size/1024/1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
-                    
+                        self.logger.warning(
+                            f"[IMAGE] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
+                        )
+                        self.logger.info(
+                            "[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) ====="
+                        )
+                        return f"⚠️ **Dit is een grote afbeelding ({base64_size / 1024 / 1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
+
                     if is_very_large_image:
-                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        return f"⚠️ **Grote afbeelding verwerkt ({base64_size/1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
-                    
+                        self.logger.info(
+                            "[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) ====="
+                        )
+                        return f"⚠️ **Grote afbeelding verwerkt ({base64_size / 1024:.2f} KB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
+
                     # Implementeer een fallback mechanisme voor problematische beelden
                     if attempt >= max_attempts and image_size > MAX_COMPRESSED_SIZE:
                         # Als we na alle pogingen nog steeds te groot zijn, lever een vereenvoudigde versie
-                        img = img.resize((400, int(400 * img.height / img.width)), Image.Resampling.LANCZOS)
+                        img = img.resize(
+                            (400, int(400 * img.height / img.width)),
+                            Image.Resampling.LANCZOS,
+                        )
                         buffer = io.BytesIO()
                         img.save(buffer, format="JPEG", quality=60, optimize=True)
                         image_data = buffer.getvalue()
                         image_size = len(image_data)
                         image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                        self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({base64_size/1024:.2f} KB)**\n\nEr is een fout opgetreden bij het verwerken van de afbeelding. Een vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
-                    
-                    self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
+                        self.logger.info(
+                            "[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) ====="
+                        )
+                        return f"⚠️ **Dit is een grote afbeelding ({base64_size / 1024:.2f} KB)**\n\nEr is een fout opgetreden bij het verwerken van de afbeelding. Een vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
+
+                    self.logger.info(
+                        "[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) ====="
+                    )
                     return data_url
-                
+
                 except Exception as e:
-                    self.logger.error(f"[IMAGE] Fout bij verkleinen afbeelding: {str(e)}")
+                    self.logger.error(
+                        f"[IMAGE] Fout bij verkleinen afbeelding: {str(e)}"
+                    )
                     import traceback
+
                     self.logger.error(f"[IMAGE] Details fout: {traceback.format_exc()}")
                     return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
 
             except Exception as e:
                 self.logger.error(f"[IMAGE] Onverwachte fout: {str(e)}")
                 import traceback
+
                 self.logger.error(f"[IMAGE] Stacktrace: {traceback.format_exc()}")
                 return f"Fout bij verwerken afbeelding: {str(e)}"
-
-        def tool_debug_info():
-            """
-            Geeft debug informatie over de huidige staat van de agent.
-            """
-            memories = self.get_metadata("memories", [])
-            return json.dumps(
-                {
-                    "agent_type": "AnthropicEasylogAgent",
-                    "config": {
-                        "max_report_entries": self.config.max_report_entries,
-                        "debug_mode": self.config.debug_mode,
-                        "image_max_width": self.config.image_max_width,
-                        "image_quality": self.config.image_quality
-                    },
-                    "memory_count": len(memories),
-                    "message_history_length": len(messages),
-                },
-                indent=2,
-            )
-
-        def tool_set_debug_mode(enable: bool = True):
-            """
-            Schakelt debug modus aan of uit.
-            """
-            self.config.debug_mode = enable
-            return f"Debug modus is nu {'AAN' if enable else 'UIT'}"
 
         async def tool_search_pdf(query: str) -> str:
             """
@@ -644,8 +732,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_generate_monthly_report,
             tool_get_object_history,
             tool_clear_memories,
-            tool_debug_info,
-            tool_set_debug_mode,
             tool_download_image_from_url,
             tool_search_pdf,
             *self._planning_tools.all_tools,
@@ -673,8 +759,6 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_get_object_history: Haalt de geschiedenis van een specifiek object op
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
-- tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
-- tool_set_debug_mode: Schakelt debug modus aan of uit
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 - tool_search_pdf: Zoek een PDF in de kennisbank
 
