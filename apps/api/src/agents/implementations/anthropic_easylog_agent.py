@@ -790,10 +790,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_easylog_data,
             tool_generate_monthly_report,
             tool_get_object_history,
-            tool_clear_memories,
             tool_download_image_from_url,
             tool_search_pdf,
             *self._planning_tools.all_tools,
+            tool_clear_memories,
         ]
 
         start_time = time.time()
