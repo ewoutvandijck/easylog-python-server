@@ -442,48 +442,58 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             f"[IMAGE] Streaming optimalisatie geactiveerd voor {original_size / 1024 / 1024:.2f} MB afbeelding"
                         )
 
-                    # Voor extreem grote afbeeldingen, drastischer verkleinen
-                    if original_size > 10 * 1024 * 1024:  # > 10MB
+                    # Voor extreem grote afbeeldingen, DIRECTE thumbnail zonder verdere verwerking
+                    if original_size > 8 * 1024 * 1024:  # Verlaagd van 10MB naar 8MB voor betere ondersteuning
+                        self.logger.warning(
+                            f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB - DIRECTE THUMBNAIL"
+                        )
+
+                        # KRITISCH: Minimale verwerking voor zeer grote bestanden
+                        # Maak een kleine thumbnail zonder enige tussenstappen
+                        try:
+                            # Gebruik een extreme verkleining voor grote afbeeldingen
+                            thumb_img = img.copy()
+                            # Forceer een zeer kleine thumbnail breedte
+                            thumb_width = 300
+                            thumb_img.thumbnail(
+                                (thumb_width, int(thumb_width * thumb_img.height / thumb_img.width)),
+                                Image.Resampling.NEAREST,
+                            )  # Gebruik NEAREST voor snelheid
+
+                            # Sla op met zeer lage kwaliteit voor snelle weergave
+                            with io.BytesIO() as thumb_buffer:
+                                # Gebruik lage kwaliteit en snellere compressie
+                                thumb_img.save(thumb_buffer, format="JPEG", quality=50, optimize=False)
+                                thumb_buffer.seek(0)
+                                thumb_data = thumb_buffer.getvalue()
+
+                            # Extra kleine thumbnail, max ~50KB
+                            thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
+                            thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
+
+                            # Log en return onmiddellijk
+                            self.logger.warning(
+                                f"[IMAGE] EXTREEM GROTE AFBEELDING: Directe thumbnail verstuurd ({len(thumb_data) / 1024:.1f}KB)"
+                            )
+                            self.logger.info(
+                                "[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE AFBEELDING DIRECTE THUMBNAIL) ====="
+                            )
+
+                            # Stuur direct de thumbnail terug zonder opties
+                            return f"data:image/jpeg;base64,{thumb_data_b64}\n\n**Zeer grote afbeelding ({original_size / 1024 / 1024:.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+
+                        except Exception as thumb_error:
+                            # Als zelfs de thumbnail faalt, log en ga door naar fallback
+                            self.logger.error(f"[IMAGE] Thumbnail fout: {str(thumb_error)}")
+                            pass
+
+                        # Als we hier komen, dan is zelfs de thumbnail mislukt
+                        # Ga door naar de normale code, maar met zeer agressieve verkleining
                         is_extremely_large_image = True
                         is_very_large_image = True
-                        self.logger.warning(
-                            f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
-                        )
-
-                        # ALTIJD een thumbnail maken voor 10MB+ afbeeldingen, ongeacht andere criteria
-                        # Dit zorgt ervoor dat er altijd iets zichtbaar is, zelfs bij trage verbindingen
-                        self.logger.warning("[IMAGE] ALTIJD thumbnail genereren voor 10MB+ afbeelding")
-
-                        # Een zeer kleine thumbnail voor zeer snelle weergave
-                        thumb_width = 320  # Kleinere thumbnail
-                        thumb_quality = 55  # Lagere kwaliteit voor snelle weergave
-
-                        # Maak direct een thumbnail voor snelle weergave
-                        thumbnail_img = img.copy()
-                        thumbnail_img.thumbnail(
-                            (thumb_width, int(thumb_width * img.height / img.width)), Image.Resampling.LANCZOS
-                        )
-
-                        with io.BytesIO() as buffer:
-                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=True)
-                            buffer.seek(0)
-                            thumbnail_data = buffer.getvalue()
-
-                        thumbnail_size = len(thumbnail_data)
-                        thumbnail_data_b64 = base64.b64encode(thumbnail_data).decode("utf-8")
-
-                        self.logger.info(
-                            f"[IMAGE] 10MB+ Thumbnail: {thumb_width}px breed, {thumb_quality}% kwaliteit, {thumbnail_size / 1024:.2f} KB"
-                        )
-
-                        # Voor zeer grote afbeeldingen: altijd de thumbnail tonen en volledige versie in achtergrond laden
-                        thumb_url = f"data:image/jpeg;base64,{thumbnail_data_b64}"
-                        return f"⚠️ **Zeer grote afbeelding ({original_size / 1024 / 1024:.2f} MB) wordt geladen...**\n\nHier is een voorvertoning:\n\n{thumb_url}\n\n*Vernieuw de chat om de volledige versie te zien.*"
-
-                        # Oude code blijft staan maar wordt nooit bereikt voor 10MB+ afbeeldingen
-                        target_width = 600  # Nog kleinere breedte
-                        quality = 65  # Nog lagere kwaliteit
-                    elif original_size > 8 * 1024 * 1024:  # > 8MB
+                        target_width = 500  # Kleinere breedte
+                        quality = 60  # Lagere kwaliteit
+                    elif original_size > 5 * 1024 * 1024:  # > 5MB maar < 8MB
                         is_very_large_image = True
                         self.logger.info(
                             f"[IMAGE] Zeer grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB"
@@ -504,19 +514,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Streaming optimalisatie: maak direct thumbnail voor grote afbeeldingen
                     if needs_streaming_optimization and original_size > FORCE_THUMBNAIL_SIZE:
-                        self.logger.warning("[IMAGE] Direct thumbnail genereren voor streaming optimalisatie")
-                        # Twee afbeeldingen: een kleine low-res voor directe weergave en een hogere kwaliteit
-                        thumb_width = 350  # Kleine thumbnail
-                        thumb_quality = 55  # Lagere kwaliteit voor snelle weergave
+                        self.logger.warning(
+                            f"[IMAGE] Direct thumbnail genereren voor grote afbeelding ({original_size / (1024 * 1024):.2f} MB)"
+                        )
+                        # Maak een kleine thumbnail voor directe weergave
+                        thumb_width = 300  # Kleine thumbnail
+                        thumb_quality = 50  # Lagere kwaliteit voor snelle weergave
 
-                        # Creëer thumbnail voor snelle weergave
+                        # Creëer thumbnail voor snelle weergave met NEAREST resampling (sneller)
                         thumbnail_img = img.copy()
                         thumbnail_img.thumbnail(
-                            (thumb_width, int(thumb_width * img.height / img.width)), Image.Resampling.LANCZOS
+                            (thumb_width, int(thumb_width * img.height / img.width)), Image.Resampling.NEAREST
                         )
 
                         with io.BytesIO() as buffer:
-                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=True)
+                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=False)
                             buffer.seek(0)
                             thumbnail_data = buffer.getvalue()
 
@@ -527,9 +539,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             f"[IMAGE] Thumbnail gemaakt: {thumb_width}px breed, {thumb_quality}% kwaliteit, {thumbnail_size / 1024:.2f} KB"
                         )
 
-                        # Stuur snelle thumbnail en bericht dat betere versie volgt
-                        thumb_url = f"data:image/jpeg;base64,{thumbnail_data_b64}"
-                        return f"⚠️ **Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) wordt geladen...**\n\nHier is een voorvertoning:\n\n{thumb_url}\n\n*Vernieuw de chat voor de volledige versie of wacht op betere kwaliteit.*"
+                        # Stuur alleen de thumbnail met een melding dat het een grote afbeelding is
+                        return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size / (1024 * 1024):.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
 
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -699,7 +710,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nDe afbeelding is verkleind voor betere weergave.\n\n{data_url}"
+                        return f"{data_url}\n\n**Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) - Dit is een verkleinde versie voor betere weergave.**"
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
@@ -708,17 +719,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     if needs_streaming_optimization:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) =====")
                         if not is_very_large_image:  # Alleen voor middelgrote afbeeldingen
-                            return f"⚠️ **Grotere afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nAls de afbeelding niet volledig zichtbaar is, vernieuw dan je chat of wacht even.\n\n{data_url}"
+                            return data_url
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
                         self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)")
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"⚠️ **Dit is een grote afbeelding ({original_size / 1024 / 1024:.2f} MB)**\n\nHet kan zijn dat de afbeelding niet direct zichtbaar is. Je kunt het volgende proberen:\n1. Wacht enkele seconden tot de afbeelding laadt\n2. Sluit de chat en open deze opnieuw\n\n{data_url}"
+                        return f"{data_url}\n\n**Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) - De volledige versie is beschikbaar na vernieuwen van de chat.**"
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        return f"⚠️ **Grote afbeelding verwerkt ({original_size / 1024 / 1024:.2f} MB)**\n\nAls de afbeelding niet direct zichtbaar is, sluit dan de chat en open deze opnieuw.\n\n{data_url}"
+                        return data_url
 
                     self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
                     return data_url
@@ -740,7 +751,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                                 image_data = buffer.getvalue()
                             image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                             data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                            return f"⚠️ **Er is een fout opgetreden bij het verwerken van de afbeelding**\n\nEen vereenvoudigde versie wordt weergegeven.\n\n{data_url}"
+                            return data_url
                     except:
                         pass
 
