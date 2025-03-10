@@ -49,15 +49,45 @@ class AnthropicEasylogAgentConfig(BaseModel):
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
 class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
     def __init__(self, *args, **kwargs) -> None:
+        # Call the parent class init
         super().__init__(*args, **kwargs)
+
+        # Setup planning tools
         self._planning_tools = PlanningTools(self.easylog_backend)
+
+        # Extra logging om tools bij te houden
+        self.available_tools = []
         self.logger.info("EasylogAgent initialized with planning tools")
 
-        # Extra debug logging
-        self.logger.info(f"[DEBUG] EasylogAgent initialized with debug_mode: {self.config.debug_mode}")
-        self.logger.info(
-            f"[DEBUG] Image processing settings: max_width={self.config.image_max_width}, quality={self.config.image_quality}"
-        )
+        # Disable debug mode to avoid loading debug tools
+        self.config.debug_mode = False
+
+    def _describe_available_tools(self):
+        """Log beschikbare tools in de class en filter debug tools uit"""
+        all_tools = [
+            "tool_store_memory",
+            "tool_get_easylog_data",
+            "tool_generate_monthly_report",
+            "tool_get_object_history",
+            "tool_download_image_from_url",
+            "tool_search_pdf",
+            "tool_clear_memories",
+            # Planning tools
+            "tool_get_planning_projects",
+            "tool_get_planning_project",
+            "tool_update_planning_project",
+            "tool_get_planning_phases",
+            "tool_get_planning_phase",
+            "tool_update_planning_phase",
+            "tool_create_planning_phase",
+            "tool_get_resources",
+            "tool_get_projects_of_resource",
+            "tool_create_multiple_allocations",
+            "tool_get_resource_groups",
+        ]
+
+        self.available_tools = all_tools
+        self.logger.info(f"Beschikbare tools voor EasylogAgent: {', '.join(all_tools)}")
 
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
@@ -190,6 +220,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         self.logger.info("Removing any debug tools that might still be in code")
         # Debug mode debug tools verwijderen
         self.config.debug_mode = False
+
+        # Beschrijf beschikbare tools
+        self._describe_available_tools()
 
         # Log the incoming message for debugging
         if messages and len(messages) > 0:
@@ -806,14 +839,34 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         for tool in tools:
             self.logger.info(f" - {tool.__name__}")
 
-        # Zet alle tools om naar het Anthropic formaat
+        # Zet alle tools om naar het Anthropic formaat en filter debug tools
         anthropic_tools = []
         for tool in tools:
-            # Sla eventuele tool_debug_info over als deze in de planning tools zit
-            if tool.__name__ in ["tool_debug_info", "tool_set_debug_mode"]:
-                self.logger.warning(f"Skipping debug tool: {tool.__name__}")
-                continue
-            anthropic_tools.append(function_to_anthropic_tool(tool))
+            # Expliciet alle tool-namen die we willen behouden
+            if tool.__name__ in [
+                "tool_store_memory",
+                "tool_get_easylog_data",
+                "tool_generate_monthly_report",
+                "tool_get_object_history",
+                "tool_download_image_from_url",
+                "tool_search_pdf",
+                "tool_clear_memories",
+                # Planning tools namen
+                "tool_get_planning_projects",
+                "tool_get_planning_project",
+                "tool_update_planning_project",
+                "tool_get_planning_phases",
+                "tool_get_planning_phase",
+                "tool_update_planning_phase",
+                "tool_create_planning_phase",
+                "tool_get_resources",
+                "tool_get_projects_of_resource",
+                "tool_create_multiple_allocations",
+                "tool_get_resource_groups",
+            ]:
+                anthropic_tools.append(function_to_anthropic_tool(tool))
+            else:
+                self.logger.warning(f"Skipping tool: {tool.__name__}")
 
         # Print alle tools na filtering om te debuggen
         self.logger.info("All tools after filtering:")
