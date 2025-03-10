@@ -580,33 +580,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 self.logger.error(f"[IMAGE] Stacktrace: {traceback.format_exc()}")
                 return f"Fout bij verwerken afbeelding: {str(e)}"
 
-        def tool_debug_info():
-            """
-            Geeft debug informatie over de huidige staat van de agent.
-            """
-            memories = self.get_metadata("memories", [])
-            return json.dumps(
-                {
-                    "agent_type": "AnthropicEasylogAgent",
-                    "config": {
-                        "max_report_entries": self.config.max_report_entries,
-                        "debug_mode": self.config.debug_mode,
-                        "image_max_width": self.config.image_max_width,
-                        "image_quality": self.config.image_quality,
-                    },
-                    "memory_count": len(memories),
-                    "message_history_length": len(messages),
-                },
-                indent=2,
-            )
-
-        def tool_set_debug_mode(enable: bool = True):
-            """
-            Schakelt debug modus aan of uit.
-            """
-            self.config.debug_mode = enable
-            return f"Debug modus is nu {'AAN' if enable else 'UIT'}"
-
         async def tool_search_pdf(query: str) -> str:
             """
             Search for a PDF in the knowledge base.
@@ -634,8 +607,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_generate_monthly_report,
             tool_get_object_history,
             tool_clear_memories,
-            tool_debug_info,
-            tool_set_debug_mode,
             tool_download_image_from_url,
             tool_search_pdf,
             *self._planning_tools.all_tools,
@@ -663,8 +634,6 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_get_object_history: Haalt de geschiedenis van een specifiek object op
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
-- tool_debug_info: Toon debug informatie (alleen voor ontwikkelaars)
-- tool_set_debug_mode: Schakelt debug modus aan of uit
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 - tool_search_pdf: Zoek een PDF in de kennisbank
 
