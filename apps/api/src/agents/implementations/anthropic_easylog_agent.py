@@ -881,7 +881,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Print alle tools na filtering om te debuggen
         self.logger.info("All tools after filtering:")
         for i, tool in enumerate(anthropic_tools):
-            self.logger.info(f" - {i + 1}: {tool.function.name}")
+            try:
+                # Probeer de naam op beide manieren te krijgen (als object met function attribuut of als dict)
+                if hasattr(tool, 'function') and hasattr(tool.function, 'name'):
+                    self.logger.info(f" - {i + 1}: {tool.function.name}")
+                elif isinstance(tool, dict) and 'function' in tool and 'name' in tool['function']:
+                    self.logger.info(f" - {i + 1}: {tool['function']['name']}")
+                else:
+                    self.logger.info(f" - {i + 1}: {str(tool)[:50]}")  # Log een deel van het object als fallback
+            except Exception as e:
+                self.logger.warning(f" - {i + 1}: Error logging tool: {str(e)}")
 
         start_time = time.time()
 
