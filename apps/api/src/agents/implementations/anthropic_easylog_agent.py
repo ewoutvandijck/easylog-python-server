@@ -2,6 +2,7 @@
 import base64
 import io
 import json
+import mimetypes
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -67,6 +68,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             "tool_get_object_history",
             "tool_download_image_from_url",
             "tool_search_pdf",
+            "tool_load_image",
             "tool_clear_memories",
         ]
 
@@ -809,12 +811,57 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 return "Geen PDF gevonden"
 
             self.logger.info(f"[PDF SEARCH] Found PDF: {knowledge_result.object.name}")
+
+            # Verwerk de afbeeldingen, als die beschikbaar zijn
+            images_data = []
+            if hasattr(knowledge_result, "images") and knowledge_result.images:
+                self.logger.info(f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF")
+                for img in knowledge_result.images:
+                    images_data.append(
+                        {
+                            "id": img.id,
+                            "object_id": img.object_id,
+                            "summary": img.summary,
+                            "file_name": img.original_file_name,
+                            "page": img.page,
+                        }
+                    )
+
+            # Maak een volledige JSON respons met alle beschikbare informatie
             return json.dumps(
                 {
                     "id": knowledge_result.id,
                     "markdown_content": knowledge_result.markdown_content,
+                    "title": knowledge_result.object.name,
+                    "summary": knowledge_result.short_summary,
+                    "long_summary": knowledge_result.long_summary,
+                    "images": images_data,
                 }
             )
+
+        async def tool_load_image(_id: str, file_name: str) -> str:
+            """
+            Laad een afbeelding uit de database. Id is het id van het PDF bestand, en in de markdown vind je veel verwijzingen naar afbeeldingen.
+            Gebruik het exacte bestandspad om de afbeelding te laden.
+
+            Args:
+                _id (str): Het ID van het PDF bestand
+                file_name (str): De bestandsnaam van de afbeelding zoals vermeld in de markdown
+
+            Returns:
+                str: Een data URL die de afbeelding als base64 gecodeerde data bevat
+            """
+            self.logger.info(f"[IMAGE LOADING] Afbeelding laden: {_id}, {file_name}")
+
+            try:
+                image_data = await self.load_image(_id, file_name)
+                mime_type = mimetypes.guess_type(file_name)[0] or "image/jpeg"
+                self.logger.info(f"[IMAGE LOADING] Afbeelding geladen: {len(image_data)} bytes, type {mime_type}")
+
+                return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+            except Exception as e:
+                self.logger.error(f"[IMAGE LOADING] Fout bij laden afbeelding: {str(e)}")
+                return f"Fout bij laden afbeelding: {str(e)}"
 
         tools = [
             tool_store_memory,
@@ -823,6 +870,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_object_history,
             tool_download_image_from_url,
             tool_search_pdf,
+            tool_load_image,
             tool_clear_memories,
         ]
 
@@ -842,6 +890,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 "tool_get_object_history",
                 "tool_download_image_from_url",
                 "tool_search_pdf",
+                "tool_load_image",
                 "tool_clear_memories",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
