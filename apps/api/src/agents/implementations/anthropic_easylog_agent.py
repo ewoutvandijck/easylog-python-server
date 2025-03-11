@@ -15,7 +15,6 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
-from src.agents.tools.planning_tools import PlanningTools
 from src.logger import logger
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
@@ -52,9 +51,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Call the parent class init
         super().__init__(*args, **kwargs)
 
-        # Setup planning tools
-        self._planning_tools = PlanningTools(self.easylog_backend)
-
         # Extra logging om tools bij te houden
         self.available_tools = []
         self.logger.info("EasylogAgent initialized with planning tools")
@@ -72,18 +68,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             "tool_download_image_from_url",
             "tool_search_pdf",
             "tool_clear_memories",
-            # Planning tools
-            "tool_get_planning_projects",
-            "tool_get_planning_project",
-            "tool_update_planning_project",
-            "tool_get_planning_phases",
-            "tool_get_planning_phase",
-            "tool_update_planning_phase",
-            "tool_create_planning_phase",
-            "tool_get_resources",
-            "tool_get_projects_of_resource",
-            "tool_create_multiple_allocations",
-            "tool_get_resource_groups",
         ]
 
         self.available_tools = all_tools
@@ -805,10 +789,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         async def tool_search_pdf(query: str) -> str:
             """
             Search for information in PDFs stored in the knowledge base.
-            
+
             Args:
                 query (str): The search query to find relevant information in PDF documents
-                
+
             Returns:
                 str: JSON string containing the search results with PDF content or a message indicating no results were found
             """
@@ -839,7 +823,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_get_object_history,
             tool_download_image_from_url,
             tool_search_pdf,
-            *self._planning_tools.all_tools,
             tool_clear_memories,
         ]
 
@@ -860,18 +843,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 "tool_download_image_from_url",
                 "tool_search_pdf",
                 "tool_clear_memories",
-                # Planning tools namen
-                "tool_get_planning_projects",
-                "tool_get_planning_project",
-                "tool_update_planning_project",
-                "tool_get_planning_phases",
-                "tool_get_planning_phase",
-                "tool_update_planning_phase",
-                "tool_create_planning_phase",
-                "tool_get_resources",
-                "tool_get_projects_of_resource",
-                "tool_create_multiple_allocations",
-                "tool_get_resource_groups",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
                 self.logger.info(f"Added tool to Anthropic tools: {tool.__name__}")
@@ -883,9 +854,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         for i, tool in enumerate(anthropic_tools):
             try:
                 # Probeer de naam op beide manieren te krijgen (als object met function attribuut of als dict)
-                if hasattr(tool, 'function') and hasattr(tool.function, 'name'):
+                if hasattr(tool, "function") and hasattr(tool.function, "name"):
                     self.logger.info(f" - {i + 1}: {tool.function.name}")
-                elif isinstance(tool, dict) and 'function' in tool and 'name' in tool['function']:
+                elif isinstance(tool, dict) and "function" in tool and "name" in tool["function"]:
                     self.logger.info(f" - {i + 1}: {tool['function']['name']}")
                 else:
                     self.logger.info(f" - {i + 1}: {str(tool)[:50]}")  # Log een deel van het object als fallback
