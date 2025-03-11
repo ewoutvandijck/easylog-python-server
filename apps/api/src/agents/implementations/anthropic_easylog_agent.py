@@ -796,20 +796,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             img.save(buffer, format="JPEG", quality=30, optimize=True)  # Verlaagd van 35 naar 30
                             buffer.seek(0)
                             image_data = buffer.getvalue()
-                        image_size = len(image_data)
-                        
-                        # NIEUW: Valideer de base64 encoding
-                        try:
-                            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                            base64_size = len(image_data_b64)
-                            base64_size_mb = base64_size / (1024 * 1024)
-                            self.logger.info(
-                                f"[IMAGE LOADING] Na streaming optimalisatie: {image_size / 1024:.2f}KB, base64: {base64_size / 1024:.2f}KB"
-                            )
-                        except Exception as b64_error:
-                            self.logger.error(f"[IMAGE LOADING] Base64 encoding fout na streaming optimalisatie: {str(b64_error)}")
-                            # Gebruik noodfallback
-                            return "Er is een probleem opgetreden bij het verwerken van deze zeer grote afbeelding."
+                            try:
+                                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                                base64_size = len(image_data_b64)
+                                base64_size_mb = base64_size / (1024 * 1024)
+                                self.logger.info(
+                                    f"[IMAGE LOADING] Na streaming optimalisatie: {image_size / 1024:.2f}KB, base64: {base64_size / 1024:.2f}KB"
+                                )
+                            except Exception as b64_error:
+                                self.logger.error(f"[IMAGE LOADING] Base64 encoding fout na streaming optimalisatie: {str(b64_error)}")
+                                # Gebruik noodfallback
+                                return "Er is een probleem opgetreden bij het verwerken van deze zeer grote afbeelding."
 
                     # AANGEPAST: Verlaagde drempel voor fallback
                     if image_size > MAX_COMPRESSED_SIZE or base64_size > MAX_BASE64_SIZE:
@@ -824,24 +821,23 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                             
-                                # NIEUW: Valideer base64 encoding
-                                try:
-                                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                                    base64_size = len(image_data_b64)
-                                    base64_size_mb = base64_size / (1024 * 1024)
+                            try:
+                                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                                base64_size = len(image_data_b64)
+                                base64_size_mb = base64_size / (1024 * 1024)
 
-                                    self.logger.info(
-                                        f"[IMAGE LOADING] FALLBACK: Verkleind naar 160px breed, 25% kwaliteit, {len(image_data) / 1024:.2f} KB, base64: {base64_size/1024:.2f}KB"
-                                    )
-                                except Exception as b64_error:
-                                    self.logger.error(f"[IMAGE LOADING] Base64 encoding fout in fallback: {str(b64_error)}")
-                                    return "Er is een probleem opgetreden bij het verwerken van deze afbeelding."
+                                self.logger.info(
+                                    f"[IMAGE LOADING] FALLBACK: Verkleind naar 160px breed, 25% kwaliteit, {len(image_data) / 1024:.2f} KB, base64: {base64_size/1024:.2f}KB"
+                                )
+                            except Exception as b64_error:
+                                self.logger.error(f"[IMAGE LOADING] Base64 encoding fout in fallback: {str(b64_error)}")
+                                return "Er is een probleem opgetreden bij het verwerken van deze afbeelding."
 
-                                # Maak de data URL met de fallback versie
-                                data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                            # Maak de data URL met de fallback versie
+                            data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
-                                self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                                return data_url
+                            self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
+                            return data_url
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
@@ -869,13 +865,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                             
-                                try:
-                                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                                    self.logger.info(f"[IMAGE LOADING] Emergency fallback: {len(image_data)/1024:.2f}KB, base64: {len(image_data_b64)/1024:.2f}KB")
-                                except Exception as b64_error:
-                                    self.logger.error(f"[IMAGE LOADING] Emergency fallback failed: {str(b64_error)}")
-                                    return "Er is een probleem opgetreden bij het verwerken van deze grote afbeelding."
+                            try:
+                                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                                data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                                self.logger.info(f"[IMAGE LOADING] Emergency fallback: {len(image_data)/1024:.2f}KB, base64: {len(image_data_b64)/1024:.2f}KB")
+                            except Exception as b64_error:
+                                self.logger.error(f"[IMAGE LOADING] Emergency fallback failed: {str(b64_error)}")
+                                return "Er is een probleem opgetreden bij het verwerken van deze grote afbeelding."
                             
                             self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
                             return data_url
