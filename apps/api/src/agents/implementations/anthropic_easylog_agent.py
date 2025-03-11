@@ -788,7 +788,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 self.logger.error(f"[IMAGE] Stacktrace: {traceback.format_exc()}")
                 return f"Fout bij verwerken afbeelding: {str(e)}"
 
-        async def tool_search_pdf(query: str) -> str:
+        def tool_search_pdf(query: str) -> str:
             """
             Search for information in PDFs stored in the knowledge base.
 
@@ -799,7 +799,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 str: JSON string containing the search results with PDF content or a message indicating no results were found
             """
             self.logger.info(f"[PDF SEARCH] Searching for: {query}")
-            knowledge_result = await self.search_knowledge(query)
+
+            # Gebruik asyncio om de asynchrone functie aan te roepen vanuit een synchrone context
+            import asyncio
+
+            # In specifieke situaties asyncio.run gebruiken kan problematisch zijn in een bestaande event loop
+            # Daarom gebruiken we een alternatieve benadering
+            loop = asyncio.get_event_loop()
+            knowledge_result = loop.run_until_complete(self.search_knowledge(query))
 
             if (
                 knowledge_result is None
@@ -839,7 +846,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> str:
+        def tool_load_image(_id: str, file_name: str) -> str:
             """
             Laad een afbeelding uit de database. Id is het id van het PDF bestand, en in de markdown vind je veel verwijzingen naar afbeeldingen.
             Gebruik het exacte bestandspad om de afbeelding te laden.
@@ -854,7 +861,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             self.logger.info(f"[IMAGE LOADING] Afbeelding laden: {_id}, {file_name}")
 
             try:
-                image_data = await self.load_image(_id, file_name)
+                # Gebruik asyncio.run om de asynchrone functie aan te roepen vanuit een synchrone context
+                import asyncio
+
+                # In specifieke situaties asyncio.run gebruiken kan problematisch zijn in een bestaande event loop
+                # Daarom gebruiken we een alternatieve benadering
+                loop = asyncio.get_event_loop()
+                image_data = loop.run_until_complete(self.load_image(_id, file_name))
+
                 mime_type = mimetypes.guess_type(file_name)[0] or "image/jpeg"
                 self.logger.info(f"[IMAGE LOADING] Afbeelding geladen: {len(image_data)} bytes, type {mime_type}")
 
