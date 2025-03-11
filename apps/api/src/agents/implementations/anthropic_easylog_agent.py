@@ -530,9 +530,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     else:
                         # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
                         target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
-                        quality = min(
-                            80, self.config.image_quality
-                        )  # Kwaliteit begrenzen op 80% voor betere compressie
+                        quality = min(80, self.config.image_quality)  # Kwaliteit begrenzen op 80%
 
                     self.logger.info(f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
 
@@ -958,9 +956,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     else:
                         # Gebruik configuratie voor normale afbeeldingen
                         target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
-                        quality = min(
-                            80, self.config.image_quality
-                        )  # Kwaliteit begrenzen op 80% voor betere compressie
+                        quality = min(80, self.config.image_quality)  # Kwaliteit begrenzen op 80%
 
                     self.logger.info(
                         f"[IMAGE LOADING] Target instellingen: {target_width}px breed, {quality}% kwaliteit"
