@@ -804,8 +804,15 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_search_pdf(query: str) -> str:
             """
-            Search for a PDF in the knowledge base.
+            Search for information in PDFs stored in the knowledge base.
+            
+            Args:
+                query (str): The search query to find relevant information in PDF documents
+                
+            Returns:
+                str: JSON string containing the search results with PDF content or a message indicating no results were found
             """
+            self.logger.info(f"[PDF SEARCH] Searching for: {query}")
             knowledge_result = await self.search_knowledge(query)
 
             if (
@@ -814,8 +821,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 or knowledge_result.object.name is None
                 or knowledge_result.object.bucket_id is None
             ):
+                self.logger.warning(f"[PDF SEARCH] No results found for query: {query}")
                 return "Geen PDF gevonden"
 
+            self.logger.info(f"[PDF SEARCH] Found PDF: {knowledge_result.object.name}")
             return json.dumps(
                 {
                     "id": knowledge_result.id,
@@ -865,6 +874,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 "tool_get_resource_groups",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
+                self.logger.info(f"Added tool to Anthropic tools: {tool.__name__}")
             else:
                 self.logger.warning(f"Skipping tool: {tool.__name__}")
 
@@ -897,6 +907,9 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_download_image_from_url: Download een afbeelding van een URL en geef deze terug als base64-gecodeerde data-URL
 - tool_search_pdf: Zoek een PDF in de kennisbank
+
+### Gebruik van de tool_search_pdf
+Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
