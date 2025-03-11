@@ -434,19 +434,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.error(f"[IMAGE] Fout bij downloaden afbeelding: {response.status_code}")
                     return "Fout: kon afbeelding niet downloaden"
 
-                # Kleinere limiet voor trage verbindingen
-                MAX_COMPRESSED_SIZE = 200 * 1024  # Van 250KB naar 200KB voor betere streaming
-
-                # Hard streaming limit voor verbindingsproblemen
-                MAX_STREAMING_SIZE = 400 * 1024  # Maximaal 400KB voor streaming
-
-                # Directe fallback voor zeer grote afbeeldingen bij trage verbindingen
-                FORCE_THUMBNAIL_SIZE = 2 * 1024 * 1024  # 2MB force thumbnail
+                # VERLAAGDE LIMIETEN voor slechte verbindingen
+                MAX_COMPRESSED_SIZE = 150 * 1024  # Van 200KB naar 150KB voor betere streaming
+                MAX_STREAMING_SIZE = 300 * 1024  # Van 400KB naar 300KB
+                FORCE_THUMBNAIL_SIZE = 1 * 1024 * 1024  # Van 2MB naar 1MB voor snellere verwerking
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
-                is_extremely_large_image = False
                 needs_streaming_optimization = False
+
+                # NIEUWE PARAMETER: Altijd progressief laden gebruiken
+                always_use_progressive_loading = True
 
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
@@ -459,66 +457,42 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
                     self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB")
 
-                    # Streaming optimalisatie voor grote afbeeldingen (vanaf 5MB)
-                    if original_size > 5 * 1024 * 1024:
-                        needs_streaming_optimization = True
-                        self.logger.warning(
-                            f"[IMAGE] Streaming optimalisatie geactiveerd voor {original_size / 1024 / 1024:.2f} MB afbeelding"
+                    # NIEUWE LOGICA: Maak altijd eerst een zeer kleine thumbnail voor snelle weergave
+                    if always_use_progressive_loading or original_size > FORCE_THUMBNAIL_SIZE:
+                        self.logger.info("[IMAGE] Progressief laden geactiveerd")
+
+                        # Maak een zeer kleine thumbnail voor onmiddellijke weergave
+                        thumb_width = 200  # Van 300px naar 200px voor nog snellere weergave
+                        thumb_quality = 40  # Van 50% naar 40% kwaliteit
+
+                        # Maak een kopie om de originele afbeelding niet aan te passen
+                        thumb_img = img.copy()
+                        # Gebruik NEAREST resampling voor maximale snelheid
+                        thumb_img.thumbnail(
+                            (thumb_width, int(thumb_width * thumb_img.height / thumb_img.width)),
+                            Image.Resampling.NEAREST,
                         )
 
-                    # Voor extreem grote afbeeldingen, DIRECTE thumbnail zonder verdere verwerking
-                    if original_size > 8 * 1024 * 1024:  # Verlaagd van 10MB naar 8MB voor betere ondersteuning
-                        self.logger.warning(
-                            f"[IMAGE] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB - DIRECTE THUMBNAIL"
+                        with io.BytesIO() as thumb_buffer:
+                            # Nog meer optimalisatie voor de thumbnail
+                            thumb_img.save(thumb_buffer, format="JPEG", quality=thumb_quality, optimize=False)
+                            thumb_buffer.seek(0)
+                            thumb_data = thumb_buffer.getvalue()
+
+                        thumb_size = len(thumb_data)
+                        thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
+                        thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
+
+                        self.logger.info(
+                            f"[IMAGE] Thumbnail gemaakt: {thumb_width}px, {thumb_quality}%, {thumb_size / 1024:.1f}KB"
                         )
 
-                        # KRITISCH: Minimale verwerking voor zeer grote bestanden
-                        # Maak een kleine thumbnail zonder enige tussenstappen
-                        try:
-                            # Gebruik een extreme verkleining voor grote afbeeldingen
-                            thumb_img = img.copy()
-                            # Forceer een zeer kleine thumbnail breedte
-                            thumb_width = 300
-                            thumb_img.thumbnail(
-                                (thumb_width, int(thumb_width * thumb_img.height / thumb_img.width)),
-                                Image.Resampling.NEAREST,
-                            )  # Gebruik NEAREST voor snelheid
+                        # Direct de thumbnail teruggeven met melding
+                        message = f"**Progressief laden... ({original_size / 1024 / 1024:.1f} MB)**"
+                        if original_size > 5 * 1024 * 1024:
+                            message = f"**Zeer grote afbeelding ({original_size / 1024 / 1024:.1f} MB) - Dit is een voorvertoning**"
 
-                            # Sla op met zeer lage kwaliteit voor snelle weergave
-                            with io.BytesIO() as thumb_buffer:
-                                # Gebruik lage kwaliteit en snellere compressie
-                                thumb_img.save(thumb_buffer, format="JPEG", quality=50, optimize=False)
-                                thumb_buffer.seek(0)
-                                thumb_data = thumb_buffer.getvalue()
-
-                            # Extra kleine thumbnail, max ~50KB
-                            thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
-                            thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
-
-                            self.logger.info("[IMAGE] Thumbnail gemaakt voor zeer grote afbeelding")
-
-                            # Stuur direct de thumbnail terug zonder opties
-                            return f"{thumb_url}\n\n**Zeer grote afbeelding ({original_size / 1024 / 1024:.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
-
-                        except Exception as thumb_error:
-                            self.logger.error(f"[IMAGE] Fout bij maken thumbnail: {str(thumb_error)}")
-                            # Ga door met normale verwerking als fallback
-
-                    # Bepaal target breedte en kwaliteit op basis van grootte
-                    if original_size > 5 * 1024 * 1024:  # >5MB
-                        target_width = 600  # Kleinere breedte voor zeer grote afbeeldingen
-                        quality = 70  # Lagere kwaliteit
-                    elif original_size > 3 * 1024 * 1024:  # >3MB
-                        target_width = 800  # Van 900px naar 800px voor betere compressie
-                        quality = 80  # Van 85% naar 80%
-                    else:
-                        # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
-                        target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
-                        quality = min(
-                            80, self.config.image_quality
-                        )  # Kwaliteit begrenzen op 80% voor betere compressie
-
-                    self.logger.info(f"[IMAGE] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
+                        return f"{thumb_url}\n\n{message}"
 
                     # Streaming optimalisatie: maak direct thumbnail voor grote afbeeldingen
                     if needs_streaming_optimization and original_size > FORCE_THUMBNAIL_SIZE:
@@ -551,9 +525,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size / (1024 * 1024):.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
 
                     # Bereken schaalfactor en nieuwe afmetingen
-                    if original_width > target_width:
-                        scale_factor = target_width / original_width
-                        new_width = target_width
+                    if original_width > 600:
+                        scale_factor = 600 / original_width
+                        new_width = 600
                         new_height = int(original_height * scale_factor)
 
                         # Verklein afbeelding - gebruik LANCZOS voor betere kwaliteit
@@ -571,7 +545,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Sla op in buffer met optimize=True voor betere compressie
                     with io.BytesIO() as buffer:
-                        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                        img.save(buffer, format="JPEG", quality=80, optimize=True)
                         buffer.seek(0)
                         image_data = buffer.getvalue()
                     image_size = len(image_data)
