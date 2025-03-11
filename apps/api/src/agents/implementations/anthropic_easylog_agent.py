@@ -851,7 +851,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Returns:
                 str: Een data URL die de afbeelding als base64 gecodeerde data bevat
             """
-            self.logger.info(f"[IMAGE LOADING] ===== START AFBEELDING VERWERKING =====")
+            self.logger.info("[IMAGE LOADING] ===== START AFBEELDING VERWERKING =====")
             self.logger.info(f"[IMAGE LOADING] ID: {_id}, Bestand: {file_name}")
             self.logger.info(
                 f"[IMAGE LOADING] Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%"
@@ -877,8 +877,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 is_very_large_image = False
                 is_extremely_large_image = False
                 needs_streaming_optimization = False
+                img = None  # Initialiseer img variabele voor gebruik in except blokken
 
-                # Verklein de afbeelding voor betere performance en streaming
                 try:
                     # Laad de afbeelding
                     img = Image.open(io.BytesIO(image_data))
@@ -962,7 +962,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             80, self.config.image_quality
                         )  # Kwaliteit begrenzen op 80% voor betere compressie
 
-                    self.logger.info(f"[IMAGE LOADING] Target instellingen: {target_width}px breed, {quality}% kwaliteit")
+                    self.logger.info(
+                        f"[IMAGE LOADING] Target instellingen: {target_width}px breed, {quality}% kwaliteit"
+                    )
 
                     # Streaming optimalisatie: maak direct thumbnail voor grote afbeeldingen
                     if needs_streaming_optimization and original_size > FORCE_THUMBNAIL_SIZE:
@@ -1015,7 +1017,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Bij extreem grote afbeeldingen direct naar de veilige kleine versie
                     if is_extremely_large_image:
-                        self.logger.warning("[IMAGE LOADING] Direct naar veilige kleine versie voor extreem grote afbeelding")
+                        self.logger.warning(
+                            "[IMAGE LOADING] Direct naar veilige kleine versie voor extreem grote afbeelding"
+                        )
                         img = img.resize((450, int(450 * img.height / img.width)), Image.Resampling.LANCZOS)
                         quality = 60  # Nog lagere kwaliteit voor extreem grote afbeeldingen
 
@@ -1066,7 +1070,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         new_quality = max(min_quality, quality - quality_step)
                         quality = new_quality
 
-                        self.logger.info(f"[IMAGE LOADING] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%")
+                        self.logger.info(
+                            f"[IMAGE LOADING] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%"
+                        )
 
                         # Verklein afbeelding
                         img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
@@ -1146,13 +1152,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                     # Waarschuwing voor trage verbindingen zonder de afbeelding te vervangen
                     if needs_streaming_optimization:
-                        self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) =====")
+                        self.logger.info(
+                            "[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) ====="
+                        )
                         if not is_very_large_image:
                             return data_url
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:
-                        self.logger.warning(f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)")
+                        self.logger.warning(
+                            f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
+                        )
                         self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
                         return f"{data_url}\n\n**Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) - De volledige versie is beschikbaar na vernieuwen van de chat.**"
 
@@ -1163,15 +1173,15 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
                     return data_url
 
-            except Exception as e:
-                    self.logger.error(f"[IMAGE LOADING] Fout bij verkleinen afbeelding: {str(e)}")
+                except Exception as img_error:
+                    self.logger.error(f"[IMAGE LOADING] Fout bij verkleinen afbeelding: {str(img_error)}")
                     import traceback
 
                     self.logger.error(f"[IMAGE LOADING] Details fout: {traceback.format_exc()}")
 
                     # Zelfs bij een fout proberen we een fallback te bieden
                     try:
-                        if img:
+                        if img is not None:
                             # Creëer de meest eenvoudige versie mogelijk
                             img = img.resize((280, int(280 * img.height / img.width)), Image.Resampling.LANCZOS)
                             with io.BytesIO() as buffer:
@@ -1181,17 +1191,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                             data_url = f"data:image/jpeg;base64,{image_data_b64}"
                             return data_url
-                    except:
+                    except Exception:
                         pass
 
-                    return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
+                    return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(img_error)}"
 
             except Exception as e:
-                self.logger.error(f"[IMAGE LOADING] Onverwachte fout: {str(e)}")
+                self.logger.error(f"[IMAGE LOADING] Onverwachte fout bij laden afbeelding: {str(e)}")
                 import traceback
 
                 self.logger.error(f"[IMAGE LOADING] Stacktrace: {traceback.format_exc()}")
-                return f"Fout bij verwerken afbeelding: {str(e)}"
+                return f"Fout bij laden afbeelding: {str(e)}"
 
         tools = [
             tool_store_memory,
