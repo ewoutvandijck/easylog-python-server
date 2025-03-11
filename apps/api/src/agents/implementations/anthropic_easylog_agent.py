@@ -176,7 +176,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
     async def _store_memory_internal(self, memory: str):
         """
-        Interne functie om de herinneringen op te slaan met controle op duplicaten
+        Interne functie om herinneringen op te slaan met controle op duplicaten
 
         Args:
             memory: De herinnering die moet worden opgeslagen
