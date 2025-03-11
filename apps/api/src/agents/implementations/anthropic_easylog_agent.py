@@ -504,7 +504,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             )
 
                             # Stuur direct de thumbnail terug zonder opties
-                            return f"data:image/jpeg;base64,{thumb_data_b64}\n\n**Zeer grote afbeelding ({original_size / 1024 / 1024:.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                            return f"data:image/jpeg;base64,{thumb_data_b64}"
 
                         except Exception as thumb_error:
                             # Als zelfs de thumbnail faalt, log en ga door naar fallback
@@ -564,7 +564,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         )
 
                         # Stuur alleen de thumbnail met een melding dat het een grote afbeelding is
-                        return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size / (1024 * 1024):.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"data:image/jpeg;base64,{thumbnail_data_b64}"
 
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -734,7 +734,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) - Dit is een verkleinde versie voor betere weergave.**"
+                        return f"![afbeelding]({data_url})"
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
@@ -743,20 +743,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     if needs_streaming_optimization:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) =====")
                         if not is_very_large_image:  # Alleen voor middelgrote afbeeldingen
-                            return data_url
+                            return f"![afbeelding]({data_url})"
 
                     # Kritische waarschuwing als de base64 string nog steeds te groot is
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
                         self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)")
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size / 1024 / 1024:.2f} MB) - De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"![afbeelding]({data_url})"
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        return data_url
+                        return f"![afbeelding]({data_url})"
 
                     self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
-                    return data_url
+                    return f"![afbeelding]({data_url})"
 
                 except Exception as e:
                     self.logger.error(f"[IMAGE] Fout bij verkleinen afbeelding: {str(e)}")
@@ -775,18 +775,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                                 image_data = buffer.getvalue()
                             image_data_b64 = base64.b64encode(image_data).decode("utf-8")
                             data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                            return data_url
+                            return f"![afbeelding]({data_url})"
                     except:
                         pass
 
-                    return f"Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
+                    return "Er is een fout opgetreden bij het verwerken van de afbeelding: {str(e)}"
 
             except Exception as e:
                 self.logger.error(f"[IMAGE] Onverwachte fout: {str(e)}")
                 import traceback
 
                 self.logger.error(f"[IMAGE] Stacktrace: {traceback.format_exc()}")
-                return f"Fout bij verwerken afbeelding: {str(e)}"
+                return "Fout bij verwerken afbeelding: {str(e)}"
 
         async def tool_search_pdf(query: str) -> str:
             """
@@ -858,7 +858,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 mime_type = mimetypes.guess_type(file_name)[0] or "image/jpeg"
                 self.logger.info(f"[IMAGE LOADING] Afbeelding geladen: {len(image_data)} bytes, type {mime_type}")
 
-                return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+                return f"![{file_name}](data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')})"
             except Exception as e:
                 self.logger.error(f"[IMAGE LOADING] Fout bij laden afbeelding: {str(e)}")
                 return f"Fout bij laden afbeelding: {str(e)}"
