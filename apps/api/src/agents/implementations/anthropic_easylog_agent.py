@@ -727,15 +727,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     f"[IMAGE LOADING] Afbeelding geladen: {content_length / 1024 / 1024:.2f} MB, type {mime_type}"
                 )
 
-                # Kleinere limiet voor trage verbindingen
-                MAX_COMPRESSED_SIZE = 200 * 1024  # 200KB voor betere streaming
-                MAX_STREAMING_SIZE = 400 * 1024  # Maximaal 400KB voor streaming
-                FORCE_THUMBNAIL_SIZE = 2 * 1024 * 1024  # 2MB force thumbnail
+                # VERLAAGDE LIMIETEN voor slechte verbindingen
+                MAX_COMPRESSED_SIZE = 150 * 1024  # Van 200KB naar 150KB voor betere streaming
+                MAX_STREAMING_SIZE = 300 * 1024  # Van 400KB naar 300KB
+                FORCE_THUMBNAIL_SIZE = 1 * 1024 * 1024  # Van 2MB naar 1MB voor snellere verwerking
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
                 is_extremely_large_image = False
                 needs_streaming_optimization = False
+
+                # NIEUWE PARAMETER: Altijd progressief laden gebruiken
+                always_use_progressive_loading = True
 
                 try:
                     # Laad de afbeelding
@@ -747,59 +750,42 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE LOADING] Originele afmetingen: {original_width}x{original_height}")
                     self.logger.info(f"[IMAGE LOADING] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB")
 
-                    # Streaming optimalisatie voor grote afbeeldingen (vanaf 5MB)
-                    if original_size > 5 * 1024 * 1024:
-                        needs_streaming_optimization = True
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Streaming optimalisatie geactiveerd voor {original_size / 1024 / 1024:.2f} MB afbeelding"
-                        )
+                    # NIEUWE LOGICA: Maak altijd eerst een zeer kleine thumbnail voor snelle weergave
+                    if always_use_progressive_loading or original_size > FORCE_THUMBNAIL_SIZE:
+                        self.logger.info("[IMAGE LOADING] Progressief laden geactiveerd")
 
-                    # Voor extreem grote afbeeldingen, DIRECTE thumbnail zonder verdere verwerking
-                    if original_size > 8 * 1024 * 1024:
-                        self.logger.warning(
-                            f"[IMAGE LOADING] EXTREEM grote afbeelding gedetecteerd: {original_size / 1024 / 1024:.2f} MB - DIRECTE THUMBNAIL"
-                        )
+                        # Maak een zeer kleine thumbnail voor onmiddellijke weergave
+                        thumb_width = 200  # Van 300px naar 200px voor nog snellere weergave
+                        thumb_quality = 40  # Van 50% naar 40% kwaliteit
 
-                        # Gebruik een extreme verkleining voor grote afbeeldingen
+                        # Maak een kopie om de originele afbeelding niet aan te passen
                         thumb_img = img.copy()
-                        # Forceer een zeer kleine thumbnail breedte
-                        thumb_width = 300
+                        # Gebruik NEAREST resampling voor maximale snelheid
                         thumb_img.thumbnail(
                             (thumb_width, int(thumb_width * thumb_img.height / thumb_img.width)),
                             Image.Resampling.NEAREST,
-                        )  # Gebruik NEAREST voor snelheid
+                        )
 
-                        # Sla op met zeer lage kwaliteit voor snelle weergave
                         with io.BytesIO() as thumb_buffer:
-                            # Gebruik lage kwaliteit en snellere compressie
-                            thumb_img.save(thumb_buffer, format="JPEG", quality=50, optimize=False)
+                            # Nog meer optimalisatie voor de thumbnail
+                            thumb_img.save(thumb_buffer, format="JPEG", quality=thumb_quality, optimize=False)
                             thumb_buffer.seek(0)
                             thumb_data = thumb_buffer.getvalue()
 
-                        # Extra kleine thumbnail, max ~50KB
+                        thumb_size = len(thumb_data)
                         thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
                         thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
 
-                        self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING LADEN (DIRECT THUMBNAIL) =====")
-                        return f"{thumb_url}\n\n**Grote afbeelding ({original_size / (1024 * 1024):.1f} MB) - Dit is een voorvertoning.**"
+                        self.logger.info(
+                            f"[IMAGE LOADING] Thumbnail gemaakt: {thumb_width}px, {thumb_quality}%, {thumb_size / 1024:.1f}KB"
+                        )
 
-                    # Bepaal target breedte en kwaliteit op basis van grootte
-                    if original_size > 5 * 1024 * 1024:  # >5MB
-                        target_width = 600  # Kleinere breedte voor zeer grote afbeeldingen
-                        quality = 70  # Lagere kwaliteit
-                    elif original_size > 3 * 1024 * 1024:  # >3MB
-                        target_width = 800  # Van 900px naar 800px voor betere compressie
-                        quality = 80  # Van 85% naar 80%
-                    else:
-                        # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
-                        target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
-                        quality = min(
-                            80, self.config.image_quality
-                        )  # Kwaliteit begrenzen op 80% voor betere compressie
+                        # Direct de thumbnail teruggeven met melding
+                        message = f"**Progressief laden... ({original_size / 1024 / 1024:.1f} MB)**"
+                        if original_size > 5 * 1024 * 1024:
+                            message = f"**Zeer grote afbeelding ({original_size / 1024 / 1024:.1f} MB) - Dit is een voorvertoning**"
 
-                    self.logger.info(
-                        f"[IMAGE LOADING] Target instellingen: {target_width}px breed, {quality}% kwaliteit"
-                    )
+                        return f"{thumb_url}\n\n{message}"
 
                     # Streaming optimalisatie: maak direct thumbnail voor grote afbeeldingen
                     if needs_streaming_optimization and original_size > FORCE_THUMBNAIL_SIZE:
@@ -831,17 +817,27 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         # Stuur alleen de thumbnail met een melding dat het een grote afbeelding is
                         return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size / (1024 * 1024):.1f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
 
-                    # Bereken schaalfactor en nieuwe afmetingen
-                    if original_width > target_width:
-                        scale_factor = target_width / original_width
-                        new_width = target_width
-                        new_height = int(original_height * scale_factor)
-
-                        # Verklein afbeelding - gebruik LANCZOS voor betere kwaliteit
-                        img.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        self.logger.info(f"[IMAGE LOADING] Verkleind naar: {img.width}x{img.height}")
+                    # Bepaal target breedte en kwaliteit op basis van grootte
+                    if original_size > 5 * 1024 * 1024:  # >5MB
+                        target_width = 600  # Kleinere breedte voor zeer grote afbeeldingen
+                        quality = 70  # Lagere kwaliteit
+                    elif original_size > 3 * 1024 * 1024:  # >3MB
+                        target_width = 800  # Van 900px naar 800px voor betere compressie
+                        quality = 80  # Van 85% naar 80%
                     else:
-                        self.logger.info("[IMAGE LOADING] Afbeelding is kleiner dan max breedte, geen resize nodig")
+                        # Gebruik configuratie voor normale afbeeldingen maar met iets lagere kwaliteit
+                        target_width = min(self.config.image_max_width, 1000)  # Niet groter dan 1000px
+                        quality = min(
+                            80, self.config.image_quality
+                        )  # Kwaliteit begrenzen op 80% voor betere compressie
+
+                    self.logger.info(
+                        f"[IMAGE LOADING] Target instellingen: {target_width}px breed, {quality}% kwaliteit"
+                    )
+
+                    # Verklein afbeelding - gebruik LANCZOS voor betere kwaliteit
+                    img.thumbnail((target_width, int(target_width * img.height / img.width)), Image.Resampling.LANCZOS)
+                    self.logger.info(f"[IMAGE LOADING] Verkleind naar: {img.width}x{img.height}")
 
                     # Converteer naar RGB indien nodig (voor PNG met transparantie)
                     if img.mode in ("RGBA", "LA"):
