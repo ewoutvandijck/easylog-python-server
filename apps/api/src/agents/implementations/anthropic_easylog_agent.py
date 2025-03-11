@@ -490,16 +490,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 )
 
                 # Kleinere limiet voor trage verbindingen
-                MAX_COMPRESSED_SIZE = 120 * 1024  # Verlaagd van 150KB naar 120KB
+                MAX_COMPRESSED_SIZE = 100 * 1024  # Verlaagd van 120KB naar 100KB
 
                 # Hard streaming limit voor verbindingsproblemen
-                MAX_STREAMING_SIZE = 240 * 1024  # Verlaagd van 300KB naar 240KB
+                MAX_STREAMING_SIZE = 180 * 1024  # Verlaagd van 240KB naar 180KB
                 
                 # Direct thumbnail trigger
-                FORCE_THUMBNAIL_SIZE = 700 * 1024  # Verlaagd van 1MB naar 700KB
+                FORCE_THUMBNAIL_SIZE = 600 * 1024  # Verlaagd van 700KB naar 600KB
 
                 # Veilige maximale grootte voor base64 output
-                MAX_BASE64_SIZE = 280 * 1024  # Verlaagd van 350KB naar 280KB
+                MAX_BASE64_SIZE = 220 * 1024  # Verlaagd van 280KB naar 220KB
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
@@ -516,15 +516,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE LOADING] Originele afmetingen: {original_width}x{original_height}")
                     self.logger.info(f"[IMAGE LOADING] Originele bestandsgrootte: {original_size_mb:.2f} MB")
 
-                    # AANGEPAST: Agressievere streaming optimalisatie (vanaf 2MB in plaats van 3MB)
+                    # AANGEPAST: Nog agressievere streaming optimalisatie (vanaf 2MB)
                     if original_size > 2 * 1024 * 1024:
                         needs_streaming_optimization = True
                         self.logger.warning(
                             f"[IMAGE LOADING] Streaming optimalisatie geactiveerd voor {original_size_mb:.2f} MB afbeelding"
                         )
-
+                        
+                        # NIEUW: Extra compressie direct toepassen bij afbeeldingen > 2MB
+                        if original_size > 2.5 * 1024 * 1024:
+                            self.logger.warning(f"[IMAGE LOADING] Extra compressie toegepast voor grote {original_size_mb:.2f} MB afbeelding")
+                            target_width = 280  # Verlaagd van 320 naar 280
+                            quality = 40  # Verlaagd van 50 naar 40
+                        
                     # AANGEPAST: Verlaagde drempel voor extreem grote afbeeldingen
-                    if original_size > 3 * 1024 * 1024:  # Verlaagd van 5MB naar 3MB
+                    if original_size > 3 * 1024 * 1024:  # Blijft op 3MB
                         self.logger.warning(
                             f"[IMAGE LOADING] EXTREEM grote afbeelding gedetecteerd: {original_size_mb:.2f} MB - DIRECTE THUMBNAIL"
                         )
@@ -532,7 +538,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         # NIEUW: Veiligere thumbnail generatie
                         try:
                             thumb_img = img.copy()
-                            thumb_width = 200  # Verkleind van 250 naar 200
+                            thumb_width = 180  # Verkleind van 200 naar 180
                             # Zorg voor correcte aspect ratio
                             thumb_height = int(thumb_width * thumb_img.height / thumb_img.width)
                             # Gebruik LANCZOS voor betere kwaliteit met minder artefacten
@@ -693,16 +699,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         f"[IMAGE LOADING] Eerste compressie: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB) (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
                     )
 
-                    # AANGEPAST: Verlaagde drempel voor streaming limiet
+                    # AANGEPAST: Verbeterde streaming optimalisatie voor grote afbeeldingen
                     if needs_streaming_optimization and image_size > MAX_STREAMING_SIZE:
                         self.logger.warning(
                             f"[IMAGE LOADING] Te groot voor streaming: {image_size / 1024:.2f} KB > {MAX_STREAMING_SIZE / 1024:.2f} KB"
                         )
 
                         # Maak een kleinere versie voor betere streaming
-                        img = img.resize((200, int(200 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 240 naar 200
+                        img = img.resize((160, int(160 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 200 naar 160
                         with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=35, optimize=True)  # Verlaagd van 40 naar 35
+                            img.save(buffer, format="JPEG", quality=30, optimize=True)  # Verlaagd van 35 naar 30
                             buffer.seek(0)
                             image_data = buffer.getvalue()
                         image_size = len(image_data)
@@ -710,6 +716,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         self.logger.info(
                             f"[IMAGE LOADING] Streaming optimalisatie: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB)"
                         )
+                        
+                        # NIEUW: Extra iteratie indien nog steeds te groot
+                        if image_size > MAX_STREAMING_SIZE * 0.9:
+                            img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)
+                            with io.BytesIO() as buffer:
+                                img.save(buffer, format="JPEG", quality=25, optimize=True)
+                                buffer.seek(0)
+                                image_data = buffer.getvalue()
+                            image_size = len(image_data)
+                            self.logger.info(
+                                f"[IMAGE LOADING] Extra streaming optimalisatie: {image_size / 1024:.2f} KB"
+                            )
 
                     # AANGEPAST: Verbeterde iteratieve compressie algoritme
                     attempt = 1
@@ -858,27 +876,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             return data_url
 
                     # AANGEPAST: Verlaagde drempel voor kritische waarschuwing
-                    if base64_size > 500 * 1024:  # Verlaagd van 600KB naar 500KB
+                    if base64_size > 350 * 1024:  # Verlaagd van 500KB naar 350KB
                         self.logger.warning(
                             f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
                         )
                         # NIEUW: Extra fallback voor zeer grote base64 data
-                        img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 160 naar 140
+                        img = img.resize((120, int(120 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 140 naar 120
                         with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=20, optimize=True)  # Verlaagd van 25 naar 20
+                            img.save(buffer, format="JPEG", quality=20, optimize=True)  # Behouden op 20
                             buffer.seek(0)
                             image_data = buffer.getvalue()
-                            
-                                try:
-                                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
-                                    self.logger.info(f"[IMAGE LOADING] Emergency fallback: {len(image_data)/1024:.2f}KB, base64: {len(image_data_b64)/1024:.2f}KB")
-                                except Exception as b64_error:
-                                    self.logger.error(f"[IMAGE LOADING] Emergency fallback failed: {str(b64_error)}")
-                                    return "Er is een probleem opgetreden bij het verwerken van deze grote afbeelding."
-                            
-                            self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                            return data_url
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
