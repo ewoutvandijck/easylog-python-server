@@ -494,18 +494,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                             # Extra kleine thumbnail, max ~50KB
                             thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
-                            thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
-
-                            # Log en return onmiddellijk
-                            self.logger.warning(
-                                f"[IMAGE] EXTREEM GROTE AFBEELDING: Directe thumbnail verstuurd ({len(thumb_data) / 1024:.1f}KB)"
-                            )
-                            self.logger.info(
-                                "[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE AFBEELDING DIRECTE THUMBNAIL) ====="
-                            )
-
-                            # Stuur direct de thumbnail terug zonder opties
-                            return f"data:image/jpeg;base64,{thumb_data_b64}\n\n**Zeer grote afbeelding ({original_size_mb:.2f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                            return f"data:image/jpeg;base64,{thumb_data_b64}"
 
                         except Exception as thumb_error:
                             # Als zelfs de thumbnail faalt, log en ga door naar fallback
@@ -561,7 +550,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         )
 
                         # Stuur alleen de thumbnail met een melding dat het een grote afbeelding is
-                        return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"data:image/jpeg;base64,{thumbnail_data_b64}"
 
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -739,14 +728,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         base64_size_mb = base64_size / (1024 * 1024)
 
                         self.logger.info(
-                            f"[IMAGE] FALLBACK: Verkleind naar 320px breed, 55% kwaliteit, {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB), base64: {base64_size / 1024:.2f} KB ({base64_size_mb:.2f} MB)"
+                            f"[IMAGE] FALLBACK: Verkleind naar 320px breed, 55% kwaliteit, {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB), base64: {base64_size / 1024:.2f}KB ({base64_size_mb:.2f} MB)"
                         )
 
                         # Maak de data URL met de fallback versie
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - Dit is een verkleinde versie voor betere weergave.**"
+                        return data_url
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
@@ -764,7 +753,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     if base64_size > 1024 * 1024:  # Meer dan 1MB base64 data
                         self.logger.warning(f"[IMAGE] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)")
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"{data_url}"
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
@@ -945,18 +934,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                             # Extra kleine thumbnail, max ~50KB
                             thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
-                            thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
-
-                            # Log en return onmiddellijk
-                            self.logger.warning(
-                                f"[IMAGE LOADING] EXTREEM GROTE AFBEELDING: Directe thumbnail verstuurd ({len(thumb_data) / 1024:.1f}KB)"
-                            )
-                            self.logger.info(
-                                "[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROTE AFBEELDING DIRECTE THUMBNAIL) ====="
-                            )
-
-                            # Stuur direct de thumbnail terug zonder opties
-                            return f"data:image/jpeg;base64,{thumb_data_b64}\n\n**Zeer grote afbeelding ({original_size_mb:.2f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                            return f"data:image/jpeg;base64,{thumb_data_b64}"
 
                         except Exception as thumb_error:
                             # Als zelfs de thumbnail faalt, log en ga door naar fallback
@@ -1016,7 +994,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         )
 
                         # Stuur alleen de thumbnail met een melding dat het een grote afbeelding is
-                        return f"data:image/jpeg;base64,{thumbnail_data_b64}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - Dit is een voorvertoning. De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"data:image/jpeg;base64,{thumbnail_data_b64}"
 
                     # Bereken schaalfactor en nieuwe afmetingen
                     if original_width > target_width:
@@ -1179,7 +1157,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
                         self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (FALLBACK) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - Dit is een verkleinde versie voor betere weergave.**"
+                        return data_url
 
                     # Check of base64 misschien te groot is voor chat interface
                     data_url = f"data:image/jpeg;base64,{image_data_b64}"
@@ -1201,7 +1179,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
                         )
                         self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROTE BASE64) =====")
-                        return f"{data_url}\n\n**Grote afbeelding ({original_size_mb:.2f} MB) - De volledige versie is beschikbaar na vernieuwen van de chat.**"
+                        return f"{data_url}"
 
                     if is_very_large_image:
                         self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
