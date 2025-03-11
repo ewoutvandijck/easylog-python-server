@@ -417,21 +417,26 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             De afbeelding kan dan direct in HTML/markdown weergegeven worden.
             """
             try:
-                # Verbeterde logging met meer focus op grootte metrics
-                self.logger.info("[IMAGE] ===== START AFBEELDING VERWERKING =====")
-                self.logger.info(f"[IMAGE] URL: {url}")
+                # NIEUWE LIVE LOGGING - Duidelijk herkenbare markers voor eenvoudig filteren in logs
+                self.logger.info("[LIVE-LOGGING] 🖼️ **START AFBEELDINGSVERWERKING**")
+                self.logger.info(f"[LIVE-LOGGING] 🔗 URL: {url}")
                 self.logger.info(
-                    f"[IMAGE] Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%"
+                    f"[LIVE-LOGGING] ⚙️ Configuratie: max_width={self.config.image_max_width}px, quality={self.config.image_quality}%"
                 )
 
                 # Timeout toevoegen om hangende requests te voorkomen
+                self.logger.info("[LIVE-LOGGING] 📥 Bezig met downloaden van afbeelding...")
+                start_download = time.time()
                 response = httpx.get(url, timeout=15.0)
+                download_time = time.time() - start_download
                 content_length = len(response.content)
-                self.logger.info(f"[IMAGE] Ontvangen afbeeldingsgrootte: {content_length / 1024 / 1024:.2f} MB")
+                self.logger.info(
+                    f"[LIVE-LOGGING] ⏱️ Download voltooid in {download_time:.2f}s - Grootte: {content_length / 1024 / 1024:.2f} MB"
+                )
 
                 # Check of de response OK is
                 if response.status_code != 200:
-                    self.logger.error(f"[IMAGE] Fout bij downloaden afbeelding: {response.status_code}")
+                    self.logger.error(f"[LIVE-LOGGING] ❌ Fout bij downloaden afbeelding: {response.status_code}")
                     return "Fout: kon afbeelding niet downloaden"
 
                 # VERLAAGDE LIMIETEN voor slechte verbindingen
@@ -439,33 +444,34 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 MAX_STREAMING_SIZE = 300 * 1024  # Van 400KB naar 300KB
                 FORCE_THUMBNAIL_SIZE = 1 * 1024 * 1024  # Van 2MB naar 1MB voor snellere verwerking
 
-                # Voor zeer grote afbeeldingen tonen we een waarschuwing
-                is_very_large_image = False
-                needs_streaming_optimization = False
-
                 # NIEUWE PARAMETER: Altijd progressief laden gebruiken
                 always_use_progressive_loading = True
 
                 # Verklein de afbeelding voor betere performance en streaming
                 try:
                     # Laad de afbeelding
+                    self.logger.info("[LIVE-LOGGING] 🔄 Bezig met verwerken van afbeelding...")
+                    start_process = time.time()
                     img = Image.open(io.BytesIO(response.content))
 
                     # Originele afmetingen en grootte
                     original_width, original_height = img.size
                     original_size = len(response.content)
-                    self.logger.info(f"[IMAGE] Originele afmetingen: {original_width}x{original_height}")
-                    self.logger.info(f"[IMAGE] Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB")
+                    self.logger.info(f"[LIVE-LOGGING] 📐 Originele afmetingen: {original_width}x{original_height}")
+                    self.logger.info(
+                        f"[LIVE-LOGGING] 📦 Originele bestandsgrootte: {original_size / 1024 / 1024:.2f} MB"
+                    )
 
                     # NIEUWE LOGICA: Maak altijd eerst een zeer kleine thumbnail voor snelle weergave
                     if always_use_progressive_loading or original_size > FORCE_THUMBNAIL_SIZE:
-                        self.logger.info("[IMAGE] Progressief laden geactiveerd")
+                        self.logger.info("[LIVE-LOGGING] 🚀 Progressief laden geactiveerd - Thumbnail wordt gemaakt...")
 
                         # Maak een zeer kleine thumbnail voor onmiddellijke weergave
-                        thumb_width = 200  # Van 300px naar 200px voor nog snellere weergave
-                        thumb_quality = 40  # Van 50% naar 40% kwaliteit
+                        thumb_width = 200  # Voor snellere weergave
+                        thumb_quality = 40  # Lagere kwaliteit voor snellere weergave
 
                         # Maak een kopie om de originele afbeelding niet aan te passen
+                        thumbnail_start = time.time()
                         thumb_img = img.copy()
                         # Gebruik NEAREST resampling voor maximale snelheid
                         thumb_img.thumbnail(
@@ -480,12 +486,23 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             thumb_data = thumb_buffer.getvalue()
 
                         thumb_size = len(thumb_data)
+                        thumbnail_time = time.time() - thumbnail_start
+
+                        # Base64 encoding timing
+                        encoding_start = time.time()
                         thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
+                        encoding_time = time.time() - encoding_start
+
                         thumb_url = f"data:image/jpeg;base64,{thumb_data_b64}"
 
+                        total_process_time = time.time() - start_process
+
                         self.logger.info(
-                            f"[IMAGE] Thumbnail gemaakt: {thumb_width}px, {thumb_quality}%, {thumb_size / 1024:.1f}KB"
+                            f"[LIVE-LOGGING] 👍 Thumbnail voltooid in {thumbnail_time:.2f}s - Grootte: {thumb_size / 1024:.1f}KB"
                         )
+                        self.logger.info(f"[LIVE-LOGGING] 🔣 Base64 encoding voltooid in {encoding_time:.2f}s")
+                        self.logger.info(f"[LIVE-LOGGING] ⌛ Totale verwerkingstijd: {total_process_time:.2f}s")
+                        self.logger.info("[LIVE-LOGGING] 🖼️ **EINDE AFBEELDINGSVERWERKING - THUMBNAIL VERSTUURD**")
 
                         # Direct de thumbnail teruggeven met melding
                         message = f"**Progressief laden... ({original_size / 1024 / 1024:.1f} MB)**"
