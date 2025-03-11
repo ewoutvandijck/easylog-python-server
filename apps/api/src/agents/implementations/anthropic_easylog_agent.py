@@ -2,7 +2,6 @@
 import base64
 import io
 import json
-import mimetypes
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -841,26 +840,48 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
-            Laad een afbeelding uit de database. Id is het id van het PDF bestand, en in de markdown vind je veel verwijzingen naar afbeeldingen.
-            Gebruik het exacte bestandspad om de afbeelding te laden.
-
-            Args:
-                _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding zoals vermeld in de markdown
-
-            Returns:
-                str: Een data URL die de afbeelding als base64 gecodeerde data bevat
+            Laad een afbeelding uit de database, verwerk deze en geef terug als base64-gecodeerde data-URL.
             """
-            self.logger.info(f"[IMAGE LOADING] Afbeelding laden: {_id}, {file_name}")
-
             try:
-                image_data = await self.load_image(_id, file_name)
-                mime_type = mimetypes.guess_type(file_name)[0] or "image/jpeg"
-                self.logger.info(f"[IMAGE LOADING] Afbeelding geladen: {len(image_data)} bytes, type {mime_type}")
+                self.logger.info(f"[IMAGE LOADING] Afbeelding laden: {_id}, {file_name}")
 
-                return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+                # Afbeelding ophalen uit database
+                image_data = await self.load_image(_id, file_name)
+                img = Image.open(io.BytesIO(image_data))
+
+                # Gebruik dezelfde instellingen als bij download_image_from_url
+                target_width = self.config.image_max_width
+                quality = self.config.image_quality
+
+                # Verklein afbeelding indien nodig
+                if img.width > target_width:
+                    scale_factor = target_width / img.width
+                    new_height = int(img.height * scale_factor)
+                    img.thumbnail((target_width, new_height), Image.Resampling.LANCZOS)
+                    self.logger.info(f"[IMAGE LOADING] Verkleind naar: {img.width}x{img.height}")
+
+                # Converteer naar RGB indien nodig
+                if img.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", img.size, (255, 255, 255))
+                    background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
+                    img = background
+                    self.logger.info("[IMAGE LOADING] Transparantie omgezet naar RGB")
+
+                # Opslaan in buffer met compressie
+                with io.BytesIO() as buffer:
+                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    buffer.seek(0)
+                    compressed_image_data = buffer.getvalue()
+
+                # Base64 encoderen
+                mime_type = "image/jpeg"
+                data_url = f"data:{mime_type};base64,{base64.b64encode(compressed_image_data).decode('utf-8')}"
+
+                self.logger.info("[IMAGE LOADING] Afbeelding succesvol verwerkt en geladen")
+                return data_url
+
             except Exception as e:
-                self.logger.error(f"[IMAGE LOADING] Fout bij laden afbeelding: {str(e)}")
+                self.logger.error(f"[IMAGE LOADING] Fout bij laden/verwerken afbeelding: {str(e)}")
                 return f"Fout bij laden afbeelding: {str(e)}"
 
         tools = [
