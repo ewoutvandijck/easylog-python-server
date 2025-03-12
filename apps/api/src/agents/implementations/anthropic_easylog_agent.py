@@ -1,7 +1,3 @@
-"""
-AnthropicEasylogAgent - Agent for interacting with EasyLog data via Anthropic Claude API
-"""
-
 # Python standard library imports
 import base64
 import io
