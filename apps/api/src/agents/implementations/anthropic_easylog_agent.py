@@ -483,9 +483,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 original_width, original_height = img.size
                 self.logger.info(f"[IMAGE] Afmetingen: {original_width}x{original_height}")
 
-                # Basisparameters voor verwerking
-                max_width = 800  # Maximale breedte voor normale afbeeldingen
-                quality = 75  # Standaard kwaliteit
+                # Basisparameters voor verwerking - sterk verlaagd voor trage verbindingen
+                max_width = 600  # Verlaagd van 800 naar 600
+                quality = 60  # Verlaagd van 75 naar 60
 
                 # Eenvoudige grootte-classificatie
                 is_tiny = original_size < 100 * 1024  # < 100 KB
@@ -495,21 +495,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                 # Pas verwerkingsparameters aan op basis van grootte
                 if is_tiny:
-                    # Kleine afbeeldingen minimaal comprimeren
-                    max_width = min(original_width, 1000)
-                    quality = 85
+                    # Kleine afbeeldingen ook meer comprimeren dan voorheen
+                    max_width = min(original_width, 800)  # Verlaagd van 1000
+                    quality = 75  # Verlaagd van 85
                 elif is_small:
-                    # Kleine afbeeldingen licht comprimeren
-                    max_width = min(original_width, 800)
-                    quality = 80
+                    # Kleine afbeeldingen sterker comprimeren
+                    max_width = min(original_width, 700)  # Verlaagd van 800
+                    quality = 65  # Verlaagd van 80
                 elif is_large:
-                    # Grote afbeeldingen sterker comprimeren
-                    max_width = 600
-                    quality = 65
+                    # Grote afbeeldingen veel sterker comprimeren
+                    max_width = 500  # Verlaagd van 600
+                    quality = 50  # Verlaagd van 65
                 elif is_huge:
                     # Zeer grote afbeeldingen agressief comprimeren
-                    max_width = 400
-                    quality = 50
+                    max_width = 350  # Verlaagd van 400
+                    quality = 40  # Verlaagd van 50
 
                 # Resize indien nodig
                 if original_width > max_width:
@@ -534,25 +534,27 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 compressed_size = len(compressed_data)
                 compressed_size_kb = compressed_size / 1024
 
+                # Verbeterd twee-staps compressieproces voor trage verbindingen
+                max_size_kb = 150  # Verlaagd van 200 KB naar 150 KB als target
+
                 # Extra compressie indien nodig (max 2 pogingen)
-                if compressed_size > 200 * 1024:  # Als nog steeds groter dan 200 KB
-                    self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > 200 KB")
+                if compressed_size > max_size_kb * 1024:  # Als nog steeds groter dan 150 KB
+                    self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > {max_size_kb} KB")
 
                     # Bereken nieuwe parameters
-                    new_width = int(img.width * 0.7)  # 30% kleiner
-                    new_quality = max(40, quality - 15)  # Lagere kwaliteit maar niet onder 40
+                    new_width = int(img.width * 0.6)  # 40% kleiner i.p.v. 30%
+                    new_quality = max(35, quality - 20)  # Verlaagd van 40 naar 35 minimum
 
                     # Resize en comprimeer opnieuw
-                    img = img.resize((new_width, int(img.height * 0.7)), Image.Resampling.LANCZOS)
+                    img = img.resize((new_width, int(img.height * 0.6)), Image.Resampling.LANCZOS)
 
-                    # Voeg optioneel lichte blur toe voor betere compressie bij zeer grote afbeeldingen
-                    if is_huge:
-                        try:
-                            from PIL import ImageFilter
+                    # Voeg lichte blur toe voor betere compressie (standaard nu)
+                    try:
+                        from PIL import ImageFilter
 
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.3))
-                        except Exception:
-                            pass
+                        img = img.filter(ImageFilter.GaussianBlur(radius=0.5))  # Verhoogd van 0.3 naar 0.5
+                    except Exception:
+                        pass
 
                     with io.BytesIO() as buffer:
                         img.save(buffer, format="JPEG", quality=new_quality, optimize=True)
@@ -561,6 +563,30 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         compressed_size = len(compressed_data)
                         compressed_size_kb = compressed_size / 1024
                         self.logger.info(f"[IMAGE] Na extra compressie: {compressed_size_kb:.1f} KB")
+
+                    # Derde compressiestap voor extreme gevallen
+                    if compressed_size > 100 * 1024:  # Als nog steeds groter dan 100 KB
+                        self.logger.info(f"[IMAGE] Derde compressie nodig: {compressed_size_kb:.1f} KB > 100 KB")
+
+                        # Nog agressievere compressie
+                        final_width = int(new_width * 0.7)  # Nog 30% kleiner
+                        final_quality = max(25, new_quality - 10)  # Nog lagere kwaliteit
+
+                        img = img.resize((final_width, int(img.height * 0.7)), Image.Resampling.LANCZOS)
+
+                        # Meer blur voor betere compressie
+                        try:
+                            img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+                        except Exception:
+                            pass
+
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=final_quality, optimize=True)
+                            buffer.seek(0)
+                            compressed_data = buffer.getvalue()
+                            compressed_size = len(compressed_data)
+                            compressed_size_kb = compressed_size / 1024
+                            self.logger.info(f"[IMAGE] Na derde compressie: {compressed_size_kb:.1f} KB")
 
                 # Base64 encoding
                 base64_data = base64.b64encode(compressed_data).decode("utf-8")
