@@ -729,7 +729,7 @@ Je huidige core memories zijn:
             tools=anthropic_tools,
             stream=True,
             # Nieuwe parameter voor extended thinking
-            thinking={"type": "enabled", "budget_tokens": 32000},
+            thinking={"type": "disabled", "budget_tokens": 32000},
         )
 
         end_time = time.time()
