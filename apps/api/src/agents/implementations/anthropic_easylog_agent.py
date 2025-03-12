@@ -1,3 +1,5 @@
+WERKENDE EASYLOG AGENT MET THIKING
+
 # Python standard library imports
 import base64
 import io
@@ -14,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -418,22 +420,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
             Returns:
                 str: JSON string containing the search results with PDF content or a message indicating no results were found
-                
-            BELANGRIJKE NOTITIE OVER AFBEELDINGEN:
-            Als de zoekopdracht PDF documenten met afbeeldingen retourneert, zullen de afbeeldingsgegevens worden
-            opgenomen in de 'images' array van de JSON respons. Om deze afbeeldingen correct te laden:
-            
-            1. Extraheer de document ID uit de respons (het 'id' veld)
-            2. Voor elke afbeelding in de 'images' array, gebruik de tool_load_image functie met:
-               - Het document ID als eerste parameter 
-               - "figures/fileoutpart{N}.png" als tweede parameter, waar N het paginanummer begint bij 0
-            
-            Voorbeeld:
-            ```
-            tool_load_image("document-id", "figures/fileoutpart0.png")
-            ```
-            
-            Gebruik ALTIJD het exacte pad "figures/fileoutpart{N}.png" zonder variaties of manipulaties.
             """
             self.logger.info(f"[PDF SEARCH] Searching for: {query}")
             knowledge_result = await self.search_knowledge(query)
@@ -478,36 +464,50 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
-            Laad een afbeelding uit de database.
-            BELANGRIJK: Gebruik het exacte bestandspad zoals in de markdown vermeld, zonder aanpassingen.
-            
-            Correcte bestandsnamen zijn ALTIJD in het formaat:
-            - "figures/fileoutpart0.png"
-            - "figures/fileoutpart1.png"
-            - "figures/fileoutpart2.png"
-            
-            Gebruik NOOIT andere padformaten of variaties - dit zal altijd mislukken.
+            Laad een afbeelding uit de database en bereid deze voor op weergave.
+            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
 
             Args:
-                _id (str): Het exacte ID van het PDF document in de kennisbank (bijv. "cm83afnit0001jdbxe3ertxaw")
-                file_name (str): Het exacte bestandspad van de afbeelding (bijv. "figures/fileoutpart0.png")
+                _id (str): Het ID van het PDF bestand
+                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
 
             Returns:
-                str: Een data URL met de gecomprimeerde afbeelding
-                
-            Voorbeeld:
-            ```
-            tool_load_image("cm83afnit0001jdbxe3ertxaw", "figures/fileoutpart0.png")
-            ```
+                str: Een data URL met de afbeelding als base64 gecodeerde data
             """
-            self.logger.info(f"[IMAGE] Directe laadpoging: {_id}, {file_name}")
+            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
 
             try:
-                # Directe aanpak zonder padmanipulatie (zoals in debug_anthropic_agent)
-                image_data = await self.load_image(_id, file_name)
-                self.logger.info(f"[IMAGE] Succesvol geladen: {file_name}")
+                # Controleer en corrigeer pad indien nodig
+                if not file_name.startswith("figures/") and "/" not in file_name:
+                    original_file_name = file_name
+                    file_name = f"figures/{file_name}"
+                    self.logger.info(f"[IMAGE] Pad gecorrigeerd: {original_file_name} -> {file_name}")
 
-                # Continue met beeldcompressie voor trage verbindingen
+                # Laad de originele afbeelding
+                try:
+                    image_data = await self.load_image(_id, file_name)
+                except Exception as e:
+                    # Als het laden mislukt met figures/ pad, probeer alternatieve paden
+                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {file_name}: {str(e)}")
+
+                    # Probeer zonder figures/ als dat was toegevoegd
+                    if file_name.startswith("figures/"):
+                        alt_file_name = file_name.replace("figures/", "")
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad zonder figures/: {alt_file_name}")
+                        try:
+                            image_data = await self.load_image(_id, alt_file_name)
+                            self.logger.info(f"[IMAGE] Succesvol geladen met alternatief pad: {alt_file_name}")
+                        except Exception:
+                            # Probeer met alleen de bestandsnaam (zonder pad)
+                            base_name = file_name.split("/")[-1]
+                            self.logger.info(f"[IMAGE] Probeer met alleen bestandsnaam: {base_name}")
+                            image_data = await self.load_image(_id, base_name)
+                    else:
+                        # Als het geen figures/ bevat, probeer het toe te voegen
+                        alt_file_name = f"figures/{file_name}"
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
+                        image_data = await self.load_image(_id, alt_file_name)
+
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
                 self.logger.info(f"[IMAGE] Originele grootte: {original_size_kb:.1f} KB")
@@ -517,20 +517,27 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 original_width, original_height = img.size
                 self.logger.info(f"[IMAGE] Afmetingen: {original_width}x{original_height}")
 
-                # Compressieparameters bepalen op basis van beeldgrootte
-                max_width = 600
-                quality = 60
+                # Basisparameters voor verwerking - sterk verlaagd voor trage verbindingen
+                max_width = 600  # Verlaagd van 800 naar 600
+                quality = 60  # Verlaagd van 75 naar 60
 
-                if original_size < 100 * 1024:  # < 100 KB
+                # Eenvoudige grootte-classificatie
+                is_tiny = original_size < 100 * 1024  # < 100 KB
+                is_small = original_size < 500 * 1024  # < 500 KB
+                is_large = original_size > 1 * 1024 * 1024  # > 1 MB
+                is_huge = original_size > 3 * 1024 * 1024  # > 3 MB
+
+                # Pas verwerkingsparameters aan op basis van grootte
+                if is_tiny:
                     max_width = min(original_width, 800)
                     quality = 75
-                elif original_size < 500 * 1024:  # < 500 KB
+                elif is_small:
                     max_width = min(original_width, 700)
                     quality = 65
-                elif original_size > 1 * 1024 * 1024:  # > 1 MB
+                elif is_large:
                     max_width = 500
                     quality = 50
-                elif original_size > 3 * 1024 * 1024:  # > 3 MB
+                elif is_huge:
                     max_width = 350
                     quality = 40
 
@@ -541,43 +548,89 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
                     self.logger.info(f"[IMAGE] Resized naar {max_width}x{new_height}")
 
-                # Converteer naar RGB indien nodig
+                # Converteer naar RGB (voor afbeeldingen met transparantie)
                 if img.mode in ("RGBA", "LA"):
                     background = Image.new("RGB", img.size, (255, 255, 255))
                     background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
                     img = background
 
-                # Comprimeer afbeelding
+                # Comprimeer de afbeelding
                 with io.BytesIO() as buffer:
                     img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
                     compressed_data = buffer.getvalue()
 
+                # Check de gecomprimeerde grootte
+                compressed_size = len(compressed_data)
+                compressed_size_kb = compressed_size / 1024
+
+                # Verbeterd twee-staps compressieproces voor trage verbindingen
+                max_size_kb = 150  # Doelgrootte ~150 KB
+
+                # Extra compressie indien nodig (max 2 pogingen)
+                if compressed_size > max_size_kb * 1024:
+                    self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > {max_size_kb} KB")
+
+                    # 1e extra poging
+                    new_width = int(img.width * 0.6)
+                    new_quality = max(35, quality - 20)
+
+                    img = img.resize((new_width, int(img.height * 0.6)), Image.Resampling.LANCZOS)
+
+                    # Lichte blur
+                    try:
+                        from PIL import ImageFilter
+
+                        img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
+                    except Exception:
+                        pass
+
+                    with io.BytesIO() as buffer:
+                        img.save(buffer, format="JPEG", quality=new_quality, optimize=True)
+                        buffer.seek(0)
+                        compressed_data = buffer.getvalue()
+                        compressed_size = len(compressed_data)
+                        compressed_size_kb = compressed_size / 1024
+                        self.logger.info(f"[IMAGE] Na extra compressie: {compressed_size_kb:.1f} KB")
+
+                    # 2e extra poging
+                    if compressed_size > 100 * 1024:  # >100KB
+                        self.logger.info(f"[IMAGE] Derde compressie nodig: {compressed_size_kb:.1f} KB > 100 KB")
+                        final_width = int(new_width * 0.7)
+                        final_quality = max(25, new_quality - 10)
+
+                        img = img.resize((final_width, int(img.height * 0.7)), Image.Resampling.LANCZOS)
+
+                        try:
+                            img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+                        except Exception:
+                            pass
+
+                        with io.BytesIO() as buffer:
+                            img.save(buffer, format="JPEG", quality=final_quality, optimize=True)
+                            buffer.seek(0)
+                            compressed_data = buffer.getvalue()
+                            compressed_size = len(compressed_data)
+                            compressed_size_kb = compressed_size / 1024
+                            self.logger.info(f"[IMAGE] Na derde compressie: {compressed_size_kb:.1f} KB")
+
                 # Base64 encoding
                 base64_data = base64.b64encode(compressed_data).decode("utf-8")
 
                 # Log compressieresultaat
-                compressed_size = len(compressed_data)
                 compression_ratio = (original_size - compressed_size) / original_size * 100
                 self.logger.info(
-                    f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size / 1024:.1f} KB ({compression_ratio:.1f}%)"
+                    f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size_kb:.1f} KB ({compression_ratio:.1f}% reductie)"
                 )
 
                 return f"data:image/jpeg;base64,{base64_data}"
 
             except Exception as e:
-                # Gedetailleerde foutinformatie
-                self.logger.error(f"[IMAGE] Fout bij laden: {str(e)}")
+                import traceback
 
-                # Technische suggestie voor gebruiker
-                return (
-                    f"Kon afbeelding '{file_name}' niet laden: {str(e)}. "
-                    f"BELANGRIJK: Afbeeldingen moeten met het EXACTE pad worden geladen:\n"
-                    f"1. Document ID: {_id}\n"
-                    f"2. Afbeeldingspad: Gebruik ALLEEN paden zoals 'figures/fileoutpart0.png', 'figures/fileoutpart1.png', etc.\n"
-                    f"3. Probeer NIET het pad aan te passen, maar gebruik in plaats daarvan een ander index nummer "
-                    f"(bijv. als fileoutpart0.png faalt, probeer fileoutpart1.png, fileoutpart2.png, etc.)"
-                )
+                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                self.logger.error(traceback.format_exc())
+                return f"Er is een fout opgetreden bij het laden van de afbeelding: {str(e)}"
 
         tools = [
             tool_store_memory,
@@ -626,17 +679,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
-        # Log en debug Anthropic API configuratie
-        self.logger.info("[REASONING] Enabling extended thinking with budget of 12000 tokens")
-
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
         buffered_content = []
-        reasoning_chunks = []  # Nieuwe lijst voor reasoning chunks
-
-        # Log dat we de API gaan aanroepen
-        self.logger.info("[REASONING] Calling Claude API with extended thinking enabled")
-
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -645,9 +690,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
-
-- 
-- Geef korte antwoorden
+- Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
 - Gebruik grafieken en tabellen waar mogelijk (markdown)
@@ -660,25 +703,9 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
-- tool_load_image: Laad een afbeelding uit een PDF document
 
 ### Gebruik van de tool_search_pdf
-Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een METRO MONTEUR vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
-De PDF documenten zijn instructies voor de METRO MONTEURS.
-### Correct laden van afbeeldingen uit PDF documenten
-Om afbeeldingen correct te laden uit PDF documenten, volg deze stappen precies:
-1. De tool_load_image functie vereist EXACT twee parameters:
-   - _id: Het document ID (zoals "cm83afnit0001jdbxe3ertxaw")
-   - file_name: Het exacte bestandspad van de afbeelding (bijna altijd in het format "figures/fileoutpart0.png", "figures/fileoutpart1.png", etc.)
-
-2. Gebruik geen manipulatie of variatie in de bestandspaden - gebruik altijd het exacte pad zoals vermeld in de markdown content.
-
-3. Het juiste format voor het aanroepen van de functie is:
-   tool_load_image("document-id", "figures/fileoutpart0.png")
-
-4. Afbeeldingen worden ALTIJD opgeslagen in het "figures" pad met bestandsnamen als "fileoutpart0.png", "fileoutpart1.png", etc.
-
-5. Als een afbeelding niet laadt, probeer NIET het pad te wijzigen, maar probeer in plaats daarvan de volgende index (fileoutpart0.png, fileoutpart1.png, etc.)
+Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
@@ -714,46 +741,15 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Voeg raw response logging toe
-        self.logger.info("[REASONING] Starting to handle stream response")
-
-        # Bufferen van alle chunks in één lijst met uitgebreide logging
+        # Bufferen van alle chunks in één lijst
         async for content in self.handle_stream(stream, tools):
-            # Log elk chunk in detail
-            self.logger.info(f"[RAW CHUNK] Type: {type(content)}, Dir: {dir(content)}")
-            self.logger.info(f"[RAW CHUNK] Content: {str(content)[:200]}")
-
-            # Probeer verschillende manieren om reasoning/thinking content te identificeren
-            if hasattr(content, "type"):
-                self.logger.info(f"[CHUNK TYPE] {content.type}")
-
-                if content.type == "thinking" or content.type == "reasoning":
-                    self.logger.info(f"[THINKING/REASONING] {str(content)[:500]}")
-                    reasoning_chunks.append(content)
-
-            # Probeer via 'thinking' attribuut
-            if hasattr(content, "thinking"):
-                self.logger.info(f"[THINKING ATTR] {str(content)[:500]}")
-                reasoning_chunks.append(content)
-
-            # Zoek naar mogelijke thinking informatie in de content
-            content_str = str(content)
-            if "reasoning" in content_str.lower() or "thinking" in content_str.lower():
-                self.logger.info(f"[POTENTIAL THINKING] Found reasoning/thinking text: {content_str[:300]}")
-
+            if self.config.debug_mode:
+                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
             buffered_content.append(content)
 
-        # Log samenvattende informatie over gevonden thinking/reasoning
-        self.logger.info(
-            f"[REASONING SUMMARY] Total chunks: {len(buffered_content)}, Reasoning chunks: {len(reasoning_chunks)}"
-        )
-        if reasoning_chunks:
-            self.logger.info(f"[REASONING FOUND] First reasoning chunk: {str(reasoning_chunks[0])[:300]}")
-        else:
-            self.logger.warning("[REASONING NOT FOUND] No reasoning chunks detected in response")
+        # Alles samenvoegen tot één enkele string
+        final_output = "".join(buffered_content)
 
-        # Alles samenvoegen tot één enkele string en converteren naar MessageContent
-        final_output = "".join(str(chunk) for chunk in buffered_content)
-        
-        # Deze in één keer yielden als TextContent
-        yield TextContent(content=final_output)
+        # Deze in één keer yielden
+        yield final_output
+
