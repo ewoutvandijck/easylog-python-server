@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -748,5 +748,5 @@ Je huidige core memories zijn:
         # Alles samenvoegen tot één enkele string
         final_output = "".join(buffered_content)
 
-        # Deze in één keer yielden als MessageContent
-        yield TextContent(content=final_output)
+        # Deze in één keer yielden
+        yield final_output
