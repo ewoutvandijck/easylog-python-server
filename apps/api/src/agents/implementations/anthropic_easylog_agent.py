@@ -475,36 +475,66 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
 
             try:
-                # Controleer en corrigeer pad indien nodig
-                if not file_name.startswith("figures/") and "/" not in file_name:
-                    original_file_name = file_name
-                    file_name = f"figures/{file_name}"
-                    self.logger.info(f"[IMAGE] Pad gecorrigeerd: {original_file_name} -> {file_name}")
+                # Lijst met mogelijke padformaten die we gaan proberen
+                paths_to_try = []
 
-                # Laad de originele afbeelding
-                try:
-                    image_data = await self.load_image(_id, file_name)
-                except Exception as e:
-                    # Als het laden mislukt met figures/ pad, probeer alternatieve paden
-                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {file_name}: {str(e)}")
+                # 1. Het originele pad dat is doorgegeven
+                paths_to_try.append(file_name)
 
-                    # Probeer zonder figures/ als dat was toegevoegd
-                    if file_name.startswith("figures/"):
-                        alt_file_name = file_name.replace("figures/", "")
-                        self.logger.info(f"[IMAGE] Probeer alternatief pad zonder figures/: {alt_file_name}")
-                        try:
-                            image_data = await self.load_image(_id, alt_file_name)
-                            self.logger.info(f"[IMAGE] Succesvol geladen met alternatief pad: {alt_file_name}")
-                        except Exception:
-                            # Probeer met alleen de bestandsnaam (zonder pad)
-                            base_name = file_name.split("/")[-1]
-                            self.logger.info(f"[IMAGE] Probeer met alleen bestandsnaam: {base_name}")
-                            image_data = await self.load_image(_id, base_name)
-                    else:
-                        # Als het geen figures/ bevat, probeer het toe te voegen
-                        alt_file_name = f"figures/{file_name}"
-                        self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
-                        image_data = await self.load_image(_id, alt_file_name)
+                # 2. Met figures/ prefix als die nog niet aanwezig is
+                if not file_name.startswith("figures/"):
+                    paths_to_try.append(f"figures/{file_name}")
+
+                # 3. Zonder figures/ prefix als die aanwezig is
+                if file_name.startswith("figures/"):
+                    paths_to_try.append(file_name.replace("figures/", ""))
+
+                # 4. Alleen de bestandsnaam (zonder pad)
+                if "/" in file_name:
+                    base_name = file_name.split("/")[-1]
+                    paths_to_try.append(base_name)
+                    # Ook nog proberen met figures/ prefix
+                    paths_to_try.append(f"figures/{base_name}")
+
+                # Verwijder duplicaten maar behoud volgorde
+                unique_paths = []
+                for path in paths_to_try:
+                    if path not in unique_paths:
+                        unique_paths.append(path)
+
+                # Log alle paden die we gaan proberen
+                self.logger.info(f"[IMAGE] Ga de volgende paden proberen: {unique_paths}")
+
+                # Houdt fouten bij om zinvolle foutmelding te kunnen geven
+                errors = []
+
+                # Probeer elk pad totdat er één werkt
+                for path in unique_paths:
+                    try:
+                        self.logger.info(f"[IMAGE] Probeer pad: {path}")
+                        image_data = await self.load_image(_id, path)
+                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
+
+                        # Sla het succesvolle pad op in de metadata voor toekomstig gebruik
+                        image_paths = self.get_metadata(f"image_paths_{_id}", default={})
+                        base_filename = file_name.split("/")[-1]
+                        image_paths[base_filename] = path
+                        self.set_metadata(f"image_paths_{_id}", image_paths)
+                        self.logger.info(f"[IMAGE] Pad opgeslagen voor toekomstig gebruik: {base_filename} -> {path}")
+
+                        # Ga door met verwerking
+                        break
+                    except Exception as e:
+                        err_msg = str(e)
+                        errors.append(f"Pad '{path}': {err_msg}")
+                        self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {path}: {err_msg}")
+                        # Ga door met het volgende pad
+                        continue
+                else:
+                    # Als we hier komen, is geen enkel pad gelukt
+                    error_details = "\n".join(errors)
+                    self.logger.error(f"[IMAGE] Geen enkel pad werkte. Fouten:\n{error_details}")
+                    return f"Er is een fout opgetreden bij het laden van de afbeelding. Geprobeerde paden:\n{error_details}"
 
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
