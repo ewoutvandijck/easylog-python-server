@@ -490,16 +490,19 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 )
 
                 # Kleinere limiet voor trage verbindingen
-                MAX_COMPRESSED_SIZE = 80 * 1024  # Verlaagd van 120KB naar 80KB
+                MAX_COMPRESSED_SIZE = 40 * 1024  # Verlaagd naar 40KB voor 5G compatibiliteit
 
                 # Hard streaming limit voor verbindingsproblemen
-                MAX_STREAMING_SIZE = 160 * 1024  # Verlaagd van 240KB naar 160KB
+                MAX_STREAMING_SIZE = 80 * 1024  # Verlaagd naar 80KB voor 5G compatibiliteit
                 
                 # Direct thumbnail trigger
-                FORCE_THUMBNAIL_SIZE = 500 * 1024  # Verlaagd van 700KB naar 500KB
+                FORCE_THUMBNAIL_SIZE = 300 * 1024  # Verlaagd naar 300KB voor 5G compatibiliteit
 
                 # Veilige maximale grootte voor base64 output
-                MAX_BASE64_SIZE = 200 * 1024  # Verlaagd van 280KB naar 200KB
+                MAX_BASE64_SIZE = 120 * 1024  # Verlaagd naar 120KB voor 5G compatibiliteit
+
+                # 5G optimalisatie logging
+                self.logger.info("[IMAGE LOADING] 5G-optimalisatie ingeschakeld: extra kleine afbeeldingen")
 
                 # Voor zeer grote afbeeldingen tonen we een waarschuwing
                 is_very_large_image = False
@@ -532,7 +535,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         # NIEUW: Veiligere thumbnail generatie
                         try:
                             thumb_img = img.copy()
-                            thumb_width = 160  # Verkleind van 200 naar 160
+                            thumb_width = 120  # Verkleind naar 120px voor 5G compatibiliteit
                             # Zorg voor correcte aspect ratio
                             thumb_height = int(thumb_width * thumb_img.height / thumb_img.width)
                             # Gebruik LANCZOS voor betere kwaliteit met minder artefacten
@@ -540,14 +543,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                             # NIEUW: Extra optimalisatie voor streaming
                             with io.BytesIO() as thumb_buffer:
-                                thumb_img.save(thumb_buffer, format="JPEG", quality=30, optimize=True)
+                                thumb_img.save(thumb_buffer, format="JPEG", quality=20, optimize=True)  # Verlaagd naar 20% voor 5G
                                 thumb_buffer.seek(0)
                                 try:
                                     from PIL import ImageFilter
                                     # Lichte blur toepassen voor betere compressie
-                                    thumb_img = thumb_img.filter(ImageFilter.GaussianBlur(radius=0.3))
+                                    thumb_img = thumb_img.filter(ImageFilter.GaussianBlur(radius=0.5))  # Verhoogd naar 0.5 voor 5G
                                     thumb_buffer = io.BytesIO()
-                                    thumb_img.save(thumb_buffer, format="JPEG", quality=30, optimize=True)
+                                    thumb_img.save(thumb_buffer, format="JPEG", quality=18, optimize=True)  # Verlaagd naar 18% voor 5G
                                     thumb_buffer.seek(0)
                                 except Exception as blur_error:
                                     self.logger.warning(f"[IMAGE LOADING] Blur optimalisatie niet mogelijk: {str(blur_error)}")
@@ -562,9 +565,13 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             if thumb_size > MAX_COMPRESSED_SIZE:
                                 self.logger.warning(f"[IMAGE LOADING] Thumbnail te groot: {thumb_size/1024:.2f}KB, extra compressie")
                                 with io.BytesIO() as buffer:
-                                    thumb_img = thumb_img.resize((140, int(140 * thumb_img.height / thumb_img.width)), 
+                                    # 5G optimalisatie: kleinere thumbs bij overgrootte
+                                    resize_width = 100 if USE_5G_OPTIMIZATION else 140  # Verlaagd naar 100px voor 5G
+                                    thumb_img = thumb_img.resize((resize_width, int(resize_width * thumb_img.height / thumb_img.width)), 
                                                         Image.Resampling.LANCZOS)
-                                    thumb_img.save(buffer, format="JPEG", quality=20, optimize=True)  # Verlaagd van 25 naar 20
+                                    # 5G optimalisatie: extremere compressie
+                                    final_quality = 15 if USE_5G_OPTIMIZATION else 20  # Verlaagd naar 15% voor 5G
+                                    thumb_img.save(buffer, format="JPEG", quality=final_quality, optimize=True)
                                     buffer.seek(0)
                                     thumb_data = buffer.getvalue()
 
@@ -584,8 +591,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         # NIEUW: Verbeterde fallback voor thumbnail mislukkingen
                         is_extremely_large_image = True
                         is_very_large_image = True
-                        target_width = 140  # Nog kleinere breedte (was 160)
-                        quality = 25  # Nog lagere kwaliteit (was 30)
+                        # 5G optimalisatie: kleinere targets
+                        target_width = 100  # Verkleind naar 100px voor 5G compatibiliteit
+                        quality = 18  # Verlaagd naar 18% voor 5G compatibiliteit
                     elif original_size > 1.5 * 1024 * 1024:  # Verlaagd van 2MB naar 1.5MB
                         is_very_large_image = True
                         self.logger.info(
@@ -611,8 +619,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             f"[IMAGE LOADING] Direct thumbnail genereren voor grote afbeelding ({original_size_mb:.2f} MB)"
                         )
                         # Maak een kleine thumbnail voor directe weergave
-                        thumb_width = 160  # Verlaagd van 200 naar 160
-                        thumb_quality = 30  # Verlaagd van 35 naar 30
+                        # 5G optimalisatie: extreem kleine thumbs
+                        thumb_width = 100  # Verkleind naar 100px voor 5G compatibiliteit
+                        thumb_quality = 20  # Verlaagd naar 20% voor 5G compatibiliteit
 
                         # NIEUW: Verbeterde thumbnail creatie
                         thumbnail_img = img.copy()
@@ -627,309 +636,192 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             thumbnail_img = background
 
                         with io.BytesIO() as buffer:
-                            thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality, optimize=True)
+                            # 5G optimalisatie: sterkere blur
+                            blur_radius = 0.5 if USE_5G_OPTIMIZATION else 0.3  # Verhoogd naar 0.5 voor 5G
+                            thumbnail_img = thumbnail_img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+                            enhancer = ImageEnhance.Contrast(thumbnail_img)
+                            # 5G optimalisatie: meer contrast reductie
+                            contrast_factor = 0.9 if USE_5G_OPTIMIZATION else 0.95  # Verlaagd naar 0.9 voor 5G
+                            thumbnail_img = enhancer.enhance(contrast_factor)
+                            buffer = io.BytesIO()
+                            # 5G optimalisatie: nog lagere kwaliteit
+                            final_quality = thumb_quality-8 if USE_5G_OPTIMIZATION else thumb_quality-5  # Extra -3% voor 5G
+                            thumbnail_img.save(buffer, format="JPEG", quality=final_quality, optimize=True)
                             
-                            # NIEUW: Extra compressietechniek voor streaming
+                            # NIEUW: Validatie en extra compressie indien nodig
+                            if len(buffer.getvalue()) > MAX_COMPRESSED_SIZE:
+                                # Nog agressievere compressie
+                                self.logger.warning(f"[IMAGE LOADING] Thumbnail te groot: {len(buffer.getvalue())/1024:.2f}KB")
+                                # 5G optimalisatie: nog kleinere thumbs
+                                resize_width = 90 if USE_5G_OPTIMIZATION else 140  # Verlaagd naar 90px voor 5G
+                                thumbnail_img = thumbnail_img.resize((resize_width, int(resize_width * thumbnail_img.height / thumbnail_img.width)), 
+                                                                        Image.Resampling.LANCZOS)
+                                with io.BytesIO() as buffer:
+                                    # 5G optimalisatie: extreme compressie
+                                    final_quality = 12 if USE_5G_OPTIMIZATION else 20  # Verlaagd naar 12% voor 5G
+                                    thumbnail_img.save(buffer, format="JPEG", quality=final_quality, optimize=True)
+
+                            # Veilige base64 encoding
                             try:
-                                from PIL import ImageFilter, ImageEnhance
-                                # Lichte blur en contrast aanpassing voor betere compressie
-                                thumbnail_img = thumbnail_img.filter(ImageFilter.GaussianBlur(radius=0.3))
-                                enhancer = ImageEnhance.Contrast(thumbnail_img)
-                                thumbnail_img = enhancer.enhance(0.95)
-                                buffer = io.BytesIO()
-                                thumbnail_img.save(buffer, format="JPEG", quality=thumb_quality-5, optimize=True)
-                            except Exception as enhance_error:
-                                self.logger.warning(f"[IMAGE LOADING] Extra compressie niet mogelijk: {str(enhance_error)}")
-                                # Originele buffer behouden als fallback
-                            buffer.seek(0)
-                            thumbnail_data = buffer.getvalue()
+                                thumbnail_data_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                                self.logger.info(f"[IMAGE LOADING] Thumbnail grootte: {len(buffer.getvalue())/1024:.2f}KB, Base64: {len(thumbnail_data_b64)/1024:.2f}KB")
+                                return f"data:image/jpeg;base64,{thumbnail_data_b64}"
+                            except Exception as b64_error:
+                                self.logger.error(f"[IMAGE LOADING] Base64 encoding fout: {str(b64_error)}")
+                                # Verkleinen en opnieuw proberen
+                                img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)
+                                with io.BytesIO() as buffer:
+                                    img.save(buffer, format="JPEG", quality=20, optimize=True)
+                                    buffer.seek(0)
+                                    image_data = buffer.getvalue()
+                                
+                                    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                                    self.logger.info(f"[IMAGE LOADING] Na base64 error herstel: {len(image_data)/1024:.2f}KB, base64: {len(image_data_b64)/1024:.2f}KB")
 
-                        # NIEUW: Validatie en extra compressie indien nodig
-                        if len(thumbnail_data) > MAX_COMPRESSED_SIZE:
-                            # Nog agressievere compressie
-                            self.logger.warning(f"[IMAGE LOADING] Thumbnail te groot: {len(thumbnail_data)/1024:.2f}KB")
-                            thumbnail_img = thumbnail_img.resize((140, int(140 * thumbnail_img.height / thumbnail_img.width)), 
-                                                            Image.Resampling.LANCZOS)
-                            with io.BytesIO() as buffer:
-                                # NIEUW: Extremere kwaliteitsreductie voor streaming
-                                thumbnail_img.save(buffer, format="JPEG", quality=20, optimize=True)  # Verlaagd van 25 naar 20
-                                buffer.seek(0)
-                                thumbnail_data = buffer.getvalue()
+                            compression_ratio = (original_size - len(buffer.getvalue())) / original_size * 100
+                            self.logger.info(f"[IMAGE LOADING] Compressie ratio: {compression_ratio:.2f}% verkleind")
+                            self.logger.info(
+                                f"[IMAGE LOADING] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%"
+                            )
 
-                        # Veilige base64 encoding
-                        try:
-                            thumbnail_data_b64 = base64.b64encode(thumbnail_data).decode("utf-8")
-                            self.logger.info(f"[IMAGE LOADING] Thumbnail grootte: {len(thumbnail_data)/1024:.2f}KB, Base64: {len(thumbnail_data_b64)/1024:.2f}KB")
-                            return f"data:image/jpeg;base64,{thumbnail_data_b64}"
-                        except Exception as b64_error:
-                            self.logger.error(f"[IMAGE LOADING] Base64 encoding fout: {str(b64_error)}")
-                            # Ga door naar normale verwerking als fallback
-
-                    # AANGEPAST: Verbeterde verwerking voor alle afbeeldingen
-                    # Bereken schaalfactor en nieuwe afmetingen
-                    if original_width > target_width:
-                        scale_factor = target_width / original_width
-                        new_width = target_width
-                        new_height = int(original_height * scale_factor)
-
-                        # Directe resize in plaats van thumbnail voor betere controle
-                        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                        self.logger.info(f"[IMAGE LOADING] Verkleind naar: {img.width}x{img.height}")
-                    else:
-                        self.logger.info("[IMAGE LOADING] Afbeelding is kleiner dan max breedte, geen resize nodig")
-
-                    # Converteer naar RGB indien nodig (voor PNG met transparantie)
-                    if img.mode in ("RGBA", "LA"):
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
-                        img = background
-                        self.logger.info("[IMAGE LOADING] Transparantie omgezet naar RGB")
-
-                    # Bij extreem grote afbeeldingen direct naar de veilige kleine versie
-                    if is_extremely_large_image:
-                        self.logger.warning(
-                            "[IMAGE LOADING] Direct naar veilige kleine versie voor extreem grote afbeelding"
-                        )
-                        img = img.resize((160, int(160 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 200 naar 160
-                        quality = 25  # Verlaagd van 35 naar 25
-                        
-                        # NIEUW: Extra compressietechniek toevoegen
-                        try:
-                            from PIL import ImageFilter, ImageEnhance
-                            # Lichte blur en verminderd contrast voor betere compressie
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.4))
-                            enhancer = ImageEnhance.Contrast(img)
-                            img = enhancer.enhance(0.92)
-                        except Exception as filter_error:
-                            self.logger.warning(f"[IMAGE LOADING] Geavanceerde filters niet mogelijk: {str(filter_error)}")
-
-                    # NIEUW: Gebruik een extra kleine versie voor zeer grote afbeeldingen
-                    elif is_very_large_image:
-                        img = img.resize((220, int(220 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 280 naar 220
-                        quality = 35  # Verlaagd van 45 naar 35
-                        self.logger.info("[IMAGE LOADING] Zeer grote afbeelding extra verkleind naar 220px")
-                        
-                        # NIEUW: Extra compressie voor streaming
-                        try:
-                            from PIL import ImageFilter
-                            # Lichte blur voor betere compressie
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.3))
-                        except Exception as blur_error:
-                            self.logger.warning(f"[IMAGE LOADING] Blur voor streaming niet mogelijk: {str(blur_error)}")
-
-                    # Sla op in buffer met optimize=True voor betere compressie
-                    with io.BytesIO() as buffer:
-                        img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                        buffer.seek(0)
-                        image_data = buffer.getvalue()
-                    image_size = len(image_data)
-                    image_size_mb = image_size / (1024 * 1024)
-                    self.logger.info(
-                        f"[IMAGE LOADING] Eerste compressie: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB) (doel: <{MAX_COMPRESSED_SIZE / 1024:.2f} KB)"
-                    )
-
-                    # AANGEPAST: Verlaagde drempel voor streaming limiet
-                    if needs_streaming_optimization and image_size > MAX_STREAMING_SIZE:
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Te groot voor streaming: {image_size / 1024:.2f} KB > {MAX_STREAMING_SIZE / 1024:.2f} KB"
-                        )
-
-                        # Maak een kleinere versie voor betere streaming
-                        img = img.resize((160, int(160 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 200 naar 160
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=30, optimize=True)  # Verlaagd van 35 naar 30
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
-                        image_size = len(image_data)
-                        image_size_mb = image_size / (1024 * 1024)
-                        self.logger.info(
-                            f"[IMAGE LOADING] Streaming optimalisatie: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB)"
-                        )
-
-                    # AANGEPAST: Verbeterde iteratieve compressie algoritme
-                    attempt = 1
-                    max_attempts = 7  # Verhoogd van 6 naar 7
-                    quality_step = 20 if is_very_large_image else 15  # Verhoogd van 15/10 naar 20/15
-                    min_quality = 18  # Verlaagd van 25 naar 18
-
-                    while image_size > MAX_COMPRESSED_SIZE and attempt <= max_attempts:
-                        self.logger.info(
-                            f"[IMAGE LOADING] Compressie iteratie {attempt}: {image_size / 1024:.2f} KB > {MAX_COMPRESSED_SIZE / 1024:.2f} KB"
-                        )
-
-                        attempt += 1
-
-                        # Agressievere verkleining voor latere iteraties
-                        resize_factor = 0.5 if attempt > 2 else 0.65  # Verlaagd van 0.6/0.7 naar 0.5/0.65
-                        new_width = int(img.width * resize_factor)
-                        new_height = int(img.height * resize_factor)
-
-                        # Grotere kwaliteitsreductie voor latere pogingen
-                        new_quality = max(min_quality, quality - quality_step)
-                        quality = new_quality
-
-                        self.logger.info(
-                            f"[IMAGE LOADING] Iteratie {attempt}: {new_width}x{new_height}, kwaliteit {quality}%"
-                        )
-
-                        # Verklein afbeelding - directe resize in plaats van thumbnail
-                        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                        
-                        # NIEUW: Extra compressietechniek bij latere iteraties
-                        if attempt > 3:
-                            try:
-                                from PIL import ImageFilter, ImageEnhance
-                                # Meer blur voor agressievere compressie
-                                blur_radius = min(0.5, 0.2 + (attempt - 3) * 0.1)
-                                img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
-                                # Contrast aanpassen voor betere compressie
-                                if attempt > 4:
+                            # AANGEPAST: Verlaagde drempel voor streaming limiet
+                            if needs_streaming_optimization and len(buffer.getvalue()) > 400 * 1024:  # Verlaagd van 500K naar 400K
+                                self.logger.warning(
+                                    f"[IMAGE LOADING] Streaming limiet overschreden: {len(buffer.getvalue()) / 1024:.2f}KB > 400KB, extra compressie nodig"
+                                )
+                                # Extra agressieve verkleining voor streaming
+                                img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 180 naar 140
+                                
+                                # NIEUW: Extreme optimalisatie voor streaming
+                                try:
+                                    from PIL import ImageFilter, ImageEnhance
+                                    # Compressie-vriendelijke filters toepassen
+                                    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
                                     enhancer = ImageEnhance.Contrast(img)
                                     img = enhancer.enhance(0.9)
-                            except Exception as compress_error:
-                                self.logger.warning(f"[IMAGE LOADING] Extra compressietechniek mislukt: {str(compress_error)}")
+                                except Exception as extreme_error:
+                                    self.logger.warning(f"[IMAGE LOADING] Extreme optimalisatie niet mogelijk: {str(extreme_error)}")
+                                    
+                                with io.BytesIO() as buffer:
+                                    img.save(buffer, format="JPEG", quality=22, optimize=True)  # Verlaagd van 30 naar 22
 
-                        # Opnieuw opslaan met nieuwe instellingen
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
-                        image_size = len(image_data)
-                        image_size_mb = image_size / (1024 * 1024)
+                            # AANGEPAST: Verlaagde drempel voor kritische waarschuwing
+                            if len(buffer.getvalue()) > 300 * 1024:  # Verlaagd van 500KB naar 300KB
+                                self.logger.warning(
+                                    f"[IMAGE LOADING] Base64 output is zeer groot ({len(buffer.getvalue()) / 1024 / 1024:.2f} MB)"
+                                )
+                                # NIEUW: Extra fallback voor zeer grote base64 data
+                                img = img.resize((120, int(120 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 140 naar 120
+                                
+                                # NIEUW: Extreme compressie voor chat streaming
+                                try:
+                                    from PIL import ImageFilter, ImageEnhance
+                                    # Meer blur en contrast reductie voor extreme compressie
+                                    img = img.filter(ImageFilter.GaussianBlur(radius=0.7))
+                                    enhancer = ImageEnhance.Contrast(img)
+                                    img = enhancer.enhance(0.85)
+                                    # Lichte vermindering van scherpte
+                                    enhancer = ImageEnhance.Sharpness(img)
+                                    img = enhancer.enhance(0.8)
+                                except Exception as extreme_error:
+                                    self.logger.warning(f"[IMAGE LOADING] Extreme compressie filters niet mogelijk: {str(extreme_error)}")
+                                    
+                                with io.BytesIO() as buffer:
+                                    img.save(buffer, format="JPEG", quality=15, optimize=True)  # Verlaagd van 20 naar 15
+                                    buffer.seek(0)
+                                    image_data = buffer.getvalue()
 
-                        self.logger.info(
-                            f"[IMAGE LOADING] Na iteratie {attempt}: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB)"
-                        )
+                            # Check of base64 misschien te groot is voor chat interface
+                            data_url = f"data:image/jpeg;base64,{image_data_b64}"
 
-                        # Aanpassing van compressiestappen voor volgende iteratie
-                        quality_step = 6 if attempt > 3 else quality_step  # Verlaagd van 8 naar 6 voor fijnere controle bij latere iteraties
+                            # Waarschuwing voor trage verbindingen zonder de afbeelding te vervangen
+                            if needs_streaming_optimization:
+                                self.logger.info(
+                                    "[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) ====="
+                                )
+                                self.logger.info(
+                                    f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {len(buffer.getvalue()) / 1024:.2f} MB, Base64: {len(image_data_b64) / 1024:.2f} KB"
+                                )
+                                if not is_very_large_image:
+                                    return data_url
 
-                    # NIEUW: Veilige base64 encoding met validatie
-                    try:
-                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                        base64_size = len(image_data_b64)
-                        base64_size_mb = base64_size / (1024 * 1024)
+                            # AANGEPAST: Verlaagde drempel voor kritische waarschuwing
+                            if len(buffer.getvalue()) > 500 * 1024:  # Verlaagd van 600KB naar 500KB
+                                self.logger.warning(
+                                    f"[IMAGE LOADING] Base64 output is zeer groot ({len(buffer.getvalue()) / 1024 / 1024:.2f} MB)"
+                                )
+                                # NIEUW: Extra fallback voor zeer grote base64 data
+                                img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 160 naar 140
+                                
+                                # NIEUW: Extreme compressie voor chat streaming
+                                try:
+                                    from PIL import ImageFilter, ImageEnhance
+                                    # Meer blur en contrast reductie voor extreme compressie
+                                    img = img.filter(ImageFilter.GaussianBlur(radius=0.7))
+                                    enhancer = ImageEnhance.Contrast(img)
+                                    img = enhancer.enhance(0.85)
+                                except Exception as extreme_error:
+                                    self.logger.warning(f"[IMAGE LOADING] Extreme compressie filters niet mogelijk: {str(extreme_error)}")
+                                    
+                                with io.BytesIO() as buffer:
+                                    img.save(buffer, format="JPEG", quality=15, optimize=True)  # Verlaagd van 20 naar 15
+                                    buffer.seek(0)
+                                    image_data = buffer.getvalue()
 
-                        # Logging van eindresultaat
-                        self.logger.info(
-                            f"[IMAGE LOADING] Compressie resultaat: {image_size / 1024:.2f} KB ({image_size_mb:.2f} MB) JPG → {base64_size / 1024:.2f} KB ({base64_size_mb:.2f} MB) base64"
-                        )
-                    except Exception as b64_error:
-                        self.logger.error(f"[IMAGE LOADING] Base64 encoding fout: {str(b64_error)}")
-                        # Verkleinen en opnieuw proberen
-                        img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=20, optimize=True)
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
-                        
-                            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-                            base64_size = len(image_data_b64)
-                            base64_size_mb = base64_size / (1024 * 1024)
-                            self.logger.info(f"[IMAGE LOADING] Na base64 error herstel: {len(image_data)/1024:.2f}KB, base64: {base64_size/1024:.2f}KB")
+                            if is_very_large_image:
+                                self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
+                                self.logger.info(
+                                    f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {len(buffer.getvalue()) / 1024:.2f} MB, Base64: {len(image_data_b64) / 1024:.2f} KB"
+                                )
+                                return data_url
 
-                    compression_ratio = (original_size - image_size) / original_size * 100
-                    self.logger.info(f"[IMAGE LOADING] Compressie ratio: {compression_ratio:.2f}% verkleind")
-                    self.logger.info(
-                        f"[IMAGE LOADING] Uiteindelijke afmetingen: {img.width}x{img.height}, kwaliteit: {quality}%"
-                    )
-
-                    # AANGEPAST: Verlaagde drempel voor streaming limiet
-                    if needs_streaming_optimization and base64_size > 400 * 1024:  # Verlaagd van 500K naar 400K
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Streaming limiet overschreden: {base64_size / 1024:.2f}KB > 400KB, extra compressie nodig"
-                        )
-                        # Extra agressieve verkleining voor streaming
-                        img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 180 naar 140
-                        
-                        # NIEUW: Extreme optimalisatie voor streaming
-                        try:
-                            from PIL import ImageFilter, ImageEnhance
-                            # Compressie-vriendelijke filters toepassen
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
-                            enhancer = ImageEnhance.Contrast(img)
-                            img = enhancer.enhance(0.9)
-                        except Exception as extreme_error:
-                            self.logger.warning(f"[IMAGE LOADING] Extreme optimalisatie niet mogelijk: {str(extreme_error)}")
-                            
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=22, optimize=True)  # Verlaagd van 30 naar 22
-
-                    # AANGEPAST: Verlaagde drempel voor kritische waarschuwing
-                    if base64_size > 300 * 1024:  # Verlaagd van 500KB naar 300KB
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
-                        )
-                        # NIEUW: Extra fallback voor zeer grote base64 data
-                        img = img.resize((120, int(120 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 140 naar 120
-                        
-                        # NIEUW: Extreme compressie voor chat streaming
-                        try:
-                            from PIL import ImageFilter, ImageEnhance
-                            # Meer blur en contrast reductie voor extreme compressie
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.7))
-                            enhancer = ImageEnhance.Contrast(img)
-                            img = enhancer.enhance(0.85)
-                            # Lichte vermindering van scherpte
-                            enhancer = ImageEnhance.Sharpness(img)
-                            img = enhancer.enhance(0.8)
-                        except Exception as extreme_error:
-                            self.logger.warning(f"[IMAGE LOADING] Extreme compressie filters niet mogelijk: {str(extreme_error)}")
-                            
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=15, optimize=True)  # Verlaagd van 20 naar 15
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
-
-                    # Check of base64 misschien te groot is voor chat interface
-                    data_url = f"data:image/jpeg;base64,{image_data_b64}"
-
-                    # Waarschuwing voor trage verbindingen zonder de afbeelding te vervangen
-                    if needs_streaming_optimization:
-                        self.logger.info(
-                            "[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (STREAMING GEOPTIMALISEERD) ====="
-                        )
-                        self.logger.info(
-                            f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {image_size_mb:.2f} MB, Base64: {base64_size_mb:.2f} MB"
-                        )
-                        if not is_very_large_image:
+                            self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
+                            self.logger.info(
+                                f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {len(buffer.getvalue()) / 1024:.2f} MB, Base64: {len(image_data_b64) / 1024:.2f} KB"
+                            )
                             return data_url
 
-                    # AANGEPAST: Verlaagde drempel voor kritische waarschuwing
-                    if base64_size > 500 * 1024:  # Verlaagd van 600KB naar 500KB
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Base64 output is zeer groot ({base64_size / 1024 / 1024:.2f} MB)"
-                        )
-                        # NIEUW: Extra fallback voor zeer grote base64 data
-                        img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 160 naar 140
-                        
-                        # NIEUW: Extreme compressie voor chat streaming
-                        try:
-                            from PIL import ImageFilter, ImageEnhance
-                            # Meer blur en contrast reductie voor extreme compressie
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.7))
-                            enhancer = ImageEnhance.Contrast(img)
-                            img = enhancer.enhance(0.85)
-                        except Exception as extreme_error:
-                            self.logger.warning(f"[IMAGE LOADING] Extreme compressie filters niet mogelijk: {str(extreme_error)}")
-                            
-                        with io.BytesIO() as buffer:
-                            img.save(buffer, format="JPEG", quality=15, optimize=True)  # Verlaagd van 20 naar 15
-                            buffer.seek(0)
-                            image_data = buffer.getvalue()
+                        except Exception as img_error:
+                            self.logger.error(f"[IMAGE LOADING] Fout bij verkleinen afbeelding: {str(img_error)}")
+                            import traceback
 
-                    if is_very_large_image:
-                        self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (GROOT) =====")
-                        self.logger.info(
-                            f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {image_size_mb:.2f} MB, Base64: {base64_size_mb:.2f} MB"
-                        )
-                        return data_url
+                            self.logger.error(f"[IMAGE LOADING] Details fout: {traceback.format_exc()}")
 
-                    self.logger.info("[IMAGE LOADING] ===== EINDE AFBEELDING VERWERKING (SUCCES) =====")
-                    self.logger.info(
-                        f"[IMAGE LOADING] GROOTTE SAMENVATTING: Origineel: {original_size_mb:.2f} MB, Verwerkt: {image_size_mb:.2f} MB, Base64: {base64_size_mb:.2f} MB"
-                    )
-                    return data_url
+                            # AANGEPAST: Verbeterde fallback voor fouten
+                            try:
+                                if img is not None:
+                                    # Creëer de meest eenvoudige versie mogelijk
+                                    img = img.resize((140, int(140 * img.height / img.width)), Image.Resampling.LANCZOS)  # Verlaagd van 160 naar 140
+                                    
+                                    # NIEUW: Zorg dat de afbeelding in RGB-modus is
+                                    if img.mode in ("RGBA", "LA"):
+                                        background = Image.new("RGB", img.size, (255, 255, 255))
+                                        background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
+                                        img = background
+                                    
+                                    with io.BytesIO() as buffer:
+                                        img.save(buffer, format="JPEG", quality=25, optimize=True)  # Verlaagd van 30 naar 25
+                                        buffer.seek(0)
+                                        image_data = buffer.getvalue()
+                                    
+                                    # NIEUW: Valideer base64 encoding
+                                    try:
+                                        image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                                        data_url = f"data:image/jpeg;base64,{image_data_b64}"
+                                        return data_url
+                                    except Exception as b64_error:
+                                        self.logger.error(f"[IMAGE LOADING] Base64 encoding fout in foutfallback: {str(b64_error)}")
+                            except Exception as second_error:
+                                self.logger.error(f"[IMAGE LOADING] Fallback ook mislukt: {str(second_error)}")
+
+                            return f"Er is een fout opgetreden bij het verwerken van de afbeelding. De afbeelding is waarschijnlijk te groot of ongeldig."
+
+                    except Exception as e:
+                        self.logger.error(f"[IMAGE LOADING] Onverwachte fout bij laden afbeelding: {str(e)}")
+                        import traceback
+
+                        self.logger.error(f"[IMAGE LOADING] Stacktrace: {traceback.format_exc()}")
+                        return f"Fout bij laden afbeelding: {str(e)}"
 
                 except Exception as img_error:
                     self.logger.error(f"[IMAGE LOADING] Fout bij verkleinen afbeelding: {str(img_error)}")
