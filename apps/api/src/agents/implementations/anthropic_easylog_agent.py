@@ -1,4 +1,3 @@
-WERKENDE EASYLOG AGENT MET THIKING
 
 # Python standard library imports
 import base64
