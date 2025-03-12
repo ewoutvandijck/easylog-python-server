@@ -739,7 +739,15 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Direct streaming without buffering
+        # Bufferen van alle chunks in één lijst
         async for content in self.handle_stream(stream, tools):
-            yield content
+            if self.config.debug_mode:
+                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
+            buffered_content.append(content)
+
+        # Alles samenvoegen tot één enkele string
+        final_output = "".join(buffered_content)
+
+        # Deze in één keer yielden
+        yield final_output
 

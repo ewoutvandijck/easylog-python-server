@@ -1,5 +1,3 @@
-
-
 # Python standard library imports
 import base64
 import io
