@@ -462,79 +462,40 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
-            Laad een afbeelding uit de database en bereid deze voor op weergave.
-            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
+            Laad een afbeelding uit de database.
+            Gebruik het exacte bestandspad zoals in de markdown staat aangegeven.
 
             Args:
                 _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
+                file_name (str): Het exacte bestandspad (bijv. 'figures/fileoutpart0.png')
 
             Returns:
-                str: Een data URL met de afbeelding als base64 gecodeerde data
+                str: Een data URL met de afbeelding
             """
-            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
+            self.logger.info(f"[IMAGE] Laden afbeelding: {_id}, {file_name}")
 
             try:
-                # Lijst met mogelijke padformaten die we gaan proberen
-                paths_to_try = []
+                # Eerst proberen het exacte pad te gebruiken zoals aangeleverd
+                try:
+                    image_data = await self.load_image(_id, file_name)
+                    self.logger.info(f"[IMAGE] Afbeelding succesvol geladen met origineel pad: {file_name}")
+                except Exception as e:
+                    # Als het originele pad niet werkt, probeer alternatieven
+                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met origineel pad: {str(e)}")
 
-                # 1. Het originele pad dat is doorgegeven
-                paths_to_try.append(file_name)
+                    # Probeer alternatieve paden
+                    if file_name.startswith("figures/"):
+                        # Probeer zonder "figures/"
+                        alt_path = file_name.replace("figures/", "")
+                        self.logger.info(f"[IMAGE] Probeer zonder figures/ prefix: {alt_path}")
+                        image_data = await self.load_image(_id, alt_path)
+                    else:
+                        # Probeer met "figures/" prefix
+                        alt_path = f"figures/{file_name}"
+                        self.logger.info(f"[IMAGE] Probeer met figures/ prefix: {alt_path}")
+                        image_data = await self.load_image(_id, alt_path)
 
-                # 2. Met figures/ prefix als die nog niet aanwezig is
-                if not file_name.startswith("figures/"):
-                    paths_to_try.append(f"figures/{file_name}")
-
-                # 3. Zonder figures/ prefix als die aanwezig is
-                if file_name.startswith("figures/"):
-                    paths_to_try.append(file_name.replace("figures/", ""))
-
-                # 4. Alleen de bestandsnaam (zonder pad)
-                if "/" in file_name:
-                    base_name = file_name.split("/")[-1]
-                    paths_to_try.append(base_name)
-                    # Ook nog proberen met figures/ prefix
-                    paths_to_try.append(f"figures/{base_name}")
-
-                # Verwijder duplicaten maar behoud volgorde
-                unique_paths = []
-                for path in paths_to_try:
-                    if path not in unique_paths:
-                        unique_paths.append(path)
-
-                # Log alle paden die we gaan proberen
-                self.logger.info(f"[IMAGE] Ga de volgende paden proberen: {unique_paths}")
-
-                # Houdt fouten bij om zinvolle foutmelding te kunnen geven
-                errors = []
-
-                # Probeer elk pad totdat er één werkt
-                for path in unique_paths:
-                    try:
-                        self.logger.info(f"[IMAGE] Probeer pad: {path}")
-                        image_data = await self.load_image(_id, path)
-                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
-
-                        # Sla het succesvolle pad op in de metadata voor toekomstig gebruik
-                        image_paths = self.get_metadata(f"image_paths_{_id}", default={})
-                        base_filename = file_name.split("/")[-1]
-                        image_paths[base_filename] = path
-                        self.set_metadata(f"image_paths_{_id}", image_paths)
-                        self.logger.info(f"[IMAGE] Pad opgeslagen voor toekomstig gebruik: {base_filename} -> {path}")
-
-                        # Ga door met verwerking
-                        break
-                    except Exception as e:
-                        err_msg = str(e)
-                        errors.append(f"Pad '{path}': {err_msg}")
-                        self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {path}: {err_msg}")
-                        # Ga door met het volgende pad
-                        continue
-                else:
-                    # Als we hier komen, is geen enkel pad gelukt
-                    error_details = "\n".join(errors)
-                    self.logger.error(f"[IMAGE] Geen enkel pad werkte. Fouten:\n{error_details}")
-                    return f"Er is een fout opgetreden bij het laden van de afbeelding. Geprobeerde paden:\n{error_details}"
+                # Vanaf hier behouden we de compressiefunctionaliteit
 
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
@@ -651,14 +612,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size_kb:.1f} KB ({compression_ratio:.1f}% reductie)"
                 )
 
+                # Altijd JPEG media type voor gecomprimeerde afbeeldingen
                 return f"data:image/jpeg;base64,{base64_data}"
 
             except Exception as e:
                 import traceback
 
-                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                self.logger.error(f"[IMAGE] Fout bij laden afbeelding: {str(e)}")
                 self.logger.error(traceback.format_exc())
-                return f"Er is een fout opgetreden bij het laden van de afbeelding: {str(e)}"
+
+                # Gedetailleerde foutmelding
+                return f"Er is een fout opgetreden bij het laden van de afbeelding '{file_name}': {str(e)}. Gebruik het exacte pad zoals in de markdown aanwezig (meestal met 'figures/' prefix)."
 
         tools = [
             tool_store_memory,
