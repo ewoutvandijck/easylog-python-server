@@ -677,10 +677,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
+        # Log en debug Anthropic API configuratie
+        self.logger.info("[REASONING] Enabling extended thinking with budget of 12000 tokens")
+
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
         buffered_content = []
         reasoning_chunks = []  # Nieuwe lijst voor reasoning chunks
+
+        # Log dat we de API gaan aanroepen
+        self.logger.info("[REASONING] Calling Claude API with extended thinking enabled")
 
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
@@ -742,27 +748,43 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Bufferen van alle chunks in één lijst
-        async for content in self.handle_stream(stream, tools):
-            # Debug logging voor alle content
-            if self.config.debug_mode:
-                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
+        # Voeg raw response logging toe
+        self.logger.info("[REASONING] Starting to handle stream response")
 
-            # Check of dit een reasoning/thinking chunk is
-            if hasattr(content, "type") and content.type == "thinking":
-                # Log de reasoning expliciet
-                self.logger.info(f"[THINKING] Claude denkt: {str(content)[:200]}...")
+        # Bufferen van alle chunks in één lijst met uitgebreide logging
+        async for content in self.handle_stream(stream, tools):
+            # Log elk chunk in detail
+            self.logger.info(f"[RAW CHUNK] Type: {type(content)}, Dir: {dir(content)}")
+            self.logger.info(f"[RAW CHUNK] Content: {str(content)[:200]}")
+
+            # Probeer verschillende manieren om reasoning/thinking content te identificeren
+            if hasattr(content, "type"):
+                self.logger.info(f"[CHUNK TYPE] {content.type}")
+
+                if content.type == "thinking" or content.type == "reasoning":
+                    self.logger.info(f"[THINKING/REASONING] {str(content)[:500]}")
+                    reasoning_chunks.append(content)
+
+            # Probeer via 'thinking' attribuut
+            if hasattr(content, "thinking"):
+                self.logger.info(f"[THINKING ATTR] {str(content.thinking)[:500]}")
                 reasoning_chunks.append(content)
-            elif hasattr(content, "type") and content.type == "reasoning":
-                # Log de reasoning expliciet
-                self.logger.info(f"[REASONING] Claude redeneert: {str(content)[:200]}...")
-                reasoning_chunks.append(content)
+
+            # Zoek naar mogelijke thinking informatie in de content
+            content_str = str(content)
+            if "reasoning" in content_str.lower() or "thinking" in content_str.lower():
+                self.logger.info(f"[POTENTIAL THINKING] Found reasoning/thinking text: {content_str[:300]}")
 
             buffered_content.append(content)
 
-        # Aan het einde: logging van reasoning stats
+        # Log samenvattende informatie over gevonden thinking/reasoning
+        self.logger.info(
+            f"[REASONING SUMMARY] Total chunks: {len(buffered_content)}, Reasoning chunks: {len(reasoning_chunks)}"
+        )
         if reasoning_chunks:
-            self.logger.info(f"[THINKING STATS] Totaal aantal thinking/reasoning chunks: {len(reasoning_chunks)}")
+            self.logger.info(f"[REASONING FOUND] First reasoning chunk: {str(reasoning_chunks[0])[:300]}")
+        else:
+            self.logger.warning("[REASONING NOT FOUND] No reasoning chunks detected in response")
 
         # Alles samenvoegen tot één enkele string
         final_output = "".join(buffered_content)
