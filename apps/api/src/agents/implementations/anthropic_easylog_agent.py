@@ -476,7 +476,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
             try:
                 # Controleer en corrigeer pad indien nodig
-                # Als het pad niet begint met 'figures/' en niet al een pad bevat, voeg dan het figures/ pad toe
                 if not file_name.startswith("figures/") and "/" not in file_name:
                     original_file_name = file_name
                     file_name = f"figures/{file_name}"
