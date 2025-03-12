@@ -696,8 +696,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
+- Begin elk antwoord met een expliciet denkproces onder de tag [REASONING]. Beschrijf hierin hoe je de data analyseert, welke patronen je ziet, en welke conclusies je hieruit trekt.
+- Na je [REASONING] sectie, volgt je uiteindelijke antwoord aan de gebruiker zonder deze tag.
 - Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
-- Geef aan als je de thinking reasoning mode gebruikt
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
 - Gebruik grafieken en tabellen waar mogelijk (markdown)
