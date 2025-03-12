@@ -728,8 +728,6 @@ Je huidige core memories zijn:
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
-            # Nieuwe parameter voor extended thinking
-           
         )
 
         end_time = time.time()
