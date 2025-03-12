@@ -463,10 +463,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
             Laad een afbeelding uit de database en bereid deze voor op weergave.
+            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
 
             Args:
                 _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding
+                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
 
             Returns:
                 str: Een data URL met de afbeelding als base64 gecodeerde data
@@ -474,8 +475,38 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
 
             try:
+                # Controleer en corrigeer pad indien nodig
+                # Als het pad niet begint met 'figures/' en niet al een pad bevat, voeg dan het figures/ pad toe
+                if not file_name.startswith("figures/") and "/" not in file_name:
+                    original_file_name = file_name
+                    file_name = f"figures/{file_name}"
+                    self.logger.info(f"[IMAGE] Pad gecorrigeerd: {original_file_name} -> {file_name}")
+
                 # Laad de originele afbeelding
-                image_data = await self.load_image(_id, file_name)
+                try:
+                    image_data = await self.load_image(_id, file_name)
+                except Exception as e:
+                    # Als het laden mislukt met figures/ pad, probeer alternatieve paden
+                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {file_name}: {str(e)}")
+
+                    # Probeer zonder figures/ als dat was toegevoegd
+                    if file_name.startswith("figures/"):
+                        alt_file_name = file_name.replace("figures/", "")
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad zonder figures/: {alt_file_name}")
+                        try:
+                            image_data = await self.load_image(_id, alt_file_name)
+                            self.logger.info(f"[IMAGE] Succesvol geladen met alternatief pad: {alt_file_name}")
+                        except Exception:
+                            # Probeer met alleen de bestandsnaam (zonder pad)
+                            base_name = file_name.split("/")[-1]
+                            self.logger.info(f"[IMAGE] Probeer met alleen bestandsnaam: {base_name}")
+                            image_data = await self.load_image(_id, base_name)
+                    else:
+                        # Als het geen figures/ bevat, probeer het toe te voegen
+                        alt_file_name = f"figures/{file_name}"
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
+                        image_data = await self.load_image(_id, alt_file_name)
+
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
                 self.logger.info(f"[IMAGE] Originele grootte: {original_size_kb:.1f} KB")
