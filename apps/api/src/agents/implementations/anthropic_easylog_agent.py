@@ -1,3 +1,4 @@
+
 # Python standard library imports
 import base64
 import io
@@ -702,16 +703,8 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
 
-### Gebruik van de tool_search_pdf en tool_load_image
+### Gebruik van de tool_search_pdf
 Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
-
-Belangrijk bij afbeeldingen in PDFs:
-- Beschrijf NIET zelf wat er op de afbeeldingen te zien is
-- Toon in plaats daarvan de instructietekst die in de PDF bij de afbeelding staat
-- Als je een afbeelding wilt tonen, gebruik dan de exacte locatie-informatie:
-  - Document ID: gebruik de exacte ID van het document (bijv. "cm83afnit0001jdbxe3ertxaw")
-  - Bestandspad: gebruik het exacte pad zoals "figures/fileoutpart0.png", "figures/fileoutpart1.png", etc.
-  - Geef duidelijke instructies: "Gebruik tool_load_image met ID [document-ID] en bestandsnaam figures/fileoutpart[nummer].png"
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
