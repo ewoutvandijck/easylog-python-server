@@ -679,7 +679,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
-        buffered_content = []
+        formatted_content = []
+        reasoning_blocks = []
+        current_reasoning_block = []
+        is_in_reasoning = False
+
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -743,10 +747,35 @@ Je huidige core memories zijn:
         async for content in self.handle_stream(stream, tools):
             if self.config.debug_mode:
                 self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
-            buffered_content.append(content)
 
-        # Alles samenvoegen tot één enkele string
-        final_output = "".join(buffered_content)
+            # Controleer of dit een reasoning start is
+            if hasattr(content, "type") and content.type == "reasoning_start":
+                is_in_reasoning = True
+                current_reasoning_block = []
+                self.logger.info("[REASONING] Start van denkproces")
+                continue
+
+            # Controleer of dit een reasoning end is
+            if hasattr(content, "type") and content.type == "reasoning_end":
+                is_in_reasoning = False
+                # Voeg het volledige reasoning block toe aan de lijst
+                reasoning_text = "".join(current_reasoning_block)
+                reasoning_blocks.append(reasoning_text)
+
+                # Voeg geformatteerde reasoning toe aan output
+                formatted_content.append(f"\n\n💭 **DENKPROCES:**\n```\n{reasoning_text}\n```\n\n")
+                self.logger.info("[REASONING] Eind van denkproces")
+                continue
+
+            # Als we in een reasoning block zijn, voeg toe aan current reasoning
+            if is_in_reasoning:
+                current_reasoning_block.append(str(content))
+            else:
+                # Normale content
+                formatted_content.append(str(content))
+
+        # Combineer alles tot één antwoord met zichtbare reasoning
+        final_output = "".join(formatted_content)
 
         # Deze in één keer yielden
         yield final_output
