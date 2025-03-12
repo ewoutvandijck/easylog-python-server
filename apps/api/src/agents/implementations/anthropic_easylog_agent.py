@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent
+from src.models.messages import Message, MessageContent, TextContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -418,6 +418,22 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
             Returns:
                 str: JSON string containing the search results with PDF content or a message indicating no results were found
+                
+            BELANGRIJKE NOTITIE OVER AFBEELDINGEN:
+            Als de zoekopdracht PDF documenten met afbeeldingen retourneert, zullen de afbeeldingsgegevens worden
+            opgenomen in de 'images' array van de JSON respons. Om deze afbeeldingen correct te laden:
+            
+            1. Extraheer de document ID uit de respons (het 'id' veld)
+            2. Voor elke afbeelding in de 'images' array, gebruik de tool_load_image functie met:
+               - Het document ID als eerste parameter 
+               - "figures/fileoutpart{N}.png" als tweede parameter, waar N het paginanummer begint bij 0
+            
+            Voorbeeld:
+            ```
+            tool_load_image("document-id", "figures/fileoutpart0.png")
+            ```
+            
+            Gebruik ALTIJD het exacte pad "figures/fileoutpart{N}.png" zonder variaties of manipulaties.
             """
             self.logger.info(f"[PDF SEARCH] Searching for: {query}")
             knowledge_result = await self.search_knowledge(query)
@@ -463,14 +479,26 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
             Laad een afbeelding uit de database.
-            Gebruik het exacte bestandspad zoals in de markdown staat aangegeven (meestal in format 'figures/fileoutpart0.png').
+            BELANGRIJK: Gebruik het exacte bestandspad zoals in de markdown vermeld, zonder aanpassingen.
+            
+            Correcte bestandsnamen zijn ALTIJD in het formaat:
+            - "figures/fileoutpart0.png"
+            - "figures/fileoutpart1.png"
+            - "figures/fileoutpart2.png"
+            
+            Gebruik NOOIT andere padformaten of variaties - dit zal altijd mislukken.
 
             Args:
-                _id (str): Het ID van het PDF document in de kennisbank
-                file_name (str): Het exacte bestandspad van de afbeelding
+                _id (str): Het exacte ID van het PDF document in de kennisbank (bijv. "cm83afnit0001jdbxe3ertxaw")
+                file_name (str): Het exacte bestandspad van de afbeelding (bijv. "figures/fileoutpart0.png")
 
             Returns:
                 str: Een data URL met de gecomprimeerde afbeelding
+                
+            Voorbeeld:
+            ```
+            tool_load_image("cm83afnit0001jdbxe3ertxaw", "figures/fileoutpart0.png")
+            ```
             """
             self.logger.info(f"[IMAGE] Directe laadpoging: {_id}, {file_name}")
 
@@ -544,8 +572,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Technische suggestie voor gebruiker
                 return (
                     f"Kon afbeelding '{file_name}' niet laden: {str(e)}. "
-                    f"Gebruik het exacte pad zoals in de markdown aangegeven, meestal in format 'figures/fileoutpart0.png'. "
-                    f"Document ID: {_id}"
+                    f"BELANGRIJK: Afbeeldingen moeten met het EXACTE pad worden geladen:\n"
+                    f"1. Document ID: {_id}\n"
+                    f"2. Afbeeldingspad: Gebruik ALLEEN paden zoals 'figures/fileoutpart0.png', 'figures/fileoutpart1.png', etc.\n"
+                    f"3. Probeer NIET het pad aan te passen, maar gebruik in plaats daarvan een ander index nummer "
+                    f"(bijv. als fileoutpart0.png faalt, probeer fileoutpart1.png, fileoutpart2.png, etc.)"
                 )
 
         tools = [
@@ -614,9 +645,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
-- Begin elk antwoord met een expliciet denkproces onder de tag [REASONING]. Beschrijf hierin hoe je de data analyseert, welke patronen je ziet, en welke conclusies je hieruit trekt.
-- Na je [REASONING] sectie, volgt je uiteindelijke antwoord aan de gebruiker zonder deze tag.
-- Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
+
+- 
+- Geef korte antwoorden
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
 - Gebruik grafieken en tabellen waar mogelijk (markdown)
@@ -629,9 +660,25 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
+- tool_load_image: Laad een afbeelding uit een PDF document
 
 ### Gebruik van de tool_search_pdf
-Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
+Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een METRO MONTEUR vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
+De PDF documenten zijn instructies voor de METRO MONTEURS.
+### Correct laden van afbeeldingen uit PDF documenten
+Om afbeeldingen correct te laden uit PDF documenten, volg deze stappen precies:
+1. De tool_load_image functie vereist EXACT twee parameters:
+   - _id: Het document ID (zoals "cm83afnit0001jdbxe3ertxaw")
+   - file_name: Het exacte bestandspad van de afbeelding (bijna altijd in het format "figures/fileoutpart0.png", "figures/fileoutpart1.png", etc.)
+
+2. Gebruik geen manipulatie of variatie in de bestandspaden - gebruik altijd het exacte pad zoals vermeld in de markdown content.
+
+3. Het juiste format voor het aanroepen van de functie is:
+   tool_load_image("document-id", "figures/fileoutpart0.png")
+
+4. Afbeeldingen worden ALTIJD opgeslagen in het "figures" pad met bestandsnamen als "fileoutpart0.png", "fileoutpart1.png", etc.
+
+5. Als een afbeelding niet laadt, probeer NIET het pad te wijzigen, maar probeer in plaats daarvan de volgende index (fileoutpart0.png, fileoutpart1.png, etc.)
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
@@ -686,7 +733,7 @@ Je huidige core memories zijn:
 
             # Probeer via 'thinking' attribuut
             if hasattr(content, "thinking"):
-                self.logger.info(f"[THINKING ATTR] {str(content.thinking)[:500]}")
+                self.logger.info(f"[THINKING ATTR] {str(content)[:500]}")
                 reasoning_chunks.append(content)
 
             # Zoek naar mogelijke thinking informatie in de content
@@ -705,8 +752,8 @@ Je huidige core memories zijn:
         else:
             self.logger.warning("[REASONING NOT FOUND] No reasoning chunks detected in response")
 
-        # Alles samenvoegen tot één enkele string
-        final_output = "".join(buffered_content)
-
-        # Deze in één keer yielden
-        yield final_output
+        # Alles samenvoegen tot één enkele string en converteren naar MessageContent
+        final_output = "".join(str(chunk) for chunk in buffered_content)
+        
+        # Deze in één keer yielden als TextContent
+        yield TextContent(content=final_output)
