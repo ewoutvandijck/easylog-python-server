@@ -197,6 +197,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
+        We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
+        in één keer overkomen (en dus niet gedeeltelijk) bij een trage verbinding.
         """
         # Verwijder eventuele debug tools die in de code zijn overgebleven
         self.logger.info("Removing any debug tools that might still be in code")
@@ -461,10 +463,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
             Laad een afbeelding uit de database en bereid deze voor op weergave.
+            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
 
             Args:
                 _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding
+                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
 
             Returns:
                 str: Een data URL met de afbeelding als base64 gecodeerde data
@@ -472,8 +475,37 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
 
             try:
+                # Controleer en corrigeer pad indien nodig
+                if not file_name.startswith("figures/") and "/" not in file_name:
+                    original_file_name = file_name
+                    file_name = f"figures/{file_name}"
+                    self.logger.info(f"[IMAGE] Pad gecorrigeerd: {original_file_name} -> {file_name}")
+
                 # Laad de originele afbeelding
-                image_data = await self.load_image(_id, file_name)
+                try:
+                    image_data = await self.load_image(_id, file_name)
+                except Exception as e:
+                    # Als het laden mislukt met figures/ pad, probeer alternatieve paden
+                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {file_name}: {str(e)}")
+
+                    # Probeer zonder figures/ als dat was toegevoegd
+                    if file_name.startswith("figures/"):
+                        alt_file_name = file_name.replace("figures/", "")
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad zonder figures/: {alt_file_name}")
+                        try:
+                            image_data = await self.load_image(_id, alt_file_name)
+                            self.logger.info(f"[IMAGE] Succesvol geladen met alternatief pad: {alt_file_name}")
+                        except Exception:
+                            # Probeer met alleen de bestandsnaam (zonder pad)
+                            base_name = file_name.split("/")[-1]
+                            self.logger.info(f"[IMAGE] Probeer met alleen bestandsnaam: {base_name}")
+                            image_data = await self.load_image(_id, base_name)
+                    else:
+                        # Als het geen figures/ bevat, probeer het toe te voegen
+                        alt_file_name = f"figures/{file_name}"
+                        self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
+                        image_data = await self.load_image(_id, alt_file_name)
+
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
                 self.logger.info(f"[IMAGE] Originele grootte: {original_size_kb:.1f} KB")
@@ -495,21 +527,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
                 # Pas verwerkingsparameters aan op basis van grootte
                 if is_tiny:
-                    # Kleine afbeeldingen ook meer comprimeren dan voorheen
-                    max_width = min(original_width, 800)  # Verlaagd van 1000
-                    quality = 75  # Verlaagd van 85
+                    max_width = min(original_width, 800)
+                    quality = 75
                 elif is_small:
-                    # Kleine afbeeldingen sterker comprimeren
-                    max_width = min(original_width, 700)  # Verlaagd van 800
-                    quality = 65  # Verlaagd van 80
+                    max_width = min(original_width, 700)
+                    quality = 65
                 elif is_large:
-                    # Grote afbeeldingen veel sterker comprimeren
-                    max_width = 500  # Verlaagd van 600
-                    quality = 50  # Verlaagd van 65
+                    max_width = 500
+                    quality = 50
                 elif is_huge:
-                    # Zeer grote afbeeldingen agressief comprimeren
-                    max_width = 350  # Verlaagd van 400
-                    quality = 40  # Verlaagd van 50
+                    max_width = 350
+                    quality = 40
 
                 # Resize indien nodig
                 if original_width > max_width:
@@ -535,24 +563,23 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 compressed_size_kb = compressed_size / 1024
 
                 # Verbeterd twee-staps compressieproces voor trage verbindingen
-                max_size_kb = 150  # Verlaagd van 200 KB naar 150 KB als target
+                max_size_kb = 150  # Doelgrootte ~150 KB
 
                 # Extra compressie indien nodig (max 2 pogingen)
-                if compressed_size > max_size_kb * 1024:  # Als nog steeds groter dan 150 KB
+                if compressed_size > max_size_kb * 1024:
                     self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > {max_size_kb} KB")
 
-                    # Bereken nieuwe parameters
-                    new_width = int(img.width * 0.6)  # 40% kleiner i.p.v. 30%
-                    new_quality = max(35, quality - 20)  # Verlaagd van 40 naar 35 minimum
+                    # 1e extra poging
+                    new_width = int(img.width * 0.6)
+                    new_quality = max(35, quality - 20)
 
-                    # Resize en comprimeer opnieuw
                     img = img.resize((new_width, int(img.height * 0.6)), Image.Resampling.LANCZOS)
 
-                    # Voeg lichte blur toe voor betere compressie (standaard nu)
+                    # Lichte blur
                     try:
                         from PIL import ImageFilter
 
-                        img = img.filter(ImageFilter.GaussianBlur(radius=0.5))  # Verhoogd van 0.3 naar 0.5
+                        img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
                     except Exception:
                         pass
 
@@ -564,17 +591,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         compressed_size_kb = compressed_size / 1024
                         self.logger.info(f"[IMAGE] Na extra compressie: {compressed_size_kb:.1f} KB")
 
-                    # Derde compressiestap voor extreme gevallen
-                    if compressed_size > 100 * 1024:  # Als nog steeds groter dan 100 KB
+                    # 2e extra poging
+                    if compressed_size > 100 * 1024:  # >100KB
                         self.logger.info(f"[IMAGE] Derde compressie nodig: {compressed_size_kb:.1f} KB > 100 KB")
-
-                        # Nog agressievere compressie
-                        final_width = int(new_width * 0.7)  # Nog 30% kleiner
-                        final_quality = max(25, new_quality - 10)  # Nog lagere kwaliteit
+                        final_width = int(new_width * 0.7)
+                        final_quality = max(25, new_quality - 10)
 
                         img = img.resize((final_width, int(img.height * 0.7)), Image.Resampling.LANCZOS)
 
-                        # Meer blur voor betere compressie
                         try:
                             img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
                         except Exception:
@@ -624,7 +648,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Zet alle tools om naar het Anthropic formaat en filter debug tools
         anthropic_tools = []
         for tool in tools:
-            # Expliciet alle tool-namen die we willen behouden
             if tool.__name__ in [
                 "tool_store_memory",
                 "tool_get_easylog_data",
@@ -643,18 +666,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         self.logger.info("All tools after filtering:")
         for i, tool in enumerate(anthropic_tools):
             try:
-                # Probeer de naam op beide manieren te krijgen (als object met function attribuut of als dict)
                 if hasattr(tool, "function") and hasattr(tool.function, "name"):
                     self.logger.info(f" - {i + 1}: {tool.function.name}")
                 elif isinstance(tool, dict) and "function" in tool and "name" in tool["function"]:
                     self.logger.info(f" - {i + 1}: {tool['function']['name']}")
                 else:
-                    self.logger.info(f" - {i + 1}: {str(tool)[:50]}")  # Log een deel van het object als fallback
+                    self.logger.info(f" - {i + 1}: {str(tool)[:50]}")
             except Exception as e:
                 self.logger.warning(f" - {i + 1}: Error logging tool: {str(e)}")
 
         start_time = time.time()
 
+        # In plaats van de stream direct door te geven,
+        # bufferen we het volledige antwoord en sturen het dan in één keer.
+        buffered_content = []
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -665,7 +690,7 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 ### BELANGRIJKE REGELS:
 - Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
 - Help de gebruiker patronen te ontdekken in de controlegegevens
-- Maak verslagen in tabellen end uidelijk en professioneel met goede opmaak
+- Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
 - Gebruik grafieken en tabellen waar mogelijk (markdown)
 - Wees proactief in het suggereren van analyses die nuttig kunnen zijn
 
@@ -677,8 +702,16 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
 
-### Gebruik van de tool_search_pdf
+### Gebruik van de tool_search_pdf en tool_load_image
 Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
+
+Belangrijk bij afbeeldingen in PDFs:
+- Beschrijf NIET zelf wat er op de afbeeldingen te zien is
+- Toon in plaats daarvan de instructietekst die in de PDF bij de afbeelding staat
+- Als je een afbeelding wilt tonen, gebruik dan de exacte locatie-informatie:
+  - Document ID: gebruik de exacte ID van het document (bijv. "cm83afnit0001jdbxe3ertxaw")
+  - Bestandspad: gebruik het exacte pad zoals "figures/fileoutpart0.png", "figures/fileoutpart1.png", etc.
+  - Geef duidelijke instructies: "Gebruik tool_load_image met ID [document-ID] en bestandsnaam figures/fileoutpart[nummer].png"
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
@@ -703,6 +736,8 @@ Je huidige core memories zijn:
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
+            # Nieuwe parameter voor extended thinking
+            thinking={"type": "enabled", "budget_tokens": 12000},
         )
 
         end_time = time.time()
@@ -712,10 +747,15 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        async for content in self.handle_stream(
-            stream,
-            tools,
-        ):
+        # Bufferen van alle chunks in één lijst
+        async for content in self.handle_stream(stream, tools):
             if self.config.debug_mode:
-                self.logger.debug(f"Streaming content: {str(content)[:100]}...")
-            yield content
+                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
+            buffered_content.append(content)
+
+        # Alles samenvoegen tot één enkele string
+        final_output = "".join(buffered_content)
+
+        # Deze in één keer yielden
+        yield final_output
+
