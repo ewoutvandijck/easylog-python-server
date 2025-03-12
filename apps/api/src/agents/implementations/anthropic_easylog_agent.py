@@ -2,7 +2,6 @@
 import base64
 import io
 import json
-import mimetypes
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -461,247 +460,125 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
-            Laad een afbeelding uit de database. Id is het id van het PDF bestand, en in de markdown vind je veel verwijzingen naar afbeeldingen.
-            Gebruik het exacte bestandspad om de afbeelding te laden.
+            Laad een afbeelding uit de database en bereid deze voor op weergave.
 
             Args:
                 _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding zoals vermeld in de markdown
+                file_name (str): De bestandsnaam van de afbeelding
 
             Returns:
-                str: Een data URL die de afbeelding als base64 gecodeerde data bevat
+                str: Een data URL met de afbeelding als base64 gecodeerde data
             """
-            self.logger.info(f"[IMAGE LOADING] Start verwerking voor afbeelding {_id}, {file_name}")
+            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
 
             try:
                 # Laad de originele afbeelding
                 image_data = await self.load_image(_id, file_name)
                 original_size = len(image_data)
-                original_size_mb = original_size / (1024 * 1024)
-                mime_type = mimetypes.guess_type(file_name)[0] or "image/jpeg"
-                self.logger.info(f"[IMAGE LOADING] Afbeelding geladen: {original_size / 1024:.2f} KB, type {mime_type}")
+                original_size_kb = original_size / 1024
+                self.logger.info(f"[IMAGE] Originele grootte: {original_size_kb:.1f} KB")
 
-                # Constanten voor compressielimieten
-                IMAGE_SIZE_THRESHOLDS = {
-                    "THUMBNAIL": 500 * 1024,  # 500KB - Directe thumbnail trigger
-                    "VERY_LARGE": 1.5 * 1024 * 1024,  # 1.5MB - Zeer grote afbeelding
-                    "STREAMING": 1 * 1024 * 1024,  # 1MB - Streaming optimalisatie
-                    "MAX_OUTPUT": 80 * 1024,  # 80KB - Max gecomprimeerde grootte
-                    "MAX_STREAMING": 160 * 1024,  # 160KB - Hard streaming limit
-                }
+                # Open de afbeelding met PIL
+                img = Image.open(io.BytesIO(image_data))
+                original_width, original_height = img.size
+                self.logger.info(f"[IMAGE] Afmetingen: {original_width}x{original_height}")
 
-                try:
-                    # Laad de afbeelding in PIL
-                    img = Image.open(io.BytesIO(image_data))
-                    original_width, original_height = img.size
-                    self.logger.info(f"[IMAGE LOADING] Originele afmetingen: {original_width}x{original_height}")
+                # Basisparameters voor verwerking
+                max_width = 800  # Maximale breedte voor normale afbeeldingen
+                quality = 75  # Standaard kwaliteit
 
-                    # Bepaal optimalisatiestrategie op basis van afbeeldingsgrootte
-                    needs_streaming = original_size > IMAGE_SIZE_THRESHOLDS["STREAMING"]
-                    is_very_large = original_size > IMAGE_SIZE_THRESHOLDS["VERY_LARGE"]
-                    force_thumbnail = original_size > IMAGE_SIZE_THRESHOLDS["THUMBNAIL"]
+                # Eenvoudige grootte-classificatie
+                is_tiny = original_size < 100 * 1024  # < 100 KB
+                is_small = original_size < 500 * 1024  # < 500 KB
+                is_large = original_size > 1 * 1024 * 1024  # > 1 MB
+                is_huge = original_size > 3 * 1024 * 1024  # > 3 MB
 
-                    # Directe thumbnail voor zeer grote afbeeldingen
-                    if original_size > 2 * 1024 * 1024:
-                        self.logger.warning(
-                            f"[IMAGE LOADING] Extreem grote afbeelding ({original_size_mb:.2f} MB), directe thumbnail genereren"
-                        )
-                        return self._create_thumbnail(img, width=140, quality=25)
+                # Pas verwerkingsparameters aan op basis van grootte
+                if is_tiny:
+                    # Kleine afbeeldingen minimaal comprimeren
+                    max_width = min(original_width, 1000)
+                    quality = 85
+                elif is_small:
+                    # Kleine afbeeldingen licht comprimeren
+                    max_width = min(original_width, 800)
+                    quality = 80
+                elif is_large:
+                    # Grote afbeeldingen sterker comprimeren
+                    max_width = 600
+                    quality = 65
+                elif is_huge:
+                    # Zeer grote afbeeldingen agressief comprimeren
+                    max_width = 400
+                    quality = 50
 
-                    # Voor grote afbeeldingen die thumbnails vereisen
-                    if needs_streaming and force_thumbnail:
-                        self.logger.info(
-                            f"[IMAGE LOADING] Grote afbeelding ({original_size_mb:.2f} MB), thumbnail genereren"
-                        )
-                        return self._create_thumbnail(img, width=160, quality=30)
+                # Resize indien nodig
+                if original_width > max_width:
+                    scale_factor = max_width / original_width
+                    new_height = int(original_height * scale_factor)
+                    img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                    self.logger.info(f"[IMAGE] Resized naar {max_width}x{new_height}")
 
-                    # Bepaal doelinstellingen voor compressie gebaseerd op grootte
-                    if is_very_large:
-                        target_width = 240
-                        quality = 40
-                    elif original_size > 500 * 1024:
-                        target_width = 400
-                        quality = 50
-                    else:
-                        target_width = min(self.config.image_max_width, 560)
-                        quality = min(60, self.config.image_quality)
+                # Converteer naar RGB (voor afbeeldingen met transparantie)
+                if img.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", img.size, (255, 255, 255))
+                    background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
+                    img = background
 
-                    self.logger.info(f"[IMAGE LOADING] Doelinstellingen: {target_width}px breed, {quality}% kwaliteit")
-
-                    # Verwerk en comprimeer de afbeelding
-                    return self._process_and_compress_image(
-                        img, target_width, quality, original_size, needs_streaming, is_very_large, IMAGE_SIZE_THRESHOLDS
-                    )
-
-                except Exception as img_error:
-                    self.logger.error(f"[IMAGE LOADING] Fout bij verwerken afbeelding: {str(img_error)}")
-                    import traceback
-
-                    self.logger.error(f"[IMAGE LOADING] Stacktrace: {traceback.format_exc()}")
-
-                    # Vang op zijn minst op als we een img hebben kunnen laden
-                    if "img" in locals() and img is not None:
-                        return self._create_thumbnail(img, width=140, quality=20)
-
-                    return "Er is een fout opgetreden bij het verwerken van de afbeelding."
-
-            except Exception as e:
-                self.logger.error(f"[IMAGE LOADING] Onverwachte fout: {str(e)}")
-                return f"Fout bij laden afbeelding: {str(e)}"
-
-        def _create_thumbnail(self, img, width=160, quality=30):
-            """Helper functie om een kleine thumbnail te maken van een afbeelding"""
-            try:
-                # Maak een kopie en resize
-                thumb_img = img.copy()
-                thumb_height = int(width * thumb_img.height / thumb_img.width)
-                thumb_img = thumb_img.resize((width, thumb_height), Image.Resampling.LANCZOS)
-
-                # Zorg dat het RGB is (voor afbeeldingen met transparantie)
-                if thumb_img.mode in ("RGBA", "LA"):
-                    background = Image.new("RGB", thumb_img.size, (255, 255, 255))
-                    background.paste(thumb_img, mask=thumb_img.split()[3] if len(thumb_img.split()) > 3 else None)
-                    thumb_img = background
-
-                # Probeer extra compressie met filters toe te passen
-                try:
-                    from PIL import ImageEnhance, ImageFilter
-
-                    thumb_img = thumb_img.filter(ImageFilter.GaussianBlur(radius=0.3))
-                    enhancer = ImageEnhance.Contrast(thumb_img)
-                    thumb_img = enhancer.enhance(0.95)
-                except Exception:
-                    self.logger.warning("[IMAGE LOADING] Extra filters niet toegepast")
-
-                # Sla op naar buffer
+                # Comprimeer de afbeelding
                 with io.BytesIO() as buffer:
-                    thumb_img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
-                    thumb_data = buffer.getvalue()
+                    compressed_data = buffer.getvalue()
 
-                # Encodeer naar base64
-                thumb_data_b64 = base64.b64encode(thumb_data).decode("utf-8")
+                # Check de gecomprimeerde grootte
+                compressed_size = len(compressed_data)
+                compressed_size_kb = compressed_size / 1024
+
+                # Extra compressie indien nodig (max 2 pogingen)
+                if compressed_size > 200 * 1024:  # Als nog steeds groter dan 200 KB
+                    self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > 200 KB")
+
+                    # Bereken nieuwe parameters
+                    new_width = int(img.width * 0.7)  # 30% kleiner
+                    new_quality = max(40, quality - 15)  # Lagere kwaliteit maar niet onder 40
+
+                    # Resize en comprimeer opnieuw
+                    img = img.resize((new_width, int(img.height * 0.7)), Image.Resampling.LANCZOS)
+
+                    # Voeg optioneel lichte blur toe voor betere compressie bij zeer grote afbeeldingen
+                    if is_huge:
+                        try:
+                            from PIL import ImageFilter
+
+                            img = img.filter(ImageFilter.GaussianBlur(radius=0.3))
+                        except Exception:
+                            pass
+
+                    with io.BytesIO() as buffer:
+                        img.save(buffer, format="JPEG", quality=new_quality, optimize=True)
+                        buffer.seek(0)
+                        compressed_data = buffer.getvalue()
+                        compressed_size = len(compressed_data)
+                        compressed_size_kb = compressed_size / 1024
+                        self.logger.info(f"[IMAGE] Na extra compressie: {compressed_size_kb:.1f} KB")
+
+                # Base64 encoding
+                base64_data = base64.b64encode(compressed_data).decode("utf-8")
+
+                # Log compressieresultaat
+                compression_ratio = (original_size - compressed_size) / original_size * 100
                 self.logger.info(
-                    f"[IMAGE LOADING] Thumbnail: {len(thumb_data) / 1024:.2f}KB, Base64: {len(thumb_data_b64) / 1024:.2f}KB"
-                )
-                return f"data:image/jpeg;base64,{thumb_data_b64}"
-            except Exception as e:
-                self.logger.error(f"[IMAGE LOADING] Thumbnail error: {str(e)}")
-                return "Er is een fout opgetreden bij het maken van de thumbnail."
-
-        def _process_and_compress_image(
-            self, img, target_width, quality, original_size, needs_streaming, is_very_large, thresholds
-        ):
-            """Verwerkt en comprimeert een afbeelding naar de gewenste specificaties"""
-
-            # Resize indien nodig
-            if img.width > target_width:
-                scale_factor = target_width / img.width
-                new_height = int(img.height * scale_factor)
-                img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
-                self.logger.info(f"[IMAGE LOADING] Verkleind naar: {img.width}x{img.height}")
-
-            # Converteer naar RGB indien nodig
-            if img.mode in ("RGBA", "LA"):
-                background = Image.new("RGB", img.size, (255, 255, 255))
-                background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
-                img = background
-
-            # Extra verkleining voor zeer grote afbeeldingen
-            if is_very_large:
-                img = img.resize((220, int(220 * img.height / img.width)), Image.Resampling.LANCZOS)
-                quality = 35
-                self.logger.info("[IMAGE LOADING] Zeer grote afbeelding extra verkleind naar 220px")
-
-                try:
-                    from PIL import ImageFilter
-
-                    img = img.filter(ImageFilter.GaussianBlur(radius=0.3))
-                except Exception:
-                    pass
-
-            # Eerste compressiepoging
-            with io.BytesIO() as buffer:
-                img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                buffer.seek(0)
-                image_data = buffer.getvalue()
-            image_size = len(image_data)
-
-            # Streaming optimalisatie indien nodig
-            if needs_streaming and image_size > thresholds["MAX_STREAMING"]:
-                img = img.resize((160, int(160 * img.height / img.width)), Image.Resampling.LANCZOS)
-                with io.BytesIO() as buffer:
-                    img.save(buffer, format="JPEG", quality=30, optimize=True)
-                    buffer.seek(0)
-                    image_data = buffer.getvalue()
-                image_size = len(image_data)
-
-            # Iteratieve compressie indien nog steeds te groot
-            if image_size > thresholds["MAX_OUTPUT"]:
-                image_data = self._iterative_compression(img, image_size, thresholds["MAX_OUTPUT"])
-
-            # Encodeer naar base64
-            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
-            base64_size = len(image_data_b64)
-
-            # Extra optimalisatie indien base64 te groot voor streaming
-            if needs_streaming and base64_size > 400 * 1024:
-                return self._create_thumbnail(img, width=140, quality=20)
-
-            # Logging van eindresultaten
-            self.logger.info(
-                f"[IMAGE LOADING] Compressie resultaat: {image_size / 1024:.2f}KB -> {base64_size / 1024:.2f}KB base64"
-            )
-            compression_ratio = (original_size - image_size) / original_size * 100
-            self.logger.info(f"[IMAGE LOADING] Compressie ratio: {compression_ratio:.2f}% verkleind")
-
-            return f"data:image/jpeg;base64,{image_data_b64}"
-
-        def _iterative_compression(self, img, current_size, target_size, max_attempts=5):
-            """Stapsgewijze compressie om de afbeelding onder de doelgrootte te krijgen"""
-            img_copy = img.copy()
-            image_data = None
-            quality = 60
-            attempt = 0
-
-            while current_size > target_size and attempt < max_attempts:
-                attempt += 1
-
-                # Verlaag kwaliteit met grotere stappen bij latere pogingen
-                quality = max(18, quality - (15 if attempt <= 2 else 10))
-
-                # Kleinere afbeelding als kwaliteitsverlaging niet voldoende is
-                if attempt > 1:
-                    resize_factor = 0.65 if attempt == 2 else 0.5
-                    new_width = int(img_copy.width * resize_factor)
-                    new_height = int(img_copy.height * resize_factor)
-                    img_copy = img_copy.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                # Extra filters bij latere iteraties
-                if attempt > 2:
-                    try:
-                        from PIL import ImageEnhance, ImageFilter
-
-                        blur_radius = min(0.5, 0.2 + (attempt - 2) * 0.1)
-                        img_copy = img_copy.filter(ImageFilter.GaussianBlur(radius=blur_radius))
-                        if attempt > 3:
-                            enhancer = ImageEnhance.Contrast(img_copy)
-                            img_copy = enhancer.enhance(0.9)
-                    except Exception:
-                        pass
-
-                # Opnieuw opslaan met nieuwe instellingen
-                with io.BytesIO() as buffer:
-                    img_copy.save(buffer, format="JPEG", quality=quality, optimize=True)
-                    buffer.seek(0)
-                    image_data = buffer.getvalue()
-
-                current_size = len(image_data)
-                self.logger.info(
-                    f"[IMAGE LOADING] Iteratie {attempt}: {img_copy.width}x{img_copy.height}, kwaliteit {quality}%, grootte {current_size / 1024:.2f}KB"
+                    f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size_kb:.1f} KB ({compression_ratio:.1f}% reductie)"
                 )
 
-            return image_data
+                return f"data:image/jpeg;base64,{base64_data}"
+
+            except Exception as e:
+                import traceback
+
+                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                self.logger.error(traceback.format_exc())
+                return f"Er is een fout opgetreden bij het laden van de afbeelding: {str(e)}"
 
         tools = [
             tool_store_memory,
