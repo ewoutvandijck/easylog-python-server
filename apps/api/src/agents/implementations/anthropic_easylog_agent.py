@@ -1,4 +1,4 @@
-# WERKENDE EASYLOG AGENT MET THIKING
+
 
 # Python standard library imports
 import base64
@@ -745,7 +745,11 @@ Je huidige core memories zijn:
         async for content in self.handle_stream(stream, tools):
             if self.config.debug_mode:
                 self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
-            
-            # Direct yield the MessageContent object instead of buffering
-            yield content
+            buffered_content.append(content)
+
+        # Alles samenvoegen tot één enkele string
+        final_output = "".join(buffered_content)
+
+        # Deze in één keer yielden
+        yield final_output
 
