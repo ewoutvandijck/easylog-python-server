@@ -680,6 +680,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
         buffered_content = []
+        reasoning_chunks = []  # Nieuwe lijst voor reasoning chunks
+
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -742,9 +744,25 @@ Je huidige core memories zijn:
 
         # Bufferen van alle chunks in één lijst
         async for content in self.handle_stream(stream, tools):
+            # Debug logging voor alle content
             if self.config.debug_mode:
                 self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
+
+            # Check of dit een reasoning/thinking chunk is
+            if hasattr(content, "type") and content.type == "thinking":
+                # Log de reasoning expliciet
+                self.logger.info(f"[THINKING] Claude denkt: {str(content)[:200]}...")
+                reasoning_chunks.append(content)
+            elif hasattr(content, "type") and content.type == "reasoning":
+                # Log de reasoning expliciet
+                self.logger.info(f"[REASONING] Claude redeneert: {str(content)[:200]}...")
+                reasoning_chunks.append(content)
+
             buffered_content.append(content)
+
+        # Aan het einde: logging van reasoning stats
+        if reasoning_chunks:
+            self.logger.info(f"[THINKING STATS] Totaal aantal thinking/reasoning chunks: {len(reasoning_chunks)}")
 
         # Alles samenvoegen tot één enkele string
         final_output = "".join(buffered_content)
