@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator, Callable
 from typing import Any, Generic
 
 from anthropic import AsyncAnthropic, AsyncStream
-from anthropic.types.citations_delta import Citation
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
 from prisma.enums import message_role
@@ -12,6 +11,9 @@ from prisma.models import processed_pdfs
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.agents.models import PDFSearchResult
+from src.agents.utils.citation_formatter import format_inline_citation
+from src.agents.utils.decode_data_url_to_image import decode_data_url_to_image, encode_image_to_data_url
+from src.agents.utils.resize_image_to_byte_size import resize_image_to_byte_size
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
@@ -69,50 +71,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
         self.client = AsyncAnthropic(
             api_key=self.get_env("ANTHROPIC_API_KEY"),
         )
-
-    def _format_academic_citation(self, citation: Citation) -> str | None:
-        """
-        Formats a citation location object into a formal academic-style citation.
-
-        Args:
-            citation: A CitationCharLocation, CitationPageLocation, or CitationContentBlockLocation object
-
-        Returns:
-            str: A formatted academic-style citation string
-        """
-        # If no document title is provided, use a generic reference
-        doc_reference = citation.document_title if citation.document_title else f"Document {citation.document_index}"
-
-        if citation.type == "page_location":
-            # Page-based citation (similar to academic page citations)
-            if citation.start_page_number == citation.end_page_number:
-                location = f"p. {citation.start_page_number}"
-            else:
-                location = f"pp. {citation.start_page_number}-{citation.end_page_number}"
-            return f"{doc_reference}, {location}."
-
-        elif citation.type == "char_location":
-            # Character-based citation (less common in academic writing)
-            return f"{doc_reference}, char. {citation.start_char_index}-{citation.end_char_index}."
-
-        elif citation.type == "content_block_location":
-            # Block-based citation (similar to paragraph or section citations)
-            if citation.start_block_index == citation.end_block_index:
-                location = f"block {citation.start_block_index}"
-            else:
-                location = f"blocks {citation.start_block_index}-{citation.end_block_index}"
-            return f"{doc_reference}, {location}."
-
-    def _format_inline_citation(self, citation: Citation) -> str:
-        """
-        Formats a citation for inline use with quoted text.
-        """
-        base_citation = self._format_academic_citation(citation)
-        if base_citation is None:
-            return ""
-
-        base_citation = base_citation.rstrip(".")  # Remove trailing period
-        return f'"{citation.cited_text}" ({base_citation})'
 
     def _convert_messages_to_anthropic_format(self, messages: list[Message]) -> list[MessageParam]:
         """
@@ -308,7 +266,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 and isinstance(message_contents[-1], TextContent)
             ):
                 self.logger.info(event.delta.citation)
-                message_contents[-1].content += self._format_inline_citation(event.delta.citation)
+                message_contents[-1].content += format_inline_citation(event.delta.citation)
 
             # When Claude is building up JSON data for a tool
             elif event.type == "content_block_delta" and event.delta.type == "input_json_delta":
@@ -352,6 +310,16 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
                     if tool_result.content.startswith("data:image/"):
                         tool_result.content_format = "image"
+                        tool_result.content = encode_image_to_data_url(
+                            image=resize_image_to_byte_size(
+                                image=decode_data_url_to_image(tool_result.content),
+                                target_size_bytes=1_000_000,
+                                image_format="JPEG",
+                                quality=80,
+                                tolerance=0.1,
+                            ),
+                            format="JPEG",
+                        )
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
