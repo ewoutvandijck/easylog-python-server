@@ -35,13 +35,18 @@ services:
     restart: unless-stopped
 
   prefect:
-    image: prefecthq/prefect:latest
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
     container_name: easylog-python-server.prefect
-    command: ['prefect', 'server', 'start']
+    command: ['uv', 'run', 'prefect', 'server', 'start']
     ports:
       - 4200:4200
     volumes:
-      - prefect:/home/prefect/.prefect
+      - prefect:/home/ubuntu/.prefect
+    env_file:
+      - .env
+    restart: unless-stopped
 
   nginx:
     image: nginx:latest
@@ -53,6 +58,7 @@ services:
     depends_on:
       - api
       - worker
+      - prefect
 
 volumes:
   prefect:
