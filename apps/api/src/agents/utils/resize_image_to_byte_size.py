@@ -6,7 +6,11 @@ from src.logger import logger
 
 
 def resize_image_to_byte_size(
-    image: Image.Image, target_size_bytes: int, image_format: str = "JPEG", quality: int = 85, tolerance: float = 0.1
+    image: Image.Image,
+    target_size_bytes: int,
+    image_format: str = "JPEG",
+    quality: int = 85,
+    tolerance: float = 0.1,
 ) -> Image.Image:
     """
     Resize an image to approximately match a target file size in bytes.
@@ -21,21 +25,32 @@ def resize_image_to_byte_size(
     Returns:
         Resized PIL Image object
     """
+    # Convert RGBA/LA images to RGB with white background
+    if image.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[3] if len(image.split()) > 3 else None)
+        image = background
+
     logger.info(
         f"Starting image resize. Target size: {target_size_bytes} bytes, Format: {image_format}, Quality: {quality}"
     )
 
     logger.debug(f"Original image dimensions: {image.size}")
 
-    min_scale = 0.01  # Minimum scale factor
-    max_scale = 1.0  # Maximum scale factor
-
     orig_width, orig_height = image.size
+    aspect_ratio = orig_width / orig_height
 
-    def get_size_bytes(scale: float) -> int:
-        # Calculate new dimensions
-        new_width = int(orig_width * scale)
-        new_height = int(orig_height * scale)
+    def get_size_bytes(max_side: int) -> int:
+        # For square images, both dimensions will be max_side
+        if aspect_ratio == 1:
+            new_width = new_height = max_side
+        # For rectangular images, maintain aspect ratio
+        elif aspect_ratio > 1:  # width is larger
+            new_width = max_side
+            new_height = int(max_side / aspect_ratio)
+        else:  # height is larger
+            new_height = max_side
+            new_width = int(max_side * aspect_ratio)
 
         # Ensure minimum dimensions of 1x1
         new_width = max(1, new_width)
@@ -46,18 +61,22 @@ def resize_image_to_byte_size(
 
         # Get byte size
         buffer = BytesIO()
-        resized.save(buffer, format=image_format, quality=quality)
+        resized.save(buffer, format=image_format, quality=quality, optimize=True)
         return buffer.tell()
 
-    # Binary search for the right scale factor
-    scale = 1.0
+    # Binary search for the right maximum dimension
+    min_side = min(orig_width, orig_height)
+    max_side = max(orig_width, orig_height)
     iterations = 0
-    while min_scale < max_scale:
-        scale = (min_scale + max_scale) / 2
-        current_size = get_size_bytes(scale)
+    min_diff = 1  # minimum difference of 1 pixel
+    current_max_side = max_side  # Initialize outside the loop
+
+    while min_side < max_side and (max_side - min_side) > min_diff:
+        current_max_side = (min_side + max_side) // 2
+        current_size = get_size_bytes(current_max_side)
         iterations += 1
 
-        logger.debug(f"Iteration {iterations}: scale={scale:.3f}, size={current_size} bytes")
+        logger.debug(f"Iteration {iterations}: scale={current_max_side:.3f}, size={current_size} bytes")
 
         # Check if we're within tolerance
         if abs(current_size - target_size_bytes) <= target_size_bytes * tolerance:
@@ -65,13 +84,21 @@ def resize_image_to_byte_size(
             break
 
         if current_size > target_size_bytes:
-            max_scale = scale
+            max_side = current_max_side
         else:
-            min_scale = scale
+            min_side = current_max_side
+
+    # Final resize with the same square handling
+    if aspect_ratio == 1:
+        final_width = final_height = current_max_side
+    elif aspect_ratio > 1:
+        final_width = current_max_side
+        final_height = int(current_max_side / aspect_ratio)
+    else:
+        final_height = current_max_side
+        final_width = int(current_max_side * aspect_ratio)
 
     # Return the final resized image
-    new_width = max(1, int(orig_width * scale))
-    new_height = max(1, int(orig_height * scale))
-    final_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    final_image = image.resize((final_width, final_height), Image.Resampling.LANCZOS)
     logger.info(f"Final image dimensions: {final_image.size}")
     return final_image
