@@ -73,7 +73,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
-        Detecteert automatisch belangrijke informatie in het bericht van de gebruiker
+        Detecteert automatisch belangrijke informatie in het bericht van de gebruiker!!
 
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker

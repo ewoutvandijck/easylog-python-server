@@ -750,4 +750,3 @@ Je huidige core memories zijn:
 
         # Deze in één keer yielden
         yield final_output
-
