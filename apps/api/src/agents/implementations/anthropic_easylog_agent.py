@@ -683,7 +683,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
-            max_tokens=16000,
+            max_tokens=2048,
             system=f"""Je bent een vriendelijke en behulpzame data-analist voor EasyLog.
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
@@ -729,7 +729,7 @@ Je huidige core memories zijn:
             tools=anthropic_tools,
             stream=True,
             # Nieuwe parameter voor extended thinking
-            thinking={"type": "enabled", "budget_tokens": 12000},
+            thinking={"type": "enabled", "budget_tokens": 1024},
         )
 
         end_time = time.time()
