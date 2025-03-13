@@ -462,49 +462,40 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> str:
             """
-            Laad een afbeelding uit de database en bereid deze voor op weergave.
-            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
+            Laad een afbeelding uit de database.
+            Gebruik het exacte bestandspad zoals in de markdown staat aangegeven.
 
             Args:
                 _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
+                file_name (str): Het exacte bestandspad (bijv. 'figures/fileoutpart0.png')
 
             Returns:
-                str: Een data URL met de afbeelding als base64 gecodeerde data
+                str: Een data URL met de afbeelding
             """
-            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
+            self.logger.info(f"[IMAGE] Laden afbeelding: {_id}, {file_name}")
 
             try:
-                # Controleer en corrigeer pad indien nodig
-                if not file_name.startswith("figures/") and "/" not in file_name:
-                    original_file_name = file_name
-                    file_name = f"figures/{file_name}"
-                    self.logger.info(f"[IMAGE] Pad gecorrigeerd: {original_file_name} -> {file_name}")
-
-                # Laad de originele afbeelding
+                # Eerst proberen het exacte pad te gebruiken zoals aangeleverd
                 try:
                     image_data = await self.load_image(_id, file_name)
+                    self.logger.info(f"[IMAGE] Afbeelding succesvol geladen met origineel pad: {file_name}")
                 except Exception as e:
-                    # Als het laden mislukt met figures/ pad, probeer alternatieve paden
-                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met pad {file_name}: {str(e)}")
+                    # Als het originele pad niet werkt, probeer alternatieven
+                    self.logger.warning(f"[IMAGE] Kon afbeelding niet laden met origineel pad: {str(e)}")
 
-                    # Probeer zonder figures/ als dat was toegevoegd
+                    # Probeer alternatieve paden
                     if file_name.startswith("figures/"):
-                        alt_file_name = file_name.replace("figures/", "")
-                        self.logger.info(f"[IMAGE] Probeer alternatief pad zonder figures/: {alt_file_name}")
-                        try:
-                            image_data = await self.load_image(_id, alt_file_name)
-                            self.logger.info(f"[IMAGE] Succesvol geladen met alternatief pad: {alt_file_name}")
-                        except Exception:
-                            # Probeer met alleen de bestandsnaam (zonder pad)
-                            base_name = file_name.split("/")[-1]
-                            self.logger.info(f"[IMAGE] Probeer met alleen bestandsnaam: {base_name}")
-                            image_data = await self.load_image(_id, base_name)
+                        # Probeer zonder "figures/"
+                        alt_path = file_name.replace("figures/", "")
+                        self.logger.info(f"[IMAGE] Probeer zonder figures/ prefix: {alt_path}")
+                        image_data = await self.load_image(_id, alt_path)
                     else:
-                        # Als het geen figures/ bevat, probeer het toe te voegen
-                        alt_file_name = f"figures/{file_name}"
-                        self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
-                        image_data = await self.load_image(_id, alt_file_name)
+                        # Probeer met "figures/" prefix
+                        alt_path = f"figures/{file_name}"
+                        self.logger.info(f"[IMAGE] Probeer met figures/ prefix: {alt_path}")
+                        image_data = await self.load_image(_id, alt_path)
+
+                # Vanaf hier behouden we de compressiefunctionaliteit
 
                 original_size = len(image_data)
                 original_size_kb = original_size / 1024
@@ -621,14 +612,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size_kb:.1f} KB ({compression_ratio:.1f}% reductie)"
                 )
 
+                # Altijd JPEG media type voor gecomprimeerde afbeeldingen
                 return f"data:image/jpeg;base64,{base64_data}"
 
             except Exception as e:
                 import traceback
 
-                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                self.logger.error(f"[IMAGE] Fout bij laden afbeelding: {str(e)}")
                 self.logger.error(traceback.format_exc())
-                return f"Er is een fout opgetreden bij het laden van de afbeelding: {str(e)}"
+
+                # Gedetailleerde foutmelding
+                return f"Er is een fout opgetreden bij het laden van de afbeelding '{file_name}': {str(e)}. Gebruik het exacte pad zoals in de markdown aanwezig (meestal met 'figures/' prefix)."
 
         tools = [
             tool_store_memory,
@@ -677,9 +671,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
+        # Log en debug Anthropic API configuratie
+        self.logger.info("[REASONING] Enabling extended thinking with budget of 12000 tokens")
+
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
         buffered_content = []
+        reasoning_chunks = []  # Nieuwe lijst voor reasoning chunks
+
+        # Log dat we de API gaan aanroepen
+        self.logger.info("[REASONING] Calling Claude API with extended thinking enabled")
+
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -688,6 +690,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
+- Begin elk antwoord met een expliciet denkproces onder de tag [REASONING]. Beschrijf hierin hoe je de data analyseert, welke patronen je ziet, en welke conclusies je hieruit trekt.
+- Na je [REASONING] sectie, volgt je uiteindelijke antwoord aan de gebruiker zonder deze tag.
 - Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
@@ -739,15 +743,46 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Bufferen van alle chunks in één lijst
+        # Voeg raw response logging toe
+        self.logger.info("[REASONING] Starting to handle stream response")
+
+        # Bufferen van alle chunks in één lijst met uitgebreide logging
         async for content in self.handle_stream(stream, tools):
-            if self.config.debug_mode:
-                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
+            # Log elk chunk in detail
+            self.logger.info(f"[RAW CHUNK] Type: {type(content)}, Dir: {dir(content)}")
+            self.logger.info(f"[RAW CHUNK] Content: {str(content)[:200]}")
+
+            # Probeer verschillende manieren om reasoning/thinking content te identificeren
+            if hasattr(content, "type"):
+                self.logger.info(f"[CHUNK TYPE] {content.type}")
+
+                if content.type == "thinking" or content.type == "reasoning":
+                    self.logger.info(f"[THINKING/REASONING] {str(content)[:500]}")
+                    reasoning_chunks.append(content)
+
+            # Probeer via 'thinking' attribuut
+            if hasattr(content, "thinking"):
+                self.logger.info(f"[THINKING ATTR] {str(content.thinking)[:500]}")
+                reasoning_chunks.append(content)
+
+            # Zoek naar mogelijke thinking informatie in de content
+            content_str = str(content)
+            if "reasoning" in content_str.lower() or "thinking" in content_str.lower():
+                self.logger.info(f"[POTENTIAL THINKING] Found reasoning/thinking text: {content_str[:300]}")
+
             buffered_content.append(content)
+
+        # Log samenvattende informatie over gevonden thinking/reasoning
+        self.logger.info(
+            f"[REASONING SUMMARY] Total chunks: {len(buffered_content)}, Reasoning chunks: {len(reasoning_chunks)}"
+        )
+        if reasoning_chunks:
+            self.logger.info(f"[REASONING FOUND] First reasoning chunk: {str(reasoning_chunks[0])[:300]}")
+        else:
+            self.logger.warning("[REASONING NOT FOUND] No reasoning chunks detected in response")
 
         # Alles samenvoegen tot één enkele string
         final_output = "".join(buffered_content)
 
         # Deze in één keer yielden
         yield final_output
-
