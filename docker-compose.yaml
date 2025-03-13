@@ -30,7 +30,18 @@ services:
     command: ['uv', 'run', 'python', 'src/jobs.py']
     env_file:
       - .env
+    environment:
+      - PREFECT_API_URL=http://prefect:4200
     restart: unless-stopped
+
+  prefect:
+    image: prefecthq/prefect:latest
+    container_name: easylog-python-server.prefect
+    command: ['prefect', 'server', 'start']
+    ports:
+      - 4200:4200
+    volumes:
+      - prefect:/home/prefect/.prefect
 
   nginx:
     image: nginx:latest
@@ -42,3 +53,6 @@ services:
     depends_on:
       - api
       - worker
+
+volumes:
+  prefect:
