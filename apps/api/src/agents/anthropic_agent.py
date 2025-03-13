@@ -280,7 +280,11 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 )
 
             # When Claude finishes a block
-            elif event.type == "content_block_stop" and isinstance(message_contents[-1], TextContent):
+            elif (
+                event.type == "content_block_stop"
+                and message_contents
+                and isinstance(message_contents[-1], TextContent)
+            ):
                 yield TextContent(
                     content=message_contents[-1].content,
                     type="text",
@@ -290,6 +294,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             elif (
                 event.type == "content_block_delta"
                 and event.delta.type == "text_delta"
+                and message_contents
                 and isinstance(message_contents[-1], TextContent)
             ):
                 message_contents[-1].content += event.delta.text
