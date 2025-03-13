@@ -685,10 +685,8 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
-        # In plaats van de stream direct door te geven,
-        # bufferen we het volledige antwoord en sturen het dan in één keer.
-        buffered_content = []
-        stream = await self.client.messages.create(
+        # Geen streaming meer, we halen het volledige antwoord in één keer op
+        response = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
             max_tokens=2048,
@@ -712,11 +710,6 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 
 ### Gebruik van de tool_search_pdf
 Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
-Je bent een assistent van een Metro monteur en je helpt hem met onderhoudswerk.
-Geef korte en bondige antwoorden. Beschrijf geen afbeeldingen maar toon de instructie die bij de afbeelding hoort in het document.
-Nooit meer dan 1 afbeelding en 1 instructie tonen in je antwoord
-
-
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
@@ -740,7 +733,6 @@ Je huidige core memories zijn:
             """,
             messages=message_history,
             tools=anthropic_tools,
-            stream=True,
             # Voeg extended thinking toe
             thinking={"type": "enabled", "budget_tokens": 1024},
         )
@@ -752,9 +744,6 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Stream de MessageContent objecten direct door
-        async for content in self.handle_stream(stream, tools):
-            if self.config.debug_mode:
-                self.logger.debug(f"Streaming content chunk: {str(content)[:100]}...")
-            # Direct yielden in plaats van bufferen
-            yield content
+        # Aangezien we nu geen streaming gebruiken, kunnen we direct de content yielden
+        for content_item in response.content:
+            yield content_item
