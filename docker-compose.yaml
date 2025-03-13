@@ -22,6 +22,8 @@ services:
       - .env
     environment:
       - PREFECT_API_URL=http://prefect:4200/api
+    volumes:
+      - prefect:~/.prefect
     restart: unless-stopped
 
   worker:
@@ -34,6 +36,8 @@ services:
       - .env
     environment:
       - PREFECT_API_URL=http://prefect:4200/api
+    volumes:
+      - prefect:~/.prefect
     restart: unless-stopped
 
   prefect:
@@ -45,7 +49,7 @@ services:
     ports:
       - 4200:4200
     volumes:
-      - prefect:/home/ubuntu/.prefect
+      - prefect:~/.prefect
     env_file:
       - .env
     environment:
