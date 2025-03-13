@@ -313,7 +313,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         tool_result.content = encode_image_to_data_url(
                             image=resize_image_to_byte_size(
                                 image=decode_data_url_to_image(tool_result.content),
-                                target_size_bytes=1_000_000,
+                                target_size_bytes=500_000,  # 500KB
                                 image_format="JPEG",
                                 quality=80,
                                 tolerance=0.1,
