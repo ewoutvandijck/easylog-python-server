@@ -20,6 +20,8 @@ services:
       - 8000:8000
     env_file:
       - .env
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
     restart: unless-stopped
 
   worker:
@@ -46,6 +48,8 @@ services:
       - prefect:/home/ubuntu/.prefect
     env_file:
       - .env
+    environment:
+      - PREFECT_API_URL=http://host.docker.internal:4200/api
     restart: unless-stopped
 
   nginx:
