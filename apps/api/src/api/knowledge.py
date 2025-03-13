@@ -19,8 +19,7 @@ async def upload_pdf_document(file: UploadFile, background_tasks: BackgroundTask
 
     file_id = str(uuid.uuid4())
 
-    background_tasks.add_task(
-        ingest_from_upload_file_job,
+    ingest_from_upload_file_job.delay(
         file_data=await file.read(),
         file_name=file.filename,
         bucket="knowledge",

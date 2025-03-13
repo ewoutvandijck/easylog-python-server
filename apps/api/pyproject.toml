@@ -30,6 +30,7 @@ dependencies = [
     "openai>=1.65.1",
     "google-genai>=1.4.0",
     "prefect>=3.2.12",
+    "marvin>=2.3.8",
 ]
 
 [tool.ruff]

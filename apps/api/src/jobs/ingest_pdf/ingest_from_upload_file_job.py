@@ -1,10 +1,16 @@
 import os
 
-from lib.prisma import prisma
-from lib.supabase import supabase
+from prefect import task
+
 from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
+from src.lib.prisma import prisma
+from src.lib.supabase import supabase
 
 
+@task(
+    name="Ingest from upload file job",
+    log_prints=True,
+)
 def ingest_from_upload_file_job(
     file_data: bytes,
     file_name: str | None = None,

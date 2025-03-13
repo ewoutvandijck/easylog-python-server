@@ -20,6 +20,7 @@ from google.genai.types import (
     GenerateContentConfig,
     Part,
 )
+from prefect import serve, task
 
 from src.jobs.ingest_pdf.models import ProcessedPDF, ProcessedPDFImage
 from src.lib.adobe import adobe_client
@@ -29,6 +30,7 @@ from src.logger import logger
 CONTENT_TYPE_EXTRACTOR = r"/([^/]+?)(?:\[\d+\])?$"
 
 
+@task(name="Extract and process PDF")
 def extract_and_process_pdf(file_data: bytes) -> ProcessedPDF:
     logger.info("Starting PDF processing")
 
@@ -276,3 +278,7 @@ def generate_markdown(elements_df: pd.DataFrame) -> str:
 
     logger.info(f"Markdown content: {response.text}")
     return response.text or ""
+
+
+if __name__ == "__main__":
+    serve(extract_and_process_pdf)  # type: ignore

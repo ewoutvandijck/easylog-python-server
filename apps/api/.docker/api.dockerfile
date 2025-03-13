@@ -13,17 +13,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 ENV VIRTUAL_ENV=.venv
 ENV PATH="/.venv/bin:/root/.cargo/bin:${PATH}"
 
-# Set up dependencies first
+ADD . /app
+
+# Sync the project into a new environment, using the frozen lockfile
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
 
 RUN uv sync --frozen
 
-# Copy schema and generate prisma client after dependencies are cached
-COPY schema.prisma ./
-RUN uv run prisma generate
-
-# Finally, copy source code
-COPY src/ ./src/
-
-ENTRYPOINT ["uv", "run"]
+ENTRYPOINT ["uv", "run", "fastapi", "run", "src/main.py", "--port", "8000", "--host", "0.0.0.0"]
