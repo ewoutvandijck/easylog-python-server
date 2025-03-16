@@ -59,7 +59,14 @@ def resize_image_to_byte_size(
     orig_width, orig_height = image.size
     aspect_ratio = orig_width / orig_height
 
+    # Cache for already computed sizes to avoid redundant operations
+    size_cache = {}
+
     def get_size_bytes(max_side: int) -> int:
+        # Check cache first
+        if max_side in size_cache:
+            return size_cache[max_side]
+
         # For square images, both dimensions will be max_side
         if aspect_ratio == 1:
             new_width = new_height = max_side
@@ -81,31 +88,54 @@ def resize_image_to_byte_size(
         # Get byte size
         buffer = BytesIO()
         resized.save(buffer, format=image_format, quality=quality, optimize=True)
-        return buffer.tell()
+        size = buffer.tell()
+
+        # Cache the result
+        size_cache[max_side] = size
+        return size
 
     # Binary search for the right maximum dimension
     binary_search_min = min_side  # Use the provided min_side parameter
     binary_search_max = min(max_side, max(orig_width, orig_height))  # Respect the max_side parameter
-    iterations = 0
-    min_diff = 1  # minimum difference of 1 pixel
-    current_max_side = binary_search_max  # Initialize outside the loop
 
-    while binary_search_min < binary_search_max and (binary_search_max - binary_search_min) > min_diff:
-        current_max_side = (binary_search_min + binary_search_max) // 2
-        current_size = get_size_bytes(current_max_side)
-        iterations += 1
+    # For faster convergence, check endpoints first
+    min_size = get_size_bytes(binary_search_min)
+    max_size = get_size_bytes(binary_search_max)
 
-        logger.info(f"Iteration {iterations}: scale={current_max_side:.3f}, size={current_size} bytes")
+    # If target is outside our range, return closest endpoint
+    if target_size_bytes <= min_size:
+        logger.info(f"Using minimum size ({binary_search_min}px) which produces {min_size} bytes")
+        current_max_side = binary_search_min
+    elif target_size_bytes >= max_size:
+        logger.info(f"Using maximum size ({binary_search_max}px) which produces {max_size} bytes")
+        current_max_side = binary_search_max
+    else:
+        # Standard binary search with early termination
+        iterations = 0
+        min_diff = 1  # minimum difference of 1 pixel
+        current_max_side = binary_search_max  # Initialize outside the loop
+        max_iterations = 10  # Limit iterations to prevent excessive processing
 
-        # Check if we're within tolerance
-        if abs(current_size - target_size_bytes) <= target_size_bytes * tolerance:
-            logger.info(f"Found suitable scale factor after {iterations} iterations")
-            break
+        while binary_search_min < binary_search_max and (binary_search_max - binary_search_min) > min_diff:
+            if iterations >= max_iterations:
+                logger.info(f"Reached maximum iterations ({max_iterations}). Using current best value.")
+                break
 
-        if current_size > target_size_bytes:
-            binary_search_max = current_max_side
-        else:
-            binary_search_min = current_max_side
+            current_max_side = (binary_search_min + binary_search_max) // 2
+            current_size = get_size_bytes(current_max_side)
+            iterations += 1
+
+            logger.info(f"Iteration {iterations}: scale={current_max_side}, size={current_size} bytes")
+
+            # Check if we're within tolerance
+            if abs(current_size - target_size_bytes) <= target_size_bytes * tolerance:
+                logger.info(f"Found suitable scale factor after {iterations} iterations")
+                break
+
+            if current_size > target_size_bytes:
+                binary_search_max = current_max_side
+            else:
+                binary_search_min = current_max_side
 
     # Final resize with the same square handling
     if aspect_ratio == 1:
@@ -117,7 +147,12 @@ def resize_image_to_byte_size(
         final_height = current_max_side
         final_width = int(current_max_side * aspect_ratio)
 
-    # Return the final resized image
-    final_image = image.resize((final_width, final_height), Image.Resampling.LANCZOS)
+    # Return the final resized image - check if we already have it in cache
+    if current_max_side in size_cache:
+        logger.info(f"Using cached resized image with dimensions: ({final_width}, {final_height})")
+        final_image = image.resize((final_width, final_height), Image.Resampling.LANCZOS)
+    else:
+        final_image = image.resize((final_width, final_height), Image.Resampling.LANCZOS)
+
     logger.info(f"Final image dimensions: {final_image.size}")
     return final_image
