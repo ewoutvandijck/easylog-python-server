@@ -7,7 +7,7 @@ from src.logger import logger
 
 def resize_image_to_byte_size(
     image: Image.Image,
-    target_size_bytes: int,
+    target_size_bytes: int = 500 * 1024,  # 500KB
     image_format: str = "JPEG",
     quality: int = 85,
     tolerance: float = 0.1,
