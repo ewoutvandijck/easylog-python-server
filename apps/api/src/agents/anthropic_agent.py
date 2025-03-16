@@ -1,7 +1,8 @@
 import asyncio
+import io
 import json
 from collections.abc import AsyncGenerator, Callable
-from typing import Any, Generic
+from typing import Any, Generic, cast
 
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.message_param import MessageParam
@@ -381,7 +382,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
         return next((item for item in knowledge if item.object_id == result.id), None)
 
-    async def load_image(self, content_id: str, file_name: str) -> bytes:
+    async def load_image(self, content_id: str, file_name: str) -> Image.Image:
         file_data = prisma.processed_pdfs.find_first(
             where={
                 "id": content_id,
@@ -406,9 +407,22 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
         image = file_data.images[0]
 
-        if not image.object or not image.object.name or not image.object.bucket_id:
+        if (
+            not image.object
+            or not image.object.name
+            or not image.object.bucket_id
+            or not image.object.metadata
+            or not dict(image.object.metadata).get("mimetype")
+        ):
             raise ValueError("Image object not found")
 
         self.logger.info(f"Loading image {image.object.name} from bucket {image.object.bucket_id}")
 
-        return supabase.storage.from_(image.object.bucket_id).download(image.object.name)
+        image_data = supabase.storage.from_(image.object.bucket_id).download(image.object.name)
+
+        # Get the mimetype from the metadata and use it to determine the image format
+        mimetype = cast(str, dict(image.object.metadata).get("mimetype", "image/jpeg"))
+        format_from_mime = mimetype.split("/")[-1].upper()
+
+        # Open the image using the format from the mimetype
+        return Image.open(io.BytesIO(image_data), formats=[format_from_mime])

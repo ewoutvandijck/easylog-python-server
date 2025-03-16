@@ -1,5 +1,4 @@
 # Python standard library imports
-import base64
 import io
 import json
 import re
@@ -460,7 +459,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> str:
+        async def tool_load_image(_id: str, file_name: str) -> Image.Image:
             """
             Laad een afbeelding uit de database en bereid deze voor op weergave.
             De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
@@ -506,13 +505,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         self.logger.info(f"[IMAGE] Probeer alternatief pad met figures/: {alt_file_name}")
                         image_data = await self.load_image(_id, alt_file_name)
 
-                original_size = len(image_data)
+                # Get the size of the image in bytes
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format=image_data.format or "PNG")
+                    buffer.seek(0)
+                    original_size = len(buffer.getvalue())
+
                 original_size_kb = original_size / 1024
                 self.logger.info(f"[IMAGE] Originele grootte: {original_size_kb:.1f} KB")
 
-                # Open de afbeelding met PIL
-                img = Image.open(io.BytesIO(image_data))
-                original_width, original_height = img.size
+                original_width, original_height = image_data.size
                 self.logger.info(f"[IMAGE] Afmetingen: {original_width}x{original_height}")
 
                 # Basisparameters voor verwerking - sterk verlaagd voor trage verbindingen
@@ -543,18 +545,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 if original_width > max_width:
                     scale_factor = max_width / original_width
                     new_height = int(original_height * scale_factor)
-                    img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
                     self.logger.info(f"[IMAGE] Resized naar {max_width}x{new_height}")
 
                 # Converteer naar RGB (voor afbeeldingen met transparantie)
-                if img.mode in ("RGBA", "LA"):
-                    background = Image.new("RGB", img.size, (255, 255, 255))
-                    background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
-                    img = background
+                if image_data.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", image_data.size, (255, 255, 255))
+                    background.paste(image_data, mask=image_data.split()[3] if len(image_data.split()) > 3 else None)
+                    image_data = background
 
                 # Comprimeer de afbeelding
                 with io.BytesIO() as buffer:
-                    img.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
                     buffer.seek(0)
                     compressed_data = buffer.getvalue()
 
@@ -570,21 +572,21 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     self.logger.info(f"[IMAGE] Extra compressie nodig: {compressed_size_kb:.1f} KB > {max_size_kb} KB")
 
                     # 1e extra poging
-                    new_width = int(img.width * 0.6)
+                    new_width = int(image_data.width * 0.6)
                     new_quality = max(35, quality - 20)
 
-                    img = img.resize((new_width, int(img.height * 0.6)), Image.Resampling.LANCZOS)
+                    image_data = image_data.resize((new_width, int(image_data.height * 0.6)), Image.Resampling.LANCZOS)
 
                     # Lichte blur
                     try:
                         from PIL import ImageFilter
 
-                        img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
+                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.5))
                     except Exception:
                         pass
 
                     with io.BytesIO() as buffer:
-                        img.save(buffer, format="JPEG", quality=new_quality, optimize=True)
+                        image_data.save(buffer, format="JPEG", quality=new_quality, optimize=True)
                         buffer.seek(0)
                         compressed_data = buffer.getvalue()
                         compressed_size = len(compressed_data)
@@ -597,18 +599,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         final_width = int(new_width * 0.7)
                         final_quality = max(25, new_quality - 10)
 
-                        img = img.resize(
-                            (final_width, int(img.height * 0.7)),
+                        image_data = image_data.resize(
+                            (final_width, int(image_data.height * 0.7)),
                             Image.Resampling.LANCZOS,
                         )
 
                         try:
-                            img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+                            image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.8))
                         except Exception:
                             pass
 
                         with io.BytesIO() as buffer:
-                            img.save(
+                            image_data.save(
                                 buffer,
                                 format="JPEG",
                                 quality=final_quality,
@@ -620,23 +622,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             compressed_size_kb = compressed_size / 1024
                             self.logger.info(f"[IMAGE] Na derde compressie: {compressed_size_kb:.1f} KB")
 
-                # Base64 encoding
-                base64_data = base64.b64encode(compressed_data).decode("utf-8")
-
                 # Log compressieresultaat
                 compression_ratio = (original_size - compressed_size) / original_size * 100
                 self.logger.info(
                     f"[IMAGE] Compressie: {original_size_kb:.1f} KB → {compressed_size_kb:.1f} KB ({compression_ratio:.1f}% reductie)"
                 )
 
-                return f"data:image/jpeg;base64,{base64_data}"
+                return image_data
 
             except Exception as e:
-                import traceback
-
-                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
-                self.logger.error(traceback.format_exc())
-                return f"Er is een fout opgetreden bij het laden van de afbeelding: {str(e)}"
+                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}", exc_info=True)
+                raise e
 
         tools = [
             tool_store_memory,

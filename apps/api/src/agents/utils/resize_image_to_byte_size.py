@@ -14,6 +14,7 @@ def resize_image_to_byte_size(
 ) -> Image.Image:
     """
     Resize an image to approximately match a target file size in bytes.
+    Only applies transformations if the original image doesn't meet the target size.
 
     Args:
         image: PIL Image object
@@ -23,19 +24,28 @@ def resize_image_to_byte_size(
         tolerance: Acceptable deviation from target size (0.1 = 10%)
 
     Returns:
-        Resized PIL Image object
+        Resized PIL Image object or original if already within target size
     """
-    # Convert RGBA/LA images to RGB with white background
-    if image.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", image.size, (255, 255, 255))
-        background.paste(image, mask=image.split()[3] if len(image.split()) > 3 else None)
-        image = background
-
     logger.info(
         f"Starting image resize. Target size: {target_size_bytes} bytes, Format: {image_format}, Quality: {quality}"
     )
 
-    logger.debug(f"Original image dimensions: {image.size}")
+    # Check if the original image is already within the target size range
+    buffer = BytesIO()
+    image.save(buffer, format=image_format, quality=quality, optimize=True)
+    original_size = buffer.tell()
+    logger.debug(f"Original image size: {original_size} bytes, dimensions: {image.size}")
+
+    # If image is already within tolerance of target size, return it unchanged
+    if abs(original_size - target_size_bytes) <= target_size_bytes * tolerance:
+        logger.info(f"Original image already within target size range ({original_size} bytes). No resize needed.")
+        return image
+
+    # Convert RGBA/LA images to RGB with white background only if needed
+    if image.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[3] if len(image.split()) > 3 else None)
+        image = background
 
     orig_width, orig_height = image.size
     aspect_ratio = orig_width / orig_height

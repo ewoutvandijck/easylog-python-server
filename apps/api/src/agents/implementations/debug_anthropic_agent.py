@@ -138,16 +138,14 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 }
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> str:
+        async def tool_load_image(pdf_id: str, file_name: str) -> Image.Image:
             """
             Load an image from the database. Id is the id of the pdf file, and in the markdown you'll find many references to images. Use the exact file path to load the image.
             """
 
-            self.logger.info(f"Loading image: {_id}, {file_name}")
+            self.logger.info(f"Loading image: {pdf_id}, {file_name}")
 
-            image_data = await self.load_image(_id, file_name)
-
-            return f"data:{mimetypes.guess_type(file_name)[0]};base64,{base64.b64encode(image_data).decode('utf-8')}"
+            return await self.load_image(pdf_id, file_name)
 
         async def tool_store_memory(memory: str) -> str:
             """
