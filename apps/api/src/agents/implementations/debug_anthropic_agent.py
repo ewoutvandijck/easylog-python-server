@@ -7,7 +7,6 @@ from collections.abc import AsyncGenerator
 import httpx
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
 from src.models.messages import Message, MessageContent
@@ -34,7 +33,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
         self._planning_tools = PlanningTools(self.easylog_backend)
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -74,9 +75,13 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 "source": {
                     "type": "base64",
                     "media_type": "application/pdf",
-                    "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
+                    "data": base64.standard_b64encode(
+                        self._active_pdf.file_data
+                    ).decode("utf-8"),
                 },
-                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # Tells Claude this is temporary.
             }
             if self._active_pdf
             else None
@@ -88,9 +93,12 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             if (
                 pdf_content_block is not None
                 and message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(message["content"], list)  # Content must be a list to extend
+                and isinstance(
+                    message["content"], list
+                )  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result"
+                    for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -170,7 +178,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 str: A data URL containing the base64-encoded image data
             """
             image_data = httpx.get(url).content
-            return f"data:{mimetypes.guess_type(url)[0]};base64,{base64.b64encode(image_data).decode('utf-8')}"
+            return f"data:{mimetypes.guess_type(url)[0] or 'image/jpeg'};base64,{base64.b64encode(image_data).decode('utf-8')}"
 
         tools = [
             tool_search_pdf,
