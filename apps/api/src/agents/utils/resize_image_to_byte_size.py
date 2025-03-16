@@ -11,6 +11,7 @@ def resize_image_to_byte_size(
     image_format: str = "JPEG",
     quality: int = 85,
     tolerance: float = 0.1,
+    min_dimension: int = 500,  # Minimum dimension to use for binary search
 ) -> Image.Image:
     """
     Resize an image to approximately match a target file size in bytes.
@@ -22,6 +23,7 @@ def resize_image_to_byte_size(
         image_format: Output format (JPEG, PNG, etc.)
         quality: Initial JPEG quality (if applicable)
         tolerance: Acceptable deviation from target size (0.1 = 10%)
+        min_dimension: Minimum dimension to consider when resizing (default: 500px)
 
     Returns:
         Resized PIL Image object or original if already within target size
@@ -39,6 +41,11 @@ def resize_image_to_byte_size(
     # If image is already within tolerance of target size, return it unchanged
     if abs(original_size - target_size_bytes) <= target_size_bytes * tolerance:
         logger.info(f"Original image already within target size range ({original_size} bytes). No resize needed.")
+        return image
+
+    # If image is smaller than target and enlarging is not desired, return it as is
+    if original_size < target_size_bytes:
+        logger.info(f"Original image ({original_size} bytes) is smaller than target size. No resize needed.")
         return image
 
     # Convert RGBA/LA images to RGB with white background only if needed
@@ -75,7 +82,9 @@ def resize_image_to_byte_size(
         return buffer.tell()
 
     # Binary search for the right maximum dimension
-    min_side = min(orig_width, orig_height)
+    min_side = min(
+        min_dimension, min(orig_width, orig_height)
+    )  # Use the smaller of min_dimension or the smallest original dimension
     max_side = max(orig_width, orig_height)
     iterations = 0
     min_diff = 1  # minimum difference of 1 pixel
