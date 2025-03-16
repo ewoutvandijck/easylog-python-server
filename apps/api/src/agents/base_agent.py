@@ -45,12 +45,12 @@ class BaseAgent(Generic[TConfig]):
             db_host=settings.EASYLOG_DB_HOST,
             db_port=settings.EASYLOG_DB_PORT,
             db_user=settings.EASYLOG_DB_USER,
-            db_name="easylog_staging2",
+            db_name=settings.EASYLOG_DB_NAME,
             db_password=settings.EASYLOG_DB_PASSWORD,
         )
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
-        logger.info(f"Using database: easylog_staging2")
+        logger.info(f"Using database: {settings.EASYLOG_DB_NAME}")
 
     def __init_subclass__(cls) -> None:
         cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
