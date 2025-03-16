@@ -11,7 +11,8 @@ def resize_image_to_byte_size(
     image_format: str = "JPEG",
     quality: int = 85,
     tolerance: float = 0.1,
-    min_dimension: int = 500,  # Minimum dimension to use for binary search
+    min_side: int = 500,  # Minimum dimension of 500 pixels
+    max_side: int = 1500,  # Maximum dimension of 1500 pixels
 ) -> Image.Image:
     """
     Resize an image to approximately match a target file size in bytes.
@@ -23,7 +24,8 @@ def resize_image_to_byte_size(
         image_format: Output format (JPEG, PNG, etc.)
         quality: Initial JPEG quality (if applicable)
         tolerance: Acceptable deviation from target size (0.1 = 10%)
-        min_dimension: Minimum dimension to consider when resizing (default: 500px)
+        min_side: Minimum dimension for any side of the image (default: 500px)
+        max_side: Maximum dimension for any side of the image (default: 1500px)
 
     Returns:
         Resized PIL Image object or original if already within target size
@@ -36,7 +38,7 @@ def resize_image_to_byte_size(
     buffer = BytesIO()
     image.save(buffer, format=image_format, quality=quality, optimize=True)
     original_size = buffer.tell()
-    logger.debug(f"Original image size: {original_size} bytes, dimensions: {image.size}")
+    logger.info(f"Original image size: {original_size} bytes, dimensions: {image.size}")
 
     # If image is already within tolerance of target size, return it unchanged
     if abs(original_size - target_size_bytes) <= target_size_bytes * tolerance:
@@ -82,20 +84,18 @@ def resize_image_to_byte_size(
         return buffer.tell()
 
     # Binary search for the right maximum dimension
-    min_side = min(
-        min_dimension, min(orig_width, orig_height)
-    )  # Use the smaller of min_dimension or the smallest original dimension
-    max_side = max(orig_width, orig_height)
+    binary_search_min = min_side  # Use the provided min_side parameter
+    binary_search_max = min(max_side, max(orig_width, orig_height))  # Respect the max_side parameter
     iterations = 0
     min_diff = 1  # minimum difference of 1 pixel
-    current_max_side = max_side  # Initialize outside the loop
+    current_max_side = binary_search_max  # Initialize outside the loop
 
-    while min_side < max_side and (max_side - min_side) > min_diff:
-        current_max_side = (min_side + max_side) // 2
+    while binary_search_min < binary_search_max and (binary_search_max - binary_search_min) > min_diff:
+        current_max_side = (binary_search_min + binary_search_max) // 2
         current_size = get_size_bytes(current_max_side)
         iterations += 1
 
-        logger.debug(f"Iteration {iterations}: scale={current_max_side:.3f}, size={current_size} bytes")
+        logger.info(f"Iteration {iterations}: scale={current_max_side:.3f}, size={current_size} bytes")
 
         # Check if we're within tolerance
         if abs(current_size - target_size_bytes) <= target_size_bytes * tolerance:
@@ -103,9 +103,9 @@ def resize_image_to_byte_size(
             break
 
         if current_size > target_size_bytes:
-            max_side = current_max_side
+            binary_search_max = current_max_side
         else:
-            min_side = current_max_side
+            binary_search_min = current_max_side
 
     # Final resize with the same square handling
     if aspect_ratio == 1:
