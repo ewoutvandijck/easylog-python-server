@@ -309,7 +309,6 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     )
 
                     if tool_result.content.startswith("data:image/"):
-                        tool_result.content_format = "image"
                         tool_result.content = encode_image_to_data_url(
                             image=resize_image_to_byte_size(
                                 image=decode_data_url_to_image(tool_result.content),
@@ -320,6 +319,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                             ),
                             format="JPEG",
                         )
+                        tool_result.content_format = "image"
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:
@@ -328,7 +328,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # 3. Log the error
                     tool_result.is_error = True
                     tool_result.content = str(e)
-                    logger.error(f"Error executing tool {e}")
+                    logger.error(f"Error executing tool {e}", exc_info=True)
 
                 finally:
                     yield message_contents[-1]
