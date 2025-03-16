@@ -2,10 +2,12 @@ FROM python:3.12-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install build dependencies and Rust
+# Install build dependencies, Rust, and Cairo libraries
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
+    libcairo2-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/* \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
