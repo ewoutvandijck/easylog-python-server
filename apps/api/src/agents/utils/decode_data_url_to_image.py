@@ -36,7 +36,7 @@ def decode_data_url_to_image(data_url: str) -> Image.Image:
         raise e
 
 
-def encode_image_to_data_url(image: Image.Image, format: str = "JPEG") -> str:
+def encode_image_to_data_url(image: Image.Image) -> str:
     """
     Convert a PIL Image object to a data URL string.
 
@@ -52,8 +52,8 @@ def encode_image_to_data_url(image: Image.Image, format: str = "JPEG") -> str:
         # Create a bytes buffer to store the image data
         buffer = io.BytesIO()
 
-        # Save the image to the buffer in the specified format
-        image.save(buffer, format=format)
+        # Save the image to the buffer
+        image.save(buffer)
 
         # Get the binary data from the buffer
         binary_data = buffer.getvalue()
@@ -62,7 +62,7 @@ def encode_image_to_data_url(image: Image.Image, format: str = "JPEG") -> str:
         encoded_data = base64.b64encode(binary_data).decode("utf-8")
 
         # Create the data URL string
-        mime_type = f"image/{format.lower()}"
+        mime_type = f"image/{image.format or 'jpeg'}".lower()
         data_url = f"data:{mime_type};base64,{encoded_data}"
 
         return data_url

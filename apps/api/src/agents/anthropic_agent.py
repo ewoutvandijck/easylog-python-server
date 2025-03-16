@@ -6,13 +6,14 @@ from typing import Any, Generic
 from anthropic import AsyncAnthropic, AsyncStream
 from anthropic.types.message_param import MessageParam
 from anthropic.types.raw_message_stream_event import RawMessageStreamEvent
+from PIL import Image
 from prisma.enums import message_role
 from prisma.models import processed_pdfs
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.agents.models import PDFSearchResult
 from src.agents.utils.citation_formatter import format_inline_citation
-from src.agents.utils.decode_data_url_to_image import decode_data_url_to_image, encode_image_to_data_url
+from src.agents.utils.decode_data_url_to_image import encode_image_to_data_url
 from src.agents.utils.resize_image_to_byte_size import resize_image_to_byte_size
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
@@ -302,7 +303,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously
-                    tool_result.content = str(
+                    tool_result_content = (
                         await function(**message_contents[-1].input)
                         if asyncio.iscoroutinefunction(function)
                         else function(**message_contents[-1].input)
@@ -310,18 +311,19 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
 
                     # When dealing with images, we need to resize them to a reasonable size
                     # and convert them to a data URL
-                    if tool_result.content.startswith("data:image/"):
+                    if isinstance(tool_result_content, Image.Image):
                         tool_result.content = encode_image_to_data_url(
                             image=resize_image_to_byte_size(
-                                image=decode_data_url_to_image(tool_result.content),
+                                image=tool_result_content,
                                 target_size_bytes=500_000,  # 500KB
                                 image_format="JPEG",
                                 quality=80,
                                 tolerance=0.1,
                             ),
-                            format="JPEG",
                         )
                         tool_result.content_format = "image"
+                    else:
+                        tool_result.content = str(tool_result_content)
 
                 except Exception as e:
                     # If anything goes wrong during tool execution:

@@ -1,11 +1,15 @@
 import base64
+import io
 import json
 import mimetypes
 import time
 from collections.abc import AsyncGenerator
+from typing import cast
 
+import cairosvg
 import httpx
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
+from PIL import Image
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
@@ -166,7 +170,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             self.set_metadata("memories", [])
             return "All memories and the conversation history have been cleared."
 
-        async def tool_download_image_from_url(url: str) -> str:
+        async def tool_download_image_from_url(url: str) -> Image.Image:
             """
             Download an image from a URL and return it as a base64-encoded data URL.
             The image will be returned in a format that can be displayed directly in HTML/markdown.
@@ -192,7 +196,13 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     f"Downloaded image from {url} with mime type {mime_type}"
                 )
 
-                return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+                if "image/svg+xml" in mime_type:
+                    # Convert SVG to PNG
+                    self.logger.info("Converting SVG to PNG")
+                    image_data = cairosvg.svg2png(bytestring=image_data)
+
+                # Convert the downloaded image data to a PIL Image
+                return Image.open(io.BytesIO(cast(bytes, image_data)))
 
         tools = [
             tool_search_pdf,
