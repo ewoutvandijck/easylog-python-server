@@ -32,7 +32,7 @@ def decode_data_url_to_image(data_url: str) -> Image.Image:
 
         return image
     except Exception as e:
-        logger.error(f"Error converting data URL to image: {str(e)}")
+        logger.error(f"Error converting data URL {data_url} to image: {str(e)}", exc_info=True)
         raise e
 
 
@@ -67,5 +67,5 @@ def encode_image_to_data_url(image: Image.Image, format: str = "JPEG") -> str:
 
         return data_url
     except Exception as e:
-        logger.error(f"Error converting image to data URL: {str(e)}")
+        logger.error(f"Error converting image to data URL: {str(e)}", exc_info=True)
         raise e

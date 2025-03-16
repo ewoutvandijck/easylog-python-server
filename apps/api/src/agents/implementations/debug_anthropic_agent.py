@@ -166,7 +166,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             self.set_metadata("memories", [])
             return "All memories and the conversation history have been cleared."
 
-        def tool_download_image_from_url(url: str) -> str:
+        async def tool_download_image_from_url(url: str) -> str:
             """
             Download an image from a URL and return it as a base64-encoded data URL.
             The image will be returned in a format that can be displayed directly in HTML/markdown.
@@ -177,8 +177,17 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             Returns:
                 str: A data URL containing the base64-encoded image data
             """
-            image_data = httpx.get(url).content
-            return f"data:{mimetypes.guess_type(url)[0] or 'image/jpeg'};base64,{base64.b64encode(image_data).decode('utf-8')}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                image_data = response.content
+                mime_type = (
+                    response.headers.get("content-type")
+                    or mimetypes.guess_type(url)[0]
+                    or "image/jpeg"
+                )
+                return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
 
         tools = [
             tool_search_pdf,

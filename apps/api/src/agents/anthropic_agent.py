@@ -308,6 +308,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         else function(**message_contents[-1].input)
                     )
 
+                    # When dealing with images, we need to resize them to a reasonable size
+                    # and convert them to a data URL
                     if tool_result.content.startswith("data:image/"):
                         tool_result.content = encode_image_to_data_url(
                             image=resize_image_to_byte_size(
