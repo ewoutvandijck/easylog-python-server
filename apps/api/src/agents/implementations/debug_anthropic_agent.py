@@ -187,6 +187,11 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     or mimetypes.guess_type(url)[0]
                     or "image/jpeg"
                 )
+
+                self.logger.info(
+                    f"Downloaded image from {url} with mime type {mime_type}"
+                )
+
                 return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
 
         tools = [
