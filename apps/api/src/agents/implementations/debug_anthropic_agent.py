@@ -198,9 +198,17 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     # Convert SVG to PNG
                     self.logger.info("Converting SVG to PNG")
                     image_data = cairosvg.svg2png(bytestring=image_data)
+                    mime_type = "image/png"
 
+                format_from_mime_type = {
+                    "image/png": "PNG",
+                    "image/jpeg": "JPEG",
+                }
                 # Convert the downloaded image data to a PIL Image
-                return Image.open(io.BytesIO(cast(bytes, image_data)))
+                return Image.open(
+                    io.BytesIO(cast(bytes, image_data)),
+                    formats=[format_from_mime_type[mime_type]],
+                )
 
         tools = [
             tool_search_pdf,
