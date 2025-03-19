@@ -73,9 +73,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as status
+                            id,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.statusfiets')) as statusfiets,
+                            created_at
                         FROM follow_up_entries
                         ORDER BY created_at DESC
                         LIMIT %s
@@ -86,11 +86,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     if not entries:
                         return "Geen data gevonden"
 
-                    results = ["EasyLog Data:"]
+                    results = ["EasyLog Data (statusfiets):"]
                     for entry in entries:
-                        datum, object_name, status = entry
+                        entry_id, statusfiets, created_at = entry
                         results.append(
-                            f"Datum: {datum}, Object: {object_name}, Status: {status}"
+                            f"ID: {entry_id}, Statusfiets: {statusfiets}, Created: {created_at}"
                         )
 
                     return "\n".join(results)
