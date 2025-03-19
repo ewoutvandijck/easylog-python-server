@@ -20,8 +20,7 @@ class EasylogData(TypedDict):
     Simple structure for Easylog data focusing on bike status
     """
 
-    datum: str
-    status: str
+    statusfiets: str
 
 
 # Configuration class for AnthropicEasylog agent
