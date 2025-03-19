@@ -79,68 +79,46 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
-                            id,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.statusfiets')) as statusfiets,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.actuele_locatie_fiets')) as actuele_locatie_fiets,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framenummer')) as framenummer,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.merk')) as merk,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.type')) as type,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framehoogte')) as framehoogte,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.kleur')) as kleur,
-                            created_at
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens[0].framenummer')) as framenummer,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens[0].merk')) as merk,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens[0].type')) as type,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens[0].framehoogte')) as framehoogte,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens[0].kleur')) as kleur
                         FROM follow_up_entries
-                        WHERE 
-                            JSON_EXTRACT(data, '$.statusfiets') IS NOT NULL
                         ORDER BY created_at DESC
-                        LIMIT %s
+                        LIMIT 100
                     """
-                    cursor.execute(query, (limit,))
+                    self.logger.debug(f"Executing query: {query}")
+                    cursor.execute(query)
                     entries = cursor.fetchall()
+                    self.logger.debug(f"Query returned {len(entries)} entries")
 
                     if not entries:
-                        return "Geen fietsdata gevonden"
+                        return "Geen controles gevonden"
 
-                    results = ["🚲 Wielrenfiets Informatie:"]
+                    results = ["🔍 Laatste controles:"]
                     for entry in entries:
                         (
-                            entry_id,
-                            statusfiets,
-                            actuele_locatie,
+                            datum,
+                            object_value,
+                            statusobject,
                             framenummer,
                             merk,
                             type_fiets,
                             framehoogte,
                             kleur,
-                            created_at,
                         ) = entry
+                        # Pas de statusobject waarde aan
+                        if statusobject == "Ja":
+                            statusobject = "Akkoord"
+                        elif statusobject == "Nee":
+                            statusobject = "Niet akkoord"
 
-                        # Format status met emoji's
-                        status_formatted = statusfiets
-                        if statusfiets == "BESCHIKBAAR":
-                            status_formatted = "✅ BESCHIKBAAR"
-                        elif statusfiets == "GERESERVEERD":
-                            status_formatted = "🕒 GERESERVEERD"
-                        elif statusfiets == "IN_GEBRUIK":
-                            status_formatted = "🚲 IN GEBRUIK"
-                        elif statusfiets == "ELDERS":
-                            status_formatted = "🌍 ELDERS"
-                        elif statusfiets == "IN_ONDERHOUD":
-                            status_formatted = "🔧 IN ONDERHOUD"
-
-                        # Format locatie met emoji's
-                        locatie_formatted = actuele_locatie
-                        if actuele_locatie == "HPC":
-                            locatie_formatted = "🏠 HPC"
-                        elif actuele_locatie == "TRUCK":
-                            locatie_formatted = "🚛 Truck"
-                        elif actuele_locatie == "RENNER":
-                            locatie_formatted = "🏃 Bij renner"
-                        elif actuele_locatie == "TRANSPORT":
-                            locatie_formatted = "🚚 Transport"
-                        elif actuele_locatie == "ANDERS":
-                            locatie_formatted = "📍 Andere locatie"
-
-                        fiets_info = f"ID: {entry_id}, Status: {status_formatted}, Locatie: {locatie_formatted}"
+                        # Bouw de fiets informatie op
+                        fiets_info = f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
 
                         # Voeg fietsgegevens toe als ze beschikbaar zijn
                         specs = []
@@ -159,7 +137,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                             fiets_info += f" | {', '.join(specs)}"
 
                         results.append(fiets_info)
-
                     return "\n".join(results)
 
             except Exception as e:
