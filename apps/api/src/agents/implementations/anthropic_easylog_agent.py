@@ -1,7 +1,7 @@
 # Python standard library imports
 import time
 from collections.abc import AsyncGenerator
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -17,16 +17,11 @@ load_dotenv()
 
 class EasylogData(TypedDict):
     """
-    Structure for Easylog data focusing on bike information
+    Simple structure for Easylog data focusing on bike status
     """
 
-    statusfiets: Optional[str]  # Status van de fiets (BESCHIKBAAR, GERESERVEERD, etc.)
-    actuele_locatie_fiets: Optional[str]  # Locatie van de fiets (HPC, TRUCK, etc.)
-    framenummer: Optional[str]  # Uniek nummer van het frame
-    merk: Optional[str]  # Merk van de fiets
-    type: Optional[str]  # Type fiets
-    framehoogte: Optional[str]  # Hoogte van het frame
-    kleur: Optional[str]  # Kleur van de fiets
+    statusfiets: str
+    actuele_locatie_fiets: str
 
 
 # Configuration class for AnthropicEasylog agent
@@ -70,7 +65,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Define the SQL tool to fetch data
         async def tool_fetch_follow_up_entries(limit: int = 20):
             """
-            Fetch bike data from follow_up_entries table
+            Simple tool to fetch basic data from follow_up_entries table
 
             Args:
                 limit: Maximum number of entries to retrieve
@@ -79,69 +74,31 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framenummer')) as framenummer,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.merk')) as merk,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.type')) as type,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framehoogte')) as framehoogte,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.kleur')) as kleur
+                        
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.statusfiets')) as statusfiets,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.actuele_locatie_fiets')) as actuele_locatie_fiets,
+                            created_at
                         FROM follow_up_entries
                         ORDER BY created_at DESC
-                        LIMIT 100
+                        LIMIT %s
                     """
-                    self.logger.debug(f"Executing query: {query}")
-                    cursor.execute(query)
+                    cursor.execute(query, (limit,))
                     entries = cursor.fetchall()
-                    self.logger.debug(f"Query returned {len(entries)} entries")
 
                     if not entries:
-                        return "Geen controles gevonden"
+                        return "Geen data gevonden"
 
-                    results = ["🔍 Laatste controles:"]
+                    results = ["EasyLog Data (statusfiets):"]
                     for entry in entries:
-                        (
-                            datum,
-                            object_value,
-                            statusobject,
-                            framenummer,
-                            merk,
-                            type_fiets,
-                            framehoogte,
-                            kleur,
-                        ) = entry
-                        # Pas de statusobject waarde aan
-                        if statusobject == "Ja":
-                            statusobject = "Akkoord"
-                        elif statusobject == "Nee":
-                            statusobject = "Niet akkoord"
+                        entry_id, statusfiets, created_at = entry
+                        results.append(
+                            f"ID: {entry_id}, Statusfiets: {statusfiets}, Created: {created_at}"
+                        )
 
-                        # Bouw de fiets informatie op
-                        fiets_info = f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
-
-                        # Voeg fietsgegevens toe als ze beschikbaar zijn
-                        specs = []
-                        if framenummer and framenummer.lower() != "null":
-                            specs.append(f"Framenummer: {framenummer}")
-                        if merk and merk.lower() != "null":
-                            specs.append(f"Merk: {merk}")
-                        if type_fiets and type_fiets.lower() != "null":
-                            specs.append(f"Type: {type_fiets}")
-                        if framehoogte and framehoogte.lower() != "null":
-                            specs.append(f"Framehoogte: {framehoogte}")
-                        if kleur and kleur.lower() != "null":
-                            specs.append(f"Kleur: {kleur}")
-
-                        if specs:
-                            fiets_info += f" | {', '.join(specs)}"
-
-                        results.append(fiets_info)
                     return "\n".join(results)
 
             except Exception as e:
-                self.logger.error(f"Error fetching bike data: {str(e)}")
-                return f"Error bij ophalen fietsgegevens: {str(e)}"
+                return f"Error: {str(e)}"
 
         # Define available tools
         tools = [tool_fetch_follow_up_entries]
