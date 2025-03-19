@@ -17,13 +17,10 @@ load_dotenv()
 
 class EasylogData(TypedDict):
     """
-    Defines the structure for Easylog data
+    Simple structure for Easylog data focusing on bike status
     """
 
-    status: str
-    datum: str
-    object: str
-    statusobject: str
+    statusfiets: str
 
 
 # Configuration class for AnthropicEasylog agent
@@ -65,53 +62,41 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         message_history = self._convert_messages_to_anthropic_format(messages)
 
         # Define the SQL tool to fetch data
-        async def tool_fetch_follow_up_entries(limit: int = 50):
+        async def tool_fetch_follow_up_entries(limit: int = 20):
             """
-            Fetches entries from the follow_up_entries table and makes them readable.
+            Simple tool to fetch basic data from follow_up_entries table
 
             Args:
-                limit: Maximum number of entries to retrieve (default: 50)
+                limit: Maximum number of entries to retrieve
             """
             try:
-                self.logger.info(f"Fetching up to {limit} follow_up_entries")
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
-                            id,
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
                             JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
-                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject,
-                            created_at
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as status
                         FROM follow_up_entries
                         ORDER BY created_at DESC
                         LIMIT %s
                     """
-                    self.logger.debug(f"Executing query with limit: {limit}")
                     cursor.execute(query, (limit,))
                     entries = cursor.fetchall()
-                    self.logger.debug(f"Query returned {len(entries)} entries")
 
                     if not entries:
-                        return "Geen entries gevonden in follow_up_entries tabel"
+                        return "Geen data gevonden"
 
-                    results = ["📋 Follow-up Entries:"]
+                    results = ["EasyLog Data:"]
                     for entry in entries:
-                        entry_id, datum, object_value, statusobject, created_at = entry
-                        # Convert status value to more readable format
-                        if statusobject == "Ja":
-                            statusobject = "Akkoord"
-                        elif statusobject == "Nee":
-                            statusobject = "Niet akkoord"
-
+                        datum, object_name, status = entry
                         results.append(
-                            f"ID: {entry_id}, Datum: {datum}, Object: {object_value}, Status: {statusobject}, Created: {created_at}"
+                            f"Datum: {datum}, Object: {object_name}, Status: {status}"
                         )
 
                     return "\n".join(results)
 
             except Exception as e:
-                logger.error(f"Error fetching follow_up_entries: {str(e)}")
-                return f"Database error: {str(e)}"
+                return f"Error: {str(e)}"
 
         # Define available tools
         tools = [tool_fetch_follow_up_entries]
