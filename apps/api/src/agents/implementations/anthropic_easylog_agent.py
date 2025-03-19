@@ -46,6 +46,29 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         self.available_tools = []
         self.logger.info("EasylogAgent initialized with basic SQL tool")
 
+    # Helper methods to get readable labels
+    def _get_status_label(self, status_value):
+        """Convert status code to readable label with emoji"""
+        status_map = {
+            "BESCHIKBAAR": "✅ BESCHIKBAAR",
+            "GERESERVEERD": "🕒 GERESERVEERD",
+            "IN_GEBRUIK": "🚲 IN GEBRUIK",
+            "ELDERS": "🌍 ELDERS",
+            "IN_ONDERHOUD": "🔧 IN ONDERHOUD",
+        }
+        return status_map.get(status_value, status_value)
+
+    def _get_locatie_label(self, locatie_value):
+        """Convert location code to readable label with emoji"""
+        locatie_map = {
+            "HPC": "🏠 HPC",
+            "TRUCK": "🚛 Truck",
+            "RENNER": "🏃 Bij renner",
+            "TRANSPORT": "🚚 Transport",
+            "ANDERS": "📍 Andere locatie",
+        }
+        return locatie_map.get(locatie_value, locatie_value or "Onbekend")
+
     async def on_message(
         self, messages: list[Message]
     ) -> AsyncGenerator[MessageContent, None]:
@@ -177,27 +200,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
             except Exception as e:
                 return f"Error bij ophalen fietsgegevens: {str(e)}"
-
-        # Helper methods to get readable labels
-        def _get_status_label(self, status_value):
-            status_map = {
-                "BESCHIKBAAR": "✅ BESCHIKBAAR",
-                "GERESERVEERD": "🕒 GERESERVEERD",
-                "IN_GEBRUIK": "🚲 IN GEBRUIK",
-                "ELDERS": "🌍 ELDERS",
-                "IN_ONDERHOUD": "🔧 IN ONDERHOUD",
-            }
-            return status_map.get(status_value, status_value)
-
-        def _get_locatie_label(self, locatie_value):
-            locatie_map = {
-                "HPC": "🏠 HPC",
-                "TRUCK": "🚛 Truck",
-                "RENNER": "🏃 Bij renner",
-                "TRANSPORT": "🚚 Transport",
-                "ANDERS": "📍 Andere locatie",
-            }
-            return locatie_map.get(locatie_value, locatie_value or "Onbekend")
 
         # Define available tools
         tools = [tool_fetch_all_bikes, tool_fetch_bike_by_frame]
