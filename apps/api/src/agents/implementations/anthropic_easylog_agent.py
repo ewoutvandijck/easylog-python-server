@@ -79,126 +79,64 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
-                            id,
-                            data,
-                            created_at
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum')) as datum,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.object')) as object,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.controle[0].statusobject')) as statusobject,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framenummer')) as framenummer,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.merk')) as merk,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.type')) as type,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.framehoogte')) as framehoogte,
+                            JSON_UNQUOTE(JSON_EXTRACT(data, '$.fiets_gegevens.kleur')) as kleur
                         FROM follow_up_entries
                         ORDER BY created_at DESC
-                        LIMIT %s
+                        LIMIT 100
                     """
-                    cursor.execute(query, (limit,))
+                    self.logger.debug(f"Executing query: {query}")
+                    cursor.execute(query)
                     entries = cursor.fetchall()
+                    self.logger.debug(f"Query returned {len(entries)} entries")
 
                     if not entries:
-                        return "Geen fietsdata gevonden"
+                        return "Geen controles gevonden"
 
-                    results = ["🚲 Wielrenfiets Informatie:"]
+                    results = ["🔍 Laatste controles:"]
                     for entry in entries:
-                        entry_id, data_json, created_at = entry
-
-                        # Parse the JSON data to extract the fields
-                        import json
-
-                        try:
-                            data = json.loads(data_json)
-                        except:
-                            self.logger.error(
-                                f"Failed to parse JSON for entry {entry_id}"
-                            )
-                            continue
-
-                        # Extract fields with safe get operations
-                        datum = data.get("datum", "")
-                        object_value = data.get("object", "")
-                        controle = data.get("controle", [])
-                        statusobject = (
-                            controle[0].get("statusobject", "") if controle else ""
-                        )
-
-                        # Safely extract fiets_gegevens
-                        fiets_gegevens = data.get("fiets_gegevens", {})
-                        framenummer = fiets_gegevens.get("framenummer", "")
-                        merk = fiets_gegevens.get("merk", "")
-                        type_fiets = fiets_gegevens.get("type", "")
-                        framehoogte = fiets_gegevens.get("framehoogte", "")
-                        kleur = fiets_gegevens.get("kleur", "")
-
-                        # Status formatting
-                        if "statusfiets" in data:
-                            statusfiets = data.get("statusfiets", "")
-                            status_formatted = statusfiets
-                            if statusfiets == "BESCHIKBAAR":
-                                status_formatted = "✅ BESCHIKBAAR"
-                            elif statusfiets == "GERESERVEERD":
-                                status_formatted = "🕒 GERESERVEERD"
-                            elif statusfiets == "IN_GEBRUIK":
-                                status_formatted = "🚲 IN GEBRUIK"
-                            elif statusfiets == "ELDERS":
-                                status_formatted = "🌍 ELDERS"
-                            elif statusfiets == "IN_ONDERHOUD":
-                                status_formatted = "🔧 IN ONDERHOUD"
-                        else:
-                            status_formatted = ""
-
-                        # Format status object
+                        (
+                            datum,
+                            object_value,
+                            statusobject,
+                            framenummer,
+                            merk,
+                            type_fiets,
+                            framehoogte,
+                            kleur,
+                        ) = entry
+                        # Pas de statusobject waarde aan
                         if statusobject == "Ja":
                             statusobject = "Akkoord"
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
 
-                        # Location formatting
-                        if "actuele_locatie_fiets" in data:
-                            actuele_locatie = data.get("actuele_locatie_fiets", "")
-                            locatie_formatted = actuele_locatie
-                            if actuele_locatie == "HPC":
-                                locatie_formatted = "🏠 HPC"
-                            elif actuele_locatie == "TRUCK":
-                                locatie_formatted = "🚛 Truck"
-                            elif actuele_locatie == "RENNER":
-                                locatie_formatted = "🏃 Bij renner"
-                            elif actuele_locatie == "TRANSPORT":
-                                locatie_formatted = "🚚 Transport"
-                            elif actuele_locatie == "ANDERS":
-                                locatie_formatted = "📍 Andere locatie"
-                        else:
-                            locatie_formatted = ""
-
-                        # Build the fiets_info string
-                        fiets_info = []
-                        if entry_id:
-                            fiets_info.append(f"ID: {entry_id}")
-                        if datum:
-                            fiets_info.append(f"Datum: {datum}")
-                        if object_value:
-                            fiets_info.append(f"Object: {object_value}")
-                        if status_formatted:
-                            fiets_info.append(f"Status: {status_formatted}")
-                        if locatie_formatted:
-                            fiets_info.append(f"Locatie: {locatie_formatted}")
-                        if statusobject:
-                            fiets_info.append(f"Status object: {statusobject}")
-
-                        # Base info string
-                        info_string = ", ".join(fiets_info)
+                        # Bouw de fiets informatie op
+                        fiets_info = f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
 
                         # Voeg fietsgegevens toe als ze beschikbaar zijn
                         specs = []
-                        if framenummer:
+                        if framenummer and framenummer.lower() != "null":
                             specs.append(f"Framenummer: {framenummer}")
-                        if merk:
+                        if merk and merk.lower() != "null":
                             specs.append(f"Merk: {merk}")
-                        if type_fiets:
+                        if type_fiets and type_fiets.lower() != "null":
                             specs.append(f"Type: {type_fiets}")
-                        if framehoogte:
+                        if framehoogte and framehoogte.lower() != "null":
                             specs.append(f"Framehoogte: {framehoogte}")
-                        if kleur:
+                        if kleur and kleur.lower() != "null":
                             specs.append(f"Kleur: {kleur}")
 
                         if specs:
-                            info_string += f" | {', '.join(specs)}"
+                            fiets_info += f" | {', '.join(specs)}"
 
-                        results.append(info_string)
-
+                        results.append(fiets_info)
                     return "\n".join(results)
 
             except Exception as e:
