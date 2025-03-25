@@ -41,6 +41,7 @@ class AnthropicEasylogAgentConfig(BaseModel):
     image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
     image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
     model: str = Field(default="claude-3-sonnet-20240229", description="The Anthropic model to use")
+    max_tokens: int = Field(default=4096, description="Maximum number of tokens to generate")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -694,10 +695,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             buffered_content = []
             self.logger.info("Starting to buffer all content chunks...")
 
-            # Get the stream from the parent class
-            stream = await self._get_stream(message_history, anthropic_tools)
+            # Create the Anthropic API request directly
+            response = await self.client.messages.create(
+                model=self.config.model,
+                max_tokens=self.config.max_tokens,
+                messages=message_history,
+                tools=anthropic_tools,
+                stream=True,
+            )
 
-            async for content in self.handle_stream(stream, tools):
+            # Use the parent's handle_stream method
+            async for content in self.handle_stream(response, tools):
                 if self.config.debug_mode:
                     self.logger.debug(f"Buffering content chunk: {str(content)[:100]}...")
                 buffered_content.append(content)
@@ -710,14 +718,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         except Exception as e:
             self.logger.error(f"Error during content buffering: {str(e)}", exc_info=True)
-            # Create MessageContent with proper type handling
-            error_content = MessageContent(text=f"Er is een fout opgetreden: {str(e)}")
-            yield error_content
+            # Create a text content object
+            from src.models.messages import TextContent
 
-    async def _get_stream(self, message_history: list, tools: list) -> AsyncGenerator:
-        """
-        Get the stream from the parent class.
-        """
-        return await self.client.messages.create(
-            model=self.config.model, messages=message_history, tools=tools, stream=True
-        )
+            yield TextContent(content=f"Er is een fout opgetreden: {str(e)}")
