@@ -195,7 +195,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
-        Deze functie handelt elk bericht van de gebruiker af.
+        Deze functie handelt elk bericht van de gebruiker af..
         We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
         in één keer overkomen (en dus niet gedeeltelijk) bij een trage verbinding.
         """
@@ -693,6 +693,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             buffered_content = []
             self.logger.info("Starting to buffer all content chunks...")
 
+            # Get the stream from the parent class
+            stream = await self._get_stream(message_history, anthropic_tools)
+
             async for content in self.handle_stream(stream, tools):
                 if self.config.debug_mode:
                     self.logger.debug(f"Buffering content chunk: {str(content)[:100]}...")
@@ -706,5 +709,14 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         except Exception as e:
             self.logger.error(f"Error during content buffering: {str(e)}", exc_info=True)
-            # Use proper MessageContent creation method
-            yield MessageContent(text=f"Er is een fout opgetreden: {str(e)}")
+            # Create MessageContent with proper type handling
+            error_content = MessageContent(text=f"Er is een fout opgetreden: {str(e)}")
+            yield error_content
+
+    async def _get_stream(self, message_history: list, tools: list) -> AsyncGenerator:
+        """
+        Get the stream from the parent class.
+        """
+        return await self.client.messages.create(
+            model=self.config.model, messages=message_history, tools=tools, stream=True
+        )
