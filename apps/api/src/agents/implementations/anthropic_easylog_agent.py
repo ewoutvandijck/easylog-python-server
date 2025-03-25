@@ -40,6 +40,7 @@ class AnthropicEasylogAgentConfig(BaseModel):
     debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
     image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
     image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
+    model: str = Field(default="claude-3-sonnet-20240229", description="The Anthropic model to use")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
