@@ -40,8 +40,6 @@ class AnthropicEasylogAgentConfig(BaseModel):
     debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
     image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
     image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
-    model: str = Field(default="claude-3-sonnet-20240229", description="The Anthropic model to use")
-    max_tokens: int = Field(default=4096, description="Maximum number of tokens to generate")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -197,7 +195,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
-        Deze functie handelt elk bericht van de gebruiker af..
+        Deze functie handelt elk bericht van de gebruiker af.
         We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
         in één keer overkomen (en dus niet gedeeltelijk) bij een trage verbinding.
         """
@@ -238,7 +236,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_store_memory(memory: str) -> str:
             """
-            Store a memory in the databasce.
+            Store a memory in the database.
             """
             current_memory = self.get_metadata("memories", default=[])
             current_memory.append(memory)
@@ -691,34 +689,84 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
+        buffered_content = []
+        stream = await self.client.messages.create(
+            # Gebruik Claude 3.7 Sonnet model
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=2048,
+            system=f"""Je bent een vriendelijke en behulpzame data-analist voor EasyLog.
+Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
+
+### BELANGRIJKE REGELS:
+- Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!
+- Help de gebruiker patronen te ontdekken in de controlegegevens
+- Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
+- Gebruik grafieken en tabellen waar mogelijk (markdown)
+- Wees proactief in het suggereren van analyses die nuttig kunnen zijn
+
+### Beschikbare tools:
+- tool_get_easylog_data: Haalt de laatste controles op uit de EasyLog database
+- tool_generate_monthly_report: Maakt een maandrapport met statistieken
+- tool_get_object_history: Haalt de geschiedenis van een specifiek object op
+- tool_store_memory: Slaat belangrijke informatie op voor later gebruik
+- tool_clear_memories: Wist alle opgeslagen herinneringen
+- tool_search_pdf: Zoek een PDF in de kennisbank
+
+### Gebruik van de tool_search_pdf
+Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
+
+### Core memories
+Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
+
+Voorbeelden van belangrijke herinneringen om op te slaan:
+- Naam van de gebruiker (bijv. "Naam: Jan")
+- Functie (bijv. "Functie: Data Analist")
+- Afdeling (bijv. "Afdeling: Financiën")
+- Voorkeuren voor rapportages (bijv. "Voorkeur: wekelijkse rapportages")
+- Specifieke behoeften voor data-analyse (bijv. "Behoefte: focus op niet-conforme objecten")
+
+Je huidige core memories zijn:
+{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
+
+### Data analyse tips:
+- Zoek naar trends over tijd
+- Identificeer objecten met hoog risico (veel 'niet akkoord' statussen)
+- Wijs op ongewone of afwijkende resultaten
+- Geef context bij de cijfers waar mogelijk
+- Vat grote datasets bondig samen
+            """,
+            messages=message_history,
+            tools=anthropic_tools,
+            stream=True,
+        )
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
+
+        if execution_time > 5.0:
+            logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
+
+        # Volledig bufferen van alle content om te voorkomen dat base64-afbeeldingen corrupt raken
         try:
-            buffered_content = []
+            # Verzamel alle content in een buffer
+        buffered_content = []
             self.logger.info("Starting to buffer all content chunks...")
 
-            # Create the Anthropic API request directly
-            response = await self.client.messages.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                messages=message_history,
-                tools=anthropic_tools,
-                stream=True,
-            )
-
-            # Use the parent's handle_stream method
-            async for content in self.handle_stream(response, tools):
-                if self.config.debug_mode:
+        async for content in self.handle_stream(stream, tools):
+            if self.config.debug_mode:
                     self.logger.debug(f"Buffering content chunk: {str(content)[:100]}...")
                 buffered_content.append(content)
 
             self.logger.info(f"Buffering complete. Collected {len(buffered_content)} content chunks.")
 
-            # After all content is buffered, yield each item
+            # Na volledige buffering, stuur alles in één keer
             for content in buffered_content:
                 yield content
 
-        except Exception as e:
+            except Exception as e:
             self.logger.error(f"Error during content buffering: {str(e)}", exc_info=True)
-            # Create a text content object
-            from src.models.messages import TextContent
-
-            yield TextContent(content=f"Er is een fout opgetreden: {str(e)}")
+            # Stuur een foutmelding als er iets misgaat
+            yield MessageContent(
+                type="text", text=f"Er is een fout opgetreden tijdens het verwerken van de afbeeldingen: {str(e)}"
+            )
