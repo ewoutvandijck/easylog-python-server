@@ -1,4 +1,5 @@
 # Python standard library imports
+import asyncio
 import io
 import json
 import re
@@ -485,18 +486,32 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Probeer elke mogelijke padvariant
                 image_data = None
                 last_error = None
+                max_retries = 2  # Aantal keer dat we proberen te laden bij netwerkfouten
 
                 for path in possible_paths:
-                    try:
-                        image_data = await self.load_image(_id, path)
-                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
+                    retry_count = 0
+                    while retry_count <= max_retries and image_data is None:
+                        try:
+                            image_data = await self.load_image(_id, path)
+                            self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
+                            break
+                        except Exception as e:
+                            last_error = e
+                            retry_count += 1
+                            if retry_count <= max_retries:
+                                self.logger.warning(f"[IMAGE] Poging {retry_count} mislukt, proberen opnieuw...")
+                                # Korte pauze voor volgende poging
+                                await asyncio.sleep(0.5)
+
+                    if image_data is not None:
                         break
-                    except Exception as e:
-                        last_error = e
-                        continue
 
                 if image_data is None:
                     raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
+
+                # Valideer dat we een geldige afbeelding hebben
+                if not hasattr(image_data, "size") or not image_data.size:
+                    raise ValueError("Ongeldige afbeeldingsdata ontvangen")
 
                 # Bepaal originele grootte
                 with io.BytesIO() as buffer:
@@ -520,6 +535,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     max_width = 450
                     quality = 45
 
+                # Voor zeer slechte verbindingen: nog kleiner en sterker gecomprimeerd
+                if original_size > 2 * 1024 * 1024:  # > 2 MB
+                    max_width = 400
+                    quality = 35
+
                 # Resize indien nodig
                 if original_width > max_width:
                     scale_factor = max_width / original_width
@@ -536,12 +556,24 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     image_data = background
 
                 # Comprimeer de afbeelding
-                with io.BytesIO() as buffer:
-                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
-                    buffer.seek(0)
-                    compressed_data = buffer.getvalue()
-                    compressed_size = len(compressed_data)
-                    compressed_size_kb = compressed_size / 1024
+                compressed_data = None
+                for attempt in range(2):  # Meerdere pogingen om te comprimeren
+                    try:
+                        with io.BytesIO() as buffer:
+                            image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
+                            buffer.seek(0)
+                            compressed_data = buffer.getvalue()
+                            if compressed_data:  # Controleer of we valide data hebben
+                                break
+                    except Exception as e:
+                        self.logger.warning(f"[IMAGE] Compressie poging {attempt + 1} mislukt: {e}")
+                        quality -= 10  # Verlaag kwaliteit bij volgende poging
+
+                if not compressed_data:
+                    raise ValueError("Kon afbeelding niet comprimeren")
+
+                compressed_size = len(compressed_data)
+                compressed_size_kb = compressed_size / 1024
 
                 # Extra compressie alleen als echt nodig (> 150KB)
                 if compressed_size > 150 * 1024:
@@ -682,6 +714,8 @@ Je huidige core memories zijn:
         # voor streaming problemen bij slechte internetverbindingen
         has_image_content = False
         image_buffer = []
+        image_chunks = []  # Specifiek voor afbeeldingen
+        text_after_image = []  # Voor tekst na afbeeldingen
 
         async for content in self.handle_stream(stream, tools):
             # Controleer of we afbeeldingen hebben gedetecteerd
@@ -689,17 +723,44 @@ Je huidige core memories zijn:
                 # Afbeelding gedetecteerd, schakel over naar buffermodus
                 has_image_content = True
                 self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
+                # Voeg deze afbeelding toe aan de speciale afbeeldingsbuffer
+                image_chunks.append(content)
                 image_buffer.append(content)
             elif has_image_content:
-                # We hebben al een afbeelding gezien, blijf alles bufferen
-                image_buffer.append(content)
+                # We hebben al een afbeelding gezien
+                if hasattr(content, "type") and content.type == "text":
+                    # Tekst na afbeelding, hou apart voor betere recovery
+                    text_after_image.append(content)
+                    image_buffer.append(content)
+                else:
+                    # Andere content, gewoon bufferen
+                    image_buffer.append(content)
             else:
                 # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
                 yield content
 
-        # Als er afbeeldingen waren, stuur de gebufferde content nu
-        if has_image_content and image_buffer:
-            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+        # Verzenden van gebufferde content
+        if has_image_content:
+            # Slimme verzendlogica voor afbeeldingen en tekst
+            if len(image_chunks) == 1:
+                # Slechts één afbeelding, verzend als geheel
+                self.logger.info(
+                    f"Verzenden van complete gebufferde respons met 1 afbeelding ({len(image_buffer)} delen)"
+                )
+                for chunk in image_buffer:
+                    yield chunk
+            else:
+                # Meerdere afbeeldingen, verzend één voor één met tekst ertussen
+                self.logger.info(f"Verzenden van {len(image_chunks)} afbeeldingen met beschermde buffering")
+
+                current_image_index = 0
+                for chunk in image_buffer:
+                    if hasattr(chunk, "type") and chunk.type == "image":
+                        current_image_index += 1
+                        self.logger.info(f"Verzenden van afbeelding {current_image_index} van {len(image_chunks)}")
+
+                    # Verzend elk deel met een kleine pauze voor betere stabiliteit
+                    yield chunk
+                    if hasattr(chunk, "type") and chunk.type == "image":
+                        # Korte pauze na elke afbeelding om de client tijd te geven voor verwerking
+                        await asyncio.sleep(0.1)
