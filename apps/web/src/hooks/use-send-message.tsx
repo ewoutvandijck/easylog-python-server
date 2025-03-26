@@ -1,41 +1,43 @@
-import {
-  MessageContents,
-  MessageCreateInput,
-  MessageCreateInputContentInner
-} from '@/lib/api/generated-client';
+import { MessageCreateInput } from '@/lib/api/generated-client';
 import useConnections from './use-connections';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { toast } from 'sonner';
-import useThreadMessages from './use-thread-messages';
-import { useCallback } from 'react';
+
+import { useCallback, useEffect } from 'react';
 import { atom, useAtom } from 'jotai';
 import useConfigurations from './use-configurations';
 
-const assistantMessageAtom = atom<{
-  role: 'assistant';
-  contents: MessageContents[];
-} | null>(null);
-const userMessageAtom = atom<{
-  role: 'user';
-  contents: MessageCreateInputContentInner[];
-} | null>(null);
+import { Message } from '@/app/schemas/messages';
+import { messageContentSchema } from '@/app/schemas/message-contents';
+import useThreadId from './use-thread-id';
+
 const loadingAtom = atom<boolean>(false);
+const userMessageAtom = atom<Message | null>(null);
+const assistantMessageAtom = atom<Message | null>(null);
 
 const useSendMessage = () => {
   const { activeConnection } = useConnections();
   const { activeConfiguration } = useConfigurations();
 
-  const { refetch } = useThreadMessages();
-
-  const [assistantMessage, setAssistantMessage] = useAtom(assistantMessageAtom);
-  const [userMessage, setUserMessage] = useAtom(userMessageAtom);
   const [isLoading, setIsLoading] = useAtom(loadingAtom);
+  const [userMessage, setUserMessage] = useAtom(userMessageAtom);
+  const [assistantMessage, setAssistantMessage] = useAtom(assistantMessageAtom);
+
+  const threadId = useThreadId();
+
+  useEffect(() => {
+    setAssistantMessage(null);
+    setUserMessage(null);
+  }, [setAssistantMessage, setUserMessage, threadId]);
 
   const sendMessage = useCallback(
     async (threadId: string, message: MessageCreateInput) => {
       setUserMessage({
-        role: 'user',
-        contents: message.content
+        role: 'user' as const,
+        contents: message.content.map((content) => ({
+          type: 'text' as const,
+          content: content.content
+        }))
       });
 
       setIsLoading(true);
@@ -61,10 +63,33 @@ const useSendMessage = () => {
             }
 
             if (ev.event === 'delta') {
-              setAssistantMessage((prev) => ({
-                role: 'assistant',
-                contents: [...(prev?.contents ?? []), data]
-              }));
+              const content = messageContentSchema.parse(data);
+
+              setAssistantMessage((prev) => {
+                const newContents = [...(prev?.contents ?? [])];
+                const lastContent = newContents[newContents.length - 1];
+
+                if (
+                  content.type === 'text_delta' &&
+                  lastContent?.type === 'text_delta'
+                ) {
+                  lastContent.content = lastContent.content + content.content;
+                } else if (
+                  content.type === 'text' &&
+                  lastContent?.type === 'text_delta'
+                ) {
+                  // @ts-expect-error - TODO: fix this
+                  lastContent.type = 'text';
+                  lastContent.content = content.content;
+                } else {
+                  newContents.push(content);
+                }
+
+                return {
+                  role: 'assistant' as const,
+                  contents: newContents
+                };
+              });
             }
           },
           onerror(ev) {
@@ -73,30 +98,30 @@ const useSendMessage = () => {
             reject(ev);
           },
           async onopen() {
+            setAssistantMessage(() => ({
+              role: 'assistant',
+              contents: []
+            }));
             setIsLoading(true);
           },
           async onclose() {
-            await refetch();
             setIsLoading(false);
-            setAssistantMessage(null);
-            setUserMessage(null);
             resolve(void 0);
           }
         });
       });
     },
     [
-      activeConnection.secret,
-      activeConnection.url,
-      activeConfiguration?.easylogApiKey,
-      refetch,
-      setAssistantMessage,
+      setUserMessage,
       setIsLoading,
-      setUserMessage
+      activeConnection.url,
+      activeConnection.secret,
+      activeConfiguration?.easylogApiKey,
+      setAssistantMessage
     ]
   );
 
-  return { sendMessage, assistantMessage, userMessage, isLoading };
+  return { sendMessage, isLoading, userMessage, assistantMessage };
 };
 
 export default useSendMessage;

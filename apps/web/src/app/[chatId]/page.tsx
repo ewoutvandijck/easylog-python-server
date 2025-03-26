@@ -1,5 +1,6 @@
 import ChatBubbles from '@/components/chat/ChatBubbles';
 import ChatFooter from '@/components/chat/ChatFooter';
+
 import AppHeader from '@/components/shared/AppHeader';
 import {
   Breadcrumb,
@@ -34,6 +35,7 @@ export default async function Chat({
         </Breadcrumb>
       </AppHeader>
       <ChatBubbles />
+
       <Separator />
       <ChatFooter />
     </div>

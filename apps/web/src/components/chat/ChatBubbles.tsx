@@ -2,22 +2,22 @@
 
 import useThreadMessages from '@/hooks/use-thread-messages';
 import ChatBubble from './ChatBubble';
-import useSendMessage from '@/hooks/use-send-message';
 import { useRef, useEffect } from 'react';
+
+import useSendMessage from '@/hooks/use-send-message';
 
 const ChatBubbles = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messageData, isLoading } = useThreadMessages();
-
-  const { assistantMessage, userMessage } = useSendMessage();
+  const { userMessage, assistantMessage } = useSendMessage();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current?.scrollHeight,
       behavior: 'smooth'
     });
-  }, [messageData, assistantMessage, userMessage]);
+  }, [messageData]);
 
   if (isLoading)
     return <div className="flex flex-col flex-1 gap-4">Loading...</div>;
@@ -27,20 +27,30 @@ const ChatBubbles = () => {
       className="h-full max-h-full overflow-y-auto flex flex-col gap-4 p-10"
       ref={scrollRef}
     >
-      {messageData?.pages.map((page) =>
-        page.map((message) => (
+      {messageData?.pages
+        .flatMap((page) => page)
+        .map((message, messageIndex) => (
           <ChatBubble
-            key={message.id}
-            contents={message.contents!}
-            role={message.role as 'user' | 'assistant'}
+            key={`${messageIndex}`}
+            contents={message.contents}
+            role={message.role}
           />
-        ))
-      )}
+        ))}
+
       {userMessage && (
-        <ChatBubble contents={userMessage.contents} role="user" />
+        <ChatBubble
+          key={`${userMessage.role}`}
+          contents={userMessage.contents}
+          role={userMessage.role}
+        />
       )}
+
       {assistantMessage && (
-        <ChatBubble contents={assistantMessage.contents} role="assistant" />
+        <ChatBubble
+          key={`${assistantMessage.role}`}
+          contents={assistantMessage.contents}
+          role={assistantMessage.role}
+        />
       )}
     </div>
   );

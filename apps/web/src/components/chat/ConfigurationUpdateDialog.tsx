@@ -90,7 +90,6 @@ const ConfigurationUpdateDialog = ({
                   <JsonEditor
                     data={field.value}
                     setData={(data) => {
-                      console.log(data);
                       field.onChange(data);
                     }}
                     className="w-full"

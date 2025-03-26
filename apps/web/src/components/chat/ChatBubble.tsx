@@ -1,9 +1,9 @@
-import { MessageContents } from '@/lib/api/generated-client';
+import { MessageContent } from '@/app/schemas/message-contents';
 import { cn } from '@/lib/utils';
 
 export interface ChatBubbleProps {
-  contents: Partial<MessageContents>[];
-  role: 'user' | 'assistant';
+  contents: MessageContent[];
+  role: 'user' | 'assistant' | 'system' | 'developer';
 }
 
 const ChatBubble = ({ contents, role }: ChatBubbleProps) => {
@@ -16,7 +16,8 @@ const ChatBubble = ({ contents, role }: ChatBubbleProps) => {
     >
       {contents.map((content, i) => (
         <span key={i} className="animate-in fade-in">
-          {content.content}
+          {content.type === 'text' && content.content}
+          {content.type === 'text_delta' && content.content}
         </span>
       ))}
     </div>
