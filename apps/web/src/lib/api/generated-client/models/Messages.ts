@@ -36,7 +36,7 @@ import {
 } from './MessageContents';
 
 /**
- * Represents a Messages record
+ * Represents a messages record
  * @export
  * @interface Messages
  */

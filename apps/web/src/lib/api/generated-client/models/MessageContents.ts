@@ -26,9 +26,16 @@ import {
   MessagesToJSON,
   MessagesToJSONTyped
 } from './Messages';
+import type { MessageContentFormat } from './MessageContentFormat';
+import {
+  MessageContentFormatFromJSON,
+  MessageContentFormatFromJSONTyped,
+  MessageContentFormatToJSON,
+  MessageContentFormatToJSONTyped
+} from './MessageContentFormat';
 
 /**
- * Represents a MessageContents record
+ * Represents a message_contents record
  *
  * @export
  * @interface MessageContents
@@ -86,6 +93,11 @@ export interface MessageContents {
   content_type?: string | null;
   /**
    * @memberof MessageContents
+   * @type {MessageContentFormat}
+   */
+  content_format: MessageContentFormat;
+  /**
+   * @memberof MessageContents
    * @type {string}
    */
   data?: string | null;
@@ -109,6 +121,8 @@ export function instanceOfMessageContents(
   if (!('message_id' in value) || value['message_id'] === undefined)
     return false;
   if (!('type' in value) || value['type'] === undefined) return false;
+  if (!('content_format' in value) || value['content_format'] === undefined)
+    return false;
   if (!('created_at' in value) || value['created_at'] === undefined)
     return false;
   if (!('updated_at' in value) || value['updated_at'] === undefined)
@@ -143,6 +157,7 @@ export function MessageContentsFromJSONTyped(
     content: json['content'] == null ? undefined : json['content'],
     content_type:
       json['content_type'] == null ? undefined : json['content_type'],
+    content_format: MessageContentFormatFromJSON(json['content_format']),
     data: json['data'] == null ? undefined : json['data'],
     created_at: new Date(json['created_at']),
     updated_at: new Date(json['updated_at'])
@@ -172,6 +187,7 @@ export function MessageContentsToJSONTyped(
     tool_use_input: JSON.stringify(value['tool_use_input']),
     content: value['content'],
     content_type: value['content_type'],
+    content_format: MessageContentFormatToJSON(value['content_format']),
     data: value['data'],
     created_at: value['created_at'].toISOString(),
     updated_at: value['updated_at'].toISOString()

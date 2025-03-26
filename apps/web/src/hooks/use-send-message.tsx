@@ -47,6 +47,9 @@ const useSendMessage = () => {
         `${activeConnection.url}/threads/${threadId}/messages`
       );
 
+      let toolResultBuffer: string | null = null;
+      let toolResultBufferFormat: 'image' | 'unknown' | null = null;
+
       await new Promise(async (resolve, reject) => {
         await fetchEventSource(endpointURL.toString(), {
           method: 'POST',
@@ -82,10 +85,16 @@ const useSendMessage = () => {
                   // @ts-expect-error - TODO: fix this
                   lastContent.type = 'text';
                   lastContent.content = content.content;
-                } else if (
-                  content.type === 'text' ||
-                  content.type === 'text_delta'
-                ) {
+                } else if (content.type === 'tool_result_delta') {
+                  toolResultBuffer = (toolResultBuffer ?? '') + content.content;
+                  toolResultBufferFormat = content.content_format;
+                } else if (content.type === 'tool_result') {
+                  content.content = toolResultBuffer ?? '';
+                  content.content_format = toolResultBufferFormat ?? 'unknown';
+                  toolResultBuffer = null;
+                  toolResultBufferFormat = null;
+                  newContents.push(content);
+                } else {
                   newContents.push(content);
                 }
 

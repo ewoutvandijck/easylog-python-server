@@ -16,37 +16,37 @@ import { mapValues } from '../runtime';
 /**
  * 
  * @export
- * @interface ToolResultContent
+ * @interface ToolResultDeltaContent
  */
-export interface ToolResultContent {
+export interface ToolResultDeltaContent {
     /**
      * 
      * @type {string}
-     * @memberof ToolResultContent
+     * @memberof ToolResultDeltaContent
      */
-    type?: ToolResultContentTypeEnum;
+    type?: ToolResultDeltaContentTypeEnum;
     /**
      * The ID of the tool use.
      * @type {string}
-     * @memberof ToolResultContent
+     * @memberof ToolResultDeltaContent
      */
     tool_use_id: string;
     /**
      * The result of the tool.
      * @type {string}
-     * @memberof ToolResultContent
+     * @memberof ToolResultDeltaContent
      */
     content: string;
     /**
      * The format of the content.
      * @type {string}
-     * @memberof ToolResultContent
+     * @memberof ToolResultDeltaContent
      */
-    content_format?: ToolResultContentContentFormatEnum;
+    content_format?: ToolResultDeltaContentContentFormatEnum;
     /**
      * Whether the tool result is an error.
      * @type {boolean}
-     * @memberof ToolResultContent
+     * @memberof ToolResultDeltaContent
      */
     is_error?: boolean;
 }
@@ -55,35 +55,35 @@ export interface ToolResultContent {
 /**
  * @export
  */
-export const ToolResultContentTypeEnum = {
-    ToolResult: 'tool_result'
+export const ToolResultDeltaContentTypeEnum = {
+    ToolResultDelta: 'tool_result_delta'
 } as const;
-export type ToolResultContentTypeEnum = typeof ToolResultContentTypeEnum[keyof typeof ToolResultContentTypeEnum];
+export type ToolResultDeltaContentTypeEnum = typeof ToolResultDeltaContentTypeEnum[keyof typeof ToolResultDeltaContentTypeEnum];
 
 /**
  * @export
  */
-export const ToolResultContentContentFormatEnum = {
+export const ToolResultDeltaContentContentFormatEnum = {
     Image: 'image',
     Unknown: 'unknown'
 } as const;
-export type ToolResultContentContentFormatEnum = typeof ToolResultContentContentFormatEnum[keyof typeof ToolResultContentContentFormatEnum];
+export type ToolResultDeltaContentContentFormatEnum = typeof ToolResultDeltaContentContentFormatEnum[keyof typeof ToolResultDeltaContentContentFormatEnum];
 
 
 /**
- * Check if a given object implements the ToolResultContent interface.
+ * Check if a given object implements the ToolResultDeltaContent interface.
  */
-export function instanceOfToolResultContent(value: object): value is ToolResultContent {
+export function instanceOfToolResultDeltaContent(value: object): value is ToolResultDeltaContent {
     if (!('tool_use_id' in value) || value['tool_use_id'] === undefined) return false;
     if (!('content' in value) || value['content'] === undefined) return false;
     return true;
 }
 
-export function ToolResultContentFromJSON(json: any): ToolResultContent {
-    return ToolResultContentFromJSONTyped(json, false);
+export function ToolResultDeltaContentFromJSON(json: any): ToolResultDeltaContent {
+    return ToolResultDeltaContentFromJSONTyped(json, false);
 }
 
-export function ToolResultContentFromJSONTyped(json: any, ignoreDiscriminator: boolean): ToolResultContent {
+export function ToolResultDeltaContentFromJSONTyped(json: any, ignoreDiscriminator: boolean): ToolResultDeltaContent {
     if (json == null) {
         return json;
     }
@@ -97,11 +97,11 @@ export function ToolResultContentFromJSONTyped(json: any, ignoreDiscriminator: b
     };
 }
 
-export function ToolResultContentToJSON(json: any): ToolResultContent {
-    return ToolResultContentToJSONTyped(json, false);
+export function ToolResultDeltaContentToJSON(json: any): ToolResultDeltaContent {
+    return ToolResultDeltaContentToJSONTyped(json, false);
 }
 
-export function ToolResultContentToJSONTyped(value?: ToolResultContent | null, ignoreDiscriminator: boolean = false): any {
+export function ToolResultDeltaContentToJSONTyped(value?: ToolResultDeltaContent | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

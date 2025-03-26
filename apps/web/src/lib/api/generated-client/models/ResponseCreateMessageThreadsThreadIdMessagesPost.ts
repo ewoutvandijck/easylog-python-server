@@ -55,6 +55,13 @@ import {
     TextContentToJSON,
     TextContentToJSONTyped,
 } from './TextContent';
+import type { ToolResultDeltaContent } from './ToolResultDeltaContent';
+import {
+    ToolResultDeltaContentFromJSON,
+    ToolResultDeltaContentFromJSONTyped,
+    ToolResultDeltaContentToJSON,
+    ToolResultDeltaContentToJSONTyped,
+} from './ToolResultDeltaContent';
 
 /**
  * 
@@ -99,6 +106,12 @@ export interface ResponseCreateMessageThreadsThreadIdMessagesPost {
      */
     tool_use_id: string;
     /**
+     * The format of the content.
+     * @type {string}
+     * @memberof ResponseCreateMessageThreadsThreadIdMessagesPost
+     */
+    content_format?: ResponseCreateMessageThreadsThreadIdMessagesPostContentFormatEnum;
+    /**
      * Whether the tool result is an error.
      * @type {boolean}
      * @memberof ResponseCreateMessageThreadsThreadIdMessagesPost
@@ -121,10 +134,20 @@ export const ResponseCreateMessageThreadsThreadIdMessagesPostTypeEnum = {
     TextDelta: 'text_delta',
     ToolUse: 'tool_use',
     ToolResult: 'tool_result',
+    ToolResultDelta: 'tool_result_delta',
     Image: 'image',
     Pdf: 'pdf'
 } as const;
 export type ResponseCreateMessageThreadsThreadIdMessagesPostTypeEnum = typeof ResponseCreateMessageThreadsThreadIdMessagesPostTypeEnum[keyof typeof ResponseCreateMessageThreadsThreadIdMessagesPostTypeEnum];
+
+/**
+ * @export
+ */
+export const ResponseCreateMessageThreadsThreadIdMessagesPostContentFormatEnum = {
+    Image: 'image',
+    Unknown: 'unknown'
+} as const;
+export type ResponseCreateMessageThreadsThreadIdMessagesPostContentFormatEnum = typeof ResponseCreateMessageThreadsThreadIdMessagesPostContentFormatEnum[keyof typeof ResponseCreateMessageThreadsThreadIdMessagesPostContentFormatEnum];
 
 /**
  * @export
@@ -166,6 +189,7 @@ export function ResponseCreateMessageThreadsThreadIdMessagesPostFromJSONTyped(js
         'name': json['name'],
         'input': json['input'],
         'tool_use_id': json['tool_use_id'],
+        'content_format': json['content_format'] == null ? undefined : json['content_format'],
         'is_error': json['is_error'] == null ? undefined : json['is_error'],
         'content_type': json['content_type'] == null ? undefined : json['content_type'],
     };
@@ -188,6 +212,7 @@ export function ResponseCreateMessageThreadsThreadIdMessagesPostToJSONTyped(valu
         'name': value['name'],
         'input': value['input'],
         'tool_use_id': value['tool_use_id'],
+        'content_format': value['content_format'],
         'is_error': value['is_error'],
         'content_type': value['content_type'],
     };
