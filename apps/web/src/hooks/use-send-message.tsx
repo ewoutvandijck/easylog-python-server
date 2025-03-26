@@ -48,7 +48,7 @@ const useSendMessage = () => {
       );
 
       let toolResultBuffer: string | null = null;
-      let toolResultBufferFormat: 'image' | 'unknown' | null = null;
+      let toolResultBufferFormat: 'image' | 'chart' | 'unknown' | null = null;
 
       await new Promise(async (resolve, reject) => {
         await fetchEventSource(endpointURL.toString(), {

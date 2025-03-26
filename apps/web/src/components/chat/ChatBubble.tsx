@@ -100,6 +100,9 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
           content.content_format === 'image' ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={content.content} alt="tool result" className="rounded-lg" />
+        ) : content.type === 'tool_result' &&
+          content.content_format === 'chart' ? (
+          <pre className="whitespace-pre-wrap">{content.content}</pre>
         ) : null}
       </span>
     </div>

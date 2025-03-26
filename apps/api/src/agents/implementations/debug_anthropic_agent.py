@@ -13,6 +13,14 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
+from src.models.charts import (
+    AxisConfig,
+    Chart,
+    ChartType,
+    SeriesConfig,
+    StyleConfig,
+    TooltipConfig,
+)
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
@@ -210,12 +218,46 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     formats=[format_from_mime_type[mime_type]],
                 )
 
+        def tool_example_chart() -> Chart:
+            """
+            Return an example chart.
+            """
+            return Chart(
+                type=ChartType.BAR,
+                title="Browser Usage",
+                description="January - June 2024",
+                data=[
+                    {"browser": "chrome", "visitors": 187},
+                    {"browser": "safari", "visitors": 200},
+                    {"browser": "firefox", "visitors": 275},
+                ],
+                series=[
+                    SeriesConfig(
+                        label="Visitors",
+                        data_key="visitors",
+                        style=StyleConfig(
+                            radius=8, stroke_width=2, fill="var(--chart-1)"
+                        ),
+                    )
+                ],
+                x_axis=AxisConfig(
+                    show=True,
+                    tick_line=False,
+                    tick_margin=10,
+                    axis_line=False,
+                    grid_lines=True,
+                ),
+                tooltip=TooltipConfig(show=True, hide_label=True),
+                active_index=2,
+            )
+
         tools = [
             tool_search_pdf,
             tool_store_memory,
             tool_clear_memories,
             tool_load_image,
             tool_download_image_from_url,
+            tool_example_chart,
             *self._planning_tools.all_tools,
         ]
 

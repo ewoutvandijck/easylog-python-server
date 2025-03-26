@@ -37,9 +37,14 @@ const ChatBubbles = () => {
                 return true;
               }
 
+              if (content.type === 'tool_result') {
+                console.log(content);
+              }
+
               if (
                 content.type === 'tool_result' &&
-                content.content_format === 'image'
+                (content.content_format === 'image' ||
+                  content.content_format === 'chart')
               ) {
                 message.role = 'assistant';
                 return true;

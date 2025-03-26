@@ -32,7 +32,7 @@ export const toolResultContentSchema = z.object({
   tool_use_id: z.string().describe('The ID of the tool use.'),
   content: z.string().describe('The result of the tool.'),
   content_format: z
-    .enum(['image', 'unknown'])
+    .enum(['image', 'chart', 'unknown'])
     .default('unknown')
     .describe('The format of the content.'),
   is_error: z

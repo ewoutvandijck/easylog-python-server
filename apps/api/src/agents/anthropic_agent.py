@@ -325,7 +325,7 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         )
                         tool_result.content_format = "image"
                     elif isinstance(tool_result_content, Chart):
-                        tool_result.content = str(tool_result_content)
+                        tool_result.content = tool_result_content.model_dump_json()
                         tool_result.content_format = "chart"
                     else:
                         tool_result.content = str(tool_result_content)
