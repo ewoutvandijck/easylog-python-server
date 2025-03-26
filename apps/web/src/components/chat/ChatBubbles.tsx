@@ -37,7 +37,10 @@ const ChatBubbles = () => {
                 return true;
               }
 
-              if (content.type === 'tool_result') {
+              if (
+                content.type === 'tool_result' &&
+                content.content_format === 'image'
+              ) {
                 message.role = 'assistant';
                 return true;
               }
