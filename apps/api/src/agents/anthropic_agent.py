@@ -19,6 +19,7 @@ from src.agents.utils.resize_image_to_byte_size import resize_image_to_byte_size
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
+from src.models.charts import Chart
 from src.models.messages import (
     ImageContent,
     Message,
@@ -323,6 +324,9 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                             ),
                         )
                         tool_result.content_format = "image"
+                    elif isinstance(tool_result_content, Chart):
+                        tool_result.content = str(tool_result_content)
+                        tool_result.content_format = "chart"
                     else:
                         tool_result.content = str(tool_result_content)
 

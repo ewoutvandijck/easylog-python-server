@@ -124,6 +124,7 @@ enum message_role {
 
 enum message_content_format {
     image
+    chart
     unknown
 
     @@map("message_content_format")

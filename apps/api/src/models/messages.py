@@ -35,7 +35,9 @@ class ToolResultContent(BaseModel):
 
     content: str = Field(..., description="The result of the tool.")
 
-    content_format: Literal["image", "unknown"] = Field(default="unknown", description="The format of the content.")
+    content_format: Literal["image", "chart", "unknown"] = Field(
+        default="unknown", description="The format of the content."
+    )
 
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
