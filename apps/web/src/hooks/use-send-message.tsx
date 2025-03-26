@@ -4,22 +4,23 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { toast } from 'sonner';
 
 import { useCallback, useEffect } from 'react';
-import { atom, useAtom } from 'jotai';
+import { useAtom } from 'jotai';
 import useConfigurations from './use-configurations';
 
-import { Message } from '@/app/schemas/messages';
 import { messageContentSchema } from '@/app/schemas/message-contents';
 import useThreadId from './use-thread-id';
-
-const loadingAtom = atom<boolean>(false);
-const userMessageAtom = atom<Message | null>(null);
-const assistantMessageAtom = atom<Message | null>(null);
+import {
+  assistantMessageAtom,
+  loadingAtom,
+  userMessageAtom
+} from '@/atoms/messages';
 
 const useSendMessage = () => {
   const { activeConnection } = useConnections();
   const { activeConfiguration } = useConfigurations();
 
   const [isLoading, setIsLoading] = useAtom(loadingAtom);
+
   const [userMessage, setUserMessage] = useAtom(userMessageAtom);
   const [assistantMessage, setAssistantMessage] = useAtom(assistantMessageAtom);
 
@@ -81,7 +82,10 @@ const useSendMessage = () => {
                   // @ts-expect-error - TODO: fix this
                   lastContent.type = 'text';
                   lastContent.content = content.content;
-                } else {
+                } else if (
+                  content.type === 'text' ||
+                  content.type === 'text_delta'
+                ) {
                   newContents.push(content);
                 }
 

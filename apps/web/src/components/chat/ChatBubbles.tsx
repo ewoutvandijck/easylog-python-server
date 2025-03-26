@@ -4,13 +4,10 @@ import useThreadMessages from '@/hooks/use-thread-messages';
 import ChatBubble from './ChatBubble';
 import { useRef, useEffect } from 'react';
 
-import useSendMessage from '@/hooks/use-send-message';
-
 const ChatBubbles = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messageData, isLoading } = useThreadMessages();
-  const { userMessage, assistantMessage } = useSendMessage();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -29,29 +26,32 @@ const ChatBubbles = () => {
     >
       {messageData?.pages
         .flatMap((page) => page)
-        .map((message, messageIndex) => (
-          <ChatBubble
-            key={`${messageIndex}`}
-            contents={message.contents}
-            role={message.role}
-          />
-        ))}
+        .flatMap((message, messageIndex) =>
+          message.contents
+            .filter((content) => {
+              if (content.type === 'text') {
+                return true;
+              }
 
-      {userMessage && (
-        <ChatBubble
-          key={`${userMessage.role}`}
-          contents={userMessage.contents}
-          role={userMessage.role}
-        />
-      )}
+              if (content.type === 'text_delta') {
+                return true;
+              }
 
-      {assistantMessage && (
-        <ChatBubble
-          key={`${assistantMessage.role}`}
-          contents={assistantMessage.contents}
-          role={assistantMessage.role}
-        />
-      )}
+              if (content.type === 'tool_result') {
+                message.role = 'assistant';
+                return true;
+              }
+
+              return false;
+            })
+            .map((content, contentIndex) => (
+              <ChatBubble
+                key={`${messageIndex}-${contentIndex}`}
+                content={content}
+                role={message.role}
+              />
+            ))
+        )}
     </div>
   );
 };
