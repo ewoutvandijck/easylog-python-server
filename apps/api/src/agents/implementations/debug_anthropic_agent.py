@@ -14,12 +14,7 @@ from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
 from src.models.charts import (
-    AxisConfig,
     Chart,
-    ChartType,
-    SeriesConfig,
-    StyleConfig,
-    TooltipConfig,
 )
 from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
@@ -222,34 +217,25 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             """
             Return an example chart.
             """
-            return Chart(
-                type=ChartType.BAR,
-                title="Browser Usage",
-                description="January - June 2024",
-                data=[
-                    {"browser": "chrome", "visitors": 187},
-                    {"browser": "safari", "visitors": 200},
-                    {"browser": "firefox", "visitors": 275},
-                ],
-                series=[
-                    SeriesConfig(
-                        label="Visitors",
-                        data_key="visitors",
-                        style=StyleConfig(
-                            radius=8, stroke_width=2, fill="var(--chart-1)"
-                        ),
-                    )
-                ],
-                x_axis=AxisConfig(
-                    show=True,
-                    tick_line=False,
-                    tick_margin=10,
-                    axis_line=False,
-                    grid_lines=True,
-                ),
-                tooltip=TooltipConfig(show=True, hide_label=True),
-                active_index=2,
+            # Using the factory method for a more concise, user-friendly configuration
+
+            data = [
+                {"quarter": "Q1", "product_a": 120, "product_b": 90},
+                {"quarter": "Q2", "product_a": 150, "product_b": 110},
+                {"quarter": "Q3", "product_a": 180, "product_b": 130},
+                {"quarter": "Q4", "product_a": 210, "product_b": 150},
+            ]
+
+            chart = Chart.create_bar_chart(
+                title="Quarterly Sales by Product",
+                data=data,
+                x_key="quarter",
+                y_keys=["product_a", "product_b"],
+                y_labels=["Product A", "Product B"],
+                stacked=True,  # Creates a stacked bar chart
             )
+
+            return chart
 
         tools = [
             tool_search_pdf,
