@@ -14,8 +14,7 @@ const useIsConnectionHealthy = () => {
       } catch {
         return false;
       }
-    },
-    refetchInterval: (query) => (query.state.data ? 10000 : 1000)
+    }
   });
 };
 
