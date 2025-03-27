@@ -213,37 +213,15 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     formats=[format_from_mime_type[mime_type]],
                 )
 
-        def tool_example_chart() -> Chart:
-            """
-            Return an example chart.
-            """
-            # Using the factory method for a more concise, user-friendly configuration
-
-            data = [
-                {"quarter": "Q1", "product_a": 120, "product_b": 90},
-                {"quarter": "Q2", "product_a": 150, "product_b": 110},
-                {"quarter": "Q3", "product_a": 180, "product_b": 130},
-                {"quarter": "Q4", "product_a": 210, "product_b": 150},
-            ]
-
-            chart = Chart.create_bar_chart(
-                title="Quarterly Sales by Product",
-                data=data,
-                x_key="quarter",
-                y_keys=["product_a", "product_b"],
-                y_labels=["Product A", "Product B"],
-                stacked=True,  # Creates a stacked bar chart
-            )
-
-            return chart
-
         tools = [
             tool_search_pdf,
             tool_store_memory,
             tool_clear_memories,
             tool_load_image,
             tool_download_image_from_url,
-            tool_example_chart,
+            Chart.create_bar_chart,
+            Chart.create_line_chart,
+            Chart.create_pie_chart,
             *self._planning_tools.all_tools,
         ]
 

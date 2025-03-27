@@ -31,13 +31,20 @@ def function_to_anthropic_tool(func: Callable, name: str | None = None, descript
         param_type = type_hints.get(param_name, Any)
 
         # Convert Python type to JSON schema type
-        json_type = _python_type_to_json_schema(param_type)
+        json_type_info = _python_type_to_json_schema(param_type)
 
-        # Add parameter to properties
-        parameters["properties"][param_name] = {
-            "type": json_type,
-            "title": param_name.title(),
-        }
+        # Handle both string types and dictionary schema definitions
+        if isinstance(json_type_info, str):
+            parameters["properties"][param_name] = {
+                "type": json_type_info,
+                "title": param_name.title(),
+            }
+        else:
+            # For complex types like arrays, we merge the schema definition
+            parameters["properties"][param_name] = {
+                **json_type_info,
+                "title": param_name.title(),
+            }
 
         # Add required parameters (those without defaults)
         if param.default == inspect.Parameter.empty:
@@ -53,7 +60,7 @@ def function_to_anthropic_tool(func: Callable, name: str | None = None, descript
     return cast(ToolParam, tool_spec)
 
 
-def _python_type_to_json_schema(py_type: type) -> str:
+def _python_type_to_json_schema(py_type: type) -> str | dict:
     """
     Convert Python type to JSON Schema type.
 
@@ -61,15 +68,30 @@ def _python_type_to_json_schema(py_type: type) -> str:
         py_type: Python type to convert
 
     Returns:
-        Corresponding JSON Schema type as string
+        Corresponding JSON Schema type as string or dict for complex types
     """
+    # Handle basic types
     type_map = {
         str: "string",
         int: "integer",
         float: "number",
         bool: "boolean",
-        list: "array",
         dict: "object",
         Any: "string",  # Default to string for Any type
     }
-    return type_map.get(py_type, "string")
+
+    # For basic types, return the string type
+    if py_type in type_map:
+        return type_map[py_type]
+
+    # Handle List type from typing module
+    origin = getattr(py_type, "__origin__", None)
+    if origin is list or origin is list:
+        # For lists, return a more complex schema
+        return {
+            "type": "array",
+            "items": {},  # Could enhance further to specify item types
+        }
+
+    # Default fallback
+    return "string"

@@ -1,6 +1,7 @@
 import { MessageContent } from '@/app/schemas/message-contents';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { DynamicChart } from '@/components/charts/DynamicChart';
 
 export interface ChatBubbleProps {
@@ -24,6 +25,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
     >
       {content.type === 'text' || content.type === 'text_delta' ? (
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
           components={{
             // Customize link behavior
             a: ({ ...props }) => (
@@ -69,20 +71,30 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             table: ({ ...props }) => (
               <table
                 {...props}
-                className="border-collapse table-auto w-full my-2"
+                className="border-collapse table-auto w-full my-4 overflow-hidden rounded-lg"
               />
             ),
             thead: ({ ...props }) => (
-              <thead {...props} className="bg-gray-800" />
+              <thead {...props} className="bg-gray-800 text-white" />
             ),
-            tbody: ({ ...props }) => <tbody {...props} />,
+            tbody: ({ ...props }) => (
+              <tbody {...props} className="bg-gray-50 dark:bg-gray-900" />
+            ),
             tr: ({ ...props }) => (
-              <tr {...props} className="border-b border-gray-700" />
+              <tr
+                {...props}
+                className="border-b border-gray-700 even:bg-gray-100 dark:even:bg-gray-800"
+              />
             ),
             th: ({ ...props }) => (
-              <th {...props} className="px-3 py-2 text-left font-bold" />
+              <th
+                {...props}
+                className="px-4 py-3 text-left font-bold border-b-2 border-gray-600"
+              />
             ),
-            td: ({ ...props }) => <td {...props} className="px-3 py-2" />,
+            td: ({ ...props }) => (
+              <td {...props} className="px-4 py-3 border-gray-700" />
+            ),
             // Horizontal rule
             hr: ({ ...props }) => (
               <hr {...props} className="my-4 border-gray-600" />

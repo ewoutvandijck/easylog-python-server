@@ -302,6 +302,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                     if function is None:
                         raise ValueError(f"Function {function_name} not found")
 
+                    self.logger.info(f"Executing tool {function_name} with input {message_contents[-1].input}")
+
                     # Execute the tool with the provided input parameters
                     # If the tool is async (returns a coroutine), await it
                     # Otherwise, execute it synchronously

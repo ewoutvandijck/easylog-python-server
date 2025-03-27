@@ -21,6 +21,18 @@ interface DynamicChartProps {
   chartJson: string;
 }
 
+const defaultColors = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))'
+] as const;
+
+const getDefaultColor = (index: number) => {
+  return defaultColors?.[index] ?? defaultColors[0];
+};
+
 // Helper function to convert null to undefined for props
 // recharts doesn't handle null well, but requires undefined
 const nullToUndefined = <T,>(value: T | null | undefined): T | undefined => {
@@ -53,9 +65,9 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
       acc[series.data_key] = {
         label: series.label,
         color:
-          nullToUndefined(series.style?.color) ||
-          nullToUndefined(series.style?.fill) ||
-          `hsl(var(--chart-${index + 1}))`
+          nullToUndefined(series.style?.color) ??
+          nullToUndefined(series.style?.fill) ??
+          getDefaultColor(index + 1)
       };
       return acc;
     },
@@ -63,8 +75,8 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
   );
 
   // Get dimensions and margin from config or use defaults
-  const height = chartConfig.height || 300;
-  const margin = chartConfig.margin || {
+  const height = chartConfig.height ?? 300;
+  const margin = chartConfig.margin ?? {
     top: 0,
     right: 0,
     bottom: 0,
@@ -74,12 +86,12 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
   // For pie/donut charts, use larger margins by default
   const pieMargin =
     chartConfig.type === 'pie' || chartConfig.type === 'donut'
-      ? chartConfig.margin || {
+      ? (chartConfig.margin ?? {
           top: 0,
           right: 0,
           bottom: 0,
           left: 0
-        }
+        })
       : margin;
 
   const showTooltip = chartConfig.tooltip?.show !== false;
@@ -116,7 +128,7 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
               <XAxis
                 dataKey={chartConfig.series[0].data_key}
                 tickLine={chartConfig.x_axis?.tick_line}
-                tickMargin={chartConfig.x_axis?.tick_margin || 10}
+                tickMargin={chartConfig.x_axis?.tick_margin ?? 10}
                 axisLine={chartConfig.x_axis?.axis_line}
               />
               <YAxis width={40} />
@@ -132,22 +144,25 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
               {showLegend && <ChartLegend content={<ChartLegendContent />} />}
 
               {/* Skip the first series (index 0) which is used for the x-axis */}
-              {chartConfig.series.slice(1).map((series) => (
+              {chartConfig.series.slice(1).map((series, i) => (
                 <Bar
                   key={series.data_key}
                   dataKey={series.data_key}
                   name={series.label}
-                  fill={`var(--color-${series.data_key})`}
-                  stroke={
-                    nullToUndefined(series.style?.color) ||
-                    `var(--color-${series.data_key})`
+                  fill={
+                    nullToUndefined(series.style?.fill) ??
+                    getDefaultColor(i + 1)
                   }
-                  strokeWidth={nullToUndefined(series.style?.stroke_width) || 0}
+                  stroke={
+                    nullToUndefined(series.style?.color) ??
+                    getDefaultColor(i + 1)
+                  }
+                  strokeWidth={nullToUndefined(series.style?.stroke_width) ?? 0}
                   strokeDasharray={nullToUndefined(
                     series.style?.stroke_dasharray
                   )}
-                  opacity={nullToUndefined(series.style?.opacity) || 1}
-                  radius={nullToUndefined(series.style?.radius) || 4}
+                  opacity={nullToUndefined(series.style?.opacity) ?? 1}
+                  radius={nullToUndefined(series.style?.radius) ?? 4}
                   stackId={nullToUndefined(series.stack_id)}
                   animationDuration={animationDuration}
                 />
@@ -174,7 +189,7 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
               <XAxis
                 dataKey={chartConfig.series[0].data_key}
                 tickLine={chartConfig.x_axis?.tick_line}
-                tickMargin={chartConfig.x_axis?.tick_margin || 10}
+                tickMargin={chartConfig.x_axis?.tick_margin ?? 10}
                 axisLine={chartConfig.x_axis?.axis_line}
               />
               <YAxis width={40} />
@@ -190,25 +205,25 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
               {showLegend && <ChartLegend content={<ChartLegendContent />} />}
 
               {/* Skip the first series (index 0) which is used for the x-axis */}
-              {chartConfig.series.slice(1).map((series) => (
+              {chartConfig.series.slice(1).map((series, i) => (
                 <Line
                   key={series.data_key}
                   type="monotone"
                   dataKey={series.data_key}
                   name={series.label}
-                  stroke={`var(--color-${series.data_key})`}
-                  strokeWidth={nullToUndefined(series.style?.stroke_width) || 2}
+                  stroke={series.style?.color ?? getDefaultColor(i + 1)}
+                  strokeWidth={nullToUndefined(series.style?.stroke_width) ?? 2}
                   strokeDasharray={nullToUndefined(
                     series.style?.stroke_dasharray
                   )}
-                  opacity={nullToUndefined(series.style?.opacity) || 1}
+                  opacity={nullToUndefined(series.style?.opacity) ?? 1}
                   dot={{
-                    r: nullToUndefined(series.style?.radius) || 4
+                    r: nullToUndefined(series.style?.radius) ?? 4
                   }}
                   activeDot={{
                     r: nullToUndefined(series.style?.radius)
                       ? Math.min(
-                          (nullToUndefined(series.style?.radius) || 4) + 2,
+                          (nullToUndefined(series.style?.radius) ?? 4) + 2,
                           8
                         )
                       : 6
@@ -235,13 +250,13 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
                 cx="50%"
                 cy="50%"
                 outerRadius={
-                  nullToUndefined(chartConfig.series[0].style?.radius) || 80
+                  nullToUndefined(chartConfig.series[0].style?.radius) ?? 80
                 }
                 innerRadius={
                   chartConfig.type === 'donut'
-                    ? nullToUndefined(
+                    ? (nullToUndefined(
                         chartConfig.series[0].style?.inner_radius
-                      ) || 40
+                      ) ?? 40)
                     : 0
                 }
                 paddingAngle={3}
@@ -261,12 +276,11 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
                 {chartConfig.data.map((entry, index) => {
                   // Calculate which color to use
                   const colorIndex = (index % 5) + 1;
-                  const colorVar = `var(--color-${entry[chartConfig.series[0].data_key]})`;
                   const fallbackColor = `hsl(var(--chart-${colorIndex}))`;
 
                   // Get the fill color first
                   const fillColor =
-                    nullToUndefined(entry.fill) || colorVar || fallbackColor;
+                    nullToUndefined(entry.fill) ?? fallbackColor;
 
                   return (
                     <Cell
@@ -278,7 +292,7 @@ export function DynamicChart({ chartJson }: DynamicChartProps) {
                         chartConfig.series[0].style?.stroke_dasharray
                       )}
                       opacity={
-                        nullToUndefined(chartConfig.series[0].style?.opacity) ||
+                        nullToUndefined(chartConfig.series[0].style?.opacity) ??
                         1
                       }
                     />

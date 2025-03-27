@@ -35,17 +35,26 @@ const useThreadMessages = () => {
 
   return {
     ...query,
-    data: {
-      ...query.data,
-      pages: [
-        ...(query.data?.pages ?? []).slice(0, -1),
-        [
-          ...(query.data?.pages?.[query.data.pages.length - 1] ?? []),
-          userMessage,
-          assistantMessage
-        ]
-      ]
-    }
+    data: query.data
+      ? {
+          ...query.data,
+          pages: [
+            ...(query.data.pages.length > 1
+              ? query.data.pages.slice(0, -1)
+              : []),
+            [
+              ...(query.data.pages.length > 0
+                ? query.data.pages[query.data.pages.length - 1]
+                : []),
+              userMessage,
+              assistantMessage
+            ]
+          ]
+        }
+      : {
+          pages: [[userMessage, assistantMessage]],
+          pageParams: [0]
+        }
   };
 };
 
