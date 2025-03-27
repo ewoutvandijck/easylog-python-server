@@ -9,10 +9,11 @@ import useConfigurations from './use-configurations';
 
 import { messageContentSchema } from '@/app/schemas/message-contents';
 import useThreadId from './use-thread-id';
+import useThreadMessages from './use-thread-messages';
 import {
-  assistantMessageAtom,
   loadingAtom,
-  userMessageAtom
+  userMessageAtom,
+  assistantMessageAtom
 } from '@/atoms/messages';
 
 const useSendMessage = () => {
@@ -21,8 +22,8 @@ const useSendMessage = () => {
 
   const [isLoading, setIsLoading] = useAtom(loadingAtom);
 
-  const [userMessage, setUserMessage] = useAtom(userMessageAtom);
-  const [assistantMessage, setAssistantMessage] = useAtom(assistantMessageAtom);
+  const [, setUserMessage] = useAtom(userMessageAtom);
+  const [, setAssistantMessage] = useAtom(assistantMessageAtom);
 
   const threadId = useThreadId();
 
@@ -30,6 +31,8 @@ const useSendMessage = () => {
     setAssistantMessage(null);
     setUserMessage(null);
   }, [setAssistantMessage, setUserMessage, threadId]);
+
+  const { refetch: refetchThreadMessages } = useThreadMessages();
 
   const sendMessage = useCallback(
     async (threadId: string, message: MessageCreateInput) => {
@@ -88,7 +91,10 @@ const useSendMessage = () => {
                 } else if (content.type === 'tool_result_delta') {
                   toolResultBuffer = (toolResultBuffer ?? '') + content.content;
                   toolResultBufferFormat = content.content_format;
-                } else if (content.type === 'tool_result') {
+                } else if (
+                  content.type === 'tool_result' &&
+                  content.content.length === 0
+                ) {
                   content.content = toolResultBuffer ?? '';
                   content.content_format = toolResultBufferFormat ?? 'unknown';
                   toolResultBuffer = null;
@@ -119,22 +125,26 @@ const useSendMessage = () => {
           },
           async onclose() {
             setIsLoading(false);
+            await refetchThreadMessages();
+            setUserMessage(null);
+            setAssistantMessage(null);
             resolve(void 0);
           }
         });
       });
     },
     [
-      setUserMessage,
       setIsLoading,
       activeConnection.url,
       activeConnection.secret,
       activeConfiguration?.easylogApiKey,
-      setAssistantMessage
+      setAssistantMessage,
+      setUserMessage,
+      refetchThreadMessages
     ]
   );
 
-  return { sendMessage, isLoading, userMessage, assistantMessage };
+  return { sendMessage, isLoading };
 };
 
 export default useSendMessage;

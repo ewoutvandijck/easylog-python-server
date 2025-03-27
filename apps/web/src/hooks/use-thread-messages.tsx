@@ -29,32 +29,26 @@ const useThreadMessages = () => {
     }
   });
 
-  if (!userMessage || !assistantMessage) {
-    return query;
+  // Create a derived data object that includes all pages of messages plus
+  // the current user and assistant messages if they exist
+  const allMessages = query.data ? query.data.pages.flat() : [];
+
+  // Create final messages array with local messages appended
+  const messagesWithLocal = [...allMessages];
+
+  // Add user message if it exists
+  if (userMessage) {
+    messagesWithLocal.push(userMessage);
+  }
+
+  // Add assistant message if it exists
+  if (assistantMessage) {
+    messagesWithLocal.push(assistantMessage);
   }
 
   return {
     ...query,
-    data: query.data
-      ? {
-          ...query.data,
-          pages: [
-            ...(query.data.pages.length > 1
-              ? query.data.pages.slice(0, -1)
-              : []),
-            [
-              ...(query.data.pages.length > 0
-                ? query.data.pages[query.data.pages.length - 1]
-                : []),
-              userMessage,
-              assistantMessage
-            ]
-          ]
-        }
-      : {
-          pages: [[userMessage, assistantMessage]],
-          pageParams: [0]
-        }
+    data: messagesWithLocal
   };
 };
 

@@ -6,7 +6,7 @@ const useIsConnectionHealthy = () => {
   const { health, activeConnection } = useApiClient();
 
   return useQuery({
-    queryKey: ['connection-status', activeConnection.name],
+    queryKey: ['connection-status', activeConnection.url],
     queryFn: async () => {
       try {
         const response = await health.healthHealthGet();

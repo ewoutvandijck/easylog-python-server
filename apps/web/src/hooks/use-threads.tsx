@@ -1,18 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import useApiClient from './use-api-client';
 
 const useThreads = () => {
   const { threads, activeConnection } = useApiClient();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['threads', activeConnection.name],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       const response = await threads.getThreadsThreadsGet({
-        limit: 100,
+        limit: 5,
+        offset: pageParam,
         order: 'desc'
       });
 
       return response.data;
-    }
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 5 ? allPages.length * 5 : undefined;
+    },
+    initialPageParam: 0
   });
 };
 
