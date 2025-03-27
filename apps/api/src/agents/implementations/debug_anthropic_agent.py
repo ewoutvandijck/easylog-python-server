@@ -213,6 +213,29 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                     formats=[format_from_mime_type[mime_type]],
                 )
 
+        def tool_example_chart() -> Chart:
+            """
+            Create an example chart.
+            """
+            data = [
+                {"month": "Jan", "sales": 120},
+                {"month": "Feb", "sales": 150},
+                {"month": "Mar", "sales": 180},
+                {"month": "Apr", "sales": 170},
+                {"month": "May", "sales": 200},
+            ]
+
+            chart = Chart.create_bar_chart(
+                title="Monthly Sales",
+                description="2024 Sales Data",
+                data=data,
+                x_key="month",
+                y_keys=["sales"],
+                height=400,
+            )
+
+            return chart
+
         tools = [
             tool_search_pdf,
             tool_store_memory,
@@ -222,6 +245,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             Chart.create_bar_chart,
             Chart.create_line_chart,
             Chart.create_pie_chart,
+            tool_example_chart,
             *self._planning_tools.all_tools,
         ]
 
