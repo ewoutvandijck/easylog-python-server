@@ -1,5 +1,4 @@
 # Python standard library imports
-import asyncio
 import io
 import json
 import re
@@ -11,6 +10,7 @@ from typing import TypedDict
 from dotenv import load_dotenv
 from PIL import Image
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -37,15 +37,9 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=100,
         description="Maximum number of entries to fetch from the database for reports",
     )
-    debug_mode: bool = Field(
-        default=True, description="Enable debug mode with additional logging"
-    )
-    image_max_width: int = Field(
-        default=1200, description="Maximum width for processed images in pixels"
-    )
-    image_quality: int = Field(
-        default=90, description="JPEG quality for processed images (1-100)"
-    )
+    debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
+    image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
+    image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -98,9 +92,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 name = match.strip()
-                if (
-                    name and len(name) > 1
-                ):  # Minimale lengte om valse positieven te vermijden
+                if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
 
@@ -114,9 +106,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 role = match.strip()
-                if (
-                    role and len(role) > 3
-                ):  # Minimale lengte om valse positieven te vermijden
+                if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Functie: {role}")
                     self.logger.info(f"Detected user role: {role}")
 
@@ -130,9 +120,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 department = match.strip()
-                if (
-                    department and len(department) > 2
-                ):  # Minimale lengte om valse positieven te vermijden
+                if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Afdeling: {department}")
                     self.logger.info(f"Detected user department: {department}")
 
@@ -187,11 +175,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Zoek naar bestaande herinnering van hetzelfde type
         existing_index = -1
         for i, existing_memory in enumerate(current_memories):
-            existing_type = (
-                existing_memory.split(":", 1)[0].strip().lower()
-                if ":" in existing_memory
-                else ""
-            )
+            existing_type = existing_memory.split(":", 1)[0].strip().lower() if ":" in existing_memory else ""
             if memory_type and existing_type == memory_type:
                 existing_index = i
                 break
@@ -209,9 +193,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Sla bijgewerkte herinneringen op
         self.set_metadata("memories", current_memories)
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
@@ -229,9 +211,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         if messages and len(messages) > 0:
             last_message = messages[-1]
             if last_message.role == "user" and isinstance(last_message.content, str):
-                self.logger.info(
-                    f"Processing user message: {last_message.content[:100]}..."
-                )
+                self.logger.info(f"Processing user message: {last_message.content[:100]}...")
                 # Automatisch naam detecteren en opslaan
                 await self._store_detected_name(last_message.content)
 
@@ -297,9 +277,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
 
-                        results.append(
-                            f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
-                        )
+                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
                     return "\n".join(results)
 
             except Exception as e:
@@ -392,9 +370,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Haalt de geschiedenis op van een specifiek object.
             """
             try:
-                self.logger.info(
-                    f"Fetching history for object: {object_name}, limit: {limit}"
-                )
+                self.logger.info(f"Fetching history for object: {object_name}, limit: {limit}")
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
@@ -406,9 +382,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         ORDER BY created_at DESC
                         LIMIT %s
                     """
-                    self.logger.debug(
-                        f"Executing query with params: {object_name}, {limit}"
-                    )
+                    self.logger.debug(f"Executing query with params: {object_name}, {limit}")
                     cursor.execute(query, (object_name, limit))
                     entries = cursor.fetchall()
                     self.logger.debug(f"Query returned {len(entries)} entries")
@@ -461,9 +435,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             # Verwerk de afbeeldingen, als die beschikbaar zijn
             images_data = []
             if hasattr(knowledge_result, "images") and knowledge_result.images:
-                self.logger.info(
-                    f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF"
-                )
+                self.logger.info(f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF")
                 for img in knowledge_result.images:
                     images_data.append(
                         {
@@ -506,49 +478,25 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 possible_paths = [
                     file_name,
                     f"figures/{file_name}" if "/" not in file_name else file_name,
-                    file_name.replace("figures/", "")
-                    if file_name.startswith("figures/")
-                    else file_name,
+                    file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
                     file_name.split("/")[-1],  # Alleen de bestandsnaam
                 ]
 
                 # Probeer elke mogelijke padvariant
                 image_data = None
                 last_error = None
-                max_retries = (
-                    2  # Aantal keer dat we proberen te laden bij netwerkfouten
-                )
 
                 for path in possible_paths:
-                    retry_count = 0
-                    while retry_count <= max_retries and image_data is None:
-                        try:
-                            image_data = await self.load_image(_id, path)
-                            self.logger.info(
-                                f"[IMAGE] Succesvol geladen met pad: {path}"
-                            )
-                            break
-                        except Exception as e:
-                            last_error = e
-                            retry_count += 1
-                            if retry_count <= max_retries:
-                                self.logger.warning(
-                                    f"[IMAGE] Poging {retry_count} mislukt, proberen opnieuw..."
-                                )
-                                # Korte pauze voor volgende poging
-                                await asyncio.sleep(0.5)
-
-                    if image_data is not None:
+                    try:
+                        image_data = await self.load_image(_id, path)
+                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
                         break
+                    except Exception as e:
+                        last_error = e
+                        continue
 
                 if image_data is None:
-                    raise last_error or Exception(
-                        "Kon afbeelding niet laden met beschikbare paden"
-                    )
-
-                # Valideer dat we een geldige afbeelding hebben
-                if not hasattr(image_data, "size") or not image_data.size:
-                    raise ValueError("Ongeldige afbeeldingsdata ontvangen")
+                    raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
 
                 # Bepaal originele grootte
                 with io.BytesIO() as buffer:
@@ -572,53 +520,28 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     max_width = 450
                     quality = 45
 
-                # Voor zeer slechte verbindingen: nog kleiner en sterker gecomprimeerd
-                if original_size > 2 * 1024 * 1024:  # > 2 MB
-                    max_width = 400
-                    quality = 35
-
                 # Resize indien nodig
                 if original_width > max_width:
                     scale_factor = max_width / original_width
                     new_height = int(original_height * scale_factor)
-                    image_data = image_data.resize(
-                        (max_width, new_height), Image.Resampling.LANCZOS
-                    )
+                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
 
                 # Converteer naar RGB (voor afbeeldingen met transparantie)
                 if image_data.mode in ("RGBA", "LA"):
                     background = Image.new("RGB", image_data.size, (255, 255, 255))
                     background.paste(
                         image_data,
-                        mask=image_data.split()[3]
-                        if len(image_data.split()) > 3
-                        else None,
+                        mask=image_data.split()[3] if len(image_data.split()) > 3 else None,
                     )
                     image_data = background
 
                 # Comprimeer de afbeelding
-                compressed_data = None
-                for attempt in range(2):  # Meerdere pogingen om te comprimeren
-                    try:
-                        with io.BytesIO() as buffer:
-                            image_data.save(
-                                buffer, format="JPEG", quality=quality, optimize=True
-                            )
-                            buffer.seek(0)
-                            compressed_data = buffer.getvalue()
-                            if compressed_data:  # Controleer of we valide data hebben
-                                break
-                    except Exception as e:
-                        self.logger.warning(
-                            f"[IMAGE] Compressie poging {attempt + 1} mislukt: {e}"
-                        )
-                        quality -= 10  # Verlaag kwaliteit bij volgende poging
-
-                if not compressed_data:
-                    raise ValueError("Kon afbeelding niet comprimeren")
-
-                compressed_size = len(compressed_data)
-                compressed_size_kb = compressed_size / 1024
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    buffer.seek(0)
+                    compressed_data = buffer.getvalue()
+                    compressed_size = len(compressed_data)
+                    compressed_size_kb = compressed_size / 1024
 
                 # Extra compressie alleen als echt nodig (> 150KB)
                 if compressed_size > 150 * 1024:
@@ -626,24 +549,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     new_width = int(image_data.width * 0.7)
                     new_height = int(image_data.height * 0.7)
 
-                    image_data = image_data.resize(
-                        (new_width, new_height), Image.Resampling.LANCZOS
-                    )
+                    image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
                     # Probeer blurren voor betere compressie
                     try:
                         from PIL import ImageFilter
 
-                        image_data = image_data.filter(
-                            ImageFilter.GaussianBlur(radius=0.6)
-                        )
+                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
                     except Exception:
                         pass
 
                     with io.BytesIO() as buffer:
-                        image_data.save(
-                            buffer, format="JPEG", quality=40, optimize=True
-                        )
+                        image_data.save(buffer, format="JPEG", quality=40, optimize=True)
 
                 self.logger.info(
                     f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
@@ -692,11 +609,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             try:
                 if hasattr(tool, "function") and hasattr(tool.function, "name"):
                     self.logger.info(f" - {i + 1}: {tool.function.name}")
-                elif (
-                    isinstance(tool, dict)
-                    and "function" in tool
-                    and "name" in tool["function"]
-                ):
+                elif isinstance(tool, dict) and "function" in tool and "name" in tool["function"]:
                     self.logger.info(f" - {i + 1}: {tool['function']['name']}")
                 else:
                     self.logger.info(f" - {i + 1}: {str(tool)[:50]}")
@@ -763,16 +676,12 @@ Je huidige core memories zijn:
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
 
         if execution_time > 5.0:
-            logger.warning(
-                f"API call took longer than expected: {execution_time:.2f} seconds"
-            )
+            logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
         has_image_content = False
         image_buffer = []
-        image_chunks = []  # Specifiek voor afbeeldingen
-        text_after_image = []  # Voor tekst na afbeeldingen
 
         async for content in self.handle_stream(stream, tools):
             # Controleer of we afbeeldingen hebben gedetecteerd
@@ -780,48 +689,17 @@ Je huidige core memories zijn:
                 # Afbeelding gedetecteerd, schakel over naar buffermodus
                 has_image_content = True
                 self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de speciale afbeeldingsbuffer
-                image_chunks.append(content)
+                # Voeg deze afbeelding toe aan de buffer
                 image_buffer.append(content)
             elif has_image_content:
-                # We hebben al een afbeelding gezien
-                if hasattr(content, "type") and content.type == "text":
-                    # Tekst na afbeelding, hou apart voor betere recovery
-                    text_after_image.append(content)
-                    image_buffer.append(content)
-                else:
-                    # Andere content, gewoon bufferen
-                    image_buffer.append(content)
+                # We hebben al een afbeelding gezien, blijf alles bufferen
+                image_buffer.append(content)
             else:
                 # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
                 yield content
 
-        # Verzenden van gebufferde content
-        if has_image_content:
-            # Slimme verzendlogica voor afbeeldingen en tekst
-            if len(image_chunks) == 1:
-                # Slechts één afbeelding, verzend als geheel
-                self.logger.info(
-                    f"Verzenden van complete gebufferde respons met 1 afbeelding ({len(image_buffer)} delen)"
-                )
-                for chunk in image_buffer:
-                    yield chunk
-            else:
-                # Meerdere afbeeldingen, verzend één voor één met tekst ertussen
-                self.logger.info(
-                    f"Verzenden van {len(image_chunks)} afbeeldingen met beschermde buffering"
-                )
-
-                current_image_index = 0
-                for chunk in image_buffer:
-                    if hasattr(chunk, "type") and chunk.type == "image":
-                        current_image_index += 1
-                        self.logger.info(
-                            f"Verzenden van afbeelding {current_image_index} van {len(image_chunks)}"
-                        )
-
-                    # Verzend elk deel met een kleine pauze voor betere stabiliteit
-                    yield chunk
-                    if hasattr(chunk, "type") and chunk.type == "image":
-                        # Korte pauze na elke afbeelding om de client tijd te geven voor verwerking
-                        await asyncio.sleep(0.1)
+        # Als er afbeeldingen waren, stuur de gebufferde content nu
+        if has_image_content and image_buffer:
+            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
+            for buffered_chunk in image_buffer:
+                yield buffered_chunk
