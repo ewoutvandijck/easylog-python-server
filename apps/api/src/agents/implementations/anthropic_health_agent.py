@@ -24,7 +24,7 @@ load_dotenv()
 class AnthropicHealthAgentConfig(BaseModel):
     max_report_entries: int = Field(
         default=100,
-        description="Maximum number of entries to fetch from the database for reports",
+        description="Maximum number of entries to fetch from the database for reports  ",
     )
     debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
     image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
