@@ -20,19 +20,39 @@ from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 load_dotenv()
 
 
-class EasylogData(TypedDict):
+class HealthData(TypedDict):
     """
-    Defines the structure for Easylog data
+    Defines the structure for Health data
     """
-
     status: str
-    datum: str
-    object: str
-    statusobject: str
+    date: str
+    patient: str
+    condition: str
 
 
-# Configuration class for AnthropicEasylog agent
+class Subject(BaseModel):
+    name: str
+    instructions: str
+    glob_pattern: str
+
+
+# Configuration class for AnthropicHealth agent
 class AnthropicHealthConfig(BaseModel):
+    subjects: list[Subject] = Field(
+        default=[
+            Subject(
+                name="Introductie",
+                instructions="Hallo welkom in de app",
+                glob_pattern="pdfs/introductie/*.pdf",
+            ),
+            Subject(
+                name="Bewegen",
+                instructions="Help de patient met een wandel plan",
+                glob_pattern="pdfs/bewegen/*.pdf",
+            ),
+        ]
+    )
+    default_subject: str | None = Field(default="Introductie")
     max_report_entries: int = Field(
         default=100,
         description="Maximum number of entries to fetch from the database for reports",
@@ -62,6 +82,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             "tool_search_pdf",
             "tool_load_image",
             "tool_clear_memories",
+            "tool_switch_subject",
         ]
 
         self.available_tools = all_tools
@@ -404,12 +425,41 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                 self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
                 raise e
 
+        def tool_switch_subject(subject: str | None = None):
+            """
+            Wissel van onderwerp voor de conversatie.
+            """
+            if subject is None:
+                self.set_metadata("subject", None)
+                return "Terug naar algemeen onderwerp"
+
+            if subject not in [s.name for s in self.config.subjects]:
+                raise ValueError(f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}")
+
+            self.set_metadata("subject", subject)
+            return f"Onderwerp gewijzigd naar: {subject}"
+
         tools = [
             tool_store_memory,
             tool_search_pdf,
             tool_load_image,
             tool_clear_memories,
+            tool_switch_subject,
         ]
+
+        # Get current subject
+        current_subject = self.get_metadata("subject")
+        if current_subject is None:
+            current_subject = self.config.default_subject
+
+        subject = next((s for s in self.config.subjects if s.name == current_subject), None)
+
+        if subject is not None:
+            current_subject_name = subject.name
+            current_subject_instructions = subject.instructions
+        else:
+            current_subject_name = current_subject
+            current_subject_instructions = ""
 
         # Print alle tools om te debuggen
         self.logger.info("All tools before filtering:")
@@ -424,6 +474,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                 "tool_search_pdf",
                 "tool_load_image",
                 "tool_clear_memories",
+                "tool_switch_subject",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
                 self.logger.info(f"Added tool to Anthropic tools: {tool.__name__}")
@@ -454,11 +505,15 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             max_tokens=2048,
             system=f"""Je bent een vriendelijke assistent die COPD patienten help met een beter leven en informatie over hun ziekte. Bewegen en gezond leven is belangrijk. ##instructie geef korte antwoorden#####
 
+Actueel onderwerp: {current_subject_name}
+Huidige instructies: {current_subject_instructions}
+
 ### Beschikbare tools:
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_search_pdf: Zoek een PDF in de kennisbank
 - tool_load_image: Laad en optimaliseer afbeeldingen
 - tool_clear_memories: Wis alle opgeslagen herinneringen
+- tool_switch_subject: Wissel van onderwerp
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke medische gebeurtenis heeft meegemaakt, of belangrijke gezondheidsinformatie heeft geleverd, dan moet je die opslaan in de core memories.
