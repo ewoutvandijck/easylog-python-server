@@ -100,13 +100,8 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 
     def _extract_user_info(self, message_text: str) -> tuple[list[str], str | None]:
         """
-        Detecteert automatisch belangrijke informatie in het bericht van de gebruiker!!
-        Na elke detectie van informatie, stelt de agent de volgende vraag in de reeks:
-        1. Naam
-        2. Leeftijd
-        3. Medicatie (met foto tip)
-        4. Aantal pufjes
-        5. Reddingsmedicatie
+        Detecteert automatisch belangrijke informatie in het bericht van de gebruiker.
+        Gebruikt korte, bondige vragen.
 
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker
@@ -133,7 +128,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
                     name_detected = True
-                    next_question = "Wat is je leeftijd?"
+                    next_question = "Je leeftijd?"
                     break
             if name_detected:
                 break
@@ -154,7 +149,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                         detected_info.append(f"Leeftijd: {age} jaar")
                         self.logger.info(f"Detected user age: {age}")
                         age_detected = True
-                        next_question = "Welke medicatie gebruik je voor je COPD? Je kunt ook een foto maken van de verpakking of het recept, dat helpt mij om je beter te adviseren."
+                        next_question = "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
                         break
                 if age_detected:
                     break
@@ -175,7 +170,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                         detected_info.append(f"Medicatie: {medication}")
                         self.logger.info(f"Detected medication: {medication}")
                         medication_detected = True
-                        next_question = "Hoeveel pufjes per dag zijn er voorgeschreven?"
+                        next_question = "Hoeveel pufjes per dag?"
                         break
                 if medication_detected:
                     break
@@ -196,32 +191,30 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                         detected_info.append(f"Pufjes per dag: {puffs}")
                         self.logger.info(f"Detected puffs per day: {puffs}")
                         puffs_detected = True
-                        next_question = "Gebruik je ook reddingsmedicatie als dat nodig is?"
+                        next_question = "Heeft je arts doelstellingen met je afgesproken?"
                         break
                 if puffs_detected:
                     break
 
-        # Reddingsmedicatie detecteren als laatste stap
+        # Doelstellingen detecteren als laatste stap
         if not next_question:
-            rescue_patterns = [
-                r"(?i)(ja|nee),?\s*(?:ik gebruik)?\s*(?:ook)?\s*reddingsmedicatie",
-                r"(?i)reddingsmedicatie:?\s*(ja|nee)",
-                r"(?i)(?:gebruik|neem)\s+(?:ook)?\s*reddingsmedicatie\s*(?:als|indien|wanneer)?",
+            goals_patterns = [
+                r"(?i)(ja|nee),?\s*(?:de arts heeft|we hebben)\s*(?:doelstellingen|doelen)",
+                r"(?i)(?:doelstellingen|doelen)(?:\s+zijn)?\s*(?:afgesproken)?\s*(ja|nee)",
+                r"(?i)(ja|nee)(?:\s+dat\s+hebben\s+we\s+besproken)",
             ]
 
-            for pattern in rescue_patterns:
+            for pattern in goals_patterns:
                 matches = re.findall(pattern, message_text)
                 for match in matches:
-                    rescue = match.strip().lower()
-                    if rescue in ['ja', 'nee']:
-                        detected_info.append(f"Reddingsmedicatie: {rescue}")
-                        self.logger.info(f"Detected rescue medication: {rescue}")
-                        next_question = "Bedankt voor deze informatie. Ik ga je nu doorverwijzen naar je persoonlijke COPD coach."
+                    goals = match.strip().lower()
+                    if goals in ['ja', 'nee']:
+                        detected_info.append(f"Doelstellingen besproken: {goals}")
+                        self.logger.info(f"Detected goals discussed: {goals}")
+                        next_question = "Dank! Ik verwijs je door naar je COPD coach."
                         break
 
-        if detected_info:
-            return detected_info, next_question
-        return [], None
+        return detected_info, next_question
 
     async def _store_detected_name(self, message_text: str):
         """
@@ -580,17 +573,17 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             system=f"""Je bent een vriendelijke assistent die COPD patienten help met een beter leven en informatie over hun ziekte. Bewegen en gezond leven is belangrijk.
 
 ### BELANGRIJKE REGELS VOOR GESPREK:
-### STEL KORTE VRAGEBN EN GEEF KORTE ANTWOORDEN
+- ALTIJD korte vragen en antwoorden gebruiken (max 15 woorden)
 - Stel één vraag tegelijk en wacht op antwoord
-- Volg de vaste volgorde van vragen tijdens Onboarding:
-  1. Naam
-  2. Leeftijd
-  3. Medicatie (met foto-optie)
-  4. Aantal pufjes per dag
-  5. Reddingsmedicatie
-- Reageer op het antwoord van de patient en stel dan pas de volgende vraag
-- Bij medicatie, herinner de patient dat ze een foto kunnen maken van de verpakking/recept
-- Na alle vragen, ga automatisch door naar Coach
+- Geen uitgebreide uitleg, tenzij de patient erom vraagt
+- Gebruik eenvoudige taal
+
+### VASTE VRAGEN ONBOARDING (kort en bondig):
+1. "Hoe mag ik je noemen?"
+2. "Je leeftijd?"
+3. "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
+4. "Hoeveel pufjes per dag?"
+5. "Heeft je arts doelstellingen met je afgesproken?"
 
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
