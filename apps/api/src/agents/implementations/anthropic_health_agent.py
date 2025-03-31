@@ -41,18 +41,28 @@ class AnthropicHealthConfig(BaseModel):
     subjects: list[Subject] = Field(
         default=[
             Subject(
-                name="Introductie",
-                instructions="Hallo welkom in de app",
-                glob_pattern="pdfs/introductie/*.pdf",
+                name="Onboarding",
+                instructions="Welkom bij de COPD app. Ik wil je graag beter leren kennen. Hoe mag ik je noemen, en wat is je leeftijd?",
+                glob_pattern="pdfs/onboarding/*.pdf",
+            ),
+            Subject(
+                name="Coach",
+                instructions="Ik ben je persoonlijke COPD coach en help je met adviezen voor een beter leven met COPD.",
+                glob_pattern="pdfs/coach/*.pdf",
+            ),
+            Subject(
+                name="Anamnist",
+                instructions="Laten we je gezondheid in kaart brengen. Ik stel je enkele vragen over je COPD en je dagelijks leven.",
+                glob_pattern="pdfs/anamnist/*.pdf",
             ),
             Subject(
                 name="Bewegen",
-                instructions="Help de patient met een wandel plan",
+                instructions="Samen maken we een persoonlijk beweegplan dat past bij jouw situatie en mogelijkheden.",
                 glob_pattern="pdfs/bewegen/*.pdf",
             ),
         ]
     )
-    default_subject: str | None = Field(default="Introductie")
+    default_subject: str | None = Field(default="Onboarding")
     max_report_entries: int = Field(
         default=100,
         description="Maximum number of entries to fetch from the database for reports",
@@ -102,8 +112,9 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 
         # Namen detecteren
         name_patterns = [
-            r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij)\s+([A-Za-z\s]+)",
+            r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij|je mag (?:me|mij) (?:noemen|zeggen))\s+([A-Za-z\s]+)",
             r"(?i)naam(?:\s+is)?\s+([A-Za-z\s]+)",
+            r"(?i)(?:zeg maar|noem me maar)\s+([A-Za-z\s]+)",
         ]
 
         for pattern in name_patterns:
@@ -113,6 +124,20 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
                 if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
+
+        # Leeftijd detecteren
+        age_patterns = [
+            r"(?i)(?:ik ben|leeftijd is|leeftijd:?)\s*(\d{1,3})\s*(?:jaar)?",
+            r"(?i)(\d{1,3})\s*jaar\s*(?:oud)?",
+        ]
+
+        for pattern in age_patterns:
+            matches = re.findall(pattern, message_text)
+            for match in matches:
+                age = int(match)
+                if 0 < age < 120:  # Realistische leeftijd check
+                    detected_info.append(f"Leeftijd: {age} jaar")
+                    self.logger.info(f"Detected user age: {age}")
 
         # Functietitels detecteren
         role_patterns = [
@@ -430,8 +455,14 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             Wissel van onderwerp voor de conversatie.
             """
             if subject is None:
-                self.set_metadata("subject", None)
-                return "Terug naar algemeen onderwerp"
+                # Als we uit Onboarding komen, ga naar Coach
+                current = self.get_metadata("subject")
+                if current == "Onboarding":
+                    self.set_metadata("subject", "Coach")
+                    return "Onboarding voltooid. Je gaat nu verder met je persoonlijke COPD coach."
+                # Anders terug naar Coach als default
+                self.set_metadata("subject", "Coach")
+                return "Terug naar je persoonlijke COPD coach"
 
             if subject not in [s.name for s in self.config.subjects]:
                 raise ValueError(f"Ongeldig onderwerp. Kies uit: {', '.join([s.name for s in self.config.subjects])}")
@@ -508,9 +539,16 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
 
-### Onderwerpen
-Toon de beschikbare subjects
-Verzin geen andere onderwerpen
+### Beschikbare onderwerpen:
+{", ".join([s.name for s in self.config.subjects])}
+
+### Belangrijke regels:
+- Start altijd in het Onboarding onderwerp
+- Na Onboarding ga je automatisch naar Coach
+- Coach is het standaard onderwerp na Onboarding
+- Gebruik alleen de beschikbare onderwerpen
+- Blijf binnen het huidige onderwerp tenzij de gebruiker wisselt
+- Geef korte, duidelijke antwoorden
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke medische gebeurtenis heeft meegemaakt, of belangrijke gezondheidsinformatie heeft geleverd, dan moet je die opslaan in de core memories.
