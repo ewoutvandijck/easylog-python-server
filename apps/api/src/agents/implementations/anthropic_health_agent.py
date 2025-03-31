@@ -42,7 +42,7 @@ class AnthropicHealthConfig(BaseModel):
         default=[
             Subject(
                 name="Onboarding",
-                instructions="Welkom bij de COPD app. Ik wil je graag beter leren kennen. Hoe mag ik je noemen, en wat is je leeftijd?",
+                instructions="Welkom bij de COPD app. Laten we elkaar eerst leren kennen. Hoe mag ik je noemen?",
                 glob_pattern="pdfs/onboarding/*.pdf",
             ),
             Subject(
@@ -101,16 +101,24 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
         Detecteert automatisch belangrijke informatie in het bericht van de gebruiker!!
+        Na elke detectie van informatie, stelt de agent de volgende vraag in de reeks:
+        1. Naam
+        2. Leeftijd
+        3. Medicatie (met foto tip)
+        4. Aantal pufjes
+        5. Reddingsmedicatie
 
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker
 
         Returns:
-            Een lijst met gedetecteerde informatie
+            Een lijst met gedetecteerde informatie en de volgende vraag
         """
         detected_info = []
+        next_question = None
 
         # Namen detecteren
+        name_detected = False
         name_patterns = [
             r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij|je mag (?:me|mij) (?:noemen|zeggen))\s+([A-Za-z\s]+)",
             r"(?i)naam(?:\s+is)?\s+([A-Za-z\s]+)",
@@ -121,66 +129,99 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 name = match.strip()
-                if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
+                if name and len(name) > 1:
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
+                    name_detected = True
+                    next_question = "Wat is je leeftijd?"
+                    break
+            if name_detected:
+                break
 
-        # Leeftijd detecteren
-        age_patterns = [
-            r"(?i)(?:ik ben|leeftijd is|leeftijd:?)\s*(\d{1,3})\s*(?:jaar)?",
-            r"(?i)(\d{1,3})\s*jaar\s*(?:oud)?",
-        ]
+        # Leeftijd detecteren als naam al bekend is
+        if not next_question:
+            age_detected = False
+            age_patterns = [
+                r"(?i)(?:ik ben|leeftijd is|leeftijd:?)\s*(\d{1,3})\s*(?:jaar)?",
+                r"(?i)(\d{1,3})\s*jaar\s*(?:oud)?",
+            ]
 
-        for pattern in age_patterns:
-            matches = re.findall(pattern, message_text)
-            for match in matches:
-                age = int(match)
-                if 0 < age < 120:  # Realistische leeftijd check
-                    detected_info.append(f"Leeftijd: {age} jaar")
-                    self.logger.info(f"Detected user age: {age}")
+            for pattern in age_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    age = int(match)
+                    if 0 < age < 120:
+                        detected_info.append(f"Leeftijd: {age} jaar")
+                        self.logger.info(f"Detected user age: {age}")
+                        age_detected = True
+                        next_question = "Welke medicatie gebruik je voor je COPD? Je kunt ook een foto maken van de verpakking of het recept, dat helpt mij om je beter te adviseren."
+                        break
+                if age_detected:
+                    break
 
-        # Functietitels detecteren
-        role_patterns = [
-            r"(?i)(?:ik ben|ik werk als)(?:\s+de|een|)?\s+([A-Za-z\s]+manager|[A-Za-z\s]+directeur|[A-Za-z\s]+analist|[A-Za-z\s]+medewerker|[A-Za-z\s]+monteur)",
-            r"(?i)functie(?:\s+is)?\s+([A-Za-z\s]+)",
-        ]
+        # Medicatie detecteren als leeftijd al bekend is
+        if not next_question:
+            medication_detected = False
+            medication_patterns = [
+                r"(?i)(?:ik gebruik|neem)\s+([A-Za-z0-9\s]+(?:puffer|medicijn|medicatie)(?:[A-Za-z0-9\s]+)?)",
+                r"(?i)(?:mijn medicatie is|medicatie:?)\s+([A-Za-z0-9\s]+)",
+            ]
 
-        for pattern in role_patterns:
-            matches = re.findall(pattern, message_text)
-            for match in matches:
-                role = match.strip()
-                if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
-                    detected_info.append(f"Functie: {role}")
-                    self.logger.info(f"Detected user role: {role}")
+            for pattern in medication_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    medication = match.strip()
+                    if medication:
+                        detected_info.append(f"Medicatie: {medication}")
+                        self.logger.info(f"Detected medication: {medication}")
+                        medication_detected = True
+                        next_question = "Hoeveel pufjes per dag zijn er voorgeschreven?"
+                        break
+                if medication_detected:
+                    break
 
-        # Afdelingen detecteren
-        department_patterns = [
-            r"(?i)(?:ik werk bij|ik zit bij)(?:\s+de)?\s+afdeling\s+([A-Za-z\s]+)",
-            r"(?i)afdeling(?:\s+is)?\s+([A-Za-z\s]+)",
-        ]
+        # Pufjes detecteren als medicatie al bekend is
+        if not next_question:
+            puffs_detected = False
+            puffs_patterns = [
+                r"(?i)(\d+)\s*(?:pufjes|puf(?:jes)?)\s*(?:per|aan|in de)\s*dag",
+                r"(?i)(?:per dag|dagelijks)\s*(\d+)\s*(?:pufjes|puf(?:jes)?)",
+            ]
 
-        for pattern in department_patterns:
-            matches = re.findall(pattern, message_text)
-            for match in matches:
-                department = match.strip()
-                if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
-                    detected_info.append(f"Afdeling: {department}")
-                    self.logger.info(f"Detected user department: {department}")
+            for pattern in puffs_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    puffs = int(match)
+                    if 0 < puffs < 20:
+                        detected_info.append(f"Pufjes per dag: {puffs}")
+                        self.logger.info(f"Detected puffs per day: {puffs}")
+                        puffs_detected = True
+                        next_question = "Gebruik je ook reddingsmedicatie als dat nodig is?"
+                        break
+                if puffs_detected:
+                    break
 
-        # Rapportagevoorkeuren detecteren
-        report_patterns = [
-            r"(?i)(?:ik wil|graag|liefst)(?:\s+\w+)?\s+(dagelijks|wekelijks|maandelijks|kwartaal|jaarlijks)e?\s+rapport",
-            r"(?i)rapport(?:en|ages)?(?:\s+graag)?\s+(dagelijks|wekelijks|maandelijks|kwartaal|jaarlijks)",
-        ]
+        # Reddingsmedicatie detecteren als laatste stap
+        if not next_question:
+            rescue_patterns = [
+                r"(?i)(ja|nee),?\s*(?:ik gebruik)?\s*(?:ook)?\s*reddingsmedicatie",
+                r"(?i)reddingsmedicatie:?\s*(ja|nee)",
+                r"(?i)(?:gebruik|neem)\s+(?:ook)?\s*reddingsmedicatie\s*(?:als|indien|wanneer)?",
+            ]
 
-        for pattern in report_patterns:
-            matches = re.findall(pattern, message_text)
-            for match in matches:
-                frequency = match.strip().lower()
-                detected_info.append(f"Voorkeur: {frequency}e rapportages")
-                self.logger.info(f"Detected reporting preference: {frequency}")
+            for pattern in rescue_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    rescue = match.strip().lower()
+                    if rescue in ['ja', 'nee']:
+                        detected_info.append(f"Reddingsmedicatie: {rescue}")
+                        self.logger.info(f"Detected rescue medication: {rescue}")
+                        next_question = "Bedankt voor deze informatie. Ik ga je nu doorverwijzen naar je persoonlijke COPD coach."
+                        break
 
-        return detected_info
+        if detected_info:
+            return detected_info, next_question
+        return [], None
 
     async def _store_detected_name(self, message_text: str):
         """
@@ -189,7 +230,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
         Args:
             message_text: De tekstinhoud van het bericht van de gebruiker
         """
-        detected_info = self._extract_user_info(message_text)
+        detected_info, next_question = self._extract_user_info(message_text)
 
         if not detected_info:
             return
