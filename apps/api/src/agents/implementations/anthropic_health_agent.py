@@ -42,7 +42,7 @@ class AnthropicHealthConfig(BaseModel):
         default=[
             Subject(
                 name="Onboarding",
-                instructions="Welkom bij de COPD app. Laten we elkaar eerst leren kennen. Hoe mag ik je noemen?",
+                instructions="Welkom bij de COPD app. Laten we elkaar eerst leren kennen. Hoe mag ik je noemen? #ALTIJD KORTE VRAGEN EN ANTWOORDEN",
                 glob_pattern="pdfs/onboarding/*.pdf",
             ),
             Subject(
@@ -580,6 +580,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             system=f"""Je bent een vriendelijke assistent die COPD patienten help met een beter leven en informatie over hun ziekte. Bewegen en gezond leven is belangrijk.
 
 ### BELANGRIJKE REGELS VOOR GESPREK:
+### STEL KORTE VRAGEBN EN GEEF KORTE ANTWOORDEN
 - Stel één vraag tegelijk en wacht op antwoord
 - Volg de vaste volgorde van vragen tijdens Onboarding:
   1. Naam
