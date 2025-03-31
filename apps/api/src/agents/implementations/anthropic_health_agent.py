@@ -98,7 +98,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
         self.available_tools = all_tools
         self.logger.info(f"Beschikbare tools voor HealthAgent: {', '.join(all_tools)}")
 
-    def _extract_user_info(self, message_text: str) -> list[str]:
+    def _extract_user_info(self, message_text: str) -> tuple[list[str], str | None]:
         """
         Detecteert automatisch belangrijke informatie in het bericht van de gebruiker!!
         Na elke detectie van informatie, stelt de agent de volgende vraag in de reeks:
@@ -112,7 +112,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             message_text: De tekstinhoud van het bericht van de gebruiker
 
         Returns:
-            Een lijst met gedetecteerde informatie en de volgende vraag
+            tuple: (lijst met gedetecteerde informatie, volgende vraag of None)
         """
         detected_info = []
         next_question = None
@@ -232,12 +232,14 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
         """
         detected_info, next_question = self._extract_user_info(message_text)
 
-        if not detected_info:
-            return
-
-        # Direct store_memory aanroepen voor elke gedetecteerde informatie
-        for info in detected_info:
-            await self._store_memory_internal(info)
+        if detected_info:
+            # Direct store_memory aanroepen voor elke gedetecteerde informatie
+            for info in detected_info:
+                await self._store_memory_internal(info)
+            
+            # Als er een volgende vraag is, sla deze op als laatste vraag
+            if next_question:
+                await self._store_memory_internal(f"Laatste vraag: {next_question}")
 
     async def _store_memory_internal(self, memory: str):
         """
@@ -575,7 +577,19 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
             max_tokens=2048,
-            system=f"""Je bent een vriendelijke assistent die COPD patienten help met een beter leven en informatie over hun ziekte. Bewegen en gezond leven is belangrijk. ##instructie geef korte antwoorden#####
+            system=f"""Je bent een vriendelijke assistent die COPD patienten help met een beter leven en informatie over hun ziekte. Bewegen en gezond leven is belangrijk.
+
+### BELANGRIJKE REGELS VOOR GESPREK:
+- Stel één vraag tegelijk en wacht op antwoord
+- Volg de vaste volgorde van vragen tijdens Onboarding:
+  1. Naam
+  2. Leeftijd
+  3. Medicatie (met foto-optie)
+  4. Aantal pufjes per dag
+  5. Reddingsmedicatie
+- Reageer op het antwoord van de patient en stel dan pas de volgende vraag
+- Bij medicatie, herinner de patient dat ze een foto kunnen maken van de verpakking/recept
+- Na alle vragen, ga automatisch door naar Coach
 
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
@@ -583,20 +597,8 @@ Huidige instructies: {current_subject_instructions}
 ### Beschikbare onderwerpen:
 {", ".join([s.name for s in self.config.subjects])}
 
-### Belangrijke regels:
-- Start altijd in het Onboarding onderwerp
-- Na Onboarding ga je automatisch naar Coach
-- Coach is het standaard onderwerp na Onboarding
-- Gebruik alleen de beschikbare onderwerpen
-- Blijf binnen het huidige onderwerp tenzij de gebruiker wisselt
-- Geef korte, duidelijke antwoorden
-
 ### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke medische gebeurtenis heeft meegemaakt, of belangrijke gezondheidsinformatie heeft geleverd, dan moet je die opslaan in de core memories.
-
-Je huidige core memories zijn:
-{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
-            """,
+{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}""",
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
