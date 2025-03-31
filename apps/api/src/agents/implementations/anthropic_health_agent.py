@@ -3,6 +3,7 @@ import io
 import json
 import re
 import time
+import base64
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
@@ -51,6 +52,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthAgentConfig]):
             "tool_search_pdf",
             "tool_load_image",
             "tool_clear_memories",
+            "tool_user_upload_image",
         ]
 
         self.available_tools = all_tools
@@ -394,11 +396,110 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthAgentConfig]):
                 self.logger.error(f"[IMAGE] Error during processing: {str(e)}")
                 raise e
 
+        async def tool_user_upload_image(data_url: str) -> Image.Image:
+            """
+            Process a user-uploaded image and optimize it for display.
+            
+            Args:
+                data_url (str): The data URL string containing the image data (e.g., "data:image/jpeg;base64,...")
+                
+            Returns:
+                Image.Image: An optimized PIL Image object
+            """
+            self.logger.info("[IMAGE] Processing user uploaded image")
+            
+            try:
+                # Extract the base64 encoded data from the URL
+                content_type = "image/jpeg"
+                try:
+                    if "data:" in data_url and ";base64," in data_url:
+                        content_type_part = data_url.split(";")[0]
+                        if ":" in content_type_part:
+                            content_type = content_type_part.split(":")[1]
+                except Exception as e:
+                    self.logger.warning(f"[IMAGE] Could not determine content type: {str(e)}")
+                
+                # Decode the image
+                try:
+                    from src.agents.utils.decode_data_url_to_image import decode_data_url_to_image
+                    image_data = decode_data_url_to_image(data_url)
+                except ImportError:
+                    # Fallback if the utility function is not available
+                    encoded = data_url.split(",", 1)[1] if "," in data_url else data_url
+                    binary_data = base64.b64decode(encoded)
+                    image_data = Image.open(io.BytesIO(binary_data))
+                
+                self.logger.info(f"[IMAGE] Image successfully decoded: {image_data.format} {image_data.size}")
+                
+                # Determine original size
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format=image_data.format or "JPEG")
+                    buffer.seek(0)
+                    original_size = len(buffer.getvalue())
+                    original_size_kb = original_size / 1024
+                
+                # Use configuration settings
+                max_width = self.config.image_max_width
+                quality = self.config.image_quality
+                original_width, original_height = image_data.size
+                
+                self.logger.info(f"[IMAGE] Original image: {original_width}x{original_height}, {original_size_kb:.1f}KB")
+                
+                # Resize if needed
+                if original_width > max_width:
+                    scale_factor = max_width / original_width
+                    new_height = int(original_height * scale_factor)
+                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                    self.logger.info(f"[IMAGE] Resized to {max_width}x{new_height}")
+                
+                # Convert to RGB (for images with transparency)
+                if image_data.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", image_data.size, (255, 255, 255))
+                    background.paste(
+                        image_data,
+                        mask=image_data.split()[3] if len(image_data.split()) > 3 else None
+                    )
+                    image_data = background
+                
+                # Compress the image
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    buffer.seek(0)
+                    compressed_data = buffer.getvalue()
+                    compressed_size = len(compressed_data)
+                    compressed_size_kb = compressed_size / 1024
+                
+                # Extra compression only if really needed (> 150KB)
+                if compressed_size > 150 * 1024:
+                    # Further reduce and compress
+                    new_width = int(image_data.width * 0.7)
+                    new_height = int(image_data.height * 0.7)
+                    
+                    image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Try blurring for better compression
+                    try:
+                        from PIL import ImageFilter
+                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
+                    except Exception:
+                        pass
+                    
+                    with io.BytesIO() as buffer:
+                        image_data.save(buffer, format="JPEG", quality=40, optimize=True)
+                
+                self.logger.info(f"[IMAGE] Image optimized: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB")
+                return image_data
+                
+            except Exception as e:
+                self.logger.error(f"[IMAGE] Error processing user image: {str(e)}")
+                raise e
+
         tools = [
             tool_store_memory,
             tool_search_pdf,
             tool_load_image,
             tool_clear_memories,
+            tool_user_upload_image,
         ]
 
         # Print all tools for debugging
