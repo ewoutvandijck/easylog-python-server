@@ -42,7 +42,7 @@ class AnthropicHealthConfig(BaseModel):
         default=[
             Subject(
                 name="Onboarding",
-                instructions="Welkom bij de COPD app. Laten we elkaar eerst leren kennen. Hoe mag ik je noemen? #ALTIJD KORTE VRAGEN EN ANTWOORDEN",
+                instructions="Ga je akkoord met de algemene voorwaarden van deze leuke Speeltuin?",
                 glob_pattern="pdfs/onboarding/*.pdf",
             ),
             Subject(
@@ -57,7 +57,7 @@ class AnthropicHealthConfig(BaseModel):
             ),
             Subject(
                 name="Bewegen",
-                instructions="Samen maken we een persoonlijk beweegplan dat past bij jouw situatie en mogelijkheden.",
+                instructions="Hoeveel minuten wandel je meestal per keer?",
                 glob_pattern="pdfs/bewegen/*.pdf",
             ),
         ]
@@ -112,107 +112,137 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
         detected_info = []
         next_question = None
 
-        # Namen detecteren
-        name_detected = False
-        name_patterns = [
-            r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij|je mag (?:me|mij) (?:noemen|zeggen))\s+([A-Za-z\s]+)",
-            r"(?i)naam(?:\s+is)?\s+([A-Za-z\s]+)",
-            r"(?i)(?:zeg maar|noem me maar)\s+([A-Za-z\s]+)",
+        # Terms and conditions detecteren
+        terms_detected = False
+        terms_patterns = [
+            r"(?i)(ja|akkoord|ok|okay|oké)",
+            r"(?i)(?:ik\s+ga\s+)?(?:akkoord|mee\s+eens)",
         ]
 
-        for pattern in name_patterns:
-            matches = re.findall(pattern, message_text)
-            for match in matches:
-                name = match.strip()
-                if name and len(name) > 1:
-                    detected_info.append(f"Naam: {name}")
-                    self.logger.info(f"Detected user name: {name}")
-                    name_detected = True
-                    next_question = "Je leeftijd?"
-                    break
-            if name_detected:
-                break
+        # Check eerst of we al terms hebben opgeslagen
+        current_memories = self.get_metadata("memories", default=[])
+        terms_already_accepted = any("Voorwaarden geaccepteerd" in memory for memory in current_memories)
 
-        # Leeftijd detecteren als naam al bekend is
-        if not next_question:
-            age_detected = False
-            age_patterns = [
-                r"(?i)(?:ik ben|leeftijd is|leeftijd:?)\s*(\d{1,3})\s*(?:jaar)?",
-                r"(?i)(\d{1,3})\s*jaar\s*(?:oud)?",
-            ]
-
-            for pattern in age_patterns:
+        if not terms_already_accepted:
+            for pattern in terms_patterns:
                 matches = re.findall(pattern, message_text)
                 for match in matches:
-                    age = int(match)
-                    if 0 < age < 120:
-                        detected_info.append(f"Leeftijd: {age} jaar")
-                        self.logger.info(f"Detected user age: {age}")
-                        age_detected = True
-                        next_question = "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
+                    terms = match.strip().lower()
+                    if terms in ['ja', 'akkoord', 'ok', 'okay', 'oké']:
+                        detected_info.append(f"Voorwaarden geaccepteerd: ja")
+                        terms_detected = True
+                        next_question = "Hoe mag ik je noemen?"
                         break
-                if age_detected:
+                if terms_detected:
                     break
+            if not terms_detected and message_text.strip():
+                # Als er wel een bericht is maar geen akkoord, vraag opnieuw
+                next_question = "Je moet akkoord gaan met de voorwaarden om door te gaan. Ga je akkoord?"
+                return detected_info, next_question
 
-        # Medicatie detecteren als leeftijd al bekend is
+        # Als terms al geaccepteerd zijn, ga door met de normale flow
         if not next_question:
-            medication_detected = False
-            medication_patterns = [
-                r"(?i)(?:ik gebruik|neem)\s+([A-Za-z0-9\s]+(?:puffer|medicijn|medicatie)(?:[A-Za-z0-9\s]+)?)",
-                r"(?i)(?:mijn medicatie is|medicatie:?)\s+([A-Za-z0-9\s]+)",
+            # Namen detecteren
+            name_detected = False
+            name_patterns = [
+                r"(?i)(?:ik ben|mijn naam is|ik heet|noem mij|je mag (?:me|mij) (?:noemen|zeggen))\s+([A-Za-z\s]+)",
+                r"(?i)naam(?:\s+is)?\s+([A-Za-z\s]+)",
+                r"(?i)(?:zeg maar|noem me maar)\s+([A-Za-z\s]+)",
             ]
 
-            for pattern in medication_patterns:
+            for pattern in name_patterns:
                 matches = re.findall(pattern, message_text)
                 for match in matches:
-                    medication = match.strip()
-                    if medication:
-                        detected_info.append(f"Medicatie: {medication}")
-                        self.logger.info(f"Detected medication: {medication}")
-                        medication_detected = True
-                        next_question = "Hoeveel pufjes per dag?"
+                    name = match.strip()
+                    if name and len(name) > 1:
+                        detected_info.append(f"Naam: {name}")
+                        self.logger.info(f"Detected user name: {name}")
+                        name_detected = True
+                        next_question = "Je leeftijd?"
                         break
-                if medication_detected:
+                if name_detected:
                     break
 
-        # Pufjes detecteren als medicatie al bekend is
-        if not next_question:
-            puffs_detected = False
-            puffs_patterns = [
-                r"(?i)(\d+)\s*(?:pufjes|puf(?:jes)?)\s*(?:per|aan|in de)\s*dag",
-                r"(?i)(?:per dag|dagelijks)\s*(\d+)\s*(?:pufjes|puf(?:jes)?)",
-            ]
+            # Leeftijd detecteren als naam al bekend is
+            if not next_question:
+                age_detected = False
+                age_patterns = [
+                    r"(?i)(?:ik ben|leeftijd is|leeftijd:?)\s*(\d{1,3})\s*(?:jaar)?",
+                    r"(?i)(\d{1,3})\s*jaar\s*(?:oud)?",
+                ]
 
-            for pattern in puffs_patterns:
-                matches = re.findall(pattern, message_text)
-                for match in matches:
-                    puffs = int(match)
-                    if 0 < puffs < 20:
-                        detected_info.append(f"Pufjes per dag: {puffs}")
-                        self.logger.info(f"Detected puffs per day: {puffs}")
-                        puffs_detected = True
-                        next_question = "Heeft je arts doelstellingen met je afgesproken?"
+                for pattern in age_patterns:
+                    matches = re.findall(pattern, message_text)
+                    for match in matches:
+                        age = int(match)
+                        if 0 < age < 120:
+                            detected_info.append(f"Leeftijd: {age} jaar")
+                            self.logger.info(f"Detected user age: {age}")
+                            age_detected = True
+                            next_question = "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
+                            break
+                    if age_detected:
                         break
-                if puffs_detected:
-                    break
 
-        # Doelstellingen detecteren als laatste stap
-        if not next_question:
-            goals_patterns = [
-                r"(?i)(ja|nee),?\s*(?:de arts heeft|we hebben)\s*(?:doelstellingen|doelen)",
-                r"(?i)(?:doelstellingen|doelen)(?:\s+zijn)?\s*(?:afgesproken)?\s*(ja|nee)",
-                r"(?i)(ja|nee)(?:\s+dat\s+hebben\s+we\s+besproken)",
-            ]
+            # Medicatie detecteren als leeftijd al bekend is
+            if not next_question:
+                medication_detected = False
+                medication_patterns = [
+                    r"(?i)(?:ik gebruik|neem)\s+([A-Za-z0-9\s]+(?:puffer|medicijn|medicatie)(?:[A-Za-z0-9\s]+)?)",
+                    r"(?i)(?:mijn medicatie is|medicatie:?)\s+([A-Za-z0-9\s]+)",
+                ]
 
-            for pattern in goals_patterns:
-                matches = re.findall(pattern, message_text)
-                for match in matches:
-                    goals = match.strip().lower()
-                    if goals in ['ja', 'nee']:
-                        detected_info.append(f"Doelstellingen besproken: {goals}")
-                        self.logger.info(f"Detected goals discussed: {goals}")
-                        next_question = "Dank! Ik verwijs je door naar je COPD coach."
+                for pattern in medication_patterns:
+                    matches = re.findall(pattern, message_text)
+                    for match in matches:
+                        medication = match.strip()
+                        if medication:
+                            detected_info.append(f"Medicatie: {medication}")
+                            self.logger.info(f"Detected medication: {medication}")
+                            medication_detected = True
+                            next_question = "Hoeveel pufjes per dag?"
+                            break
+                    if medication_detected:
                         break
+
+            # Pufjes detecteren als medicatie al bekend is
+            if not next_question:
+                puffs_detected = False
+                puffs_patterns = [
+                    r"(?i)(\d+)\s*(?:pufjes|puf(?:jes)?)\s*(?:per|aan|in de)\s*dag",
+                    r"(?i)(?:per dag|dagelijks)\s*(\d+)\s*(?:pufjes|puf(?:jes)?)",
+                ]
+
+                for pattern in puffs_patterns:
+                    matches = re.findall(pattern, message_text)
+                    for match in matches:
+                        puffs = int(match)
+                        if 0 < puffs < 20:
+                            detected_info.append(f"Pufjes per dag: {puffs}")
+                            self.logger.info(f"Detected puffs per day: {puffs}")
+                            puffs_detected = True
+                            next_question = "Heeft je arts doelstellingen met je afgesproken?"
+                            break
+                    if puffs_detected:
+                        break
+
+            # Doelstellingen detecteren als laatste stap
+            if not next_question:
+                goals_patterns = [
+                    r"(?i)(ja|nee),?\s*(?:de arts heeft|we hebben)\s*(?:doelstellingen|doelen)",
+                    r"(?i)(?:doelstellingen|doelen)(?:\s+zijn)?\s*(?:afgesproken)?\s*(ja|nee)",
+                    r"(?i)(ja|nee)(?:\s+dat\s+hebben\s+we\s+besproken)",
+                ]
+
+                for pattern in goals_patterns:
+                    matches = re.findall(pattern, message_text)
+                    for match in matches:
+                        goals = match.strip().lower()
+                        if goals in ['ja', 'nee']:
+                            detected_info.append(f"Doelstellingen besproken: {goals}")
+                            self.logger.info(f"Detected goals discussed: {goals}")
+                            next_question = "Zullen we een wandelplan opstellen? Dan verwijs ik je door naar Bewegen."
+                            break
 
         return detected_info, next_question
 
@@ -271,6 +301,101 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 
         # Sla bijgewerkte herinneringen op
         self.set_metadata("memories", current_memories)
+
+    def _extract_exercise_info(self, message_text: str) -> tuple[list[str], str | None]:
+        """
+        Detecteert informatie over beweging en wandelen.
+        Gebruikt korte, bondige vragen.
+
+        Args:
+            message_text: De tekstinhoud van het bericht van de gebruiker
+
+        Returns:
+            tuple: (lijst met gedetecteerde informatie, volgende vraag of None)
+        """
+        detected_info = []
+        next_question = None
+
+        # Wandeltijd per keer detecteren
+        time_patterns = [
+            r"(?i)(\d+)\s*(?:minuten|minuut|min)",
+            r"(?i)(\d+)\s*(?:uur|u)",
+            r"(?i)ongeveer\s*(\d+)\s*(?:minuten|minuut|min|uur|u)",
+        ]
+
+        # Frequentie per week detecteren
+        frequency_patterns = [
+            r"(?i)(\d+)\s*(?:keer|x|maal)\s*(?:per|in de)\s*week",
+            r"(?i)(\d+)\s*(?:dagen|dag)\s*(?:per|in de)\s*week",
+        ]
+
+        # Plan opbouw detecteren
+        plan_patterns = [
+            r"(?i)(ja|nee),?\s*(?:graag|maak|stel)\s*(?:een)?\s*(?:plan|schema)",
+            r"(?i)(ja|nee)(?:\s+dat\s+lijkt\s+me\s+goed)",
+            r"(?i)(ja|nee)(?:\s+help\s+me\s+met\s+opbouwen)",
+        ]
+
+        time_detected = False
+        for pattern in time_patterns:
+            matches = re.findall(pattern, message_text)
+            for match in matches:
+                time = int(match)
+                if 0 < time < 300:  # Max 5 uur
+                    unit = "minuten" if time < 60 else "uur"
+                    if unit == "uur":
+                        time = time * 60
+                    detected_info.append(f"Wandeltijd: {time} minuten")
+                    time_detected = True
+                    next_question = "Hoeveel dagen per week wandel je?"
+                    break
+            if time_detected:
+                break
+
+        if not next_question:
+            frequency_detected = False
+            for pattern in frequency_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    frequency = int(match)
+                    if 0 < frequency <= 7:
+                        detected_info.append(f"Wandeldagen: {frequency} per week")
+                        frequency_detected = True
+                        next_question = "Zal ik een opbouwplan voor je maken?"
+                        break
+                if frequency_detected:
+                    break
+
+        if not next_question:
+            for pattern in plan_patterns:
+                matches = re.findall(pattern, message_text)
+                for match in matches:
+                    plan = match.strip().lower()
+                    if plan in ['ja', 'nee']:
+                        detected_info.append(f"Opbouwplan gewenst: {plan}")
+                        if plan == 'ja':
+                            next_question = "Ik maak een persoonlijk opbouwplan voor je wandelingen."
+                        else:
+                            next_question = "Ok, laat me weten als je later een opbouwplan wilt."
+                        break
+
+        return detected_info, next_question
+
+    async def _store_exercise_info(self, message_text: str):
+        """
+        Detecteert en slaat bewegingsinformatie op
+
+        Args:
+            message_text: De tekstinhoud van het bericht van de gebruiker
+        """
+        detected_info, next_question = self._extract_exercise_info(message_text)
+
+        if detected_info:
+            for info in detected_info:
+                await self._store_memory_internal(info)
+            
+            if next_question:
+                await self._store_memory_internal(f"Laatste vraag: {next_question}")
 
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
@@ -491,11 +616,11 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
             Wissel van onderwerp voor de conversatie.
             """
             if subject is None:
-                # Als we uit Onboarding komen, ga naar Coach
+                # Als we uit Onboarding komen, ga naar Bewegen
                 current = self.get_metadata("subject")
                 if current == "Onboarding":
-                    self.set_metadata("subject", "Coach")
-                    return "Onboarding voltooid. Je gaat nu verder met je persoonlijke COPD coach."
+                    self.set_metadata("subject", "Bewegen")
+                    return "Onboarding voltooid. Laten we beginnen met je wandelplan!"
                 # Anders terug naar Coach als default
                 self.set_metadata("subject", "Coach")
                 return "Terug naar je persoonlijke COPD coach"
@@ -579,11 +704,12 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 - Gebruik eenvoudige taal
 
 ### VASTE VRAGEN ONBOARDING (kort en bondig):
-1. "Hoe mag ik je noemen?"
-2. "Je leeftijd?"
-3. "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
-4. "Hoeveel pufjes per dag?"
-5. "Heeft je arts doelstellingen met je afgesproken?"
+1. "Ga je akkoord met de algemene voorwaarden van deze leuke Speeltuin?"
+2. "Hoe mag ik je noemen?"
+3. "Je leeftijd?"
+4. "Welke COPD medicatie gebruik je? Tip: stuur een foto van de verpakking"
+5. "Hoeveel pufjes per dag?"
+6. "Heeft je arts doelstellingen met je afgesproken?"
 
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
