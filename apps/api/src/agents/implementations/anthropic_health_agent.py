@@ -515,6 +515,7 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthAgentConfig]):
                 "tool_search_pdf",
                 "tool_load_image",
                 "tool_clear_memories",
+                "tool_user_upload_image",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
                 self.logger.info(f"Added tool to Anthropic tools: {tool.__name__}")
