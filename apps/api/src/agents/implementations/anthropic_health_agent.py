@@ -508,12 +508,9 @@ class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
 Actueel onderwerp: {current_subject_name}
 Huidige instructies: {current_subject_instructions}
 
-### Beschikbare tools:
-- tool_store_memory: Slaat belangrijke informatie op voor later gebruik
-- tool_search_pdf: Zoek een PDF in de kennisbank
-- tool_load_image: Laad en optimaliseer afbeeldingen
-- tool_clear_memories: Wis alle opgeslagen herinneringen
-- tool_switch_subject: Wissel van onderwerp
+### Onderwerpen
+Toon de beschikbare subjects
+Verzin geen andere onderwerpen
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke medische gebeurtenis heeft meegemaakt, of belangrijke gezondheidsinformatie heeft geleverd, dan moet je die opslaan in de core memories.
