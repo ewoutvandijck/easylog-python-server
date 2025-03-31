@@ -42,15 +42,15 @@ class AnthropicHealthConfig(BaseModel):
     image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
 
 
-# Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
-class AnthropicHealth(AnthropicAgent[AnthropicHealthConfig]):
+# Agent class that integrates with Anthropic's Claude API for Health data analysis
+class AnthropicHealthAgent(AnthropicAgent[AnthropicHealthConfig]):
     def __init__(self, *args, **kwargs) -> None:
         # Call the parent class init
         super().__init__(*args, **kwargs)
 
         # Extra logging om tools bij te houden
         self.available_tools = []
-        self.logger.info("EasylogAgent initialized with planning tools")
+        self.logger.info("HealthAgent initialized with planning tools")
 
         # Disable debug mode to avoid loading debug tools
         self.config.debug_mode = False
@@ -65,7 +65,7 @@ class AnthropicHealth(AnthropicAgent[AnthropicHealthConfig]):
         ]
 
         self.available_tools = all_tools
-        self.logger.info(f"Beschikbare tools voor EasylogAgent: {', '.join(all_tools)}")
+        self.logger.info(f"Beschikbare tools voor HealthAgent: {', '.join(all_tools)}")
 
     def _extract_user_info(self, message_text: str) -> list[str]:
         """
