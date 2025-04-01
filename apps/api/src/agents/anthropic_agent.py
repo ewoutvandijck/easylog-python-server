@@ -145,10 +145,8 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            # Always use a consistent media type for all images to Anthropic
-                            # This avoids mime type mismatch errors with iPhones screenshots
-                            "media_type": "image/jpeg",
-                            "data": extract_base64_content(content.content),
+                            "media_type": content.content_type,
+                            "data": content.content,
                         },
                     }
                     if isinstance(content, ImageContent)
