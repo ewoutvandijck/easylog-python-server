@@ -3,6 +3,7 @@ import io
 import json
 import re
 import time
+import base64
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
@@ -682,23 +683,35 @@ Je huidige core memories zijn:
         has_image_content = False
         image_buffer = []
 
-        async for content in self.handle_stream(stream, tools):
-            # Controleer of we afbeeldingen hebben gedetecteerd
-            if hasattr(content, "type") and content.type == "image":
-                # Afbeelding gedetecteerd, schakel over naar buffermodus
-                has_image_content = True
-                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
-                image_buffer.append(content)
-            elif has_image_content:
-                # We hebben al een afbeelding gezien, blijf alles bufferen
-                image_buffer.append(content)
+        async for content_block in self.handle_stream(stream, tools):
+            if isinstance(content_block, Image.Image):
+                # If the content block IS the PIL Image returned by tool_load_image
+                self.logger.info("[IMAGE] Converting PIL Image from tool_load_image to base64")
+                try:
+                    buffered = io.BytesIO()
+                    # Ensure saving as JPEG for consistency with tool processing
+                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality) 
+                    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                    # Construct the data URL format Flutter expects
+                    data_url = f"data:image/jpeg;base64,{img_str}"
+                    # Yield a MessageContent object suitable for Flutter's ImageMessage
+                    # Assuming MessageContent can handle a string directly for image URIs/data
+                    yield MessageContent(type="image", text=data_url)
+                except Exception as e:
+                    self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
+                    # Optionally yield an error message
+                    yield MessageContent(type="text", text="Fout bij laden afbeelding.")
+            elif hasattr(content_block, 'type') and content_block.type == "image":
+                # If it's an image content block directly from Anthropic (less likely now)
+                self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
+                yield content_block 
             else:
-                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
-                yield content
+                # Handle text or other content blocks as before
+                yield content_block
 
-        # Als er afbeeldingen waren, stuur de gebufferde content nu
-        if has_image_content and image_buffer:
-            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+        # Note: Removed the explicit image buffering logic here, 
+        # as handle_stream now yields correctly formatted image content directly.
+        # The base AnthropicAgent's handle_stream likely needs to be aware
+        # that tool results (like PIL Images) might be yielded directly.
+        
+        # --- End Modified Stream Handling ---
