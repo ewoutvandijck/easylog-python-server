@@ -509,16 +509,16 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 original_width, original_height = image_data.size
 
                 # Basisconfiguratie voor optimale prestaties op mobiele apparaten
-                max_width = 600
-                quality = 60
+                max_width = 1200  # Verhoogd naar 1200px voor betere kwaliteit
+                quality = 70  # Standaard kwaliteit
 
                 # Eenvoudige aanpassing op basis van afbeeldingsgrootte
                 if original_size < 100 * 1024:  # < 100 KB
-                    max_width = min(original_width, 800)
-                    quality = 75
+                    max_width = min(original_width, 1200)
+                    quality = 80
                 elif original_size > 1 * 1024 * 1024:  # > 1 MB
-                    max_width = 450
-                    quality = 45
+                    max_width = 800
+                    quality = 60
 
                 # Resize indien nodig
                 if original_width > max_width:
@@ -546,21 +546,20 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Extra compressie alleen als echt nodig (> 150KB)
                 if compressed_size > 150 * 1024:
                     # Verder verkleinen en comprimeren
-                    new_width = int(image_data.width * 0.7)
-                    new_height = int(image_data.height * 0.7)
+                    new_width = int(image_data.width * 0.8)
+                    new_height = int(image_data.height * 0.8)
 
                     image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
                     # Probeer blurren voor betere compressie
                     try:
                         from PIL import ImageFilter
-
                         image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
                     except Exception:
                         pass
 
                     with io.BytesIO() as buffer:
-                        image_data.save(buffer, format="JPEG", quality=40, optimize=True)
+                        image_data.save(buffer, format="JPEG", quality=50, optimize=True)
 
                 self.logger.info(
                     f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
