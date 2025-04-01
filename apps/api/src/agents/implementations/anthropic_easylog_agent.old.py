@@ -3,8 +3,9 @@ import io
 import json
 import re
 import time
+import base64
 from collections.abc import AsyncGenerator
-from typing import TypedDict, Optional, List, Dict, Any, Tuple, Union
+from typing import TypedDict
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -459,151 +460,116 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
-        async def tool_load_image(x):
-            import PIL
-            from PIL import Image, ImageFilter
-            import io
-            import base64
-            import os
-            import re
-            import numpy as np
-            import time
-            import cv2
-            import sys
-            import traceback
-            
-            # Get the image path
-            image_path = x
-            
-            # Add logging for debugging image loading issues
-            logging.info(f"Loading image from path: {image_path}")
-            
-            # Track metrics for optimization
-            start_time = time.time()
-            original_size = 0
-            final_size = 0
-            poor_connection_detected = False
-            
+        async def tool_load_image(_id: str, file_name: str) -> Image.Image:
+            """
+            Laad een afbeelding uit de database en bereid deze voor op weergave.
+            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
+
+            Args:
+                _id (str): Het ID van het PDF bestand
+                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
+
+            Returns:
+                str: Een data URL met de afbeelding als base64 gecodeerde data
+            """
+            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
+
             try:
-                # Try different paths if the image path is not working
-                trial_paths = [
-                    image_path,
-                    os.path.join(os.getcwd(), image_path),
-                    os.path.normpath(image_path)
+                # Vereenvoudigde pad-logica: probeer verschillende padformaten tot er een werkt
+                possible_paths = [
+                    file_name,
+                    f"figures/{file_name}" if "/" not in file_name else file_name,
+                    file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
+                    file_name.split("/")[-1],  # Alleen de bestandsnaam
                 ]
-                
-                img = None
-                load_error = None
-                
-                # Try to load the image from different path formats
-                for path in trial_paths:
+
+                # Probeer elke mogelijke padvariant
+                image_data = None
+                last_error = None
+
+                for path in possible_paths:
                     try:
-                        # Check if the file exists first
-                        if os.path.exists(path):
-                            # Get original file size for metrics
-                            original_size = os.path.getsize(path)
-                            
-                            # First try with PIL
-                            try:
-                                img = Image.open(path)
-                                # Convert HEIC/HEIF to JPEG if detected
-                                if path.lower().endswith(('.heic', '.heif')):
-                                    logging.info(f"HEIC/HEIF image detected, converting to JPEG: {path}")
-                                    # Create a new memory buffer
-                                    buffer = io.BytesIO()
-                                    # Save as JPEG
-                                    img.save(buffer, format="JPEG", quality=85)
-                                    buffer.seek(0)
-                                    # Reload the image from the buffer
-                                    img = Image.open(buffer)
-                                break
-                            except Exception as e:
-                                # If PIL fails, try with OpenCV
-                                logging.warning(f"PIL failed to open image, trying OpenCV: {str(e)}")
-                                img_cv = cv2.imread(path)
-                                if img_cv is not None:
-                                    img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
-                                    img = Image.fromarray(img_cv)
-                                    break
+                        image_data = await self.load_image(_id, path)
+                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
+                        break
                     except Exception as e:
-                        load_error = str(e)
+                        last_error = e
                         continue
-                
-                if img is None:
-                    error_msg = f"Failed to load image after trying multiple methods. Last error: {load_error}"
-                    logging.error(error_msg)
-                    raise ValueError(error_msg)
-                
-                # Get original dimensions for logging
-                original_width, original_height = img.size
-                logging.info(f"Original image size: {original_width}x{original_height}, {original_size/1024:.1f}KB")
-                
-                # Set maximum width to 1000px (reduced from 1200px)
-                max_width = 1000  
-                default_quality = 60  # Reduced from 70
-                
-                # Check for slow connection signs
-                if _BUFFER_TIMEOUT_COUNT > 1:
-                    poor_connection_detected = True
-                    logging.info("Poor connection detected, applying more aggressive compression")
-                    default_quality = 50
+
+                if image_data is None:
+                    raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
+
+                # Bepaal originele grootte
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format=image_data.format or "PNG")
+                    buffer.seek(0)
+                    original_size = len(buffer.getvalue())
+                    original_size_kb = original_size / 1024
+
+                # Vereenvoudigde compressielogica
+                original_width, original_height = image_data.size
+
+                # Basisconfiguratie voor optimale prestaties op mobiele apparaten
+                max_width = 1200  # Verhoogd naar 1200px voor betere kwaliteit
+                quality = 70  # Standaard kwaliteit
+
+                # Eenvoudige aanpassing op basis van afbeeldingsgrootte
+                if original_size < 100 * 1024:  # < 100 KB
+                    max_width = min(original_width, 1200)
+                    quality = 80
+                elif original_size > 1 * 1024 * 1024:  # > 1 MB
                     max_width = 800
-                
-                # More aggressive resizing for larger images
-                if original_size > 1024*1024:  # More than 1MB
-                    max_width = 700
-                    default_quality = 50
-                    logging.info(f"Large image detected ({original_size/1024/1024:.1f}MB), using max width {max_width}px and quality {default_quality}")
-                
-                # Get a suitable width for the image
+                    quality = 60
+
+                # Resize indien nodig
                 if original_width > max_width:
-                    new_width = max_width
-                    new_height = int(original_height * max_width / original_width)
-                    img = img.resize((new_width, new_height), PIL.Image.LANCZOS)
-                    logging.info(f"Resized image to {new_width}x{new_height}")
-                
-                # Extra step: further compress very large images regardless of dimensions
-                if original_size > 100*1024:  # More than 100KB
-                    # Apply a scale factor to further reduce dimensions
-                    scale_factor = 0.7
-                    current_width, current_height = img.size
-                    new_width = int(current_width * scale_factor)
-                    new_height = int(current_height * scale_factor)
-                    img = img.resize((new_width, new_height), PIL.Image.LANCZOS)
-                    logging.info(f"Additional resize for large file to {new_width}x{new_height}")
-                    
-                    # Apply a slight Gaussian blur for better compression
-                    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
-                
-                # Convert to RGB mode if it's not already (e.g., RGBA with transparency)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                    logging.info(f"Converted image from {img.mode} to RGB")
-                
-                # Save to a buffer with quality settings
-                buffer = io.BytesIO()
-                
-                # Determine quality based on file size
-                quality = default_quality
-                img.save(buffer, format="JPEG", quality=quality, optimize=True)
-                buffer.seek(0)
-                
-                # Get the base64 encoded string
-                img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                final_size = len(buffer.getvalue())
-                
-                # Calculate compression ratio and log stats
-                compression_ratio = original_size / final_size if final_size > 0 else 0
-                processing_time = time.time() - start_time
-                
-                logging.info(f"Image processing stats: Compressed {original_size/1024:.1f}KB→{final_size/1024:.1f}KB " +
-                            f"({compression_ratio:.1f}x), took {processing_time:.2f}s")
-                
-                return img_str
+                    scale_factor = max_width / original_width
+                    new_height = int(original_height * scale_factor)
+                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
+
+                # Converteer naar RGB (voor afbeeldingen met transparantie)
+                if image_data.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", image_data.size, (255, 255, 255))
+                    background.paste(
+                        image_data,
+                        mask=image_data.split()[3] if len(image_data.split()) > 3 else None,
+                    )
+                    image_data = background
+
+                # Comprimeer de afbeelding
+                with io.BytesIO() as buffer:
+                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    buffer.seek(0)
+                    compressed_data = buffer.getvalue()
+                    compressed_size = len(compressed_data)
+                    compressed_size_kb = compressed_size / 1024
+
+                # Extra compressie alleen als echt nodig (> 150KB)
+                if compressed_size > 150 * 1024:
+                    # Verder verkleinen en comprimeren
+                    new_width = int(image_data.width * 0.8)
+                    new_height = int(image_data.height * 0.8)
+
+                    image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                    # Probeer blurren voor betere compressie
+                    try:
+                        from PIL import ImageFilter
+                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
+                    except Exception:
+                        pass
+
+                    with io.BytesIO() as buffer:
+                        image_data.save(buffer, format="JPEG", quality=50, optimize=True)
+
+                self.logger.info(
+                    f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
+                )
+                return image_data
+
             except Exception as e:
-                logging.error(f"Error processing image: {str(e)}")
-                logging.error(traceback.format_exc())
-                return f"Error: {str(e)}"
+                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                raise e
 
         tools = [
             tool_store_memory,
@@ -715,105 +681,37 @@ Je huidige core memories zijn:
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
         has_image_content = False
-        image_content_detected = False
-        
-        async for content in self.handle_stream(stream, tools):
-            # Check if content contains image markdown
-            if isinstance(content, str) and "![Image](" in content:
-                image_content_detected = True
-                self.logger.info("Image content detected in stream, using buffering mechanism")
-            
-            # If this is the start of an image
-            if image_content_detected and isinstance(content, str) and "![Image](" in content:
-                has_image_content = True
-                # Yield the start part of the image tag
-                yield content[:content.find("![Image](") + 9]  # "![Image]("
-                
-                # The rest goes to the buffer
-                image_part = content[content.find("![Image](") + 9:]
-                flush_result = _add_to_buffer(image_part)
-                if flush_result:
-                    yield flush_result
-            
-            # Already buffering image content
-            elif has_image_content:
-                # If this is the end of the image (contains closing parenthesis)
-                if isinstance(content, str) and ")" in content:
-                    end_pos = content.find(")") + 1
-                    # Add the content before the closing parenthesis to buffer
-                    flush_result = _add_to_buffer(content[:end_pos])
-                    if flush_result:
-                        yield flush_result
-                    
-                    # Yield the closing tag and any content after it directly
-                    yield content[end_pos:]
-                    
-                    # Reset image buffering
-                    has_image_content = False
-                    _BUFFER_LAST_FLUSH = time.time()  # Reset buffer timer
-                else:
-                    # Add to buffer and check if we should flush
-                    flush_result = _add_to_buffer(content)
-                    if flush_result:
-                        yield flush_result
+        image_buffer = []
+
+        async for content_block in self.handle_stream(stream, tools):
+            if isinstance(content_block, Image.Image):
+                # If the content block IS the PIL Image returned by tool_load_image
+                self.logger.info("[IMAGE] Converting PIL Image from tool_load_image to base64")
+                try:
+                    buffered = io.BytesIO()
+                    # Ensure saving as JPEG for consistency with tool processing
+                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality) 
+                    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                    # Construct the data URL format Flutter expects
+                    data_url = f"data:image/jpeg;base64,{img_str}"
+                    # Yield a MessageContent object suitable for Flutter's ImageMessage
+                    # Assuming MessageContent can handle a string directly for image URIs/data
+                    yield MessageContent(type="image", text=data_url)
+                except Exception as e:
+                    self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
+                    # Optionally yield an error message
+                    yield MessageContent(type="text", text="Fout bij laden afbeelding.")
+            elif hasattr(content_block, 'type') and content_block.type == "image":
+                # If it's an image content block directly from Anthropic (less likely now)
+                self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
+                yield content_block 
             else:
-                # Non-image content, send directly
-                yield content
+                # Handle text or other content blocks as before
+                yield content_block
+
+        # Note: Removed the explicit image buffering logic here, 
+        # as handle_stream now yields correctly formatted image content directly.
+        # The base AnthropicAgent's handle_stream likely needs to be aware
+        # that tool results (like PIL Images) might be yielded directly.
         
-        # Force flush any remaining buffered content at the end
-        final_buffer = _flush_buffer()
-        if final_buffer:
-            self.logger.info("Flushing final buffer content at end of stream")
-            yield final_buffer
-
-# Buffering mechanism for image streaming
-_MESSAGE_BUFFER = []
-_BUFFER_LAST_FLUSH = time.time()
-_BUFFER_TIMEOUT = 20  # Seconds to wait before force-sending buffered messages
-_BUFFER_TIMEOUT_COUNT = 0  # Counter for tracking connection issues
-
-def _flush_buffer():
-    global _MESSAGE_BUFFER, _BUFFER_LAST_FLUSH, _BUFFER_TIMEOUT_COUNT
-    
-    if not _MESSAGE_BUFFER:
-        return ""
-    
-    buffered_content = "".join(_MESSAGE_BUFFER)
-    _MESSAGE_BUFFER = []
-    _BUFFER_LAST_FLUSH = time.time()
-    
-    if len(buffered_content) > 100:  # Only count significant content
-        _BUFFER_TIMEOUT_COUNT = 0  # Reset timeout counter on successful flush
-        
-    return buffered_content
-
-def _check_buffer_timeout():
-    global _BUFFER_LAST_FLUSH, _BUFFER_TIMEOUT_COUNT
-    
-    # If buffer has been waiting too long, mark as a timeout
-    if time.time() - _BUFFER_LAST_FLUSH > _BUFFER_TIMEOUT:
-        _BUFFER_TIMEOUT_COUNT += 1
-        logging.warning(f"Buffer timeout detected, count: {_BUFFER_TIMEOUT_COUNT}")
-        return True
-    return False
-
-def _add_to_buffer(content):
-    global _MESSAGE_BUFFER
-    
-    # Check if we need to force-send due to timeout
-    timeout_triggered = _check_buffer_timeout()
-    
-    # Add content to buffer
-    _MESSAGE_BUFFER.append(content)
-    
-    # If timeout detected, force flush to prevent getting stuck
-    if timeout_triggered:
-        logging.info("Force-flushing buffer due to timeout")
-        return _flush_buffer()
-    
-    # For small content or regular operation, just buffer
-    if len("".join(_MESSAGE_BUFFER)) < 1000:
-        return ""
-    
-    # For larger content, flush immediately
-    return _flush_buffer()
+        # --- End Modified Stream Handling ---
