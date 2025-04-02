@@ -3,7 +3,6 @@ import io
 import json
 import re
 import time
-import base64
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
@@ -14,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent, ImageContent, TextContent
+from src.models.messages import Message, MessageContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -499,6 +498,18 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 if image_data is None:
                     raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
 
+                # Check for HEIC format and convert if needed
+                if image_data is not None and hasattr(image_data, 'format') and image_data.format == 'HEIC':
+                    # Convert HEIC to JPEG
+                    try:
+                        with io.BytesIO() as buffer:
+                            image_data.save(buffer, format="JPEG", quality=85)
+                            buffer.seek(0)
+                            image_data = Image.open(buffer)
+                            self.logger.info(f"[IMAGE] Converted HEIC to JPEG format")
+                    except Exception as e:
+                        self.logger.error(f"[IMAGE] Error converting HEIC: {str(e)}")
+
                 # Bepaal originele grootte
                 with io.BytesIO() as buffer:
                     image_data.save(buffer, format=image_data.format or "PNG")
@@ -550,7 +561,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     new_width = int(image_data.width * 0.8)
                     new_height = int(image_data.height * 0.8)
 
-                    image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    image_data = image_data.resize(
+                        (new_width, new_height),
+                        Image.Resampling.LANCZOS,
+                    )
 
                     # Probeer blurren voor betere compressie
                     try:
@@ -562,9 +576,33 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     with io.BytesIO() as buffer:
                         image_data.save(buffer, format="JPEG", quality=50, optimize=True)
 
+                # Add a special identifier to the image or its metadata that the client can detect
+                # This helps overcome the server metadata overwriting problem
+                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
+                
+                # Create a modified version of the image with assistant identifier watermarking
+                try:
+                    # Add a small metadata pixel that won't affect the visible image but can be detected
+                    # The Flutter app can look for this pattern
+                    if image_data.width > 5 and image_data.height > 5:
+                        # Create a small pattern of pixels in the corner that indicates this is an assistant image
+                        # This pattern can be detected even if metadata is lost
+                        pixels = image_data.load()
+                        # Set a very subtle pattern of pixels in bottom-right corner 
+                        # This pattern can be detected by client even if metadata is rewritten
+                        if image_data.mode == "RGB" and pixels is not None:
+                            # Specific pattern: 3 pixels in specific positions with specific values
+                            pixels[image_data.width-1, image_data.height-1] = (250, 250, 253)
+                            pixels[image_data.width-2, image_data.height-1] = (250, 250, 252)
+                            pixels[image_data.width-1, image_data.height-2] = (250, 250, 251)
+                            self.logger.info("[IMAGE] Added assistant image identifier pattern")
+                except Exception as e:
+                    self.logger.error(f"[IMAGE] Error adding assistant identifier: {str(e)}")
+
                 self.logger.info(
                     f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
                 )
+
                 return image_data
 
             except Exception as e:
@@ -680,46 +718,26 @@ Je huidige core memories zijn:
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
-        async for content_block in self.handle_stream(stream, tools):
-            if isinstance(content_block, Image.Image):
-                # If the content block IS the PIL Image returned by tool_load_image
-                self.logger.info("[IMAGE] Converting PIL Image from tool_load_image to base64")
-                try:
-                    buffered = io.BytesIO()
-                    # Ensure saving as JPEG for consistency with tool processing
-                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality) 
-                    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                    
-                    # FLUTTER IMAGE ALIGNMENT ISSUE:
-                    # The problem with image alignment in Flutter is that all images are being
-                    # treated as user-uploaded (aligned right) instead of assistant-generated (aligned left).
-                    # 
-                    # From the Flutter logs:
-                    # flutter: Image processing - Metadata: {cached: true, user_uploaded: true, author_id: 1, role: AiRole.user, timestamp: ...}
-                    # flutter: Image processing - Is user: true
-                    #
-                    # Flutter is adding "user_uploaded: true" and "author_id: 1" (user) to all images.
-                    # This needs to be fixed in the Flutter app by:
-                    #   1. Adding an "isAssistant" or "source" parameter to the image metadata
-                    #   2. Checking the source of the image in the message processing logic
-                    #   3. Setting correct alignment based on the image source
-                    
-                    # Create ImageContent with the content and content_type parameters
-                    yield ImageContent(content=img_str, content_type="image/jpeg")
-                except Exception as e:
-                    self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
-                    # Properly create a TextContent instance
-                    yield TextContent(content="Fout bij laden afbeelding.")
-            elif hasattr(content_block, 'type') and content_block.type == "image":
-                # If it's an image content block directly from Anthropic (less likely now)
-                self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
-                yield content_block
-            else:
-                # Handle text or other content blocks as before
-                yield content_block
+        has_image_content = False
+        image_buffer = []
 
-        # Note: The image alignment issue must be fixed in the Flutter app where the image metadata
-        # is set. The Python server correctly creates ImageContent objects, but Flutter appears to
-        # override the metadata and set all images as user-uploaded.
-        
-        # --- End Modified Stream Handling ---
+        async for content in self.handle_stream(stream, tools):
+            # Controleer of we afbeeldingen hebben gedetecteerd
+            if hasattr(content, "type") and content.type == "image":
+                # Afbeelding gedetecteerd, schakel over naar buffermodus
+                has_image_content = True
+                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
+                # Voeg deze afbeelding toe aan de buffer
+                image_buffer.append(content)
+            elif has_image_content:
+                # We hebben al een afbeelding gezien, blijf alles bufferen
+                image_buffer.append(content)
+            else:
+                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
+                yield content
+
+        # Als er afbeeldingen waren, stuur de gebufferde content nu
+        if has_image_content and image_buffer:
+            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
+            for buffered_chunk in image_buffer:
+                yield buffered_chunk
