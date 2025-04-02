@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
-from src.models.messages import Message, MessageContent
+from src.models.messages import Message, MessageContent, ImageContent, TextContent
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -680,9 +680,6 @@ Je huidige core memories zijn:
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
-        has_image_content = False
-        image_buffer = []
-
         async for content_block in self.handle_stream(stream, tools):
             if isinstance(content_block, Image.Image):
                 # If the content block IS the PIL Image returned by tool_load_image
@@ -692,26 +689,37 @@ Je huidige core memories zijn:
                     # Ensure saving as JPEG for consistency with tool processing
                     content_block.save(buffered, format="JPEG", quality=self.config.image_quality) 
                     img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                    # Construct the data URL format Flutter expects
-                    data_url = f"data:image/jpeg;base64,{img_str}"
-                    # Yield a MessageContent object suitable for Flutter's ImageMessage
-                    # Assuming MessageContent can handle a string directly for image URIs/data
-                    yield MessageContent(type="image", text=data_url)
+                    
+                    # FLUTTER IMAGE ALIGNMENT ISSUE:
+                    # The problem with image alignment in Flutter is that all images are being
+                    # treated as user-uploaded (aligned right) instead of assistant-generated (aligned left).
+                    # 
+                    # From the Flutter logs:
+                    # flutter: Image processing - Metadata: {cached: true, user_uploaded: true, author_id: 1, role: AiRole.user, timestamp: ...}
+                    # flutter: Image processing - Is user: true
+                    #
+                    # Flutter is adding "user_uploaded: true" and "author_id: 1" (user) to all images.
+                    # This needs to be fixed in the Flutter app by:
+                    #   1. Adding an "isAssistant" or "source" parameter to the image metadata
+                    #   2. Checking the source of the image in the message processing logic
+                    #   3. Setting correct alignment based on the image source
+                    
+                    # Create ImageContent with the content and content_type parameters
+                    yield ImageContent(content=img_str, content_type="image/jpeg")
                 except Exception as e:
                     self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
-                    # Optionally yield an error message
-                    yield MessageContent(type="text", text="Fout bij laden afbeelding.")
+                    # Properly create a TextContent instance
+                    yield TextContent(content="Fout bij laden afbeelding.")
             elif hasattr(content_block, 'type') and content_block.type == "image":
                 # If it's an image content block directly from Anthropic (less likely now)
                 self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
-                yield content_block 
+                yield content_block
             else:
                 # Handle text or other content blocks as before
                 yield content_block
 
-        # Note: Removed the explicit image buffering logic here, 
-        # as handle_stream now yields correctly formatted image content directly.
-        # The base AnthropicAgent's handle_stream likely needs to be aware
-        # that tool results (like PIL Images) might be yielded directly.
+        # Note: The image alignment issue must be fixed in the Flutter app where the image metadata
+        # is set. The Python server correctly creates ImageContent objects, but Flutter appears to
+        # override the metadata and set all images as user-uploaded.
         
         # --- End Modified Stream Handling ---
