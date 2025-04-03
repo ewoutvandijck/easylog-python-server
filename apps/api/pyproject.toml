@@ -32,6 +32,7 @@ dependencies = [
     "prefect>=3.2.12",
     "marvin>=2.3.8",
     "cairosvg>=2.7.1",
+    "graphiti-core>=0.8.2",
 ]
 
 [tool.ruff]

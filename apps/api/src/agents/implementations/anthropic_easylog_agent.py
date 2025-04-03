@@ -1,9 +1,9 @@
 # Python standard library imports
+import base64
 import io
 import json
 import re
 import time
-import base64
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
@@ -555,6 +555,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                     # Probeer blurren voor betere compressie
                     try:
                         from PIL import ImageFilter
+
                         image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
                     except Exception:
                         pass
@@ -618,9 +619,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
-        # In plaats van de stream direct door te geven,
-        # bufferen we het volledige antwoord en sturen het dan in één keer.
-        buffered_content = []
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -678,11 +676,6 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
-        # voor streaming problemen bij slechte internetverbindingen
-        has_image_content = False
-        image_buffer = []
-
         async for content_block in self.handle_stream(stream, tools):
             if isinstance(content_block, Image.Image):
                 # If the content block IS the PIL Image returned by tool_load_image
@@ -690,8 +683,8 @@ Je huidige core memories zijn:
                 try:
                     buffered = io.BytesIO()
                     # Ensure saving as JPEG for consistency with tool processing
-                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality) 
-                    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality)
+                    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
                     # Construct the data URL format Flutter expects
                     data_url = f"data:image/jpeg;base64,{img_str}"
                     # Yield a MessageContent object suitable for Flutter's ImageMessage
@@ -701,17 +694,17 @@ Je huidige core memories zijn:
                     self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
                     # Optionally yield an error message
                     yield MessageContent(type="text", text="Fout bij laden afbeelding.")
-            elif hasattr(content_block, 'type') and content_block.type == "image":
+            elif hasattr(content_block, "type") and content_block.type == "image":
                 # If it's an image content block directly from Anthropic (less likely now)
                 self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
-                yield content_block 
+                yield content_block
             else:
                 # Handle text or other content blocks as before
                 yield content_block
 
-        # Note: Removed the explicit image buffering logic here, 
+        # Note: Removed the explicit image buffering logic here,
         # as handle_stream now yields correctly formatted image content directly.
         # The base AnthropicAgent's handle_stream likely needs to be aware
         # that tool results (like PIL Images) might be yielded directly.
-        
+
         # --- End Modified Stream Handling ---
