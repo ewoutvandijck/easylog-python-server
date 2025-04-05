@@ -459,155 +459,364 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> Image.Image:
+        async def _load_image_data(self, _id: str, file_name: str, timeout: float = 15.0) -> Image.Image | None:
             """
-            Laad een afbeelding uit de database en bereid deze voor op weergave.
-            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
-
+            Attempts to load image data using various possible paths with timeout protection.
+            
             Args:
-                _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
-
+                _id: The ID of the associated knowledge object
+                file_name: The filename of the image
+                timeout: Maximum time in seconds to wait for image loading
+                
             Returns:
-                str: Een data URL met de afbeelding als base64 gecodeerde data
+                The loaded image or None if loading failed
+                
+            Raises:
+                Exception: If image loading fails with all paths or times out
             """
-            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
+            import asyncio
+            from concurrent.futures import TimeoutError
+            
+            possible_paths = [
+                file_name,
+                f"figures/{file_name}" if "/" not in file_name else file_name,
+                file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
+                file_name.split("/")[-1],  # Just the filename
+            ]
 
-            try:
-                # Vereenvoudigde pad-logica: probeer verschillende padformaten tot er een werkt
-                possible_paths = [
-                    file_name,
-                    f"figures/{file_name}" if "/" not in file_name else file_name,
-                    file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
-                    file_name.split("/")[-1],  # Alleen de bestandsnaam
-                ]
-
-                # Probeer elke mogelijke padvariant
-                image_data = None
-                last_error = None
-
-                for path in possible_paths:
-                    try:
-                        image_data = await self.load_image(_id, path)
-                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
+            self.logger.debug(f"[IMAGE_DEBUG] Attempting to load image with timeout {timeout}s")
+            start_time = time.time()
+            
+            image_data = None
+            last_error = None
+            
+            for path in possible_paths:
+                # Check if we've exceeded our overall timeout
+                if time.time() - start_time > timeout:
+                    self.logger.warning(f"[IMAGE_DEBUG] Overall image loading timeout exceeded ({timeout}s)")
+                    break
+                    
+                try:
+                    # Set a timeout for this specific path attempt
+                    path_timeout = min(5.0, timeout - (time.time() - start_time))
+                    if path_timeout <= 0:
                         break
-                    except Exception as e:
-                        last_error = e
-                        continue
-
-                if image_data is None:
-                    raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
-
-                # Check for HEIC format and convert if needed
-                if image_data is not None and hasattr(image_data, 'format') and image_data.format == 'HEIC':
-                    # Convert HEIC to JPEG
+                        
+                    self.logger.debug(f"[IMAGE_DEBUG] Trying path '{path}' with {path_timeout:.1f}s timeout")
+                    
+                    # Use asyncio.wait_for to implement the timeout
                     try:
-                        with io.BytesIO() as buffer:
-                            image_data.save(buffer, format="JPEG", quality=85)
-                            buffer.seek(0)
-                            image_data = Image.open(buffer)
-                            self.logger.info(f"[IMAGE] Converted HEIC to JPEG format")
-                    except Exception as e:
-                        self.logger.error(f"[IMAGE] Error converting HEIC: {str(e)}")
+                        image_data = await asyncio.wait_for(
+                            self.load_image(_id, path),
+                            timeout=path_timeout
+                        )
+                        load_time = time.time() - start_time
+                        self.logger.info(f"[IMAGE] Successfully loaded with path: {path} in {load_time:.2f}s")
+                        return image_data  # Return as soon as loaded
+                    except TimeoutError:
+                        self.logger.warning(f"[IMAGE_DEBUG] Timeout loading image with path: {path}")
+                        last_error = TimeoutError(f"Timeout loading image with path: {path}")
+                        continue
+                        
+                except Exception as e:
+                    last_error = e
+                    self.logger.debug(f"[IMAGE] Failed to load with path {path}: {e}")
+                    continue
 
-                # Bepaal originele grootte
-                with io.BytesIO() as buffer:
-                    image_data.save(buffer, format=image_data.format or "PNG")
-                    buffer.seek(0)
-                    original_size = len(buffer.getvalue())
-                    original_size_kb = original_size / 1024
+            total_time = time.time() - start_time
+            if image_data is None:
+                self.logger.error(f"[IMAGE] Could not load image {_id}/{file_name} with any path in {total_time:.2f}s. Last error: {last_error}")
+                raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
+            return None # Should not be reached if exception is raised, but satisfies linter
 
-                # Vereenvoudigde compressielogica
-                original_width, original_height = image_data.size
+        def _convert_heic_to_jpeg(self, image_data: Image.Image) -> Image.Image:
+            """Converts HEIC images to JPEG format."""
+            if hasattr(image_data, 'format') and image_data.format == 'HEIC':
+                try:
+                    with io.BytesIO() as buffer:
+                        # Use a reasonable quality for conversion
+                        image_data.save(buffer, format="JPEG", quality=85)
+                        buffer.seek(0)
+                        converted_image = Image.open(buffer)
+                        # Important: Make a copy to avoid issues with the buffer closing
+                        image_data = converted_image.copy()
+                        self.logger.info("[IMAGE] Converted HEIC to JPEG format")
+                        return image_data
+                except Exception as e:
+                    self.logger.error(f"[IMAGE] Error converting HEIC: {str(e)}")
+                    # Return original image if conversion fails
+                    return image_data
+            return image_data
 
-                # Basisconfiguratie voor optimale prestaties op mobiele apparaten
-                max_width = 1200  # Verhoogd naar 1200px voor betere kwaliteit
-                quality = 70  # Standaard kwaliteit
+        def _get_image_size_kb(self, image: Image.Image, format: str = "JPEG") -> float:
+            """Calculates the size of the image in kilobytes."""
+            with io.BytesIO() as buffer:
+                save_format = format if format else image.format or "PNG"
+                try:
+                    self.logger.debug(f"[IMAGE_DEBUG] Calculating size for image mode={image.mode}, format={save_format}")
+                    image.save(buffer, format=save_format)
+                    size_bytes = len(buffer.getvalue())
+                    self.logger.debug(f"[IMAGE_DEBUG] Raw image size: {size_bytes} bytes ({size_bytes/1024:.2f} KB)")
+                    return size_bytes / 1024
+                except Exception as e:
+                    self.logger.warning(f"[IMAGE] Could not determine image size for format {save_format}: {e}")
+                    # Fallback for modes like 'P' that might not save directly to JPEG without conversion
+                    if image.mode != "RGB":
+                        self.logger.info(f"[IMAGE] Converting {image.mode} to RGB for size calculation")
+                        rgb_image = image.convert("RGB")
+                        return self._get_image_size_kb(rgb_image, format="JPEG")
+                    return 0.0
 
-                # Eenvoudige aanpassing op basis van afbeeldingsgrootte
-                if original_size < 100 * 1024:  # < 100 KB
-                    max_width = min(original_width, 1200)
-                    quality = 80
-                elif original_size > 1 * 1024 * 1024:  # > 1 MB
-                    max_width = 800
-                    quality = 60
 
-                # Resize indien nodig
-                if original_width > max_width:
-                    scale_factor = max_width / original_width
-                    new_height = int(original_height * scale_factor)
-                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        def _compress_image(self, image_data: Image.Image, target_kb: int = 150) -> tuple[Image.Image, float]:
+            """Compresses the image to be below a target size in KB."""
+            original_width, original_height = image_data.size
+            original_size_kb = self._get_image_size_kb(image_data)
+            self.logger.info(f"[IMAGE] Original size: {original_size_kb:.1f} KB ({original_width}x{original_height})")
+            self.logger.debug(f"[IMAGE_DEBUG] Image mode: {image_data.mode}, format: {getattr(image_data, 'format', 'Unknown')}")
 
-                # Converteer naar RGB (voor afbeeldingen met transparantie)
+            # Ensure image is in RGB format for JPEG saving
+            if image_data.mode in ("RGBA", "LA", "P"):
+                self.logger.debug(f"[IMAGE_DEBUG] Converting from {image_data.mode} mode to RGB")
+                # Preserve transparency by pasting onto a white background
                 if image_data.mode in ("RGBA", "LA"):
                     background = Image.new("RGB", image_data.size, (255, 255, 255))
-                    background.paste(
-                        image_data,
-                        mask=image_data.split()[3] if len(image_data.split()) > 3 else None,
-                    )
+                    mask = image_data.split()[3] if len(image_data.split()) > 3 else None
+                    background.paste(image_data, mask=mask)
                     image_data = background
+                    self.logger.debug("[IMAGE_DEBUG] Applied transparency handling with white background")
+                else: # Handle 'P' mode (palette-based)
+                    image_data = image_data.convert("RGB")
+                    self.logger.debug("[IMAGE_DEBUG] Converted palette-based image to RGB")
 
-                # Comprimeer de afbeelding
-                with io.BytesIO() as buffer:
-                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
-                    buffer.seek(0)
-                    compressed_data = buffer.getvalue()
-                    compressed_size = len(compressed_data)
-                    compressed_size_kb = compressed_size / 1024
 
-                # Extra compressie alleen als echt nodig (> 150KB)
-                if compressed_size > 150 * 1024:
-                    # Verder verkleinen en comprimeren
-                    new_width = int(image_data.width * 0.8)
-                    new_height = int(image_data.height * 0.8)
+            # --- Step 1: Initial Resize and Quality Adjustment ---
+            current_image = image_data.copy()
+            max_width = self.config.image_max_width
+            quality = self.config.image_quality
 
-                    image_data = image_data.resize(
-                        (new_width, new_height),
-                        Image.Resampling.LANCZOS,
-                    )
+            if current_image.width > max_width:
+                scale_factor = max_width / current_image.width
+                new_height = int(current_image.height * scale_factor)
+                self.logger.info(f"[IMAGE] Resizing to {max_width}x{new_height}")
+                current_image = current_image.resize((max_width, new_height), Image.Resampling.LANCZOS)
 
-                    # Probeer blurren voor betere compressie
+            with io.BytesIO() as buffer:
+                current_image.save(buffer, format="JPEG", quality=quality, optimize=True)
+                compressed_data = buffer.getvalue()
+                current_size_kb = len(compressed_data) / 1024
+
+            self.logger.info(f"[IMAGE] After initial compression (Q={quality}, W<={max_width}): {current_size_kb:.1f} KB")
+
+            # --- Step 2: Multi-stage Compression for Poor Connections ---
+            if current_size_kb > target_kb:
+                self.logger.info(f"[IMAGE] Size ({current_size_kb:.1f} KB) exceeds target ({target_kb} KB). Applying aggressive compression.")
+                
+                # Define compression stages with increasingly aggressive settings
+                compression_stages = [
+                    # Stage 1: Moderate compression
+                    {"scale": 0.8, "quality": max(50, quality - 15), "blur": 0.3},
+                    # Stage 2: More aggressive
+                    {"scale": 0.7, "quality": max(40, quality - 25), "blur": 0.5},
+                    # Stage 3: Very aggressive (last resort)
+                    {"scale": 0.6, "quality": max(30, quality - 35), "blur": 0.8}
+                ]
+                
+                # Try each compression stage until target is met or all stages exhausted
+                for stage_num, stage in enumerate(compression_stages, 1):
+                    # Apply stage settings
+                    agg_width = int(current_image.width * stage["scale"])
+                    agg_height = int(current_image.height * stage["scale"])
+                    agg_quality = stage["quality"]
+                    
+                    self.logger.debug(f"[IMAGE_DEBUG] Compression stage {stage_num}: scale={stage['scale']}, " +
+                                     f"quality={agg_quality}, dimensions={agg_width}x{agg_height}")
+                    
+                    # Resize image
+                    current_image = current_image.resize((agg_width, agg_height), Image.Resampling.LANCZOS)
+                    
+                    # Apply blur if available (helps JPEG compression)
                     try:
                         from PIL import ImageFilter
-                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
-                    except Exception:
-                        pass
-
+                        current_image = current_image.filter(ImageFilter.GaussianBlur(radius=stage["blur"]))
+                        self.logger.debug(f"[IMAGE_DEBUG] Applied Gaussian blur with radius {stage['blur']}")
+                    except (ImportError, Exception) as e:
+                        self.logger.debug(f"[IMAGE_DEBUG] Skipping blur: {str(e)}")
+                    
+                    # Check size after this stage
                     with io.BytesIO() as buffer:
-                        image_data.save(buffer, format="JPEG", quality=50, optimize=True)
-
-                # Add a special identifier to the image or its metadata that the client can detect
-                # This helps overcome the server metadata overwriting problem
-                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
+                        current_image.save(buffer, format="JPEG", quality=agg_quality, optimize=True)
+                        current_size_kb = len(buffer.getvalue()) / 1024
+                    
+                    self.logger.info(f"[IMAGE] After compression stage {stage_num}: {current_size_kb:.1f} KB")
+                    
+                    # If we're under target, stop compression
+                    if current_size_kb <= target_kb * 1.1:  # Allow 10% over target
+                        self.logger.info(f"[IMAGE] Target size achieved at stage {stage_num}")
+                        break
                 
-                # Create a modified version of the image with assistant identifier watermarking
-                try:
-                    # Add a small metadata pixel that won't affect the visible image but can be detected
-                    # The Flutter app can look for this pattern
-                    if image_data.width > 5 and image_data.height > 5:
-                        # Create a small pattern of pixels in the corner that indicates this is an assistant image
-                        # This pattern can be detected even if metadata is lost
-                        pixels = image_data.load()
-                        # Set a very subtle pattern of pixels in bottom-right corner 
-                        # This pattern can be detected by client even if metadata is rewritten
-                        if image_data.mode == "RGB" and pixels is not None:
-                            # Specific pattern: 3 pixels in specific positions with specific values
-                            pixels[image_data.width-1, image_data.height-1] = (250, 250, 253)
-                            pixels[image_data.width-2, image_data.height-1] = (250, 250, 252)
-                            pixels[image_data.width-1, image_data.height-2] = (250, 250, 251)
-                            self.logger.info("[IMAGE] Added assistant image identifier pattern")
-                except Exception as e:
-                    self.logger.error(f"[IMAGE] Error adding assistant identifier: {str(e)}")
+                # Apply additional JPEG optimization techniques for stubborn images
+                if current_size_kb > target_kb * 1.2:
+                    self.logger.warning(f"[IMAGE] Still over target after all compression stages: {current_size_kb:.1f} KB")
+                    
+                    try:
+                        # Convert to grayscale as last resort if still too large
+                        if current_size_kb > target_kb * 1.5:
+                            self.logger.warning("[IMAGE_DEBUG] Converting to grayscale as last resort")
+                            current_image = current_image.convert("L")
+                            
+                            with io.BytesIO() as buffer:
+                                current_image.save(buffer, format="JPEG", quality=40, optimize=True)
+                                current_size_kb = len(buffer.getvalue()) / 1024
+                            
+                            self.logger.info(f"[IMAGE] After grayscale conversion: {current_size_kb:.1f} KB")
+                    except Exception as e:
+                        self.logger.error(f"[IMAGE_DEBUG] Error in last-resort compression: {str(e)}")
 
+            # --- Final Check ---
+            if current_size_kb > target_kb * 1.2: # Allow slightly over target
+                 self.logger.warning(f"[IMAGE] Final size {current_size_kb:.1f} KB still significantly over target {target_kb} KB.")
+                 self.logger.warning("[IMAGE_DEBUG] Image may have issues on poor connections")
+
+
+            final_size_kb = current_size_kb
+            return current_image, final_size_kb
+
+        def _verify_image_integrity(self, image_data: Image.Image) -> bool:
+            """
+            Verifies that the image data is valid and can be properly encoded/decoded.
+            This helps catch corrupted images before attempting to send them.
+            
+            Args:
+                image_data (Image.Image): The image to verify
+                
+            Returns:
+                bool: True if the image passes integrity checks, False otherwise
+            """
+            try:
+                # Test if we can encode and decode the image without errors
+                with io.BytesIO() as buffer:
+                    # Try to save the image to the buffer
+                    image_data.save(buffer, format="JPEG", quality=85)
+                    buffer_size = len(buffer.getvalue())
+                    
+                    # Check if the buffer has reasonable content
+                    if buffer_size < 100:  # Suspiciously small
+                        self.logger.warning(f"[IMAGE_DEBUG] Image verification failed: suspiciously small size ({buffer_size} bytes)")
+                        return False
+                    
+                    # Try to reload the image from the buffer
+                    buffer.seek(0)
+                    test_image = Image.open(buffer)
+                    test_image.load()  # Force load the image data
+                    
+                    # Check dimensions match
+                    if test_image.size != image_data.size:
+                        self.logger.warning(f"[IMAGE_DEBUG] Image verification failed: size mismatch after reload")
+                        return False
+                        
+                    self.logger.debug(f"[IMAGE_DEBUG] Image passed integrity verification: {buffer_size} bytes")
+                    return True
+                    
+            except Exception as e:
+                self.logger.error(f"[IMAGE_DEBUG] Image verification failed with error: {str(e)}")
+                return False
+        
+        def _add_assistant_identifier(self, image_data: Image.Image) -> Image.Image:
+            """Adds a subtle pixel pattern to identify the image as assistant-generated."""
+            try:
+                if image_data.width > 5 and image_data.height > 5 and image_data.mode == "RGB":
+                    pixels = image_data.load()
+                    if pixels:
+                         # Specific pattern: 3 pixels in bottom-right corner with specific RGB values
+                         pixels[image_data.width-1, image_data.height-1] = (250, 250, 253) # Bottom-right
+                         pixels[image_data.width-2, image_data.height-1] = (250, 250, 252) # One left
+                         pixels[image_data.width-1, image_data.height-2] = (250, 250, 251) # One up
+                         self.logger.info("[IMAGE] Added assistant image identifier pattern.")
+            except Exception as e:
+                 # Log error but don't fail the whole process if identifier can't be added
+                self.logger.error(f"[IMAGE] Error adding assistant identifier: {str(e)}")
+            return image_data
+
+
+        async def tool_load_image(self, _id: str, file_name: str) -> Image.Image:
+            """
+            Loads, processes (converts, compresses), and returns an image from the database.
+            It attempts various paths, converts HEIC, compresses to a target size,
+            and adds an identifier for client-side detection.
+
+            Args:
+                _id (str): The ID of the associated knowledge object (e.g., PDF).
+                file_name (str): The filename of the image (potentially including path).
+
+            Returns:
+                Image.Image: The processed PIL Image object.
+
+            Raises:
+                Exception: If the image cannot be loaded or processed.
+            """
+            start_time = time.time()
+            self.logger.info(f"[IMAGE] Processing request for image: {_id}/{file_name}")
+            self.logger.debug(f"[IMAGE_DEBUG] Image processing started at: {start_time}")
+
+            try:
+                # 1. Load Image Data
+                image_data = await self._load_image_data(_id, file_name)
+                if not image_data: # Should have raised in helper, but check defensively
+                    raise ValueError("Failed to load image data.")
+
+                # 2. Convert HEIC if necessary
+                image_data = self._convert_heic_to_jpeg(image_data)
+                
+                # --- Start Processing for Output ---
+                # Keep track of original size for logging comparison
+                original_size_kb = self._get_image_size_kb(image_data)
+
+                # 3. Compress Image
+                # Target size set significantly below typical network limits for safety margin
+                target_kb = 100  # Reduced from 140 to be more conservative
+                self.logger.debug(f"[IMAGE_DEBUG] Using more aggressive target size: {target_kb}KB for compression")
+                processed_image, compressed_size_kb = self._compress_image(image_data, target_kb=target_kb)
+
+                # 4. Add Identifier Pattern
+                processed_image = self._add_assistant_identifier(processed_image)
+                
+                # 5. Verify image integrity
+                if not self._verify_image_integrity(processed_image):
+                    self.logger.warning("[IMAGE_DEBUG] Image failed integrity check, attempting recovery...")
+                    # Try more aggressive compression as recovery
+                    recovery_target_kb = 80
+                    self.logger.debug(f"[IMAGE_DEBUG] Recovery compression with target: {recovery_target_kb}KB")
+                    processed_image, compressed_size_kb = self._compress_image(processed_image, target_kb=recovery_target_kb)
+                    
+                    # Verify again
+                    if not self._verify_image_integrity(processed_image):
+                        self.logger.error("[IMAGE_DEBUG] Image still fails integrity check after recovery attempt")
+                        # Continue anyway, but log the issue
+                
+                # Extra verification of final image size
+                final_size_kb = self._get_image_size_kb(processed_image)
+                self.logger.debug(f"[IMAGE_DEBUG] Verified final image size: {final_size_kb:.2f}KB")
+
+                # 5. Final Logging
                 self.logger.info(
-                    f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
-                )
 
-                return image_data
+                     f"[IMAGE] Final processed size: {compressed_size_kb:.1f} KB "
+                     f"(Original: {original_size_kb:.1f} KB). Returning image."
+                 )
+                end_time = time.time()
+                processing_time = end_time - start_time
+                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
+                self.logger.info(f"[IMAGE_DEBUG] Total image processing time: {processing_time:.2f} seconds")
+
+                return processed_image
 
             except Exception as e:
-                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                self.logger.error(f"[IMAGE] Critical error processing image {_id}/{file_name}: {str(e)}")
+                self.logger.error(f"[IMAGE_DEBUG] Exception type: {type(e).__name__}, traceback: {e.__traceback__}")
+                # Re-raise the exception so the calling code knows something went wrong
                 raise e
+
 
         tools = [
             tool_store_memory,
@@ -655,15 +864,27 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 self.logger.warning(f" - {i + 1}: Error logging tool: {str(e)}")
 
         start_time = time.time()
-
+        
+        # Configure network resilience settings
+        retry_attempts = 3
+        retry_delay = 2.0  # seconds
+        
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
         buffered_content = []
-        stream = await self.client.messages.create(
-            # Gebruik Claude 3.7 Sonnet model
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=2048,
-            system=f"""Je bent een vriendelijke en behulpzame data-analist voor EasyLog.
+        
+        # Add retry logic for API calls to handle network instability
+        stream = None
+        for attempt in range(1, retry_attempts + 1):
+            try:
+                self.logger.info(f"[NETWORK] API call attempt {attempt}/{retry_attempts}")
+                stream = await self.client.messages.create(
+                    # Gebruik Claude 3.7 Sonnet model
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens=2048,
+                    # Add timeout parameter to prevent hanging on network issues
+                    timeout=60.0,  # 60 second timeout for API call
+                    system=f"""Je bent een vriendelijke en behulpzame data-analist voor EasyLog.
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
@@ -703,15 +924,34 @@ Je huidige core memories zijn:
 - Wijs op ongewone of afwijkende resultaten
 - Geef context bij de cijfers waar mogelijk
 - Vat grote datasets bondig samen
-            """,
-            messages=message_history,
-            tools=anthropic_tools,
-            stream=True,
-        )
+                    """,
+                    messages=message_history,
+                    tools=anthropic_tools,
+                    stream=True,
+                )
+                
+                # Break out of retry loop on success
+                self.logger.info("[NETWORK] API call successful")
+                break
+                
+            except Exception as e:
+                self.logger.error(f"[NETWORK] API call failed (attempt {attempt}/{retry_attempts}): {str(e)}")
+                
+                if attempt < retry_attempts:
+                    # Wait before retrying with exponential backoff
+                    import asyncio
+                    wait_time = retry_delay * (2 ** (attempt - 1))
+                    self.logger.info(f"[NETWORK] Waiting {wait_time:.1f}s before retry...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Last attempt failed, re-raise the exception
+                    self.logger.error("[NETWORK] All API call attempts failed")
+                    raise
 
         end_time = time.time()
         execution_time = end_time - start_time
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
+        logger.info(f"[NETWORK] API call completed after {attempt} attempt(s)")
 
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
@@ -721,23 +961,74 @@ Je huidige core memories zijn:
         has_image_content = False
         image_buffer = []
 
+        # Assert that the stream is not None, satisfying the type checker
+        assert stream is not None, "Stream should have been initialized or an exception raised."
+
+        # Initialize variables for buffering and timeout handling
+        buffer_start_time = None
+        max_buffer_time = 30  # Maximum seconds to buffer before sending anyway
+        image_content_complete = False
+        current_image_chunks = []
+        
         async for content in self.handle_stream(stream, tools):
             # Controleer of we afbeeldingen hebben gedetecteerd
             if hasattr(content, "type") and content.type == "image":
                 # Afbeelding gedetecteerd, schakel over naar buffermodus
                 has_image_content = True
+                if buffer_start_time is None:
+                    buffer_start_time = time.time()
                 self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
+                self.logger.debug(f"[IMAGE_DEBUG] Image content detected: {getattr(content, 'type', 'unknown')}, " +
+                                 f"size: {len(str(content))}")
+                # Start collecting chunks for this image
+                current_image_chunks = [content]
                 image_buffer.append(content)
             elif has_image_content:
                 # We hebben al een afbeelding gezien, blijf alles bufferen
                 image_buffer.append(content)
+                
+                # Check if we've been buffering too long and should send anyway
+                if buffer_start_time and (time.time() - buffer_start_time) > max_buffer_time:
+                    self.logger.warning(f"[IMAGE_DEBUG] Buffer timeout reached ({max_buffer_time}s), sending buffered content")
+                    buffer_time = time.time() - buffer_start_time
+                    self.logger.info(f"[IMAGE_DEBUG] Forced buffer flush after {buffer_time:.2f} seconds")
+                    
+                    # Send all buffered content
+                    for chunk in image_buffer:
+                        yield chunk
+                    
+                    # Reset buffer
+                    image_buffer = []
+                    has_image_content = False
+                    buffer_start_time = None
+                    continue
+                
+                self.logger.debug(f"[IMAGE_DEBUG] Buffering additional content chunk: {type(content)}")
             else:
                 # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
                 yield content
 
         # Als er afbeeldingen waren, stuur de gebufferde content nu
         if has_image_content and image_buffer:
+            buffer_time = time.time() - buffer_start_time if buffer_start_time else 0
             self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+            self.logger.info(f"[IMAGE_DEBUG] Total buffering time: {buffer_time:.2f} seconds")
+            self.logger.info(f"[IMAGE_DEBUG] Total buffer size: {sum(len(str(chunk)) for chunk in image_buffer)} characters")
+            
+            # Send each chunk with logging and error handling
+            for i, buffered_chunk in enumerate(image_buffer):
+                try:
+                    self.logger.debug(f"[IMAGE_DEBUG] Yielding buffer chunk {i+1}/{len(image_buffer)}, " +
+                                     f"type: {type(buffered_chunk)}")
+                    yield buffered_chunk
+                except Exception as e:
+                    self.logger.error(f"[IMAGE_DEBUG] Error yielding buffer chunk {i+1}: {str(e)}")
+                    # Continue with next chunk instead of failing completely
+
+        # Check if the stream was successfully created (it should always be at this point,
+        # or an exception would have been raised)
+        if stream is None:
+            # This should be unreachable due to the raise in the loop's else block
+            self.logger.error("[CRITICAL] Stream is None after retry loop, this should not happen!")
+            # Raise an error or handle appropriately if this unexpected state occurs
+            raise RuntimeError("Failed to establish stream after retries.")
