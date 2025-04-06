@@ -63,6 +63,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             "tool_generate_monthly_report",
             "tool_get_object_history",
             "tool_search_pdf",
+            "tool_load_image",
             "tool_clear_memories",
         ]
 
@@ -251,10 +252,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             original_width, original_height = image_data.size
 
             # --- Compression Strategy ---
-            target_kb = 100  # Lowered target size
-            max_width = 1000 # Lowered max width
-            initial_quality = 65 # Lowered initial quality
-            min_quality = 40   # Lowered minimum quality
+            target_kb = 150
+            max_width = 1200
+            initial_quality = 75
+            min_quality = 50
 
             # 1. Resize if dimensions exceed max_width
             resized_image = image_data
@@ -642,12 +643,67 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
+        async def tool_load_image(_id: str, file_name: str) -> Image.Image:
+            """
+            Loads an image from the database, optimizes it for display, and adds an identifier.
+            Handles various image formats including HEIC, applies compression, and ensures
+            robustness against errors during processing.
+
+            Args:
+                _id (str): The ID associated with the image's source (e.g., PDF ID).
+                file_name (str): The filename of the image (can include path components).
+
+            Returns:
+                Image.Image: The processed and optimized PIL Image object.
+
+            Raises:
+                Exception: If the image cannot be loaded or processed after multiple attempts.
+            """
+            self.logger.info(f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}'")
+
+            try:
+                # 1. Attempt to load the image using various path formats
+                image_data = await self._attempt_load_image(_id, file_name)
+                if image_data is None:
+                    # If loading failed after trying all paths, raise an error
+                    raise FileNotFoundError(f"Could not load image '{file_name}' from source '{_id}' using any known path format.")
+
+                # 2. Handle HEIC conversion if necessary
+                image_data = self._convert_heic_to_jpeg(image_data)
+
+                # 3. Apply compression and resizing
+                compressed_image, original_size_kb, compressed_size_kb = self._apply_compression(image_data)
+
+                # 4. Add the assistant identifier pattern
+                final_image = self._add_assistant_identifier(compressed_image)
+
+                self.logger.info(
+                     f"[IMAGE] Optimization complete for '{file_name}': "
+                     f"{original_size_kb:.1f}KB -> {compressed_size_kb:.1f}KB "
+                     f"(Dimensions: {final_image.width}x{final_image.height})"
+                )
+                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
+
+                # Return the final PIL Image object directly
+                return final_image
+
+            except FileNotFoundError as fnf_error:
+                 self.logger.error(f"[IMAGE] File not found error: {str(fnf_error)}")
+                 # Re-raise specific error for clarity upstream if needed
+                 raise fnf_error
+            except Exception as e:
+                # Catch any other unexpected errors during the process
+                self.logger.error(f"[IMAGE] Unexpected error processing image '{file_name}': {str(e)}")
+                # Re-raise the exception to signal failure
+                raise e
+
         tools = [
             tool_store_memory,
             tool_get_easylog_data,
             tool_generate_monthly_report,
             tool_get_object_history,
             tool_search_pdf,
+            tool_load_image,
             tool_clear_memories,
         ]
 
@@ -665,6 +721,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 "tool_generate_monthly_report",
                 "tool_get_object_history",
                 "tool_search_pdf",
+                "tool_load_image",
                 "tool_clear_memories",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
