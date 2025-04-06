@@ -1,5 +1,4 @@
 # Python standard library imports
-import base64
 import io
 import json
 import re
@@ -11,7 +10,6 @@ from typing import TypedDict
 from dotenv import load_dotenv
 from PIL import Image
 from pydantic import BaseModel, Field
-
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -38,9 +36,15 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=100,
         description="Maximum number of entries to fetch from the database for reports",
     )
-    debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
-    image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
-    image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
+    debug_mode: bool = Field(
+        default=True, description="Enable debug mode with additional logging"
+    )
+    image_max_width: int = Field(
+        default=1200, description="Maximum width for processed images in pixels"
+    )
+    image_quality: int = Field(
+        default=90, description="JPEG quality for processed images (1-100)"
+    )
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -93,7 +97,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 name = match.strip()
-                if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    name and len(name) > 1
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
 
@@ -107,7 +113,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 role = match.strip()
-                if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    role and len(role) > 3
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Functie: {role}")
                     self.logger.info(f"Detected user role: {role}")
 
@@ -121,7 +129,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 department = match.strip()
-                if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
+                if (
+                    department and len(department) > 2
+                ):  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Afdeling: {department}")
                     self.logger.info(f"Detected user department: {department}")
 
@@ -176,7 +186,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Zoek naar bestaande herinnering van hetzelfde type
         existing_index = -1
         for i, existing_memory in enumerate(current_memories):
-            existing_type = existing_memory.split(":", 1)[0].strip().lower() if ":" in existing_memory else ""
+            existing_type = (
+                existing_memory.split(":", 1)[0].strip().lower()
+                if ":" in existing_memory
+                else ""
+            )
             if memory_type and existing_type == memory_type:
                 existing_index = i
                 break
@@ -194,7 +208,249 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Sla bijgewerkte herinneringen op
         self.set_metadata("memories", current_memories)
 
-    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
+    # --- Image Processing Helper Methods ---
+    async def _attempt_load_image(self, _id: str, file_name: str) -> Image.Image | None:
+        """Tries to load an image using various possible path variations."""
+        possible_paths = [
+            file_name,
+            f"figures/{file_name}" if "/" not in file_name else file_name,
+            file_name.replace("figures/", "")
+            if file_name.startswith("figures/")
+            else file_name,
+            file_name.split("/")[-1],  # Only the filename
+        ]
+
+        last_error = None
+        for path in possible_paths:
+            try:
+                # Use the base class method to load the image
+                image_data = await super().load_image(_id, path)
+                self.logger.info(f"[IMAGE] Successfully loaded with path: {path}")
+                return image_data
+            except Exception as e:
+                last_error = e
+                continue
+
+        self.logger.warning(
+            f"[IMAGE] Failed to load image {file_name} from {_id} with any path: {last_error}"
+        )
+        return None
+
+    def _convert_heic_to_jpeg(self, image_data: Image.Image) -> Image.Image:
+        """Converts HEIC images to JPEG format."""
+        if hasattr(image_data, "format") and image_data.format == "HEIC":
+            try:
+                with io.BytesIO() as buffer:
+                    # Use a default quality for conversion
+                    image_data.save(buffer, format="JPEG", quality=85)
+                    buffer.seek(0)
+                    converted_image = Image.open(buffer)
+                    # Important: Copy the image data to avoid issues with closed buffer
+                    image_data = converted_image.copy()
+                    self.logger.info("[IMAGE] Converted HEIC to JPEG format")
+            except Exception as e:
+                self.logger.error(f"[IMAGE] Error converting HEIC: {str(e)}")
+                # Return original if conversion fails
+        return image_data
+
+    def _apply_compression(
+        self, image_data: Image.Image
+    ) -> tuple[Image.Image, float, float]:
+        """Applies resizing and compression to the image."""
+        original_size_kb = 0.0
+        try:
+            # Determine original size
+            with io.BytesIO() as buffer:
+                # Use the original format if available, fallback to PNG
+                original_format = (
+                    image_data.format
+                    if hasattr(image_data, "format") and image_data.format
+                    else "PNG"
+                )
+                # Ensure format is supported by PIL for saving, default to PNG
+                if original_format.upper() not in [
+                    "PNG",
+                    "JPEG",
+                    "JPG",
+                    "GIF",
+                    "BMP",
+                    "TIFF",
+                ]:
+                    original_format = "PNG"
+                image_data.save(buffer, format=original_format)
+                buffer.seek(0)
+                original_size = len(buffer.getvalue())
+            original_size_kb = original_size / 1024
+            original_width, original_height = image_data.size
+
+            # --- Compression Strategy ---
+            target_kb = 150
+            max_width = 1200
+            initial_quality = 75
+            min_quality = 50
+
+            # 1. Resize if dimensions exceed max_width
+            resized_image = image_data
+            if original_width > max_width:
+                scale_factor = max_width / original_width
+                new_height = int(original_height * scale_factor)
+                self.logger.info(
+                    f"[IMAGE] Resizing from {original_width}x{original_height} to {max_width}x{new_height}"
+                )
+                resized_image = image_data.resize(
+                    (max_width, new_height), Image.Resampling.LANCZOS
+                )
+
+            # 2. Convert to RGB if necessary (for JPEG saving)
+            if resized_image.mode in ("RGBA", "LA", "P"):  # Added 'P' for Palette mode
+                self.logger.info(
+                    f"[IMAGE] Converting from mode {resized_image.mode} to RGB"
+                )
+                background = Image.new("RGB", resized_image.size, (255, 255, 255))
+                try:
+                    mask = None
+                    if resized_image.mode == "RGBA":
+                        mask = resized_image.split()[3]
+                    elif resized_image.mode == "LA":
+                        mask = resized_image.split()[
+                            1
+                        ]  # Alpha is the second channel in LA
+                    elif (
+                        resized_image.mode == "P"
+                        and "transparency" in resized_image.info
+                    ):
+                        # Handle transparency in Palette mode
+                        try:
+                            # Attempt to convert to RGBA to get a mask
+                            mask = resized_image.convert("RGBA").split()[3]
+                        except Exception as conv_err:
+                            self.logger.warning(
+                                f"[IMAGE] Could not get alpha mask from P mode: {conv_err}"
+                            )
+
+                    background.paste(resized_image, mask=mask)
+                except IndexError:
+                    self.logger.warning(
+                        "[IMAGE] Index error getting mask, pasting without mask."
+                    )
+                    background.paste(resized_image)
+                except Exception as paste_err:
+                    self.logger.error(
+                        f"[IMAGE] Error during RGBA/LA/P conversion pasting: {paste_err}, using direct convert."
+                    )
+                    try:
+                        background = resized_image.convert(
+                            "RGB"
+                        )  # Fallback to direct conversion
+                    except Exception as convert_err:
+                        self.logger.error(
+                            f"[IMAGE] Fallback RGB conversion failed: {convert_err}"
+                        )
+                        # Keep original if all fails (though unlikely to be saveable as JPEG)
+                        background = resized_image
+                resized_image = background
+
+            # 3. Iterative Compression to meet target size
+            compressed_image = resized_image
+            current_quality = initial_quality
+            compressed_size_kb = (
+                original_size_kb  # Start with original size for loop condition
+            )
+            last_successful_image = (
+                resized_image  # Keep track of the last image successfully saved
+            )
+            last_successful_size_kb = original_size_kb
+
+            while True:
+                saved_successfully = False
+                current_loop_size_kb = -1.0  # Reset for this loop iteration
+                with io.BytesIO() as buffer:
+                    try:
+                        compressed_image.save(
+                            buffer,
+                            format="JPEG",
+                            quality=current_quality,
+                            optimize=True,
+                        )
+                        buffer.seek(0)
+                        compressed_data = buffer.getvalue()
+                        current_loop_size_kb = len(compressed_data) / 1024
+                        saved_successfully = True
+                        # Load the image from the buffer of the successful save
+                        buffer.seek(0)
+                        # Ensure we make a copy to work with outside the buffer's context
+                        last_successful_image = Image.open(buffer).copy()
+                        last_successful_size_kb = current_loop_size_kb
+
+                    except Exception as save_err:
+                        self.logger.error(
+                            f"[IMAGE] Error saving JPEG with quality {current_quality}: {save_err}"
+                        )
+                        # Break the loop on save error, will return the last *successful* save
+                        break
+
+                self.logger.info(
+                    f"[IMAGE] Compression attempt: Quality={current_quality}, Size={current_loop_size_kb:.1f}KB"
+                )
+
+                # Check if target met or quality too low
+                if current_loop_size_kb <= target_kb or current_quality <= min_quality:
+                    break  # Exit loop, use last_successful_image
+
+                # Reduce quality for next iteration
+                quality_step = 15 if current_loop_size_kb > target_kb * 2 else 10
+                current_quality = max(min_quality, current_quality - quality_step)
+
+                # Prepare the image for the next iteration - use the last successfully saved image data
+                compressed_image = last_successful_image
+
+            # Return the last image that was successfully saved and its size
+            return last_successful_image, original_size_kb, last_successful_size_kb
+
+        except Exception as e:
+            self.logger.error(f"[IMAGE] Error during compression process: {e}")
+            # Fallback: return original image data and size (if calculable)
+            return image_data, original_size_kb, original_size_kb
+
+    def _add_assistant_identifier(self, image_data: Image.Image) -> Image.Image:
+        """Adds a pixel pattern to identify the image as assistant-generated."""
+        try:
+            # Ensure image is not animated and is suitable for pixel manipulation
+            is_animated = (
+                getattr(image_data, "is_animated", False)
+                or getattr(image_data, "n_frames", 1) > 1
+            )
+            if not is_animated and image_data.width > 5 and image_data.height > 5:
+                img_copy = image_data.copy()
+                if img_copy.mode != "RGB":
+                    # Attempt conversion to RGB if not already
+                    try:
+                        img_copy = img_copy.convert("RGB")
+                    except Exception as conv_err:
+                        self.logger.warning(
+                            f"[IMAGE] Could not convert image to RGB for identifier: {conv_err}"
+                        )
+                        return image_data  # Return original if conversion fails
+
+                pixels = img_copy.load()
+                if pixels is not None:
+                    # Specific pattern: 3 pixels in bottom-right corner
+                    pixels[img_copy.width - 1, img_copy.height - 1] = (250, 250, 253)
+                    pixels[img_copy.width - 2, img_copy.height - 1] = (250, 250, 252)
+                    pixels[img_copy.width - 1, img_copy.height - 2] = (250, 250, 251)
+                    self.logger.info("[IMAGE] Added assistant image identifier pattern")
+                    return img_copy  # Return the modified copy
+
+            # If conditions not met or pixels is None, return original image
+            return image_data
+
+        except Exception as e:
+            self.logger.error(f"[IMAGE] Error adding assistant identifier: {str(e)}")
+            return image_data  # Return original image even if identifier adding failed
+
+    async def on_message(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
@@ -212,7 +468,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         if messages and len(messages) > 0:
             last_message = messages[-1]
             if last_message.role == "user" and isinstance(last_message.content, str):
-                self.logger.info(f"Processing user message: {last_message.content[:100]}...")
+                self.logger.info(
+                    f"Processing user message: {last_message.content[:100]}..."
+                )
                 # Automatisch naam detecteren en opslaan
                 await self._store_detected_name(last_message.content)
 
@@ -278,7 +536,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
 
-                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
+                        results.append(
+                            f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
+                        )
                     return "\n".join(results)
 
             except Exception as e:
@@ -371,7 +631,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Haalt de geschiedenis op van een specifiek object.
             """
             try:
-                self.logger.info(f"Fetching history for object: {object_name}, limit: {limit}")
+                self.logger.info(
+                    f"Fetching history for object: {object_name}, limit: {limit}"
+                )
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
@@ -383,7 +645,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         ORDER BY created_at DESC
                         LIMIT %s
                     """
-                    self.logger.debug(f"Executing query with params: {object_name}, {limit}")
+                    self.logger.debug(
+                        f"Executing query with params: {object_name}, {limit}"
+                    )
                     cursor.execute(query, (object_name, limit))
                     entries = cursor.fetchall()
                     self.logger.debug(f"Query returned {len(entries)} entries")
@@ -436,7 +700,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             # Verwerk de afbeeldingen, als die beschikbaar zijn
             images_data = []
             if hasattr(knowledge_result, "images") and knowledge_result.images:
-                self.logger.info(f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF")
+                self.logger.info(
+                    f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF"
+                )
                 for img in knowledge_result.images:
                     images_data.append(
                         {
@@ -462,114 +728,64 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         async def tool_load_image(_id: str, file_name: str) -> Image.Image:
             """
-            Laad een afbeelding uit de database en bereid deze voor op weergave.
-            De functie accepteert zowel volledige paden (figures/bestand.png) als alleen bestandsnamen (bestand.png).
+            Loads an image from the database, optimizes it for display, and adds an identifier.
+            Handles various image formats including HEIC, applies compression, and ensures
+            robustness against errors during processing.
 
             Args:
-                _id (str): Het ID van het PDF bestand
-                file_name (str): De bestandsnaam van de afbeelding (met of zonder pad)
+                _id (str): The ID associated with the image's source (e.g., PDF ID).
+                file_name (str): The filename of the image (can include path components).
 
             Returns:
-                str: Een data URL met de afbeelding als base64 gecodeerde data
+                Image.Image: The processed and optimized PIL Image object.
+
+            Raises:
+                Exception: If the image cannot be loaded or processed after multiple attempts.
             """
-            self.logger.info(f"[IMAGE] Laden afbeelding {file_name} uit {_id}")
+            self.logger.info(
+                f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}'"
+            )
 
             try:
-                # Vereenvoudigde pad-logica: probeer verschillende padformaten tot er een werkt
-                possible_paths = [
-                    file_name,
-                    f"figures/{file_name}" if "/" not in file_name else file_name,
-                    file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
-                    file_name.split("/")[-1],  # Alleen de bestandsnaam
-                ]
-
-                # Probeer elke mogelijke padvariant
-                image_data = None
-                last_error = None
-
-                for path in possible_paths:
-                    try:
-                        image_data = await self.load_image(_id, path)
-                        self.logger.info(f"[IMAGE] Succesvol geladen met pad: {path}")
-                        break
-                    except Exception as e:
-                        last_error = e
-                        continue
-
+                # 1. Attempt to load the image using various path formats
+                image_data = await self._attempt_load_image(_id, file_name)
                 if image_data is None:
-                    raise last_error or Exception("Kon afbeelding niet laden met beschikbare paden")
-
-                # Bepaal originele grootte
-                with io.BytesIO() as buffer:
-                    image_data.save(buffer, format=image_data.format or "PNG")
-                    buffer.seek(0)
-                    original_size = len(buffer.getvalue())
-                    original_size_kb = original_size / 1024
-
-                # Vereenvoudigde compressielogica
-                original_width, original_height = image_data.size
-
-                # Basisconfiguratie voor optimale prestaties op mobiele apparaten
-                max_width = 1200  # Verhoogd naar 1200px voor betere kwaliteit
-                quality = 70  # Standaard kwaliteit
-
-                # Eenvoudige aanpassing op basis van afbeeldingsgrootte
-                if original_size < 100 * 1024:  # < 100 KB
-                    max_width = min(original_width, 1200)
-                    quality = 80
-                elif original_size > 1 * 1024 * 1024:  # > 1 MB
-                    max_width = 800
-                    quality = 60
-
-                # Resize indien nodig
-                if original_width > max_width:
-                    scale_factor = max_width / original_width
-                    new_height = int(original_height * scale_factor)
-                    image_data = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
-
-                # Converteer naar RGB (voor afbeeldingen met transparantie)
-                if image_data.mode in ("RGBA", "LA"):
-                    background = Image.new("RGB", image_data.size, (255, 255, 255))
-                    background.paste(
-                        image_data,
-                        mask=image_data.split()[3] if len(image_data.split()) > 3 else None,
+                    # If loading failed after trying all paths, raise an error
+                    raise FileNotFoundError(
+                        f"Could not load image '{file_name}' from source '{_id}' using any known path format."
                     )
-                    image_data = background
 
-                # Comprimeer de afbeelding
-                with io.BytesIO() as buffer:
-                    image_data.save(buffer, format="JPEG", quality=quality, optimize=True)
-                    buffer.seek(0)
-                    compressed_data = buffer.getvalue()
-                    compressed_size = len(compressed_data)
-                    compressed_size_kb = compressed_size / 1024
+                # 2. Handle HEIC conversion if necessary
+                image_data = self._convert_heic_to_jpeg(image_data)
 
-                # Extra compressie alleen als echt nodig (> 150KB)
-                if compressed_size > 150 * 1024:
-                    # Verder verkleinen en comprimeren
-                    new_width = int(image_data.width * 0.8)
-                    new_height = int(image_data.height * 0.8)
+                # 3. Apply compression and resizing
+                compressed_image, original_size_kb, compressed_size_kb = (
+                    self._apply_compression(image_data)
+                )
 
-                    image_data = image_data.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                    # Probeer blurren voor betere compressie
-                    try:
-                        from PIL import ImageFilter
-
-                        image_data = image_data.filter(ImageFilter.GaussianBlur(radius=0.6))
-                    except Exception:
-                        pass
-
-                    with io.BytesIO() as buffer:
-                        image_data.save(buffer, format="JPEG", quality=50, optimize=True)
+                # 4. Add the assistant identifier pattern
+                final_image = self._add_assistant_identifier(compressed_image)
 
                 self.logger.info(
-                    f"[IMAGE] Beeld geoptimaliseerd: {original_size_kb:.1f}KB → {compressed_size_kb:.1f}KB"
+                    f"[IMAGE] Optimization complete for '{file_name}': "
+                    f"{original_size_kb:.1f}KB -> {compressed_size_kb:.1f}KB "
+                    f"(Dimensions: {final_image.width}x{final_image.height})"
                 )
-                return image_data
+                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
 
+                # Return the final PIL Image object directly
+                return final_image
+
+            except FileNotFoundError as fnf_error:
+                self.logger.error(f"[IMAGE] File not found error: {str(fnf_error)}")
+                # Re-raise specific error for clarity upstream if needed
+                raise fnf_error
             except Exception as e:
-                self.logger.error(f"[IMAGE] Fout bij verwerken: {str(e)}")
+                # Catch any other unexpected errors during the process
+                self.logger.error(
+                    f"[IMAGE] Unexpected error processing image '{file_name}': {str(e)}"
+                )
+                # Re-raise the exception to signal failure
                 raise e
 
         tools = [
@@ -610,7 +826,11 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             try:
                 if hasattr(tool, "function") and hasattr(tool.function, "name"):
                     self.logger.info(f" - {i + 1}: {tool.function.name}")
-                elif isinstance(tool, dict) and "function" in tool and "name" in tool["function"]:
+                elif (
+                    isinstance(tool, dict)
+                    and "function" in tool
+                    and "name" in tool["function"]
+                ):
                     self.logger.info(f" - {i + 1}: {tool['function']['name']}")
                 else:
                     self.logger.info(f" - {i + 1}: {str(tool)[:50]}")
@@ -619,6 +839,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         start_time = time.time()
 
+        # In plaats van de stream direct door te geven,
+        # bufferen we het volledige antwoord en sturen het dan in één keer.
+        buffered_content = []
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -674,37 +897,34 @@ Je huidige core memories zijn:
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
 
         if execution_time > 5.0:
-            logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
+            logger.warning(
+                f"API call took longer than expected: {execution_time:.2f} seconds"
+            )
 
-        async for content_block in self.handle_stream(stream, tools):
-            if isinstance(content_block, Image.Image):
-                # If the content block IS the PIL Image returned by tool_load_image
-                self.logger.info("[IMAGE] Converting PIL Image from tool_load_image to base64")
-                try:
-                    buffered = io.BytesIO()
-                    # Ensure saving as JPEG for consistency with tool processing
-                    content_block.save(buffered, format="JPEG", quality=self.config.image_quality)
-                    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                    # Construct the data URL format Flutter expects
-                    data_url = f"data:image/jpeg;base64,{img_str}"
-                    # Yield a MessageContent object suitable for Flutter's ImageMessage
-                    # Assuming MessageContent can handle a string directly for image URIs/data
-                    yield MessageContent(type="image", text=data_url)
-                except Exception as e:
-                    self.logger.error(f"[IMAGE] Error converting PIL Image to base64: {e}")
-                    # Optionally yield an error message
-                    yield MessageContent(type="text", text="Fout bij laden afbeelding.")
-            elif hasattr(content_block, "type") and content_block.type == "image":
-                # If it's an image content block directly from Anthropic (less likely now)
-                self.logger.warning("[IMAGE] Received direct image block from Anthropic stream, handling as is.")
-                yield content_block
+        # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
+        # voor streaming problemen bij slechte internetverbindingen
+        has_image_content = False
+        image_buffer = []
+
+        async for content in self.handle_stream(stream, tools):
+            # Controleer of we afbeeldingen hebben gedetecteerd
+            if hasattr(content, "type") and content.type == "image":
+                # Afbeelding gedetecteerd, schakel over naar buffermodus
+                has_image_content = True
+                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
+                # Voeg deze afbeelding toe aan de buffer
+                image_buffer.append(content)
+            elif has_image_content:
+                # We hebben al een afbeelding gezien, blijf alles bufferen
+                image_buffer.append(content)
             else:
-                # Handle text or other content blocks as before
-                yield content_block
+                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
+                yield content
 
-        # Note: Removed the explicit image buffering logic here,
-        # as handle_stream now yields correctly formatted image content directly.
-        # The base AnthropicAgent's handle_stream likely needs to be aware
-        # that tool results (like PIL Images) might be yielded directly.
-
-        # --- End Modified Stream Handling ---
+        # Als er afbeeldingen waren, stuur de gebufferde content nu
+        if has_image_content and image_buffer:
+            self.logger.info(
+                f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen"
+            )
+            for buffered_chunk in image_buffer:
+                yield buffered_chunk
