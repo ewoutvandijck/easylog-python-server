@@ -73,11 +73,12 @@ services:
     container_name: easylog-python-server.neo4j
     expose:
       - 7474
+      - 7687
     volumes:
-      - ./neo4j.conf:/etc/neo4j/neo4j.conf
       - neo4j:/data
     environment:
-      - NEO4J_AUTH=neo4j/password
+      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+    restart: unless-stopped
 
 volumes:
   prefect:

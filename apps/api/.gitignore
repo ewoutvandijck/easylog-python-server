@@ -1,2 +1,4 @@
 !node_modules/.gitkeep
 pdfservices-api-credentials.json
+
+llm_cache

@@ -4,15 +4,18 @@ import json
 import mimetypes
 import time
 from collections.abc import AsyncGenerator
-from typing import cast
+from datetime import datetime
+from typing import Literal, cast
 
 import cairosvg
 import httpx
 from anthropic.types.beta.beta_base64_pdf_block_param import BetaBase64PDFBlockParam
 from PIL import Image
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.agents.tools.planning_tools import PlanningTools
+from src.lib.graphiti import graphiti
 from src.models.charts import (
     Chart,
 )
@@ -40,9 +43,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
         self._planning_tools = PlanningTools(self.easylog_backend)
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         This is the main function that handles each message from the user.!
         It processes the message, looks up relevant information, and generates a response.
@@ -82,13 +83,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 "source": {
                     "type": "base64",
                     "media_type": "application/pdf",
-                    "data": base64.standard_b64encode(
-                        self._active_pdf.file_data
-                    ).decode("utf-8"),
+                    "data": base64.standard_b64encode(self._active_pdf.file_data).decode("utf-8"),
                 },
-                "cache_control": {
-                    "type": "ephemeral"
-                },  # Tells Claude this is temporary.
+                "cache_control": {"type": "ephemeral"},  # Tells Claude this is temporary.
             }
             if self._active_pdf
             else None
@@ -100,12 +97,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             if (
                 pdf_content_block is not None
                 and message["role"] == "user"  # Only attach PDFs to user messages
-                and isinstance(
-                    message["content"], list
-                )  # Content must be a list to extend
+                and isinstance(message["content"], list)  # Content must be a list to extend
                 and not any(
-                    isinstance(content, dict) and content.get("type") == "tool_result"
-                    for content in message["content"]
+                    isinstance(content, dict) and content.get("type") == "tool_result" for content in message["content"]
                 )  # Skip messages that contain tool results
             ):
                 # Add PDF content blocks to eligible messages
@@ -187,15 +181,9 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
                 response = await client.get(url)
                 response.raise_for_status()
                 image_data = response.content
-                mime_type = (
-                    response.headers.get("content-type")
-                    or mimetypes.guess_type(url)[0]
-                    or "image/jpeg"
-                )
+                mime_type = response.headers.get("content-type") or mimetypes.guess_type(url)[0] or "image/jpeg"
 
-                self.logger.info(
-                    f"Downloaded image from {url} with mime type {mime_type}"
-                )
+                self.logger.info(f"Downloaded image from {url} with mime type {mime_type}")
 
                 if "image/svg+xml" in mime_type:
                     # Convert SVG to PNG
@@ -236,10 +224,56 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
 
             return chart
 
+        async def tool_add_episode_to_knowledge_graph(
+            episode_body: str,
+            episode_type: Literal["memory", "other"],
+        ) -> str:
+            """
+            Add an episode to the knowledge graph.
+            """
+
+            class Person(BaseModel):
+                "Any person, fictional or real"
+
+                first_name: str | None = Field(description="The first name of the person")
+                last_name: str | None = Field(description="The last name of the person")
+
+            class Car(BaseModel):
+                "Any car, fictional or real"
+
+                brand: str | None = Field(description="The brand of the car")
+                model: str | None = Field(description="The model of the car")
+                year: int | None = Field(description="The year of the car")
+
+            entity_types = {"Person": Person, "Car": Car}
+
+            memory = await graphiti.add_episode(
+                name=f"{self._thread_id}_{len(messages)}",
+                episode_body=episode_body,
+                source_description=episode_type,
+                reference_time=datetime.now(),
+                entity_types=entity_types,
+            )
+
+            return memory.episode.model_dump_json()
+
+        async def tool_search_knowledge_graph(query: str) -> str:
+            """
+            Search the knowledge graph for a query.
+            """
+            results = await graphiti.search(query)
+
+            return json.dumps(
+                [
+                    result.model_dump_json(exclude={"fact_embedding", "valid_at", "invalid_at", "expired_at"})
+                    for result in results
+                ],
+            )
+
         tools = [
             tool_search_pdf,
-            tool_store_memory,
-            tool_clear_memories,
+            # tool_store_memory,
+            # tool_clear_memories,
             tool_load_image,
             tool_download_image_from_url,
             Chart.create_bar_chart,
@@ -247,6 +281,8 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             Chart.create_pie_chart,
             tool_example_chart,
             *self._planning_tools.all_tools,
+            tool_search_knowledge_graph,
+            tool_add_episode_to_knowledge_graph,
         ]
 
         # Start measuring how long the operation takes
@@ -263,36 +299,7 @@ class DebugAnthropicAgent(AnthropicAgent[DebugAnthropicAgentConfig]):
             max_tokens=2048,
             # Special instructions that tell Claude how to behave
             # This is like giving Claude a job description and rules to follow
-            system=f"""Je bent een behulpzame planning assistent die gebruikers helpt bij het beheren van projecten, fases en resources in EasyLog.
-
-### Wat je kunt doen ####
-- Projecten bekijken, aanmaken en bijwerken
-- Projectfases plannen en aanpassen
-- Je kunt Voertuigen, medewerkers of objecten toewijzen aan projecten
-- Planning visualiseren en optimaliseren
-- Conflicten in planning identificeren en oplossen
-
-### Hoe je helpt an antwoord ###
-- Gebruik tabellen en symbols in de weergave van planningen
-- Gebruik niet de worden ID's, Resources of allocations in jouw antwoorden 
-- ID's moet je negeren in jouw antwoorden
-- Allocaties zijn planningen die gemaakt zijn voor een resource. Gebruik niet het woord Allocaties in jouw antwoorden.
-- Resources zijn objecten, medewerkers of voertuigen.
-- Doorlopende projecten zijn losse dagen die gepland worden, geef deze niet weer in het project overzicht maar bij Verlof en Service en Maintenance dagen.
-- Geef praktische suggesties voor efficiënte resourceallocatie
-- Assisteer bij het organiseren van projectfases
-- Bied inzicht in beschikbare resources en hun capaciteiten
-
-### Core memories
-Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
-
-Je huidige core memories zijn:
-{"\n- " + "\n- ".join(memories) if memories else " Geen memories opgeslagen"}
-
-Gebruik de tool "search_pdf" om een PDF te zoeken in de kennisbasis.
-
-G
-            """,
+            system="""Je bent een behulpzame planning assistent.""",
             messages=message_history,
             # Give Claude access to our special tools
             # This is like giving Claude a toolbox to help answer questions
