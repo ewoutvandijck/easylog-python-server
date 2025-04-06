@@ -10,6 +10,7 @@ from typing import TypedDict
 from dotenv import load_dotenv
 from PIL import Image
 from pydantic import BaseModel, Field
+
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
@@ -36,15 +37,9 @@ class AnthropicEasylogAgentConfig(BaseModel):
         default=100,
         description="Maximum number of entries to fetch from the database for reports",
     )
-    debug_mode: bool = Field(
-        default=True, description="Enable debug mode with additional logging"
-    )
-    image_max_width: int = Field(
-        default=1200, description="Maximum width for processed images in pixels"
-    )
-    image_quality: int = Field(
-        default=90, description="JPEG quality for processed images (1-100)"
-    )
+    debug_mode: bool = Field(default=True, description="Enable debug mode with additional logging")
+    image_max_width: int = Field(default=1200, description="Maximum width for processed images in pixels")
+    image_quality: int = Field(default=90, description="JPEG quality for processed images (1-100)")
 
 
 # Agent class that integrates with Anthropic's Claude API for EasyLog data analysis
@@ -97,9 +92,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 name = match.strip()
-                if (
-                    name and len(name) > 1
-                ):  # Minimale lengte om valse positieven te vermijden
+                if name and len(name) > 1:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Naam: {name}")
                     self.logger.info(f"Detected user name: {name}")
 
@@ -113,9 +106,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 role = match.strip()
-                if (
-                    role and len(role) > 3
-                ):  # Minimale lengte om valse positieven te vermijden
+                if role and len(role) > 3:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Functie: {role}")
                     self.logger.info(f"Detected user role: {role}")
 
@@ -129,9 +120,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             matches = re.findall(pattern, message_text)
             for match in matches:
                 department = match.strip()
-                if (
-                    department and len(department) > 2
-                ):  # Minimale lengte om valse positieven te vermijden
+                if department and len(department) > 2:  # Minimale lengte om valse positieven te vermijden
                     detected_info.append(f"Afdeling: {department}")
                     self.logger.info(f"Detected user department: {department}")
 
@@ -186,11 +175,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         # Zoek naar bestaande herinnering van hetzelfde type
         existing_index = -1
         for i, existing_memory in enumerate(current_memories):
-            existing_type = (
-                existing_memory.split(":", 1)[0].strip().lower()
-                if ":" in existing_memory
-                else ""
-            )
+            existing_type = existing_memory.split(":", 1)[0].strip().lower() if ":" in existing_memory else ""
             if memory_type and existing_type == memory_type:
                 existing_index = i
                 break
@@ -214,9 +199,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         possible_paths = [
             file_name,
             f"figures/{file_name}" if "/" not in file_name else file_name,
-            file_name.replace("figures/", "")
-            if file_name.startswith("figures/")
-            else file_name,
+            file_name.replace("figures/", "") if file_name.startswith("figures/") else file_name,
             file_name.split("/")[-1],  # Only the filename
         ]
 
@@ -231,14 +214,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 last_error = e
                 continue
 
-        self.logger.warning(
-            f"[IMAGE] Failed to load image {file_name} from {_id} with any path: {last_error}"
-        )
+        self.logger.warning(f"[IMAGE] Failed to load image {file_name} from {_id} with any path: {last_error}")
         return None
 
     def _convert_heic_to_jpeg(self, image_data: Image.Image) -> Image.Image:
         """Converts HEIC images to JPEG format."""
-        if hasattr(image_data, "format") and image_data.format == "HEIC":
+        if hasattr(image_data, 'format') and image_data.format == 'HEIC':
             try:
                 with io.BytesIO() as buffer:
                     # Use a default quality for conversion
@@ -253,30 +234,17 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Return original if conversion fails
         return image_data
 
-    def _apply_compression(
-        self, image_data: Image.Image
-    ) -> tuple[Image.Image, float, float]:
+    def _apply_compression(self, image_data: Image.Image) -> tuple[Image.Image, float, float]:
         """Applies resizing and compression to the image."""
         original_size_kb = 0.0
         try:
             # Determine original size
             with io.BytesIO() as buffer:
                 # Use the original format if available, fallback to PNG
-                original_format = (
-                    image_data.format
-                    if hasattr(image_data, "format") and image_data.format
-                    else "PNG"
-                )
+                original_format = image_data.format if hasattr(image_data, 'format') and image_data.format else "PNG"
                 # Ensure format is supported by PIL for saving, default to PNG
-                if original_format.upper() not in [
-                    "PNG",
-                    "JPEG",
-                    "JPG",
-                    "GIF",
-                    "BMP",
-                    "TIFF",
-                ]:
-                    original_format = "PNG"
+                if original_format.upper() not in ["PNG", "JPEG", "JPG", "GIF", "BMP", "TIFF"]:
+                     original_format = "PNG"
                 image_data.save(buffer, format=original_format)
                 buffer.seek(0)
                 original_size = len(buffer.getvalue())
@@ -294,113 +262,79 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             if original_width > max_width:
                 scale_factor = max_width / original_width
                 new_height = int(original_height * scale_factor)
-                self.logger.info(
-                    f"[IMAGE] Resizing from {original_width}x{original_height} to {max_width}x{new_height}"
-                )
-                resized_image = image_data.resize(
-                    (max_width, new_height), Image.Resampling.LANCZOS
-                )
-
+                self.logger.info(f"[IMAGE] Resizing from {original_width}x{original_height} to {max_width}x{new_height}")
+                resized_image = image_data.resize((max_width, new_height), Image.Resampling.LANCZOS)
+            
             # 2. Convert to RGB if necessary (for JPEG saving)
-            if resized_image.mode in ("RGBA", "LA", "P"):  # Added 'P' for Palette mode
-                self.logger.info(
-                    f"[IMAGE] Converting from mode {resized_image.mode} to RGB"
-                )
-                background = Image.new("RGB", resized_image.size, (255, 255, 255))
-                try:
-                    mask = None
-                    if resized_image.mode == "RGBA":
-                        mask = resized_image.split()[3]
-                    elif resized_image.mode == "LA":
-                        mask = resized_image.split()[
-                            1
-                        ]  # Alpha is the second channel in LA
-                    elif (
-                        resized_image.mode == "P"
-                        and "transparency" in resized_image.info
-                    ):
-                        # Handle transparency in Palette mode
-                        try:
-                            # Attempt to convert to RGBA to get a mask
-                            mask = resized_image.convert("RGBA").split()[3]
-                        except Exception as conv_err:
-                            self.logger.warning(
-                                f"[IMAGE] Could not get alpha mask from P mode: {conv_err}"
-                            )
+            if resized_image.mode in ("RGBA", "LA", "P"): # Added 'P' for Palette mode
+                 self.logger.info(f"[IMAGE] Converting from mode {resized_image.mode} to RGB")
+                 background = Image.new("RGB", resized_image.size, (255, 255, 255))
+                 try:
+                     mask = None
+                     if resized_image.mode == 'RGBA':
+                         mask = resized_image.split()[3]
+                     elif resized_image.mode == 'LA':
+                          mask = resized_image.split()[1] # Alpha is the second channel in LA
+                     elif resized_image.mode == 'P' and 'transparency' in resized_image.info:
+                          # Handle transparency in Palette mode
+                          try:
+                             # Attempt to convert to RGBA to get a mask
+                              mask = resized_image.convert('RGBA').split()[3]
+                          except Exception as conv_err:
+                               self.logger.warning(f"[IMAGE] Could not get alpha mask from P mode: {conv_err}")
 
-                    background.paste(resized_image, mask=mask)
-                except IndexError:
-                    self.logger.warning(
-                        "[IMAGE] Index error getting mask, pasting without mask."
-                    )
-                    background.paste(resized_image)
-                except Exception as paste_err:
-                    self.logger.error(
-                        f"[IMAGE] Error during RGBA/LA/P conversion pasting: {paste_err}, using direct convert."
-                    )
-                    try:
-                        background = resized_image.convert(
-                            "RGB"
-                        )  # Fallback to direct conversion
-                    except Exception as convert_err:
-                        self.logger.error(
-                            f"[IMAGE] Fallback RGB conversion failed: {convert_err}"
-                        )
-                        # Keep original if all fails (though unlikely to be saveable as JPEG)
-                        background = resized_image
-                resized_image = background
+                     background.paste(resized_image, mask=mask)
+                 except IndexError: 
+                     self.logger.warning("[IMAGE] Index error getting mask, pasting without mask.")
+                     background.paste(resized_image)
+                 except Exception as paste_err: 
+                     self.logger.error(f"[IMAGE] Error during RGBA/LA/P conversion pasting: {paste_err}, using direct convert.")
+                     try:
+                        background = resized_image.convert("RGB") # Fallback to direct conversion
+                     except Exception as convert_err:
+                         self.logger.error(f"[IMAGE] Fallback RGB conversion failed: {convert_err}")
+                         # Keep original if all fails (though unlikely to be saveable as JPEG)
+                         background = resized_image 
+                 resized_image = background
 
             # 3. Iterative Compression to meet target size
             compressed_image = resized_image
             current_quality = initial_quality
-            compressed_size_kb = (
-                original_size_kb  # Start with original size for loop condition
-            )
-            last_successful_image = (
-                resized_image  # Keep track of the last image successfully saved
-            )
+            compressed_size_kb = original_size_kb # Start with original size for loop condition
+            last_successful_image = resized_image # Keep track of the last image successfully saved
             last_successful_size_kb = original_size_kb
 
             while True:
                 saved_successfully = False
-                current_loop_size_kb = -1.0  # Reset for this loop iteration
+                current_loop_size_kb = -1.0 # Reset for this loop iteration
                 with io.BytesIO() as buffer:
                     try:
-                        compressed_image.save(
-                            buffer,
-                            format="JPEG",
-                            quality=current_quality,
-                            optimize=True,
-                        )
+                        compressed_image.save(buffer, format="JPEG", quality=current_quality, optimize=True)
                         buffer.seek(0)
                         compressed_data = buffer.getvalue()
                         current_loop_size_kb = len(compressed_data) / 1024
                         saved_successfully = True
-                        # Load the image from the buffer of the successful save
+                         # Load the image from the buffer of the successful save
                         buffer.seek(0)
                         # Ensure we make a copy to work with outside the buffer's context
                         last_successful_image = Image.open(buffer).copy()
                         last_successful_size_kb = current_loop_size_kb
 
                     except Exception as save_err:
-                        self.logger.error(
-                            f"[IMAGE] Error saving JPEG with quality {current_quality}: {save_err}"
-                        )
-                        # Break the loop on save error, will return the last *successful* save
-                        break
+                         self.logger.error(f"[IMAGE] Error saving JPEG with quality {current_quality}: {save_err}")
+                         # Break the loop on save error, will return the last *successful* save
+                         break
 
-                self.logger.info(
-                    f"[IMAGE] Compression attempt: Quality={current_quality}, Size={current_loop_size_kb:.1f}KB"
-                )
+                self.logger.info(f"[IMAGE] Compression attempt: Quality={current_quality}, Size={current_loop_size_kb:.1f}KB")
 
                 # Check if target met or quality too low
                 if current_loop_size_kb <= target_kb or current_quality <= min_quality:
-                    break  # Exit loop, use last_successful_image
+                     break # Exit loop, use last_successful_image
 
                 # Reduce quality for next iteration
                 quality_step = 15 if current_loop_size_kb > target_kb * 2 else 10
                 current_quality = max(min_quality, current_quality - quality_step)
-
+                
                 # Prepare the image for the next iteration - use the last successfully saved image data
                 compressed_image = last_successful_image
 
@@ -408,49 +342,42 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             return last_successful_image, original_size_kb, last_successful_size_kb
 
         except Exception as e:
-            self.logger.error(f"[IMAGE] Error during compression process: {e}")
-            # Fallback: return original image data and size (if calculable)
-            return image_data, original_size_kb, original_size_kb
+             self.logger.error(f"[IMAGE] Error during compression process: {e}")
+             # Fallback: return original image data and size (if calculable)
+             return image_data, original_size_kb, original_size_kb
 
     def _add_assistant_identifier(self, image_data: Image.Image) -> Image.Image:
         """Adds a pixel pattern to identify the image as assistant-generated."""
         try:
             # Ensure image is not animated and is suitable for pixel manipulation
-            is_animated = (
-                getattr(image_data, "is_animated", False)
-                or getattr(image_data, "n_frames", 1) > 1
-            )
+            is_animated = getattr(image_data, 'is_animated', False) or getattr(image_data, 'n_frames', 1) > 1
             if not is_animated and image_data.width > 5 and image_data.height > 5:
-                img_copy = image_data.copy()
-                if img_copy.mode != "RGB":
-                    # Attempt conversion to RGB if not already
-                    try:
-                        img_copy = img_copy.convert("RGB")
-                    except Exception as conv_err:
-                        self.logger.warning(
-                            f"[IMAGE] Could not convert image to RGB for identifier: {conv_err}"
-                        )
-                        return image_data  # Return original if conversion fails
-
-                pixels = img_copy.load()
-                if pixels is not None:
-                    # Specific pattern: 3 pixels in bottom-right corner
-                    pixels[img_copy.width - 1, img_copy.height - 1] = (250, 250, 253)
-                    pixels[img_copy.width - 2, img_copy.height - 1] = (250, 250, 252)
-                    pixels[img_copy.width - 1, img_copy.height - 2] = (250, 250, 251)
-                    self.logger.info("[IMAGE] Added assistant image identifier pattern")
-                    return img_copy  # Return the modified copy
-
+                 img_copy = image_data.copy()
+                 if img_copy.mode != "RGB":
+                      # Attempt conversion to RGB if not already
+                      try:
+                         img_copy = img_copy.convert("RGB")
+                      except Exception as conv_err:
+                           self.logger.warning(f"[IMAGE] Could not convert image to RGB for identifier: {conv_err}")
+                           return image_data # Return original if conversion fails
+                 
+                 pixels = img_copy.load()
+                 if pixels is not None:
+                      # Specific pattern: 3 pixels in bottom-right corner
+                      pixels[img_copy.width - 1, img_copy.height - 1] = (250, 250, 253)
+                      pixels[img_copy.width - 2, img_copy.height - 1] = (250, 250, 252)
+                      pixels[img_copy.width - 1, img_copy.height - 2] = (250, 250, 251)
+                      self.logger.info("[IMAGE] Added assistant image identifier pattern")
+                      return img_copy # Return the modified copy
+            
             # If conditions not met or pixels is None, return original image
-            return image_data
+            return image_data 
 
         except Exception as e:
             self.logger.error(f"[IMAGE] Error adding assistant identifier: {str(e)}")
-            return image_data  # Return original image even if identifier adding failed
+            return image_data # Return original image even if identifier adding failed
 
-    async def on_message(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[MessageContent, None]:
+    async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
         We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
@@ -468,9 +395,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
         if messages and len(messages) > 0:
             last_message = messages[-1]
             if last_message.role == "user" and isinstance(last_message.content, str):
-                self.logger.info(
-                    f"Processing user message: {last_message.content[:100]}..."
-                )
+                self.logger.info(f"Processing user message: {last_message.content[:100]}...")
                 # Automatisch naam detecteren en opslaan
                 await self._store_detected_name(last_message.content)
 
@@ -536,9 +461,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         elif statusobject == "Nee":
                             statusobject = "Niet akkoord"
 
-                        results.append(
-                            f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}"
-                        )
+                        results.append(f"Datum: {datum}, Object: {object_value}, Status object: {statusobject}")
                     return "\n".join(results)
 
             except Exception as e:
@@ -631,9 +554,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Haalt de geschiedenis op van een specifiek object.
             """
             try:
-                self.logger.info(
-                    f"Fetching history for object: {object_name}, limit: {limit}"
-                )
+                self.logger.info(f"Fetching history for object: {object_name}, limit: {limit}")
                 with self.easylog_db.cursor() as cursor:
                     query = """
                         SELECT 
@@ -645,9 +566,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                         ORDER BY created_at DESC
                         LIMIT %s
                     """
-                    self.logger.debug(
-                        f"Executing query with params: {object_name}, {limit}"
-                    )
+                    self.logger.debug(f"Executing query with params: {object_name}, {limit}")
                     cursor.execute(query, (object_name, limit))
                     entries = cursor.fetchall()
                     self.logger.debug(f"Query returned {len(entries)} entries")
@@ -700,9 +619,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             # Verwerk de afbeeldingen, als die beschikbaar zijn
             images_data = []
             if hasattr(knowledge_result, "images") and knowledge_result.images:
-                self.logger.info(
-                    f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF"
-                )
+                self.logger.info(f"[PDF SEARCH] Found {len(knowledge_result.images)} images in PDF")
                 for img in knowledge_result.images:
                     images_data.append(
                         {
@@ -742,34 +659,28 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             Raises:
                 Exception: If the image cannot be loaded or processed after multiple attempts.
             """
-            self.logger.info(
-                f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}'"
-            )
+            self.logger.info(f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}'")
 
             try:
                 # 1. Attempt to load the image using various path formats
                 image_data = await self._attempt_load_image(_id, file_name)
                 if image_data is None:
                     # If loading failed after trying all paths, raise an error
-                    raise FileNotFoundError(
-                        f"Could not load image '{file_name}' from source '{_id}' using any known path format."
-                    )
+                    raise FileNotFoundError(f"Could not load image '{file_name}' from source '{_id}' using any known path format.")
 
                 # 2. Handle HEIC conversion if necessary
                 image_data = self._convert_heic_to_jpeg(image_data)
 
                 # 3. Apply compression and resizing
-                compressed_image, original_size_kb, compressed_size_kb = (
-                    self._apply_compression(image_data)
-                )
+                compressed_image, original_size_kb, compressed_size_kb = self._apply_compression(image_data)
 
                 # 4. Add the assistant identifier pattern
                 final_image = self._add_assistant_identifier(compressed_image)
 
                 self.logger.info(
-                    f"[IMAGE] Optimization complete for '{file_name}': "
-                    f"{original_size_kb:.1f}KB -> {compressed_size_kb:.1f}KB "
-                    f"(Dimensions: {final_image.width}x{final_image.height})"
+                     f"[IMAGE] Optimization complete for '{file_name}': "
+                     f"{original_size_kb:.1f}KB -> {compressed_size_kb:.1f}KB "
+                     f"(Dimensions: {final_image.width}x{final_image.height})"
                 )
                 self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
 
@@ -777,14 +688,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 return final_image
 
             except FileNotFoundError as fnf_error:
-                self.logger.error(f"[IMAGE] File not found error: {str(fnf_error)}")
-                # Re-raise specific error for clarity upstream if needed
-                raise fnf_error
+                 self.logger.error(f"[IMAGE] File not found error: {str(fnf_error)}")
+                 # Re-raise specific error for clarity upstream if needed
+                 raise fnf_error
             except Exception as e:
                 # Catch any other unexpected errors during the process
-                self.logger.error(
-                    f"[IMAGE] Unexpected error processing image '{file_name}': {str(e)}"
-                )
+                self.logger.error(f"[IMAGE] Unexpected error processing image '{file_name}': {str(e)}")
                 # Re-raise the exception to signal failure
                 raise e
 
@@ -826,11 +735,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             try:
                 if hasattr(tool, "function") and hasattr(tool.function, "name"):
                     self.logger.info(f" - {i + 1}: {tool.function.name}")
-                elif (
-                    isinstance(tool, dict)
-                    and "function" in tool
-                    and "name" in tool["function"]
-                ):
+                elif isinstance(tool, dict) and "function" in tool and "name" in tool["function"]:
                     self.logger.info(f" - {i + 1}: {tool['function']['name']}")
                 else:
                     self.logger.info(f" - {i + 1}: {str(tool)[:50]}")
@@ -897,9 +802,7 @@ Je huidige core memories zijn:
         logger.info(f"Time taken for API call: {execution_time:.2f} seconds")
 
         if execution_time > 5.0:
-            logger.warning(
-                f"API call took longer than expected: {execution_time:.2f} seconds"
-            )
+            logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
@@ -923,8 +826,6 @@ Je huidige core memories zijn:
 
         # Als er afbeeldingen waren, stuur de gebufferde content nu
         if has_image_content and image_buffer:
-            self.logger.info(
-                f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen"
-            )
+            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
             for buffered_chunk in image_buffer:
                 yield buffered_chunk
