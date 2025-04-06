@@ -68,5 +68,18 @@ services:
       - worker
       - prefect
 
+  neo4j:
+    image: neo4j:latest
+    container_name: easylog-python-server.neo4j
+    expose:
+      - 7474
+      - 7687
+    volumes:
+      - neo4j:/data
+    environment:
+      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+    restart: unless-stopped
+
 volumes:
   prefect:
+  neo4j:

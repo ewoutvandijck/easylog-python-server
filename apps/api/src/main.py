@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api import health, knowledge, messages, threads
+from src.lib.graphiti import graphiti
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.security.api_token import verify_api_key
@@ -21,8 +22,11 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     prisma.connect()
+    await graphiti.driver.verify_connectivity()
+    await graphiti.build_indices_and_constraints()
     yield
     prisma.disconnect()
+    await graphiti.close()
 
 
 app = FastAPI(

@@ -2,3 +2,4 @@ tmp
 .ruff_cache
 
 pdfservices-api-credentials.json
+llm_cache

@@ -26,5 +26,9 @@ class Settings(BaseSettings):
 
     EASYLOG_API_URL: str = Field(default="https://staging.easylog.nu/api/v2")
 
+    NEO4J_URI: str = Field(default="bolt://localhost:7687")
+    NEO4J_USER: str = Field(default="neo4j")
+    NEO4J_PASSWORD: str = Field(default="password")
+
 
 settings = Settings()  # type: ignore
