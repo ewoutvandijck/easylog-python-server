@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import re
 from collections.abc import AsyncGenerator, Callable
 from typing import Any, Generic, cast
 
@@ -218,6 +219,9 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
             Each piece of Claude's response as soon as we get it
         """
 
+        # Regex to find Markdown image links with relative paths (like figures/ or ./)
+        markdown_image_regex = re.compile(r'!\[(.*?)\]\((figures/[^)]+|./[^)]+)\)')
+
         # Store different parts of the response (text, tool use, etc.)
         message_contents: list[TextContent | ToolUseContent] = []
 
@@ -246,8 +250,11 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 and message_contents
                 and isinstance(message_contents[-1], TextContent)
             ):
+                # Before yielding the final text block, replace invalid image links
+                final_text = message_contents[-1].content
+                cleaned_text = markdown_image_regex.sub(r'[Image: \2]', final_text)
                 yield TextContent(
-                    content=message_contents[-1].content,
+                    content=cleaned_text,
                     type="text",
                 )
 
@@ -258,10 +265,13 @@ class AnthropicAgent(BaseAgent[TConfig], Generic[TConfig]):
                 and message_contents
                 and isinstance(message_contents[-1], TextContent)
             ):
-                message_contents[-1].content += event.delta.text
+                delta_text = event.delta.text
+                # Also clean delta text before adding and yielding
+                cleaned_delta = markdown_image_regex.sub(r'[Image: \2]', delta_text)
+                message_contents[-1].content += cleaned_delta # Add cleaned text to buffer
 
-                # Yield this content early so we can stream it to the client
-                yield TextDeltaContent(content=event.delta.text)
+                # Yield the cleaned delta content
+                yield TextDeltaContent(content=cleaned_delta)
 
             elif (
                 event.type == "content_block_delta"
