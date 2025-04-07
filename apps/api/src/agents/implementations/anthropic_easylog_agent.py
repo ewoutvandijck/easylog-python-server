@@ -795,7 +795,7 @@ Je huidige core memories zijn:
 ### FORMATTING RULES:
 - ALWAYS use standard Markdown for formatting.
 - For bold text, ALWAYS use double asterisks: **bold text**. Do NOT use ****text**** or any other format.
-            """,
+- Only give long answers when asked for it, always give short summary answers.            """,
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
