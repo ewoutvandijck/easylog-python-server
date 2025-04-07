@@ -58,9 +58,8 @@ def encode_image_to_data_url(image: Image.Image, format: str = "JPEG") -> str:
         # Get the binary data from the buffer
         binary_data = buffer.getvalue()
 
-        # Encode the binary data using standard base64, which includes padding.
-        # Decode the resulting bytes to an ASCII string (safe for Base64 characters).
-        encoded_data = base64.b64encode(binary_data).decode('ascii')
+        # Encode the binary data as base64
+        encoded_data = base64.b64encode(binary_data).decode("utf-8")
 
         # Create the data URL string
         mime_type = f"image/{format.lower()}"
