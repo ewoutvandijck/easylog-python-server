@@ -795,7 +795,7 @@ Je huidige core memories zijn:
 ### FORMATTING RULES:
 - ALWAYS use standard Markdown for formatting.
 - For bold text, ALWAYS use double asterisks: **bold text**. Do NOT use ****text**** or any other format.
-- Only give long answers when asked for it, always give short summary answers.            """,
+            """,
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
@@ -808,28 +808,22 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
-        # voor streaming problemen bij slechte internetverbindingen
-        has_image_content = False
+        # Buffer for image content only
         image_buffer = []
 
         async for content in self.handle_stream(stream, tools):
-            # Controleer of we afbeeldingen hebben gedetecteerd
+            # Check the type of content
             if hasattr(content, "type") and content.type == "image":
-                # Afbeelding gedetecteerd, schakel over naar buffermodus
-                has_image_content = True
-                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
-                image_buffer.append(content)
-            elif has_image_content:
-                # We hebben al een afbeelding gezien, blijf alles bufferen
+                # If it's an image, buffer it
+                self.logger.info("Buffering image content.")
                 image_buffer.append(content)
             else:
-                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
+                # If it's text or any other type, yield immediately for smooth streaming
+                self.logger.debug("Yielding non-image content immediately.")
                 yield content
 
-        # Als er afbeeldingen waren, stuur de gebufferde content nu
-        if has_image_content and image_buffer:
-            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+        # After processing the entire stream, yield any buffered images
+        if image_buffer:
+            self.logger.info(f"Sending {len(image_buffer)} buffered image messages.")
+            for buffered_image in image_buffer:
+                yield buffered_image
