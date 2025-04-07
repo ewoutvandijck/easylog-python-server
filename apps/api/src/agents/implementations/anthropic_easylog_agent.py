@@ -791,6 +791,10 @@ Je huidige core memories zijn:
 - Wijs op ongewone of afwijkende resultaten
 - Geef context bij de cijfers waar mogelijk
 - Vat grote datasets bondig samen
+
+### FORMATTING RULES:
+- ALWAYS use standard Markdown for formatting.
+- For bold text, ALWAYS use double asterisks: **bold text**. Do NOT use ****text**** or any other format.
             """,
             messages=message_history,
             tools=anthropic_tools,
