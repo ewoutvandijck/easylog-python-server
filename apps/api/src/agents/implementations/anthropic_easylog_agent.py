@@ -791,10 +791,7 @@ Je huidige core memories zijn:
 - Wijs op ongewone of afwijkende resultaten
 - Geef context bij de cijfers waar mogelijk
 - Vat grote datasets bondig samen
-
-### FORMATTING RULES:
-- Give short answers, only give long answers when asked for it.
-- Only give long answers when asked for it, always give short summary answers.            """,
+            """,
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
