@@ -252,10 +252,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             original_width, original_height = image_data.size
 
             # --- Compression Strategy ---
-            target_kb = 100  # Lowered target size
-            max_width = 1000 # Lowered max width
-            initial_quality = 65 # Lowered initial quality
-            min_quality = 40   # Lowered minimum quality
+            target_kb = 150
+            max_width = 1200
+            initial_quality = 75
+            min_quality = 50
 
             # 1. Resize if dimensions exceed max_width
             resized_image = image_data
@@ -770,7 +770,6 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_search_pdf: Zoek een PDF in de kennisbank
 
 ### Gebruik van de tool_search_pdf
-Always use markdown for the output of the tool_search_pdf.
 Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
 
 ### Core memories
@@ -792,7 +791,11 @@ Je huidige core memories zijn:
 - Wijs op ongewone of afwijkende resultaten
 - Geef context bij de cijfers waar mogelijk
 - Vat grote datasets bondig samen
-            """,
+
+### FORMATTING RULES:
+- ALWAYS use standard Markdown for formatting.
+- For bold text, ALWAYS use double asterisks: **bold text**. Do NOT use ****text**** or any other format.
+- Only give long answers when asked for it, always give short summary answers.            """,
             messages=message_history,
             tools=anthropic_tools,
             stream=True,
