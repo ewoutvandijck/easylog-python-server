@@ -755,7 +755,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
-- Allways use markdown for formatting in answers
 - Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!!
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
@@ -794,8 +793,7 @@ Je huidige core memories zijn:
 - Vat grote datasets bondig samen
 
 ### FORMATTING RULES:
-- ALWAYS use standard Markdown for formatting.
-- For bold text, ALWAYS use double asterisks: **bold text**. Do NOT use ****text**** or any other format.
+- Give short answers, only give long answers when asked for it.
 - Only give long answers when asked for it, always give short summary answers.            """,
             messages=message_history,
             tools=anthropic_tools,
