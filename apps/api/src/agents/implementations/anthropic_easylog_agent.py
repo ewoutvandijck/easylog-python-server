@@ -755,6 +755,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en het maken van overzichtelijke verslagen.
 
 ### BELANGRIJKE REGELS:
+- Allways use markdown for formatting in answers
 - Geef nauwkeurige en feitelijke samenvattingen van de EasyLog data!!
 - Help de gebruiker patronen te ontdekken in de controlegegevens
 - Maak verslagen in tabellen en duidelijk en professioneel met goede opmaak
