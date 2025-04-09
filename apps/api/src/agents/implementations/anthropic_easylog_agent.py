@@ -5,7 +5,6 @@ import re
 import time
 from collections.abc import AsyncGenerator
 from typing import TypedDict
-import base64
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -253,10 +252,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             original_width, original_height = image_data.size
 
             # --- Compression Strategy ---
-            target_kb = 75 # Reduced from 150
-            max_width = 1200
-            initial_quality = 75
-            min_quality = 50
+            target_kb = 50
+            max_width = 800
+            initial_quality = 60
+            min_quality = 30
 
             # 1. Resize if dimensions exceed max_width
             resized_image = image_data
@@ -644,10 +643,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 }
             )
 
-        async def tool_load_image(_id: str, file_name: str) -> str:
+        async def tool_load_image(_id: str, file_name: str) -> Image.Image:
             """
-            Loads an image from the database, optimizes it, adds an identifier, 
-            and returns it as a base64 data URI string.
+            Loads an image from the database, optimizes it for display, and adds an identifier.
             Handles various image formats including HEIC, applies compression, and ensures
             robustness against errors during processing.
 
@@ -656,13 +654,12 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 file_name (str): The filename of the image (can include path components).
 
             Returns:
-                str: The processed image as a base64 data URI (e.g., "data:image/jpeg;base64,..."), 
-                     or an error message string if processing fails.
+                Image.Image: The processed and optimized PIL Image object.
 
             Raises:
-                Exception: If the image cannot be loaded after multiple attempts.
+                Exception: If the image cannot be loaded or processed after multiple attempts.
             """
-            self.logger.info(f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}' to return as base64 data URI")
+            self.logger.info(f"[IMAGE] Processing request for image '{file_name}' from source ID '{_id}'")
 
             try:
                 # 1. Attempt to load the image using various path formats
@@ -685,20 +682,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                      f"{original_size_kb:.1f}KB -> {compressed_size_kb:.1f}KB "
                      f"(Dimensions: {final_image.width}x{final_image.height})"
                 )
+                self.logger.info(f"[IMAGE] ASSISTANT IMAGE CREATED: {file_name}")
 
-                # 5. Convert final image to base64 data URI
-                buffer = io.BytesIO()
-                image_format = "JPEG" # Since we compress to JPEG
-                final_image.save(buffer, format=image_format, quality=self.config.image_quality, optimize=True)
-                buffer.seek(0)
-                img_bytes = buffer.getvalue()
-                base64_encoded = base64.b64encode(img_bytes).decode('utf-8')
-                data_uri = f"data:image/{image_format.lower()};base64,{base64_encoded}"
-                
-                self.logger.info(f"[IMAGE] Converted '{file_name}' to base64 data URI (length: {len(data_uri)})")
-
-                # Return the base64 data URI string
-                return data_uri
+                # Return the final PIL Image object directly
+                return final_image
 
             except FileNotFoundError as fnf_error:
                  self.logger.error(f"[IMAGE] File not found error: {str(fnf_error)}")
@@ -706,9 +693,9 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                  raise fnf_error
             except Exception as e:
                 # Catch any other unexpected errors during the process
-                self.logger.error(f"[IMAGE] Unexpected error processing image '{file_name}' for base64 output: {str(e)}")
-                # Return an error message string instead of raising
-                return f"Fout bij verwerken afbeelding '{file_name}': {str(e)}"
+                self.logger.error(f"[IMAGE] Unexpected error processing image '{file_name}': {str(e)}")
+                # Re-raise the exception to signal failure
+                raise e
 
         tools = [
             tool_store_memory,
@@ -781,10 +768,9 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
-- tool_load_image: Laadt een afbeelding en geeft een base64 data URI terug. **BELANGRIJK:** Plaats de teruggegeven data URI *direct* in je antwoord met Markdown syntax: `![Beschrijving](data:image/jpeg;base64,...)`.
 
 ### Gebruik van de tool_search_pdf
-Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat. Als de zoekresultaten een afbeelding bevatten (in het `images` veld), gebruik dan `tool_load_image` met de `object_id` en `file_name` van de afbeelding om de base64 data URI op te halen en toon deze in je antwoord.
+Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
 
 ### Core memories
 Core memories zijn belangrijke informatie die je moet onthouden over een gebruiker. Die verzamel je zelf met de tool "store_memory". Als de gebruiker bijvoorbeeld zijn naam vertelt, of een belangrijke gebeurtenis heeft meegemaakt, of een belangrijke informatie heeft geleverd, dan moet je die opslaan in de core memories.
@@ -820,73 +806,26 @@ Je huidige core memories zijn:
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
-        # === REVISED STREAMING LOGIC START ===
-        buffered_image_outputs = {} # {tool_call_id: bool} - Tracks if we are holding deltas for an image call
+        has_image_content = False
+        image_buffer = []
 
         async for content in self.handle_stream(stream, tools):
-            tool_call_id = getattr(content, 'tool_use_id', None)
-            is_image_content = False
-            content_format = getattr(content, 'format', None)
-
-            # Determine if the current chunk relates to an image tool result
-            if tool_call_id and content_format == "image": # Using string "image" based on Anthropic docs/types
-                 is_image_content = True
-                 # Check previous chunks for this tool call if type wasn't clear before
-                 if tool_call_id in buffered_image_outputs:
-                     is_image_content = True # Stick with image determination
-
-            # Use type name string comparison instead of isinstance
-            content_type_name = type(content).__name__
-
-            if content_type_name == 'ToolResultDeltaEvent' and is_image_content:
-                 # If it's an intermediate chunk for an image, hold it back (don't yield)
-                 if tool_call_id not in buffered_image_outputs:
-                     buffered_image_outputs[tool_call_id] = True
-                 self.logger.debug(f"Holding back image delta for {tool_call_id}")
-                 continue # Skip yielding this delta chunk
-            
-            elif content_type_name == 'ToolResultEvent' and tool_call_id and tool_call_id in buffered_image_outputs:
-                 # If it's the final event for a previously buffered image tool call
-                 self.logger.info(f"Received final image event for {tool_call_id}. Yielding complete image event.")
-                 yield content # Yield the final event (should contain full image data)
-                 # Clean up buffer tracking for this call
-                 del buffered_image_outputs[tool_call_id]
-                 
+            # Controleer of we afbeeldingen hebben gedetecteerd
+            if hasattr(content, "type") and content.type == "image":
+                # Afbeelding gedetecteerd, schakel over naar buffermodus
+                has_image_content = True
+                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
+                # Voeg deze afbeelding toe aan de buffer
+                image_buffer.append(content)
+            elif has_image_content:
+                # We hebben al een afbeelding gezien, blijf alles bufferen
+                image_buffer.append(content)
             else:
-                 # Yield all other content immediately:
-                 # - Text events (TextDeltaEvent, TextEvent)
-                 # - Non-image tool events (ToolUseEvent, ToolResultDeltaEvent, ToolResultEvent)
-                 # - The final ToolResultEvent for image calls IF we never buffered deltas (shouldn't happen with above logic, but safe)
-                 self.logger.debug(f"Yielding non-image or final chunk immediately: {type(content)}")
-                 yield content
+                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
+                yield content
 
-        # Clean up any remaining tracked calls (e.g., if stream ended abruptly)
-        if buffered_image_outputs:
-             self.logger.warning(f"Stream ended with pending image buffers: {list(buffered_image_outputs.keys())}. Image data might be lost.")
-        # === REVISED STREAMING LOGIC END ===
-
-        # --- REMOVE OLD BUFFERING LOGIC ---
-        # has_image_content = False
-        # image_buffer = []
-        #
-        # async for content in self.handle_stream(stream, tools):
-        #     # Controleer of we afbeeldingen hebben gedetecteerd
-        #     if hasattr(content, "type") and content.type == "image":
-        #         # Afbeelding gedetecteerd, schakel over naar buffermodus
-        #         has_image_content = True
-        #         self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-        #         # Voeg deze afbeelding toe aan de buffer
-        #         image_buffer.append(content)
-        #     elif has_image_content:
-        #         # We hebben al een afbeelding gezien, blijf alles bufferen
-        #         image_buffer.append(content)
-        #     else:
-        #         # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
-        #         yield content
-        #
-        # # Als er afbeeldingen waren, stuur de gebufferde content nu
-        # if has_image_content and image_buffer:
-        #     self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-        #     for buffered_chunk in image_buffer:
-        #         yield buffered_chunk
-        # --- END REMOVED OLD BUFFERING LOGIC ---
+        # Als er afbeeldingen waren, stuur de gebufferde content nu
+        if has_image_content and image_buffer:
+            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
+            for buffered_chunk in image_buffer:
+                yield buffered_chunk
