@@ -4,7 +4,6 @@ from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
 from src.logger import logger
-from src.services.easylog_backend.backend_service import BackendService
 
 
 class AgentLoader:
@@ -12,7 +11,6 @@ class AgentLoader:
     def get_agent(
         agent_class: str,
         thread_id: str,
-        backend: BackendService,
         agent_config: dict = {},
     ) -> BaseAgent | None:
         logger.debug(f"Attempting to load agent class: {agent_class}")
@@ -44,7 +42,7 @@ class AgentLoader:
                     if issubclass(obj, BaseAgent) and obj != BaseAgent and obj.__name__ == agent_class:
                         logger.debug(f"Found matching agent class: {obj}")
                         logger.debug(f"Initializing agent with config: {agent_config}")
-                        return obj(thread_id=thread_id, backend=backend, **agent_config)
+                        return obj(thread_id=thread_id, **agent_config)
 
         logger.warning(f"No matching agent found for class: {agent_class}")
         return None

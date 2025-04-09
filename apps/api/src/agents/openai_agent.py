@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from src.agents.base_agent import BaseAgent, TConfig
-from src.models.messages import (
+from src.models.message_create import (
     TextContent,
 )
 
