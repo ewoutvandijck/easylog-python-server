@@ -25,6 +25,8 @@ services:
     volumes:
       - prefect:/root/.prefect
     restart: unless-stopped
+    depends_on:
+      - neo4j
 
   worker:
     build:
