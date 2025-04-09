@@ -806,26 +806,73 @@ Je huidige core memories zijn:
 
         # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
         # voor streaming problemen bij slechte internetverbindingen
-        has_image_content = False
-        image_buffer = []
+        # === REVISED STREAMING LOGIC START ===
+        buffered_image_outputs = {} # {tool_call_id: bool} - Tracks if we are holding deltas for an image call
 
         async for content in self.handle_stream(stream, tools):
-            # Controleer of we afbeeldingen hebben gedetecteerd
-            if hasattr(content, "type") and content.type == "image":
-                # Afbeelding gedetecteerd, schakel over naar buffermodus
-                has_image_content = True
-                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
-                image_buffer.append(content)
-            elif has_image_content:
-                # We hebben al een afbeelding gezien, blijf alles bufferen
-                image_buffer.append(content)
-            else:
-                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
-                yield content
+            tool_call_id = getattr(content, 'tool_use_id', None)
+            is_image_content = False
+            content_format = getattr(content, 'format', None)
 
-        # Als er afbeeldingen waren, stuur de gebufferde content nu
-        if has_image_content and image_buffer:
-            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+            # Determine if the current chunk relates to an image tool result
+            if tool_call_id and content_format == "image": # Using string "image" based on Anthropic docs/types
+                 is_image_content = True
+                 # Check previous chunks for this tool call if type wasn't clear before
+                 if tool_call_id in buffered_image_outputs:
+                     is_image_content = True # Stick with image determination
+
+            # Use type name string comparison instead of isinstance
+            content_type_name = type(content).__name__
+
+            if content_type_name == 'ToolResultDeltaEvent' and is_image_content:
+                 # If it's an intermediate chunk for an image, hold it back (don't yield)
+                 if tool_call_id not in buffered_image_outputs:
+                     buffered_image_outputs[tool_call_id] = True
+                 self.logger.debug(f"Holding back image delta for {tool_call_id}")
+                 continue # Skip yielding this delta chunk
+            
+            elif content_type_name == 'ToolResultEvent' and tool_call_id and tool_call_id in buffered_image_outputs:
+                 # If it's the final event for a previously buffered image tool call
+                 self.logger.info(f"Received final image event for {tool_call_id}. Yielding complete image event.")
+                 yield content # Yield the final event (should contain full image data)
+                 # Clean up buffer tracking for this call
+                 del buffered_image_outputs[tool_call_id]
+                 
+            else:
+                 # Yield all other content immediately:
+                 # - Text events (TextDeltaEvent, TextEvent)
+                 # - Non-image tool events (ToolUseEvent, ToolResultDeltaEvent, ToolResultEvent)
+                 # - The final ToolResultEvent for image calls IF we never buffered deltas (shouldn't happen with above logic, but safe)
+                 self.logger.debug(f"Yielding non-image or final chunk immediately: {type(content)}")
+                 yield content
+
+        # Clean up any remaining tracked calls (e.g., if stream ended abruptly)
+        if buffered_image_outputs:
+             self.logger.warning(f"Stream ended with pending image buffers: {list(buffered_image_outputs.keys())}. Image data might be lost.")
+        # === REVISED STREAMING LOGIC END ===
+
+        # --- REMOVE OLD BUFFERING LOGIC ---
+        # has_image_content = False
+        # image_buffer = []
+        #
+        # async for content in self.handle_stream(stream, tools):
+        #     # Controleer of we afbeeldingen hebben gedetecteerd
+        #     if hasattr(content, "type") and content.type == "image":
+        #         # Afbeelding gedetecteerd, schakel over naar buffermodus
+        #         has_image_content = True
+        #         self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
+        #         # Voeg deze afbeelding toe aan de buffer
+        #         image_buffer.append(content)
+        #     elif has_image_content:
+        #         # We hebben al een afbeelding gezien, blijf alles bufferen
+        #         image_buffer.append(content)
+        #     else:
+        #         # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
+        #         yield content
+        #
+        # # Als er afbeeldingen waren, stuur de gebufferde content nu
+        # if has_image_content and image_buffer:
+        #     self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
+        #     for buffered_chunk in image_buffer:
+        #         yield buffered_chunk
+        # --- END REMOVED OLD BUFFERING LOGIC ---
