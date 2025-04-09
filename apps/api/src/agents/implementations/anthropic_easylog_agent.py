@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from src.agents.anthropic_agent import AnthropicAgent
 from src.logger import logger
 from src.models.messages import Message, MessageContent
+from src.models.charts import Chart
 from src.utils.function_to_anthropic_tool import function_to_anthropic_tool
 
 # Laad alle variabelen uit .env
@@ -697,6 +698,29 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 # Re-raise the exception to signal failure
                 raise e
 
+        def tool_example_chart() -> Chart:
+            """
+            Create an example chart.
+            """
+            data = [
+                {"month": "Jan", "sales": 120},
+                {"month": "Feb", "sales": 150},
+                {"month": "Mar", "sales": 180},
+                {"month": "Apr", "sales": 170},
+                {"month": "May", "sales": 200},
+            ]
+
+            chart = Chart.create_bar_chart(
+                title="Monthly Sales",
+                description="2024 Sales Data",
+                data=data,
+                x_key="month",
+                y_keys=["sales"],
+                height=400,
+            )
+
+            return chart
+
         tools = [
             tool_store_memory,
             tool_get_easylog_data,
@@ -705,6 +729,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             tool_search_pdf,
             tool_load_image,
             tool_clear_memories,
+            Chart.create_bar_chart,
+            Chart.create_line_chart,
+            Chart.create_pie_chart,
+            tool_example_chart,
         ]
 
         # Print alle tools om te debuggen
@@ -723,6 +751,10 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
                 "tool_search_pdf",
                 "tool_load_image",
                 "tool_clear_memories",
+                "create_bar_chart",
+                "create_line_chart",
+                "create_pie_chart",
+                "tool_example_chart",
             ]:
                 anthropic_tools.append(function_to_anthropic_tool(tool))
                 self.logger.info(f"Added tool to Anthropic tools: {tool.__name__}")
@@ -768,6 +800,10 @@ Je taak is om gebruikers te helpen bij het analyseren van bedrijfsgegevens en he
 - tool_store_memory: Slaat belangrijke informatie op voor later gebruik
 - tool_clear_memories: Wist alle opgeslagen herinneringen
 - tool_search_pdf: Zoek een PDF in de kennisbank
+- create_bar_chart: Maakt een staafdiagram van de gegeven data.
+- create_line_chart: Maakt een lijndiagram van de gegeven data.
+- create_pie_chart: Maakt een cirkeldiagram van de gegeven data.
+- tool_example_chart: Genereert een voorbeeld staafdiagram.
 
 ### Gebruik van de tool_search_pdf
 Je kunt de tool_search_pdf gebruiken om te zoeken in PDF-documenten die zijn opgeslagen in de kennisbank. Gebruik deze tool wanneer een gebruiker vraagt naar informatie die mogelijk in een handboek, rapport of ander PDF-document staat.
