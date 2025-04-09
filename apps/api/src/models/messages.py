@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.models.charts import Chart
+
 
 class TextDeltaContent(BaseModel):
     type: Literal["text_delta"] = Field(default="text_delta")
@@ -35,29 +37,28 @@ class ToolResultContent(BaseModel):
 
     content: str = Field(..., description="The result of the tool.")
 
-    content_format: Literal["image", "chart", "unknown"] = Field(
-        default="unknown", description="The format of the content."
-    )
-
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
-class ToolResultDeltaContent(ToolResultContent):
-    type: Literal["tool_result_delta"] = Field(default="tool_result_delta")
+class ImageWidgetContent(ToolResultContent):
+    type: Literal["tool_result"] = Field(default="tool_result")
+
+    widget_type: Literal["image"] = Field(default="image")
+
+    image_url: str
+
+
+class ChartWidgetContent(ToolResultContent):
+    type: Literal["tool_result"] = Field(default="tool_result")
+
+    widget_type: Literal["chart"] = Field(default="chart")
+
+    chart_data: Chart
 
 
 class ImageContent(BaseModel):
     type: Literal["image"] = Field(default="image")
-
-    content: str = Field(
-        ...,
-        description="The raw base64 encoded image data, without any prefixes like `data:image/jpeg;base64,` for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
-    )
-
-    content_type: ContentType = Field(
-        default="image/jpeg",
-        description="The content type of the image, must start with `image/`",
-    )
+    image_url: str = Field(..., description="The URL of the image.")
 
 
 class PDFContent(BaseModel):
@@ -69,15 +70,7 @@ class PDFContent(BaseModel):
     )
 
 
-MessageContent = (
-    TextContent
-    | TextDeltaContent
-    | ToolUseContent
-    | ToolResultContent
-    | ToolResultDeltaContent
-    | ImageContent
-    | PDFContent
-)
+MessageContent = TextContent | TextDeltaContent | ToolUseContent | ToolResultContent | ImageContent | PDFContent
 
 
 class Message(BaseModel):

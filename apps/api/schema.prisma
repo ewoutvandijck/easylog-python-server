@@ -110,9 +110,7 @@ enum message_role {
     developer
     system
     user
-    assistant
     tool
-    function
 
     @@map("message_role")
     @@schema("public")
@@ -143,7 +141,7 @@ enum annotation_type {
 }
 
 model threads {
-    id          String     @id @default(cuid())
+    id          String     @id @default(uuid())
     external_id String?    @unique
     created_at  DateTime   @default(now())
     updated_at  DateTime   @updatedAt
@@ -155,14 +153,14 @@ model threads {
 }
 
 model messages {
-    id          String             @id @default(cuid())
+    id          String             @id @default(uuid())
     thread      threads            @relation(fields: [thread_id], references: [id], onDelete: Cascade)
     thread_id   String
     role        message_role       @default(user)
     name        String?
     tool_use_id String?
     refusal     String?
-    content     message_contents[]
+    contents    message_contents[]
     agent_class String
     created_at  DateTime           @default(now())
     updated_at  DateTime           @updatedAt
@@ -174,7 +172,7 @@ model messages {
 }
 
 model message_contents {
-    id           String               @id @default(cuid())
+    id           String               @id @default(uuid())
     message      messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
     message_id   String
     type         message_content_type @default(text)
@@ -185,6 +183,7 @@ model message_contents {
     file_name    String?
     text         String?
     widget_type  widget_type?
+    widget_data  Json?                @db.JsonB
     created_at   DateTime             @default(now())
     updated_at   DateTime             @updatedAt
 
@@ -193,7 +192,7 @@ model message_contents {
 }
 
 model tool_calls {
-    id         String   @id @default(cuid())
+    id         String   @id @default(uuid())
     message_id String
     message    messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
     name       String
@@ -207,14 +206,14 @@ model tool_calls {
 }
 
 model annotations {
-    id          String          @id @default(cuid())
+    id          String          @id @default(uuid())
     message_id  String
     message     messages        @relation(fields: [message_id], references: [id], onDelete: Cascade)
     type        annotation_type @default(url_citation)
-    url         String
-    title       String
-    start_index Int
-    end_index   Int
+    url         String?
+    title       String?
+    start_index Int?
+    end_index   Int?
     created_at  DateTime        @default(now())
 
     @@map("annotations")
@@ -222,7 +221,7 @@ model annotations {
 }
 
 model processed_pdfs {
-    id               String                 @id @default(cuid())
+    id               String                 @id @default(uuid())
     long_summary     String
     short_summary    String
     markdown_content String
@@ -238,7 +237,7 @@ model processed_pdfs {
 }
 
 model processed_pdf_images {
-    id                 String         @id @default(cuid())
+    id                 String         @id @default(uuid())
     processed_pdf_id   String
     processed_pdf      processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
     object_id          String         @unique @db.Uuid

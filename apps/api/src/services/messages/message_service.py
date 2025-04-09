@@ -1,27 +1,26 @@
+import uuid
 from collections.abc import AsyncGenerator, Sequence
-from typing import Literal, cast
+from datetime import datetime
 
 from prisma import Json
-from prisma.enums import message_content_type, message_role
+from prisma.enums import message_role
+from prisma.models import messages
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
 from src.lib.prisma import prisma
 from src.logger import logger
-from src.models.messages import (
-    ContentType,
-    ImageContent,
-    Message,
-    MessageContent,
-    PDFContent,
-    TextContent,
+from src.models.message_create import (
+    MessageCreateInput,
+    MessageCreateInputImageContent,
+    MessageCreateInputPDFContent,
+    MessageCreateInputTextContent,
+)
+from src.models.message_response import (
+    MessageContentResponse,
     TextDeltaContent,
     ToolResultContent,
-    ToolResultDeltaContent,
-    ToolUseContent,
 )
-from src.services.easylog_backend.backend_service import BackendService
-from src.settings import settings
 
 
 class AgentNotFoundError(Exception):
@@ -33,16 +32,17 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        input_content: list[MessageContent],
+        input_content: list[
+            MessageCreateInputPDFContent | MessageCreateInputImageContent | MessageCreateInputTextContent
+        ],
         agent_class: str,
         agent_config: dict,
-        bearer_token: str | None = None,
-    ) -> AsyncGenerator[MessageContent, None]:
+    ) -> AsyncGenerator[MessageContentResponse, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
             thread_id (str): The ID of the thread.
-            content (list[TextContent]): The content of the user message.
+            content (list[MessageCreateInputPDFContent | MessageCreateInputImageContent | MessageCreateInputTextContent]): The content of the user message.
             agent_class (str): The class of the agent.
             agent_config (dict): The config of the agent.
 
@@ -56,12 +56,10 @@ class MessageService:
             Iterator[TextContent]: A generator of message chunks.
         """
 
-        backend_service = BackendService(bearer_token=bearer_token or "", base_url=settings.EASYLOG_API_URL)
-
         logger.info(f"Loading agent {agent_class}")
 
         # Try to load the agent
-        agent = AgentLoader.get_agent(agent_class, thread_id, backend_service, agent_config)
+        agent = AgentLoader.get_agent(agent_class, thread_id, agent_config)
 
         if not agent:
             raise AgentNotFoundError(f"Agent class {agent_class} not found")
@@ -71,91 +69,82 @@ class MessageService:
         logger.info("Getting thread history")
 
         # Fetch the thread history including the new user message
-        thread_history = [
-            *(
-                Message(
-                    role=message.role.value,
-                    content=[
-                        TextContent(
-                            content=message_content.content or "",
-                        )
-                        if message_content.type == message_content_type.text
-                        else ImageContent(
-                            content=message_content.content or "",
-                            content_type=cast(ContentType, message_content.content_type) or "image/jpeg",
-                        )
-                        if message_content.type == message_content_type.image
-                        else PDFContent(
-                            content=message_content.content or "",
-                        )
-                        if message_content.type == message_content_type.pdf
-                        else ToolResultContent(
-                            tool_use_id=message_content.tool_use_id or "",
-                            content=message_content.content or "",
-                            content_format=cast(Literal["image", "unknown"], message_content.content_format),
-                            is_error=message_content.tool_use_is_error or False,
-                        )
-                        if message_content.type == message_content_type.tool_result
-                        else ToolUseContent(
-                            id=message_content.tool_use_id or "",
-                            name=message_content.tool_use_name or "",
-                            input=dict(message_content.tool_use_input) if message_content.tool_use_input else {},
-                        )
-                        for message_content in message.contents
-                        if message_content is not None
-                    ],
-                )
-                for message in prisma.messages.find_many(
-                    where={
-                        "thread_id": thread_id,
-                    },
-                    include={"contents": True},
-                )
-                if message.contents is not None
-            ),
-            Message(
-                role="user",
-                content=input_content,
-            ),
-        ]
+        # thread_history = [
+        #     *(
+        #         Message(
+        #             role=message.role.value,
+        #             content=[
+        #                 TextContent(
+        #                     content=message_content.content or "",
+        #                 )
+        #                 if message_content.type == message_content_type.text
+        #                 else ImageContent(
+        #                     content=message_content.content or "",
+        #                     content_type=cast(ContentType, message_content.content_type) or "image/jpeg",
+        #                 )
+        #                 if message_content.type == message_content_type.image
+        #                 else PDFContent(
+        #                     content=message_content.content or "",
+        #                 )
+        #                 if message_content.type == message_content_type.pdf
+        #                 else ToolResultContent(
+        #                     tool_use_id=message_content.tool_use_id or "",
+        #                     content=message_content.content or "",
+        #                     content_format=cast(Literal["image", "unknown"], message_content.content_format),
+        #                     is_error=message_content.tool_use_is_error or False,
+        #                 )
+        #                 if message_content.type == message_content_type.tool_result
+        #                 else ToolUseContent(
+        #                     id=message_content.tool_use_id or "",
+        #                     name=message_content.tool_use_name or "",
+        #                     input=dict(message_content.tool_use_input) if message_content.tool_use_input else {},
+        #                 )
+        #                 for message_content in message.contents
+        #                 if message_content is not None
+        #             ],
+        #         )
+        #         for message in prisma.messages.find_many(
+        #             where={
+        #                 "thread_id": thread_id,
+        #             },
+        #             include={
+        #                 "contents": True,
+        #             },
+        #         )
+        #         if message.contents is not None
+        #     ),
+        #     Message(
+        #         role="user",
+        #         content=input_content,
+        #     ),
+        # ]
 
-        logger.info(f"Thread history: {len(thread_history)} messages")
+        # logger.info(f"Thread history: {len(thread_history)} messages")
 
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        generated_messages: list[Message] = []
+        generated_messages: list[messages] = []
 
         try:
-            async for content_chunk, role in cls.call_agent(agent, thread_history):
-                # There's a size limit of 4096 on SSE events, so we need to yield the content in chunks.
-                # See: https://ithy.com/article/0e048e4cbc904c509bee7b462dd26dd9
-                if isinstance(content_chunk, ToolResultContent) and len(content_chunk.content) > 1000:
-                    content = content_chunk.content
-                    while content:
-                        chunk = content[:1000]
-                        content = content[1000:]
-
-                        yield ToolResultDeltaContent(
-                            tool_use_id=content_chunk.tool_use_id,
-                            content=chunk,
-                            content_format=content_chunk.content_format,
-                            is_error=content_chunk.is_error,
-                        )
-
-                    yield ToolResultContent(
-                        tool_use_id=content_chunk.tool_use_id,
-                        content="",
-                        content_format=content_chunk.content_format,
-                        is_error=content_chunk.is_error,
-                    )
-                else:
-                    yield content_chunk
-
+            async for content_chunk in cls.call_agent(agent, []):
                 last_message = generated_messages[-1] if len(generated_messages) > 0 else None
 
                 if not last_message or last_message.role != role:
-                    generated_messages.append(Message(role=role, content=[]))
+                    generated_messages.append(
+                        messages(
+                            id=str(uuid.uuid4()),
+                            role=message_role(role),
+                            contents=[],
+                            agent_class=agent_class,
+                            thread_id=thread_id,
+                            created_at=datetime.now(),
+                            updated_at=datetime.now(),
+                            tool_use_id=content_chunk.tool_use_id
+                            if isinstance(content_chunk, ToolResultContent)
+                            else None,
+                        )
+                    )
 
                 generated_messages[-1].content.append(content_chunk)
         except Exception as e:
@@ -181,8 +170,8 @@ class MessageService:
 
     @classmethod
     async def call_agent(
-        cls, agent: BaseAgent, thread_history: list[Message]
-    ) -> AsyncGenerator[tuple[MessageContent, Literal["user", "assistant"]], None]:
+        cls, agent: BaseAgent, thread_history: list[MessageCreateInput]
+    ) -> AsyncGenerator[MessageContentResponse]:
         """Call the agent with the thread history and return the response.
 
         Args:
@@ -190,16 +179,16 @@ class MessageService:
             thread_history (list[Message]): The thread history.
 
         Returns:
-            AsyncGenerator[tuple[MessageContent, int], None]: A generator of message chunks.
+            AsyncGenerator[MessageContentResponse, None]: A generator of message chunks.
         """
 
-        generated_content: list[MessageContent] = []
+        generated_content: list[MessageContentResponse] = []
 
-        async for content_chunk in agent.forward(thread_history):
+        async for content_chunk in agent.forward_message([]):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
 
             if isinstance(content_chunk, ToolResultContent):
-                yield content_chunk, "user"
+                yield content_chunk
 
                 async for chunk in cls.call_agent(
                     agent,
@@ -217,7 +206,7 @@ class MessageService:
                 ):
                     yield chunk
             else:
-                yield content_chunk, "assistant"
+                yield content_chunk
 
                 if not isinstance(content_chunk, TextDeltaContent):
                     generated_content.append(content_chunk)
