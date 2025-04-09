@@ -252,7 +252,7 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
             original_width, original_height = image_data.size
 
             # --- Compression Strategy ---
-            target_kb = 150
+            target_kb = 75 # Reduced from 150
             max_width = 1200
             initial_quality = 75
             min_quality = 50
