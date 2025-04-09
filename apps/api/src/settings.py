@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ADOBE_CLIENT_ID: str
     ADOBE_CLIENT_SECRET: str
     GEMINI_API_KEY: str
+    OPENROUTER_API_KEY: str
 
     # SSH Settings
     EASYLOG_SSH_KEY_PATH: str | None = Field(default=None)  # ~/.ssh/id_ed25519

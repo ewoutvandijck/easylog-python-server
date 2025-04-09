@@ -1,17 +1,12 @@
 from collections.abc import AsyncGenerator
-from typing import Generic, cast
+from typing import Generic
 
 from openai import AsyncOpenAI, AsyncStream
-from openai.types.beta import AssistantStreamEvent
-from openai.types.beta.threads import MessageDeltaEvent, TextDeltaBlock
-from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from src.agents.base_agent import BaseAgent, TConfig
 from src.models.messages import (
-    Message,
-    MessageContent,
     TextContent,
-    TextDeltaContent,
 )
 
 
@@ -51,30 +46,11 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
         # Create a connection to Anthropic using our API key
         # This is like logging into a special service
         self.client = AsyncOpenAI(
-            api_key=self.get_env("OPENAI_API_KEY"),
+            api_key=self.get_env("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
         )
 
-    async def handle_assistant_stream(
-        self,
-        stream: AsyncStream[AssistantStreamEvent],
-    ) -> AsyncGenerator[MessageContent, None]:
-        text_content = ""
-        async for event in stream:
-            if isinstance(event.data, MessageDeltaEvent):
-                for delta in event.data.delta.content or []:
-                    # We only care about text deltas, we ignore any other types of deltas for now
-                    if isinstance(delta, TextDeltaBlock) and delta.text:
-                        content = delta.text.value if isinstance(delta.text.value, str) else ""
-                        yield TextDeltaContent(
-                            content=content,
-                        )
-                        text_content += content
-
-        yield TextContent(content=text_content)
-
-    async def handle_completions_stream(
-        self, stream: AsyncStream[ChatCompletionChunk]
-    ) -> AsyncGenerator[TextContent, None]:
+    async def handle_stream(self, stream: AsyncStream[ChatCompletionChunk]) -> AsyncGenerator[TextContent, None]:
         async for event in stream:
             self.logger.info(f"Received completion chunk: {event.choices[0].delta.content}")
 
@@ -84,21 +60,8 @@ class OpenAIAgent(BaseAgent[TConfig], Generic[TConfig]):
                     type="text",
                 )
 
-    def _convert_messages_to_openai_messages(self, messages: list[Message]) -> list[ChatCompletionMessageParam]:
-        return cast(
-            list[ChatCompletionMessageParam],
-            [
-                {
-                    "role": message.role,
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": content.content or "[empty]",
-                        }
-                        for content in message.content
-                        if isinstance(content, TextContent)
-                    ],
-                }
-                for message in messages
-            ],
+    async def handle_completion(self, completion: ChatCompletion) -> AsyncGenerator[TextContent, None]:
+        yield TextContent(
+            content=completion.choices[0].message.content or "",
+            type="text",
         )
