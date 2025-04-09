@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from abc import abstractmethod
-from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
+from collections.abc import AsyncGenerator, Generator
 from types import UnionType
 from typing import (
     Any,
@@ -13,15 +13,15 @@ from typing import (
     get_args,
 )
 
-import pymysql
-from prisma.models import processed_pdfs, threads
+from prisma import Json
+from prisma.models import threads
 from pydantic import BaseModel
 
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.messages import Message, MessageContent, TextContent
-from src.services.easylog_backend.backend_service import BackendService
-from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
+
+# from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
 from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -32,29 +32,27 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
 
-    def __init__(self, thread_id: str, backend: BackendService, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, thread_id: str, **kwargs: dict[str, Any]) -> None:
         self._thread_id = thread_id
         self._raw_config = kwargs
-        self._thread = None
 
-        self.easylog_backend = backend
-        self.easylog_sql_service = EasylogSqlService(
-            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
-            ssh_host=settings.EASYLOG_SSH_HOST,
-            ssh_username=settings.EASYLOG_SSH_USERNAME,
-            db_host=settings.EASYLOG_DB_HOST,
-            db_port=settings.EASYLOG_DB_PORT,
-            db_user=settings.EASYLOG_DB_USER,
-            db_name=settings.EASYLOG_DB_NAME,
-            db_password=settings.EASYLOG_DB_PASSWORD,
-        )
+        # self.easylog_backend = backend
+        # self.easylog_sql_service = EasylogSqlService(
+        #     ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
+        #     ssh_host=settings.EASYLOG_SSH_HOST,
+        #     ssh_username=settings.EASYLOG_SSH_USERNAME,
+        #     db_host=settings.EASYLOG_DB_HOST,
+        #     db_port=settings.EASYLOG_DB_PORT,
+        #     db_user=settings.EASYLOG_DB_USER,
+        #     db_name=settings.EASYLOG_DB_NAME,
+        #     db_password=settings.EASYLOG_DB_PASSWORD,
+        # )
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
         logger.info(f"Using database: {settings.EASYLOG_DB_NAME}")
 
     def __init_subclass__(cls) -> None:
         cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
-
         logger.info(f"Initialized subclass: {cls.__name__}")
 
     @property
@@ -65,21 +63,15 @@ class BaseAgent(Generic[TConfig]):
     def logger(self) -> logging.Logger:
         return logger
 
-    @property
-    def easylog_db(self) -> pymysql.Connection:
-        if not self.easylog_sql_service.db:
-            raise ValueError("Easylog database connection not initialized")
+    # @property
+    # def easylog_db(self) -> pymysql.Connection:
+    #     if not self.easylog_sql_service.db:
+    #         raise ValueError("Easylog database connection not initialized")
 
-        return self.easylog_sql_service.db
+    #     return self.easylog_sql_service.db
 
     @abstractmethod
     def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_tools(
-        self,
-    ) -> dict[str, Callable[[], Any] | Callable[[], Coroutine[Any, Any, Any]]]:
         raise NotImplementedError()
 
     def get_env(self, key: str) -> str:
@@ -128,12 +120,7 @@ class BaseAgent(Generic[TConfig]):
         metadata: dict = json.loads((self._get_thread()).metadata or "{}")
         metadata[key] = value
 
-        prisma.threads.update(where={"id": self._thread_id}, data={"metadata": json.dumps(metadata)})
-
-    def get_knowledge(self) -> list[processed_pdfs]:
-        return prisma.processed_pdfs.find_many(
-            include={"object": True},
-        )
+        prisma.threads.update(where={"id": self._thread_id}, data={"metadata": Json(metadata)})
 
     def _get_thread(self) -> threads:
         """Get the thread for the agent."""
