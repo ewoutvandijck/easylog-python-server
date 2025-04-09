@@ -381,8 +381,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
     async def on_message(self, messages: list[Message]) -> AsyncGenerator[MessageContent, None]:
         """
         Deze functie handelt elk bericht van de gebruiker af.
-        We bufferen nu het volledige Claude-antwoordsignaal, zodat base64-afbeeldingen
-        in één keer overkomen (en dus niet gedeeltelijk) bij een trage verbinding.
         """
         # Verwijder eventuele debug tools die in de code zijn overgebleven
         self.logger.info("Removing any debug tools that might still be in code")
@@ -778,7 +776,6 @@ class AnthropicEasylogAgent(AnthropicAgent[AnthropicEasylogAgentConfig]):
 
         # In plaats van de stream direct door te geven,
         # bufferen we het volledige antwoord en sturen het dan in één keer.
-        buffered_content = []
         stream = await self.client.messages.create(
             # Gebruik Claude 3.7 Sonnet model
             model="claude-3-7-sonnet-20250219",
@@ -840,28 +837,6 @@ Je huidige core memories zijn:
         if execution_time > 5.0:
             logger.warning(f"API call took longer than expected: {execution_time:.2f} seconds")
 
-        # Detecteer en buffer alle berichten met afbeeldingen omdat die het meest gevoelig zijn
-        # voor streaming problemen bij slechte internetverbindingen
-        has_image_content = False
-        image_buffer = []
-
+        # Stuur content direct door
         async for content in self.handle_stream(stream, tools):
-            # Controleer of we afbeeldingen hebben gedetecteerd
-            if hasattr(content, "type") and content.type == "image":
-                # Afbeelding gedetecteerd, schakel over naar buffermodus
-                has_image_content = True
-                self.logger.info("Afbeelding gedetecteerd, schakelen naar buffer modus")
-                # Voeg deze afbeelding toe aan de buffer
-                image_buffer.append(content)
-            elif has_image_content:
-                # We hebben al een afbeelding gezien, blijf alles bufferen
-                image_buffer.append(content)
-            else:
-                # Geen afbeeldingen gedetecteerd, stuur content direct door (smooth streaming)
-                yield content
-
-        # Als er afbeeldingen waren, stuur de gebufferde content nu
-        if has_image_content and image_buffer:
-            self.logger.info(f"Verzenden van {len(image_buffer)} gebufferde berichten met afbeeldingen")
-            for buffered_chunk in image_buffer:
-                yield buffered_chunk
+            yield content
