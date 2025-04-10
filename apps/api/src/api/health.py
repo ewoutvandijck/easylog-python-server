@@ -22,7 +22,7 @@ async def health() -> HealthResponse:
     neo4j = "healthy"
 
     try:
-        prisma.query_raw("select 1")
+        await prisma.query_raw("select 1")
     except Exception:
         main_db = "unhealthy"
 

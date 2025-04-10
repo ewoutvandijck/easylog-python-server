@@ -13,6 +13,7 @@ from src.models.message_create import MessageCreateInput
 from src.models.pagination import Pagination
 from src.security.optional_http_bearer import optional_bearer_header
 from src.services.messages.message_service import MessageService
+from src.utils.is_valid_uuid import is_valid_uuid
 from src.utils.sse import create_sse_event
 
 router = APIRouter()
@@ -34,7 +35,7 @@ async def get_messages(
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
 ) -> Pagination[messages]:
-    messages = prisma.messages.find_many(
+    messages = await prisma.messages.find_many(
         where={
             "OR": [
                 {"thread_id": thread_id},
@@ -67,13 +68,8 @@ async def create_message(
 ) -> StreamingResponse:
     logger.info(f"Authorization: {auth}")
 
-    thread = prisma.threads.find_first(
-        where={
-            "OR": [
-                {"id": thread_id},
-                {"external_id": thread_id},
-            ],
-        },
+    thread = await prisma.threads.find_first(
+        where={"id": thread_id} if is_valid_uuid(thread_id) else {"external_id": thread_id},
     )
 
     if not thread:
@@ -123,7 +119,7 @@ async def delete_message(
     ),
     message_id: str = Path(..., description="The unique identifier of the message."),
 ) -> Response:
-    prisma.messages.delete_many(
+    await prisma.messages.delete_many(
         where={
             "AND": [
                 {"id": message_id},

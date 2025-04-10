@@ -22,6 +22,7 @@ model buckets {
     allowed_mime_types         String[]
     owner_id                   String?
     objects                    objects[]
+    prefixes                   prefixes[]
     s3_multipart_uploads       s3_multipart_uploads[]
     s3_multipart_uploads_parts s3_multipart_uploads_parts[]
 
@@ -37,6 +38,9 @@ model migrations {
     @@schema("storage")
 }
 
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model objects {
     id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     bucket_id            String?
@@ -50,16 +54,34 @@ model objects {
     version              String?
     owner_id             String?
     user_metadata        Json?
+    level                Int?
     buckets              buckets?              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
     processed_pdfs       processed_pdfs?
     processed_pdf_images processed_pdf_images?
 
     @@unique([bucket_id, name], map: "bucketid_objname")
+    @@unique([name, bucket_id], map: "idx_name_bucket_unique")
+    @@unique([bucket_id, level, name], map: "objects_bucket_id_level_idx")
     @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
     @@index([name], map: "name_prefix_search")
     @@schema("storage")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model prefixes {
+    bucket_id  String
+    name       String
+    level      Int       @default(dbgenerated("storage.get_level(name)"))
+    created_at DateTime? @default(now()) @db.Timestamptz(6)
+    updated_at DateTime? @default(now()) @db.Timestamptz(6)
+    buckets    buckets   @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "prefixes_bucketId_fkey")
+
+    @@id([bucket_id, level, name])
+    @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model s3_multipart_uploads {
     id                         String                       @id
     in_progress_size           BigInt                       @default(0)
@@ -77,6 +99,7 @@ model s3_multipart_uploads {
     @@schema("storage")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model s3_multipart_uploads_parts {
     id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     upload_id            String
@@ -94,6 +117,20 @@ model s3_multipart_uploads_parts {
     @@schema("storage")
 }
 
+enum annotation_type {
+    url_citation
+
+    @@schema("public")
+}
+
+enum image_detail {
+    auto
+    low
+    high
+
+    @@schema("public")
+}
+
 enum message_content_type {
     text
     image
@@ -103,7 +140,6 @@ enum message_content_type {
     annotation
     refusal
 
-    @@map("message_content_type")
     @@schema("public")
 }
 
@@ -114,7 +150,6 @@ enum message_role {
     user
     tool
 
-    @@map("message_role")
     @@schema("public")
 }
 
@@ -122,32 +157,15 @@ enum widget_type {
     image
     chart
 
-    @@map("widget_type")
-    @@schema("public")
-}
-
-enum image_detail {
-    auto
-    low
-    high
-
-    @@map("image_detail")
-    @@schema("public")
-}
-
-enum annotation_type {
-    url_citation
-
-    @@map("annotation_type")
     @@schema("public")
 }
 
 model threads {
-    id          String     @id @default(uuid())
+    id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     external_id String?    @unique
     created_at  DateTime   @default(now())
-    updated_at  DateTime   @updatedAt
-    metadata    Json?      @db.JsonB
+    updated_at  DateTime   @default(now()) @updatedAt
+    metadata    Json       @default("{}") @db.JsonB
     messages    messages[]
 
     @@map("threads")
@@ -155,9 +173,9 @@ model threads {
 }
 
 model messages {
-    id          String             @id @default(uuid())
+    id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     thread      threads            @relation(fields: [thread_id], references: [id], onDelete: Cascade)
-    thread_id   String
+    thread_id   String             @db.Uuid
     role        message_role       @default(user)
     name        String?
     tool_use_id String?
@@ -165,16 +183,16 @@ model messages {
     contents    message_contents[]
     agent_class String
     created_at  DateTime           @default(now())
-    updated_at  DateTime           @updatedAt
+    updated_at  DateTime           @default(now()) @updatedAt
 
     @@map("messages")
     @@schema("public")
 }
 
 model message_contents {
-    id                     String               @id @default(uuid())
+    id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     message                messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    message_id             String
+    message_id             String               @db.Uuid
     type                   message_content_type @default(text)
     refusal                String?
     image_url              String?
@@ -194,14 +212,14 @@ model message_contents {
     annotation_start_index Int?
     annotation_end_index   Int?
     created_at             DateTime             @default(now())
-    updated_at             DateTime             @updatedAt
+    updated_at             DateTime             @default(now()) @updatedAt
 
     @@map("message_contents")
     @@schema("public")
 }
 
 model processed_pdfs {
-    id               String                 @id @default(uuid())
+    id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     long_summary     String
     short_summary    String
     markdown_content String
@@ -210,15 +228,15 @@ model processed_pdfs {
     object           objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
     images           processed_pdf_images[]
     created_at       DateTime               @default(now())
-    updated_at       DateTime               @updatedAt
+    updated_at       DateTime               @default(now()) @updatedAt
 
     @@map("processed_pdfs")
     @@schema("public")
 }
 
 model processed_pdf_images {
-    id                 String         @id @default(uuid())
-    processed_pdf_id   String
+    id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    processed_pdf_id   String         @db.Uuid
     processed_pdf      processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
     object_id          String         @unique @db.Uuid
     object             objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
@@ -226,7 +244,7 @@ model processed_pdf_images {
     summary            String
     page               Int
     created_at         DateTime       @default(now())
-    updated_at         DateTime       @updatedAt
+    updated_at         DateTime       @default(now()) @updatedAt
 
     @@map("processed_pdf_images")
     @@schema("public")

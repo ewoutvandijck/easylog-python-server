@@ -3,7 +3,6 @@ from collections.abc import Callable, Iterable
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
-from openai.types.chat.chat_completion_message import ChatCompletionMessage
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel
 
@@ -15,16 +14,16 @@ class DebugAgentConfig(BaseModel):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
-    async def tools(self) -> list[Callable]:
-        return []
-
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncStream[ChatCompletionChunk] | ChatCompletion:
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
+        def test(name: str) -> str:
+            return f"Hello, {name}!"
+
         response = await self.client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[ChatCompletionMessage(role="assistant", content="Hello, world!")],
-            stream=True,
+            model="openai/gpt-3.5-turbo",
+            messages=messages,
+            stream=False,
             tools=[
                 {
                     "type": "function",
@@ -34,7 +33,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string", "minLength": 4096},
+                                "name": {"type": "string"},
                             },
                             "required": ["name"],
                         },
@@ -43,4 +42,4 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             ],
         )
 
-        return response
+        return response, [test]

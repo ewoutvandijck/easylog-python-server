@@ -41,6 +41,7 @@ line-length = 120
 extend-include = ["*.ipynb"]
 target-version = "py312"
 select = ["F", "E", "W", "I", "N", "UP", "ANN", "B", "A"]
+ignore = ["ANN401"]
 
 [tool.ruff.format]
 docstring-code-format = true
