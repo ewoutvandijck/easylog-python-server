@@ -1,7 +1,9 @@
 import json
 import logging
+import uuid
 from abc import abstractmethod
-from collections.abc import AsyncGenerator, Iterable
+from collections.abc import AsyncGenerator, Callable, Iterable
+from datetime import datetime
 from types import UnionType
 from typing import (
     Any,
@@ -23,7 +25,7 @@ from src.lib.prisma import prisma
 from src.logger import logger
 
 # from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
-from src.models.messages import MessageContent
+from src.models.messages import MessageContent, TextContent, ToolResultContent, ToolUseContent
 from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -44,20 +46,7 @@ class BaseAgent(Generic[TConfig]):
             base_url="https://openrouter.ai/api/v1",
         )
 
-        # self.easylog_backend = backend
-        # self.easylog_sql_service = EasylogSqlService(
-        #     ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
-        #     ssh_host=settings.EASYLOG_SSH_HOST,
-        #     ssh_username=settings.EASYLOG_SSH_USERNAME,
-        #     db_host=settings.EASYLOG_DB_HOST,
-        #     db_port=settings.EASYLOG_DB_PORT,
-        #     db_user=settings.EASYLOG_DB_USER,
-        #     db_name=settings.EASYLOG_DB_NAME,
-        #     db_password=settings.EASYLOG_DB_PASSWORD,
-        # )
-
         logger.info(f"Initialized agent: {self.__class__.__name__}")
-        logger.info(f"Using database: {settings.EASYLOG_DB_NAME}")
 
     def __init_subclass__(cls) -> None:
         cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
@@ -71,23 +60,23 @@ class BaseAgent(Generic[TConfig]):
     def logger(self) -> logging.Logger:
         return logger
 
-    # @property
-    # def easylog_db(self) -> pymysql.Connection:
-    #     if not self.easylog_sql_service.db:
-    #         raise ValueError("Easylog database connection not initialized")
-
-    #     return self.easylog_sql_service.db
-
     @abstractmethod
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncStream[ChatCompletionChunk] | ChatCompletion:
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         raise NotImplementedError()
 
     async def forward_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> AsyncGenerator[MessageContent, None]:
-        raise NotImplementedError("Forward message not implemented")
+        result, tools = await self.on_message(messages)
+
+        async for chunk in (
+            await self._handle_stream(result, tools)
+            if isinstance(result, AsyncStream)
+            else self._handle_completion(result, tools)
+        ):
+            yield chunk
 
     async def get_metadata(self, key: str, default: Any | None = None) -> Any:
         metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
@@ -110,13 +99,10 @@ class BaseAgent(Generic[TConfig]):
 
     def _get_config(self, **kwargs: dict[str, Any]) -> TConfig:
         """Parse kwargs into the config type specified by the child class"""
-        # Get the generic parameters using typing.get_args
-        # Get the actual config type from the class's generic parameters
 
         if not self._config_type:
             raise ValueError("Could not determine config type from class definition")
 
-        # Handle Union types by trying each type until one works
         if (hasattr(self._config_type, "__origin__") and self._config_type.__origin__ is Union) or isinstance(
             self._config_type, UnionType
         ):
@@ -125,7 +111,65 @@ class BaseAgent(Generic[TConfig]):
                     return type_option(**kwargs)
                 except (ValueError, TypeError):
                     continue
+
             raise ValueError(f"None of the union types {self._config_type} could parse the config")
 
-        # Handle single type
         return self._config_type(**kwargs)
+
+    async def _handle_tool_call(self, name: str, input: dict[str, Any], tools: list[Callable]) -> str:
+        try:
+            tool = next(tool for tool in tools if tool.__name__ == name)
+        except StopIteration as e:
+            raise ValueError(f"Tool {name} not found") from e
+
+        try:
+            result = str(await tool(input))
+
+            # TODO: handle image, file, etc.
+        except Exception as e:
+            result = f"Error: {e}"
+
+        return result
+
+    async def _handle_stream(
+        self, stream: AsyncStream[ChatCompletionChunk], tools: list[Callable]
+    ) -> AsyncGenerator[MessageContent, None]:
+        raise NotImplementedError()
+
+    async def _handle_completion(
+        self, completion: ChatCompletion, tools: list[Callable]
+    ) -> AsyncGenerator[MessageContent, None]:
+        if len(completion.choices) != 1:
+            raise ValueError("Expected exactly one choice in the completion")
+
+        choice = completion.choices[0]
+
+        for tool_call in choice.message.tool_calls or []:
+            input_data = json.loads(tool_call.function.arguments)
+
+            yield ToolUseContent(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                role="assistant",
+                name=tool_call.function.name,
+                input=input_data,
+            )
+
+            tool_result = await self._handle_tool_call(tool_call.function.name, input_data, tools)
+
+            yield ToolResultContent(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                role="assistant",
+                tool_use_id=tool_call.id,
+                output=tool_result,
+                is_error=False,
+            )
+
+        if choice.message.content is not None:
+            yield TextContent(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                role="assistant",
+                text=choice.message.content,
+            )

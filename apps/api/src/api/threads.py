@@ -6,6 +6,7 @@ from prisma.models import threads
 from src.lib.prisma import prisma
 from src.models.pagination import Pagination
 from src.models.threads import ThreadCreateInput
+from src.utils.is_valid_uuid import is_valid_uuid
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ async def get_threads(
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="desc"),
 ) -> Pagination[threads]:
-    threads = prisma.threads.find_many(
+    threads = await prisma.threads.find_many(
         take=limit,
         skip=offset,
         order={"created_at": order},
@@ -60,13 +61,8 @@ async def get_thread_by_id(
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
 ) -> threads:
-    thread = prisma.threads.find_first(
-        where={
-            "OR": [
-                {"id": _id},
-                {"external_id": _id},
-            ]
-        },
+    thread = await prisma.threads.find_first(
+        where={"id": _id} if is_valid_uuid(_id) else {"external_id": _id},
         include={
             "messages": {
                 "order_by": {"created_at": "desc"},
@@ -92,7 +88,7 @@ async def get_thread_by_id(
 )
 async def create_thread(thread: ThreadCreateInput) -> threads:
     if thread.external_id:
-        return prisma.threads.upsert(
+        return await prisma.threads.upsert(
             where={
                 "external_id": thread.external_id,
             },
@@ -111,7 +107,7 @@ async def create_thread(thread: ThreadCreateInput) -> threads:
             },
         )
 
-    return prisma.threads.create(
+    return await prisma.threads.create(
         data={"external_id": thread.external_id},
         include={
             "messages": {
@@ -136,13 +132,8 @@ async def delete_thread(
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
 ) -> Response:
-    prisma.threads.delete_many(
-        where={
-            "OR": [
-                {"id": _id},
-                {"external_id": _id},
-            ]
-        }
+    await prisma.threads.delete_many(
+        where={"id": _id} if is_valid_uuid(_id) else {"external_id": _id},
     )
 
     return Response(status_code=204)

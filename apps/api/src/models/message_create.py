@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -8,20 +10,28 @@ class AgentConfig(BaseModel):
 
 
 class MessageCreateInputFileContent(BaseModel):
+    type: Literal["file"] = Field(default="file")
     file_data: str
     file_name: str
 
 
 class MessageCreateInputImageContent(BaseModel):
+    type: Literal["image"] = Field(default="image")
     image_url: str
 
 
 class MessageCreateInputTextContent(BaseModel):
+    type: Literal["text"] = Field(default="text")
     text: str
 
 
+MessageCreateInputContent = (
+    MessageCreateInputFileContent | MessageCreateInputImageContent | MessageCreateInputTextContent
+)
+
+
 class MessageCreateInput(BaseModel):
-    content: list[MessageCreateInputFileContent | MessageCreateInputImageContent | MessageCreateInputTextContent]
+    content: list[MessageCreateInputContent]
 
     agent_config: AgentConfig = Field(
         ...,
@@ -35,18 +45,14 @@ class MessageCreateInput(BaseModel):
                     "content": [
                         {
                             "type": "text",
-                            "content": "Hello, what color is this image?",
+                            "text": "Hello, what color is this image?",
                         },
                         {
                             "type": "image",
-                            "content": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
-                            "content_type": "image/png",
+                            "image_url": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
                         },
                     ],
-                    "agent_config": {
-                        "agent_class": "OpenAIAssistant",
-                        "assistant_id": "asst_5vWL7aefIopE4aU5DcFRmpA5",
-                    },
+                    "agent_config": {"agent_class": "DebugAgent"},
                 }
             ]
         }

@@ -7,9 +7,7 @@ from src.agents.base_agent import BaseAgent
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import (
-    MessageCreateInputFileContent,
-    MessageCreateInputImageContent,
-    MessageCreateInputTextContent,
+    MessageCreateInputContent,
 )
 from src.models.messages import (
     GeneratedMessage,
@@ -31,9 +29,7 @@ class MessageService:
     async def forward_message(
         cls,
         thread_id: str,
-        input_content: list[
-            MessageCreateInputFileContent | MessageCreateInputImageContent | MessageCreateInputTextContent
-        ],
+        input_content: list[MessageCreateInputContent],
         agent_class: str,
         agent_config: dict,
     ) -> AsyncGenerator[MessageContent, None]:
@@ -130,7 +126,7 @@ class MessageService:
 
         generated_messages: list[GeneratedMessage] = initial_generated_messages.copy()
 
-        async for content_chunk in await agent.forward_message(thread_history):
+        async for content_chunk in agent.forward_message(thread_history):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
 
             last_message = generated_messages[-1] if len(generated_messages) > 0 else None

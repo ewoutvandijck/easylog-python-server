@@ -5,16 +5,18 @@ from pathlib import Path
 from src.agents.base_agent import BaseAgent
 from src.logger import logger
 
+EMPTY_AGENT_CONFIG = {}
+
 
 class AgentLoader:
     @staticmethod
     def get_agent(
         agent_class: str,
         thread_id: str,
-        agent_config: dict = {},
+        agent_config: dict = EMPTY_AGENT_CONFIG,
     ) -> BaseAgent | None:
         logger.debug(f"Attempting to load agent class: {agent_class}")
-        agents_dir = Path("src/agents/implementations")
+        agents_dir = Path(__file__).parent / "implementations"
         logger.debug(f"Scanning directory: {agents_dir}")
 
         # Get all Python files in the agents directory

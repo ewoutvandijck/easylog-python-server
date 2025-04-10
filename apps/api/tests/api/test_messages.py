@@ -1,27 +1,37 @@
-from openai import AsyncStream
+import base64
 
-from src.agents.implementations.debug_agent import DebugAgent
-from src.logger import logger
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from src.lib.prisma import prisma
+from src.main import app
+from src.models.message_create import MessageCreateInputImageContent, MessageCreateInputTextContent
+from src.services.messages.message_service import MessageService
+
+client = TestClient(app)
 
 
-async def test_messages():
-    agent = DebugAgent(thread_id="test")
+@pytest.mark.asyncio
+async def test_anthropic_supports_image_data():
+    await prisma.connect()
 
-    response = await agent.on_message(
-        [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Call the text tool with a long story"},
-                ],
-            }
-        ]
+    thread = await prisma.threads.create(
+        data={},
     )
 
-    if isinstance(response, AsyncStream):
-        async for chunk in response:
-            logger.info(chunk.choices[0].delta)
-    else:
-        logger.info(response)
+    image_url = "https://upload.wikimedia.org/wikipedia/commons/a/a7/Camponotus_flavomarginatus_ant.jpg"
+    image_data = base64.standard_b64encode(httpx.get(image_url).content).decode("utf-8")
 
-    assert response is not None
+    url = f"data:image/jpeg;base64,{image_data}"
+
+    async for chunk in MessageService.forward_message(
+        thread_id=thread.id,
+        input_content=[
+            MessageCreateInputTextContent(text="What is in this image?"),
+            MessageCreateInputImageContent(image_url=url),
+        ],
+        agent_class="DebugAgent",
+        agent_config={},
+    ):
+        print(chunk.model_dump_json(indent=2))
