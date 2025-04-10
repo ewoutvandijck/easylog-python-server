@@ -83,25 +83,26 @@ class ImageContent(BaseContent):
 
 
 class FileContent(BaseContent):
-    type: Literal["pdf"] = Field(default="pdf")
+    type: Literal["file"] = Field(default="file")
 
     file_data: str = Field(..., description="The file data of the message.")
 
     file_name: str = Field(..., description="The name of the file.")
 
 
-class AnnotationContent(BaseContent):
-    type: Literal["annotation"] = Field(default="annotation")
+# TODO: Add annotation content
+# class AnnotationContent(BaseContent):
+#     type: Literal["annotation"] = Field(default="annotation")
 
-    annotation_type: Literal["url_citation"]
+#     annotation_type: Literal["url_citation"]
 
-    url: str = Field(..., description="The URL of the annotation.")
+#     url: str = Field(..., description="The URL of the annotation.")
 
-    title: str = Field(..., description="The title of the annotation.")
+#     title: str = Field(..., description="The title of the annotation.")
 
-    start_index: int = Field(..., description="The start index of the annotation.")
+#     start_index: int = Field(..., description="The start index of the annotation.")
 
-    end_index: int = Field(..., description="The end index of the annotation.")
+#     end_index: int = Field(..., description="The end index of the annotation.")
 
 
 MessageContent = (
@@ -110,7 +111,6 @@ MessageContent = (
     | ToolResultContent
     | ImageContent
     | FileContent
-    | AnnotationContent
     | TextDeltaContent
     | ToolResultDeltaContent
 )
@@ -118,6 +118,8 @@ MessageContent = (
 
 class GeneratedMessage(BaseModel):
     role: MessageRole
+
+    name: str | None = None
 
     tool_use_id: str | None = None
 

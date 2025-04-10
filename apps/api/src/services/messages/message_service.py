@@ -18,6 +18,7 @@ from src.models.messages import (
     ToolResultContent,
 )
 from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
+from src.services.messages.utils.generated_message_to_openai_param import generated_message_to_openai_param
 from src.services.messages.utils.input_message_to_openai_param import input_content_to_openai_param
 
 
@@ -148,9 +149,14 @@ class MessageService:
             yield content_chunk, generated_messages.copy()
 
         if any(content_chunk.role == "tool" for content_chunk in generated_messages):
+            new_thread_history = [
+                *thread_history,
+                *[generated_message_to_openai_param(message) for message in generated_messages],
+            ]
+
             # Recursively call the agent if we have a tool call
             async for nested_chunk, nested_messages in cls.call_agent(
-                agent, thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
+                agent, new_thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
             ):
                 # Yield each chunk from the nested call
                 yield nested_chunk, nested_messages

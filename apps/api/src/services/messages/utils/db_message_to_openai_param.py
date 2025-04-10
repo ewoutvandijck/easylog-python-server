@@ -25,13 +25,18 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             role=message.role.value,
             name=message.name or "User",
             content=[
-                text_param(content)
-                if content.type == message_content_type.text
-                else image_param(content)
-                if content.type == message_content_type.image
-                else file_param(content)
-                for content in message.contents
-                if content.type in [message_content_type.text, message_content_type.image, message_content_type.file]
+                message_content
+                for message_content in [
+                    text_param(content)
+                    if content.type == message_content_type.text
+                    else image_param(content)
+                    if content.type == message_content_type.image
+                    else file_param(content)
+                    if content.type == message_content_type.file
+                    else None
+                    for content in message.contents
+                ]
+                if message_content is not None
             ],
         )
     elif message.role == message_role.assistant:
@@ -39,14 +44,22 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             role=message.role.value,
             name=message.name or "Assistant",
             content=[
-                text_param(content)
-                for content in message.contents
-                if content.type in [message_content_type.text, message_content_type.refusal]
+                message_content
+                for message_content in [
+                    text_param(content)
+                    if content.type in [message_content_type.text, message_content_type.refusal]
+                    else None
+                    for content in message.contents
+                ]
+                if message_content is not None
             ],
             tool_calls=[
-                tool_call_param(content)
-                for content in message.contents
-                if content.type == message_content_type.tool_use
+                tool_call
+                for tool_call in [
+                    tool_call_param(content) if content.type == message_content_type.tool_use else None
+                    for content in message.contents
+                ]
+                if tool_call is not None
             ],
         )
     elif message.role == message_role.system:
@@ -54,7 +67,12 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             role=message.role.value,
             name=message.name or "System",
             content=[
-                text_param(content) for content in message.contents if content.type in [message_content_type.text]
+                message_content
+                for message_content in [
+                    text_param(content) if content.type == message_content_type.text else None
+                    for content in message.contents
+                ]
+                if message_content is not None
             ],
         )
     elif message.role == message_role.developer:
@@ -62,17 +80,28 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             role=message.role.value,
             name=message.name or "Developer",
             content=[
-                text_param(content) for content in message.contents if content.type in [message_content_type.text]
+                message_content
+                for message_content in [
+                    text_param(content) if content.type == message_content_type.text else None
+                    for content in message.contents
+                ]
+                if message_content is not None
             ],
         )
     elif message.role == message_role.tool:
+        if not message.tool_use_id:
+            raise ValueError("Tool use ID is required")
+
         return ChatCompletionToolMessageParam(
             role=message.role.value,
-            tool_call_id=message.tool_use_id or "",
+            tool_call_id=message.tool_use_id,
             content=[
-                tool_result_param(content)
-                for content in message.contents
-                if content.type == message_content_type.tool_use
+                message_content
+                for message_content in [
+                    tool_result_param(content) if content.type == message_content_type.tool_use else None
+                    for content in message.contents
+                ]
+                if message_content is not None
             ],
         )
 
@@ -122,7 +151,7 @@ def file_param(content: message_contents) -> File:
         type="file",
         file={
             "file_data": Base64.decode(content.file_data).decode("utf-8"),
-            "filename": content.file_name or "",
+            "filename": content.file_name,
         },
     )
 
