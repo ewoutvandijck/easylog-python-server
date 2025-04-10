@@ -1,23 +1,36 @@
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from src.models.charts import Chart
 
-
-class TextDeltaContent(BaseModel):
-    type: Literal["text_delta"] = Field(default="text_delta")
-
-    content: str = Field(..., description="The text of the delta.")
+MessageRole = Literal["assistant", "user", "system", "developer", "tool"]
 
 
-class TextContent(BaseModel):
+class BaseContent(BaseModel):
+    id: str = Field(..., description="The ID of the content.")
+
+    role: MessageRole = Field(..., description="The role of the content.")
+
+    created_at: datetime = Field(..., description="The creation date of the content.")
+
+
+class TextContent(BaseContent):
     type: Literal["text"] = Field(default="text")
 
-    content: str = Field(..., description="The content of the message.")
+    text: str = Field(..., description="The content of the message.")
 
 
-class ToolUseContent(BaseModel):
+class TextDeltaContent(BaseContent):
+    type: Literal["text_delta"] = Field(default="text_delta")
+
+    content_id: str = Field(..., description="The ID of the content that the delta is for.")
+
+    delta: str = Field(..., description="The delta of the content.")
+
+
+class ToolUseContent(BaseContent):
     type: Literal["tool_use"] = Field(default="tool_use")
 
     id: str = Field(..., description="The ID of the tool use.")
@@ -27,94 +40,85 @@ class ToolUseContent(BaseModel):
     input: dict = Field(..., description="The arguments of the tool.")
 
 
-ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
-
-
-class ToolResultContent(BaseModel):
+class ToolResultContent(BaseContent):
     type: Literal["tool_result"] = Field(default="tool_result")
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
-    content: str = Field(..., description="The result of the tool.")
+    output: str = Field(..., description="The result of the tool.")
 
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
-class ImageWidgetContent(ToolResultContent):
+class ToolResultDeltaContent(BaseContent):
+    type: Literal["tool_result_delta"] = Field(default="tool_result_delta")
+
+    content_id: str = Field(..., description="The ID of the content that the delta is for.")
+
+    delta: str = Field(..., description="The delta of the tool result.")
+
+
+class ImageWidgetContent(BaseContent):
     type: Literal["tool_result"] = Field(default="tool_result")
 
-    widget_type: Literal["image"] = Field(default="image")
+    widget_type: Literal["image"] = Field(default="image", description="The type of the widget.")
 
-    image_url: str
+    image_url: str = Field(..., description="The URL of the image.")
+
+    image_detail: Literal["low", "medium", "high"] = Field(default="low", description="The detail of the image.")
 
 
-class ChartWidgetContent(ToolResultContent):
+class ChartWidgetContent(BaseContent):
     type: Literal["tool_result"] = Field(default="tool_result")
 
-    widget_type: Literal["chart"] = Field(default="chart")
+    widget_type: Literal["chart"] = Field(default="chart", description="The type of the widget.")
 
-    chart_data: Chart
+    chart_data: Chart = Field(..., description="The data of the chart.")
 
 
-class ImageContent(BaseModel):
+class ImageContent(BaseContent):
     type: Literal["image"] = Field(default="image")
+
     image_url: str = Field(..., description="The URL of the image.")
 
 
-class PDFContent(BaseModel):
+class FileContent(BaseContent):
     type: Literal["pdf"] = Field(default="pdf")
 
-    content: str = Field(
-        ...,
-        description="The base64 encoded PDF data, without any prefixes like `data:application/pdf;base64,`, for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
-    )
+    file_data: str = Field(..., description="The file data of the message.")
+
+    file_name: str = Field(..., description="The name of the file.")
 
 
-MessageContent = TextContent | TextDeltaContent | ToolUseContent | ToolResultContent | ImageContent | PDFContent
+class AnnotationContent(BaseContent):
+    type: Literal["annotation"] = Field(default="annotation")
+
+    annotation_type: Literal["url_citation"]
+
+    url: str = Field(..., description="The URL of the annotation.")
+
+    title: str = Field(..., description="The title of the annotation.")
+
+    start_index: int = Field(..., description="The start index of the annotation.")
+
+    end_index: int = Field(..., description="The end index of the annotation.")
 
 
-class Message(BaseModel):
-    role: Literal["assistant", "user", "system", "developer"] = Field(
-        default="assistant", description="The role of the message."
-    )
-
-    content: list[MessageContent] = Field(..., description="The content of the message.")
-
-
-class AgentConfig(BaseModel):
-    agent_class: str
-
-    model_config = ConfigDict(extra="allow")
+MessageContent = (
+    TextContent
+    | ToolUseContent
+    | ToolResultContent
+    | ImageContent
+    | FileContent
+    | AnnotationContent
+    | TextDeltaContent
+    | ToolResultDeltaContent
+)
 
 
-class MessageCreateInput(BaseModel):
-    content: list[TextContent | ImageContent | PDFContent] = Field(..., description="The content of the message.")
+class GeneratedMessage(BaseModel):
+    role: MessageRole
 
-    agent_config: AgentConfig = Field(
-        ...,
-        description="The configuration for the agent that generated the message. Requires at least a `agent_class` key.",
-    )
+    tool_use_id: str | None = None
 
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "content": [
-                        {
-                            "type": "text",
-                            "content": "Hello, what color is this image?",
-                        },
-                        {
-                            "type": "image",
-                            "content": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
-                            "content_type": "image/png",
-                        },
-                    ],
-                    "agent_config": {
-                        "agent_class": "OpenAIAssistant",
-                        "assistant_id": "asst_5vWL7aefIopE4aU5DcFRmpA5",
-                    },
-                }
-            ]
-        }
-    }
+    content: list[MessageContent]

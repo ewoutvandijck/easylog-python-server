@@ -23,7 +23,7 @@ from src.lib.prisma import prisma
 from src.logger import logger
 
 # from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
-from src.models.message_response import MessageAnnotation, MessageContent, MessageToolCall
+from src.models.messages import MessageContent
 from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -86,29 +86,25 @@ class BaseAgent(Generic[TConfig]):
 
     async def forward_message(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncGenerator[MessageToolCall | MessageAnnotation | MessageContent, None]:
+    ) -> AsyncGenerator[MessageContent, None]:
         raise NotImplementedError("Forward message not implemented")
 
-        yield MessageToolCall(
-            id="1", message_id="1", name="test", arguments={"test": "test"}, result={"test": "test"}, is_error=False
-        )
-
-    def get_metadata(self, key: str, default: Any | None = None) -> Any:
-        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+    async def get_metadata(self, key: str, default: Any | None = None) -> Any:
+        metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
 
         return metadata.get(key, default)
 
-    def set_metadata(self, key: str, value: Any) -> None:
-        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+    async def set_metadata(self, key: str, value: Any) -> None:
+        metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
         metadata[key] = value
 
-        prisma.threads.update(where={"id": self._thread_id}, data={"metadata": Json(metadata)})
+        await prisma.threads.update(where={"id": self._thread_id}, data={"metadata": Json(metadata)})
 
-    def _get_thread(self) -> threads:
+    async def _get_thread(self) -> threads:
         """Get the thread for the agent."""
 
         if self._thread is None:
-            self._thread = prisma.threads.find_first_or_raise(where={"id": self._thread_id})
+            self._thread = await prisma.threads.find_first_or_raise(where={"id": self._thread_id})
 
         return self._thread
 

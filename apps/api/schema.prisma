@@ -1,7 +1,7 @@
 generator client {
     provider        = "prisma-client-py"
     previewFeatures = ["multiSchema"]
-    interface       = "sync"
+    interface       = "asyncio"
 }
 
 datasource db {
@@ -97,9 +97,10 @@ model s3_multipart_uploads_parts {
 enum message_content_type {
     text
     image
-    pdf
+    file
     tool_use
     tool_result
+    annotation
     refusal
 
     @@map("message_content_type")
@@ -109,6 +110,7 @@ enum message_content_type {
 enum message_role {
     developer
     system
+    assistant
     user
     tool
 
@@ -164,59 +166,37 @@ model messages {
     agent_class String
     created_at  DateTime           @default(now())
     updated_at  DateTime           @updatedAt
-    tool_calls  tool_calls[]
-    annotations annotations[]
 
     @@map("messages")
     @@schema("public")
 }
 
 model message_contents {
-    id           String               @id @default(uuid())
-    message      messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    message_id   String
-    type         message_content_type @default(text)
-    image_url    String?
-    image_detail image_detail?
-    file_data    Bytes?
-    file_id      String?
-    file_name    String?
-    text         String?
-    widget_type  widget_type?
-    widget_data  Json?                @db.JsonB
-    created_at   DateTime             @default(now())
-    updated_at   DateTime             @updatedAt
+    id                     String               @id @default(uuid())
+    message                messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    message_id             String
+    type                   message_content_type @default(text)
+    refusal                String?
+    image_url              String?
+    image_detail           image_detail?
+    file_data              Bytes?
+    file_name              String?
+    text                   String?
+    widget_type            widget_type?
+    widget_data            Json?                @db.JsonB
+    tool_use_id            String?
+    tool_name              String?
+    tool_input             Json?                @db.JsonB
+    tool_output            String?
+    annotation_type        annotation_type?
+    annotation_url         String?
+    annotation_title       String?
+    annotation_start_index Int?
+    annotation_end_index   Int?
+    created_at             DateTime             @default(now())
+    updated_at             DateTime             @updatedAt
 
     @@map("message_contents")
-    @@schema("public")
-}
-
-model tool_calls {
-    id         String   @id @default(uuid())
-    message_id String
-    message    messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    name       String
-    arguments  Json     @db.JsonB
-    result     Json     @db.JsonB
-    is_error   Boolean  @default(false)
-    created_at DateTime @default(now())
-
-    @@map("tool_calls")
-    @@schema("public")
-}
-
-model annotations {
-    id          String          @id @default(uuid())
-    message_id  String
-    message     messages        @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    type        annotation_type @default(url_citation)
-    url         String?
-    title       String?
-    start_index Int?
-    end_index   Int?
-    created_at  DateTime        @default(now())
-
-    @@map("annotations")
     @@schema("public")
 }
 

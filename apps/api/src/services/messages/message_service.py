@@ -1,26 +1,24 @@
-import uuid
-from collections.abc import AsyncGenerator, Sequence
-from datetime import datetime
+from collections.abc import AsyncGenerator, Iterable
 
-from prisma import Json
-from prisma.enums import message_role
-from prisma.models import messages
+from openai.types.chat import ChatCompletionMessageParam
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import (
-    MessageCreateInput,
+    MessageCreateInputFileContent,
     MessageCreateInputImageContent,
-    MessageCreateInputPDFContent,
     MessageCreateInputTextContent,
 )
-from src.models.message_response import (
-    MessageContentResponse,
+from src.models.messages import (
+    GeneratedMessage,
+    MessageContent,
     TextDeltaContent,
     ToolResultContent,
 )
+from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
+from src.services.messages.utils.input_message_to_openai_param import input_content_to_openai_param
 
 
 class AgentNotFoundError(Exception):
@@ -33,16 +31,16 @@ class MessageService:
         cls,
         thread_id: str,
         input_content: list[
-            MessageCreateInputPDFContent | MessageCreateInputImageContent | MessageCreateInputTextContent
+            MessageCreateInputFileContent | MessageCreateInputImageContent | MessageCreateInputTextContent
         ],
         agent_class: str,
         agent_config: dict,
-    ) -> AsyncGenerator[MessageContentResponse, None]:
-        """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
+    ) -> AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
+        """Forward a message to the agent and yield the individual chunks of the response along with the cumulative list of generated messages. Will also save the user message and the agent response to the database.
 
         Args:
             thread_id (str): The ID of the thread.
-            content (list[MessageCreateInputPDFContent | MessageCreateInputImageContent | MessageCreateInputTextContent]): The content of the user message.
+            input_content (list): The content of the user message.
             agent_class (str): The class of the agent.
             agent_config (dict): The config of the agent.
 
@@ -50,10 +48,12 @@ class MessageService:
             AgentNotFoundError: The agent class was not found.
 
         Returns:
-            AsyncGenerator[TextContent, None]: A generator of message chunks.
+            AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
+                A generator of tuples, each containing a message chunk and the list of all messages generated up to that point.
 
         Yields:
-            Iterator[TextContent]: A generator of message chunks.
+            Iterator[tuple[MessageContent, list[GeneratedMessage]]]:
+                A generator of tuples containing message chunks and the cumulative message list.
         """
 
         logger.info(f"Loading agent {agent_class}")
@@ -69,202 +69,106 @@ class MessageService:
         logger.info("Getting thread history")
 
         # Fetch the thread history including the new user message
-        # thread_history = [
-        #     *(
-        #         Message(
-        #             role=message.role.value,
-        #             content=[
-        #                 TextContent(
-        #                     content=message_content.content or "",
-        #                 )
-        #                 if message_content.type == message_content_type.text
-        #                 else ImageContent(
-        #                     content=message_content.content or "",
-        #                     content_type=cast(ContentType, message_content.content_type) or "image/jpeg",
-        #                 )
-        #                 if message_content.type == message_content_type.image
-        #                 else PDFContent(
-        #                     content=message_content.content or "",
-        #                 )
-        #                 if message_content.type == message_content_type.pdf
-        #                 else ToolResultContent(
-        #                     tool_use_id=message_content.tool_use_id or "",
-        #                     content=message_content.content or "",
-        #                     content_format=cast(Literal["image", "unknown"], message_content.content_format),
-        #                     is_error=message_content.tool_use_is_error or False,
-        #                 )
-        #                 if message_content.type == message_content_type.tool_result
-        #                 else ToolUseContent(
-        #                     id=message_content.tool_use_id or "",
-        #                     name=message_content.tool_use_name or "",
-        #                     input=dict(message_content.tool_use_input) if message_content.tool_use_input else {},
-        #                 )
-        #                 for message_content in message.contents
-        #                 if message_content is not None
-        #             ],
-        #         )
-        #         for message in prisma.messages.find_many(
-        #             where={
-        #                 "thread_id": thread_id,
-        #             },
-        #             include={
-        #                 "contents": True,
-        #             },
-        #         )
-        #         if message.contents is not None
-        #     ),
-        #     Message(
-        #         role="user",
-        #         content=input_content,
-        #     ),
-        # ]
+        thread_history: Iterable[ChatCompletionMessageParam] = [
+            *(
+                db_message_to_openai_param(message)
+                for message in await prisma.messages.find_many(
+                    where={
+                        "thread_id": thread_id,
+                    },
+                    include={"contents": True},
+                )
+                if message.contents is not None
+            ),
+            input_content_to_openai_param(input_content),
+        ]
 
-        # logger.info(f"Thread history: {len(thread_history)} messages")
+        logger.info(f"Thread history: {len(thread_history)} messages")
 
         logger.info("Forwarding message through agent")
 
-        # Forward the history through the agent
-        generated_messages: list[messages] = []
-
         try:
-            async for content_chunk in cls.call_agent(agent, []):
-                last_message = generated_messages[-1] if len(generated_messages) > 0 else None
+            async for content_chunk, current_generated_messages in cls.call_agent(agent, thread_history, []):
+                yield content_chunk, current_generated_messages
 
-                if not last_message or last_message.role != role:
-                    generated_messages.append(
-                        messages(
-                            id=str(uuid.uuid4()),
-                            role=message_role(role),
-                            contents=[],
-                            agent_class=agent_class,
-                            thread_id=thread_id,
-                            created_at=datetime.now(),
-                            updated_at=datetime.now(),
-                            tool_use_id=content_chunk.tool_use_id
-                            if isinstance(content_chunk, ToolResultContent)
-                            else None,
-                        )
-                    )
-
-                generated_messages[-1].content.append(content_chunk)
         except Exception as e:
             logger.error(f"Error forwarding message: {e}", exc_info=e)
-            logger.error("Messages wont be saved!")
             raise e
-
-        MessageService.save_message(
-            thread_id,
-            agent_class,
-            input_content,
-            message_role.user,
-        )
-
-        for message in generated_messages:
-            # Save the agent response
-            MessageService.save_message(
-                thread_id,
-                agent_class,
-                [content for content in message.content if not isinstance(content, TextDeltaContent)],
-                message_role.assistant if message.role == "assistant" else message_role.user,
-            )
 
     @classmethod
     async def call_agent(
-        cls, agent: BaseAgent, thread_history: list[MessageCreateInput]
-    ) -> AsyncGenerator[MessageContentResponse]:
+        cls,
+        agent: BaseAgent,
+        thread_history: Iterable[ChatCompletionMessageParam],
+        initial_generated_messages: list[GeneratedMessage],
+        max_recursion_depth: int = 5,
+        current_depth: int = 0,
+    ) -> AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
         """Call the agent with the thread history and return the response.
 
         Args:
             agent (BaseAgent): The agent to call.
             thread_history (list[Message]): The thread history.
+            initial_generated_messages (list[GeneratedMessage]): Initial generated messages.
+            max_recursion_depth (int): Maximum depth for recursive calls.
+            current_depth (int): Current recursion depth.
 
         Returns:
-            AsyncGenerator[MessageContentResponse, None]: A generator of message chunks.
+            AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
+                A generator of message chunks and the current state of generated messages.
         """
+        if current_depth >= max_recursion_depth:
+            logger.warning(f"Maximum recursion depth ({max_recursion_depth}) reached, stopping recursion")
+            return
 
-        generated_content: list[MessageContentResponse] = []
+        generated_messages: list[GeneratedMessage] = initial_generated_messages.copy()
 
-        async for content_chunk in agent.forward_message([]):
+        async for content_chunk in await agent.forward_message(thread_history):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
 
+            last_message = generated_messages[-1] if len(generated_messages) > 0 else None
+
             if isinstance(content_chunk, ToolResultContent):
-                yield content_chunk
+                generated_messages.append(
+                    GeneratedMessage(role="tool", tool_use_id=content_chunk.tool_use_id, content=[content_chunk])
+                )
+            elif not isinstance(content_chunk, TextDeltaContent):
+                if not last_message or last_message.role == "tool":
+                    generated_messages.append(GeneratedMessage(role="assistant", content=[]))
 
-                async for chunk in cls.call_agent(
-                    agent,
-                    [
-                        *thread_history,
-                        Message(
-                            role="assistant",
-                            content=generated_content,
-                        ),
-                        Message(
-                            role="user",
-                            content=[content_chunk],
-                        ),
-                    ],
-                ):
-                    yield chunk
-            else:
-                yield content_chunk
+                generated_messages[-1].content.append(content_chunk)
 
-                if not isinstance(content_chunk, TextDeltaContent):
-                    generated_content.append(content_chunk)
+            # First yield the current chunk before potential recursive calls
+            yield content_chunk, generated_messages.copy()
 
-    @classmethod
-    def save_message(
-        cls,
-        thread_id: str,
-        agent_class: str,
-        content_chunks: Sequence[MessageContent],
-        role: message_role,
-    ) -> None:
-        prisma.messages.create(
-            data={
-                "thread": {"connect": {"id": thread_id}},
-                "agent_class": agent_class,
-                "role": role,
-                "contents": {
-                    "create": [  # type: ignore
-                        {
-                            "type": "text",
-                            "content": content_chunk.content,
-                        }
-                        if isinstance(content_chunk, TextContent)
-                        else {
-                            "type": "image",
-                            "content": content_chunk.content,
-                            "content_type": content_chunk.content_type,
-                        }
-                        if isinstance(content_chunk, ImageContent)
-                        else {
-                            "type": "pdf",
-                            "content": content_chunk.content,
-                            "content_type": "application/pdf",
-                        }
-                        if isinstance(content_chunk, PDFContent)
-                        else {
-                            "type": "tool_result",
-                            "content": content_chunk.content,
-                            "content_format": content_chunk.content_format,
-                            "tool_use_is_error": content_chunk.is_error,
-                            "tool_use_id": content_chunk.tool_use_id,
-                        }
-                        if isinstance(content_chunk, ToolResultContent)
-                        else {
-                            "type": "tool_use",
-                            "tool_use_id": content_chunk.id,
-                            "tool_use_name": content_chunk.name,
-                            "tool_use_input": Json(content_chunk.input),
-                        }
-                        if isinstance(content_chunk, ToolUseContent)
-                        else {
-                            "type": "text_delta",
-                            "content": content_chunk.content,
-                        }
-                        for content_chunk in content_chunks
-                        if isinstance(content_chunk, MessageContent)
-                    ]
-                },
-            }
-        )
+        if not any(content_chunk.role == "tool" for content_chunk in generated_messages):
+            return
+
+        # Recursively call the agent if we have a tool call
+        async for nested_chunk, nested_messages in cls.call_agent(
+            agent, thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
+        ):
+            # Yield each chunk from the nested call
+            yield nested_chunk, nested_messages
+
+        # # Check if the content_chunk is a tool call and recursively call the agent if needed
+        # if isinstance(content_chunk, ToolCallContent) and current_depth < max_recursion_depth:
+        #     # Construct updated thread history with the current generated messages
+        #     updated_thread_history = cls._construct_updated_thread_history(
+        #         thread_history,
+        #         generated_messages
+        #     )
+
+        #     # Recursively call the agent
+        #     async for nested_chunk, nested_messages in await cls.call_agent(
+        #         agent,
+        #         updated_thread_history,
+        #         generated_messages.copy(),
+        #         max_recursion_depth,
+        #         current_depth + 1
+        #     ):
+        #         # Yield each chunk from the nested call
+        #         yield nested_chunk, nested_messages
+
+        #         # Update our messages with the latest state
+        #         generated_messages = nested_messages

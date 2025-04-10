@@ -7,8 +7,8 @@ class AgentConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class MessageCreateInputPDFContent(BaseModel):
-    file_data: bytes
+class MessageCreateInputFileContent(BaseModel):
+    file_data: str
     file_name: str
 
 
@@ -21,7 +21,7 @@ class MessageCreateInputTextContent(BaseModel):
 
 
 class MessageCreateInput(BaseModel):
-    content: list[MessageCreateInputPDFContent | MessageCreateInputImageContent | MessageCreateInputTextContent]
+    content: list[MessageCreateInputFileContent | MessageCreateInputImageContent | MessageCreateInputTextContent]
 
     agent_config: AgentConfig = Field(
         ...,
