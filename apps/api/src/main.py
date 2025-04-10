@@ -21,11 +21,11 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    prisma.connect()
+    await prisma.connect()
     await graphiti.driver.verify_connectivity()
     await graphiti.build_indices_and_constraints()
     yield
-    prisma.disconnect()
+    await prisma.disconnect()
     await graphiti.close()
 
 
