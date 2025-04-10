@@ -35,12 +35,12 @@ class MessageService:
         ],
         agent_class: str,
         agent_config: dict,
-    ) -> AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
-        """Forward a message to the agent and yield the individual chunks of the response along with the cumulative list of generated messages. Will also save the user message and the agent response to the database.
+    ) -> AsyncGenerator[MessageContent, None]:
+        """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
             thread_id (str): The ID of the thread.
-            input_content (list): The content of the user message.
+            content (list[TextContent]): The content of the user message.
             agent_class (str): The class of the agent.
             agent_config (dict): The config of the agent.
 
@@ -48,12 +48,10 @@ class MessageService:
             AgentNotFoundError: The agent class was not found.
 
         Returns:
-            AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
-                A generator of tuples, each containing a message chunk and the list of all messages generated up to that point.
+            AsyncGenerator[TextContent, None]: A generator of message chunks.
 
         Yields:
-            Iterator[tuple[MessageContent, list[GeneratedMessage]]]:
-                A generator of tuples containing message chunks and the cumulative message list.
+            Iterator[TextContent]: A generator of message chunks.
         """
 
         logger.info(f"Loading agent {agent_class}")
@@ -87,13 +85,21 @@ class MessageService:
 
         logger.info("Forwarding message through agent")
 
-        try:
-            async for content_chunk, current_generated_messages in cls.call_agent(agent, thread_history, []):
-                yield content_chunk, current_generated_messages
+        # Forward the history through the agent
+        generated_messages: list[GeneratedMessage] = []
 
+        try:
+            async for content_chunk, messages in cls.call_agent(agent, thread_history, generated_messages):
+                yield content_chunk
+
+                generated_messages = messages
         except Exception as e:
             logger.error(f"Error forwarding message: {e}", exc_info=e)
             raise e
+
+        # TODO: save the generated messages
+        for message in generated_messages:
+            logger.info(f"Generated message: {message.model_dump_json()}")
 
     @classmethod
     async def call_agent(
@@ -141,34 +147,10 @@ class MessageService:
             # First yield the current chunk before potential recursive calls
             yield content_chunk, generated_messages.copy()
 
-        if not any(content_chunk.role == "tool" for content_chunk in generated_messages):
-            return
-
-        # Recursively call the agent if we have a tool call
-        async for nested_chunk, nested_messages in cls.call_agent(
-            agent, thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
-        ):
-            # Yield each chunk from the nested call
-            yield nested_chunk, nested_messages
-
-        # # Check if the content_chunk is a tool call and recursively call the agent if needed
-        # if isinstance(content_chunk, ToolCallContent) and current_depth < max_recursion_depth:
-        #     # Construct updated thread history with the current generated messages
-        #     updated_thread_history = cls._construct_updated_thread_history(
-        #         thread_history,
-        #         generated_messages
-        #     )
-
-        #     # Recursively call the agent
-        #     async for nested_chunk, nested_messages in await cls.call_agent(
-        #         agent,
-        #         updated_thread_history,
-        #         generated_messages.copy(),
-        #         max_recursion_depth,
-        #         current_depth + 1
-        #     ):
-        #         # Yield each chunk from the nested call
-        #         yield nested_chunk, nested_messages
-
-        #         # Update our messages with the latest state
-        #         generated_messages = nested_messages
+        if any(content_chunk.role == "tool" for content_chunk in generated_messages):
+            # Recursively call the agent if we have a tool call
+            async for nested_chunk, nested_messages in cls.call_agent(
+                agent, thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
+            ):
+                # Yield each chunk from the nested call
+                yield nested_chunk, nested_messages
