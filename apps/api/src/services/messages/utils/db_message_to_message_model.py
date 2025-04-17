@@ -47,12 +47,11 @@ def text_param(content: message_contents) -> TextContent:
     if content.type != message_content_type.text:
         raise ValueError("Text is required")
 
-    if not content.text:
+    if content.text is None:
         raise ValueError("Text is required")
 
     return TextContent(
         id=content.id,
-        created_at=content.created_at,
         type="text",
         text=content.text,
     )
@@ -67,7 +66,6 @@ def image_param(content: message_contents) -> ImageContent:
 
     return ImageContent(
         id=content.id,
-        created_at=content.created_at,
         type="image",
         image_url=content.image_url,
     )
@@ -85,7 +83,6 @@ def file_param(content: message_contents) -> FileContent:
 
     return FileContent(
         id=content.id,
-        created_at=content.created_at,
         type="file",
         file_data=Base64.decode(content.file_data).decode("utf-8"),
         file_name=content.file_name,
@@ -107,7 +104,6 @@ def tool_call_param(content: message_contents) -> ToolUseContent:
 
     return ToolUseContent(
         id=content.tool_use_id,
-        created_at=content.created_at,
         type="tool_use",
         name=content.tool_name,
         input=json.loads(content.tool_input),
@@ -126,7 +122,6 @@ def tool_result_param(content: message_contents) -> ToolResultContent:
 
     return ToolResultContent(
         id=content.id,
-        created_at=content.created_at,
         type="tool_result",
         widget_type=content.widget_type.value if content.widget_type else None,
         tool_use_id=content.tool_use_id,

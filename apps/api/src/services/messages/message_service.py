@@ -2,6 +2,8 @@ import uuid
 from collections.abc import AsyncGenerator, Iterable
 
 from openai.types.chat import ChatCompletionMessageParam
+from prisma import Base64, Json
+from prisma.enums import message_content_type, message_role, widget_type
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
@@ -9,14 +11,21 @@ from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import (
     MessageCreateInputContent,
+    MessageCreateInputFileContent,
+    MessageCreateInputImageContent,
+    MessageCreateInputTextContent,
+)
+from src.models.messages import (
+    FileContent,
+    ImageContent,
+    MessageContent,
+    TextContent,
+    TextDeltaContent,
+    ToolResultContent,
+    ToolUseContent,
 )
 from src.models.messages import (
     Message as GeneratedMessage,
-)
-from src.models.messages import (
-    MessageContent,
-    TextDeltaContent,
-    ToolResultContent,
 )
 from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
 from src.services.messages.utils.generated_message_to_openai_param import generated_message_to_openai_param
@@ -109,9 +118,68 @@ class MessageService:
             logger.error(f"Error forwarding message: {e}", exc_info=e)
             raise e
 
-        # TODO: save the generated messages
+        await prisma.messages.create(
+            data={
+                "agent_class": agent_class,
+                "thread": {"connect": {"id": thread_id}},
+                "role": message_role.user,
+                "contents": {
+                    "create": [
+                        {
+                            "type": message_content_type[content.type],
+                            "text": content.text if isinstance(content, MessageCreateInputTextContent) else None,
+                            "image_url": content.image_url
+                            if isinstance(content, MessageCreateInputImageContent)
+                            else None,
+                            "file_data": Base64.fromb64(content.file_data)
+                            if isinstance(content, MessageCreateInputFileContent)
+                            else None,
+                            "file_name": content.file_name
+                            if isinstance(content, MessageCreateInputFileContent)
+                            else None,
+                        }
+                        for content in input_content
+                    ]
+                },
+            },
+        )
+
         for message in generated_messages:
-            logger.info(f"Generated message: {message.model_dump_json()}")
+            await prisma.messages.create(
+                data={
+                    "id": message.id,
+                    "agent_class": agent_class,
+                    "thread_id": thread_id,
+                    "role": message_role[message.role],
+                    "tool_use_id": message.tool_use_id,
+                    "contents": {
+                        "create": [
+                            {
+                                "id": content.id,
+                                "type": message_content_type[content.type],
+                                "text": content.text if isinstance(content, TextContent) else None,
+                                "image_url": content.image_url if isinstance(content, ImageContent) else None,
+                                "file_data": Base64.fromb64(content.file_data)
+                                if isinstance(content, FileContent)
+                                else None,
+                                "file_name": content.file_name if isinstance(content, FileContent) else None,
+                                "widget_type": widget_type[content.widget_type]
+                                if isinstance(content, ToolResultContent) and content.widget_type is not None
+                                else None,
+                                "tool_use_id": content.tool_use_id
+                                if isinstance(content, ToolResultContent)
+                                else content.id
+                                if isinstance(content, ToolUseContent)
+                                else None,
+                                "tool_name": content.name if isinstance(content, ToolUseContent) else None,
+                                "tool_input": Json(content.input) if isinstance(content, ToolUseContent) else Json({}),
+                                "tool_output": content.output if isinstance(content, ToolResultContent) else None,
+                            }
+                            for content in message.content
+                        ]
+                    },
+                }
+            )
 
     @classmethod
     async def call_agent(
