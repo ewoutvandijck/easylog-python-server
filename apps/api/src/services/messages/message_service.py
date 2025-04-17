@@ -207,7 +207,7 @@ class MessageService:
             logger.warning(f"Maximum recursion depth ({max_recursion_depth}) reached, stopping recursion")
             return
 
-        generated_messages: list[GeneratedMessage] = initial_generated_messages.copy()
+        generated_messages: list[GeneratedMessage] = []
 
         async for content_chunk in agent.forward_message(thread_history):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
@@ -236,9 +236,9 @@ class MessageService:
                 generated_messages[-1].content.append(content_chunk)
 
             # First yield the current chunk before potential recursive calls
-            yield content_chunk, generated_messages.copy()
+            yield content_chunk, initial_generated_messages.copy() + generated_messages.copy()
 
-        if any(content_chunk.role == "tool" for content_chunk in generated_messages):
+        if any(generated_message.role == "tool" for generated_message in generated_messages):
             new_thread_history = [
                 *thread_history,
                 *[generated_message_to_openai_param(message) for message in generated_messages],
@@ -248,9 +248,9 @@ class MessageService:
             async for nested_chunk, nested_messages in cls.call_agent(
                 agent,
                 new_thread_history,
-                generated_messages.copy(),
+                initial_generated_messages.copy() + generated_messages.copy(),
                 max_recursion_depth,
                 current_depth + 1,
             ):
                 # Yield each chunk from the nested call
-                yield nested_chunk, nested_messages
+                yield nested_chunk, initial_generated_messages.copy() + nested_messages
