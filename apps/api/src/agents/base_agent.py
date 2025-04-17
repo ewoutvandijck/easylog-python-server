@@ -38,16 +38,18 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
 
-    def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
-        self._thread_id = thread_id
+    async def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
         self._raw_config = kwargs
-        self._request_headers = request_headers
+        self.thread_id = thread_id
+        self.request_headers = request_headers
 
         # Initialize the client
         self.client = AsyncOpenAI(
             api_key=settings.OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
         )
+
+        self.on_init()
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
@@ -70,6 +72,10 @@ class BaseAgent(Generic[TConfig]):
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         raise NotImplementedError()
 
+    @abstractmethod
+    def on_init(self) -> None:
+        pass
+
     async def forward_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> AsyncGenerator[MessageContent, None]:
@@ -91,13 +97,13 @@ class BaseAgent(Generic[TConfig]):
         metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
         metadata[key] = value
 
-        await prisma.threads.update(where={"id": self._thread_id}, data={"metadata": Json(metadata)})
+        await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(metadata)})
 
     async def _get_thread(self) -> threads:
         """Get the thread for the agent."""
 
         if self._thread is None:
-            self._thread = await prisma.threads.find_first_or_raise(where={"id": self._thread_id})
+            self._thread = await prisma.threads.find_first_or_raise(where={"id": self.thread_id})
 
         return self._thread
 
@@ -155,7 +161,6 @@ class BaseAgent(Generic[TConfig]):
                     is_error=False,
                 )
         except Exception as e:
-            raise e
             return ToolResultContent(
                 id=str(uuid.uuid4()),
                 tool_use_id=tool_call_id,

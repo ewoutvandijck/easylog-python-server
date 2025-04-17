@@ -4,8 +4,9 @@ from datetime import date
 
 from dateutil import parser
 
-from src.services.easylog_backend.backend_service import BackendService
-from src.services.easylog_backend.schemas import (
+from src.agents.tools.base_tools import BaseTools
+from src.services.easylog.easylog_backend_service import EasylogBackendService
+from src.services.easylog.schemas import (
     CreateMultipleAllocations,
     CreatePlanningPhase,
     CreateResourceAllocation,
@@ -14,14 +15,19 @@ from src.services.easylog_backend.schemas import (
 )
 
 
-class PlanningTools:
+class EasylogBackendTools(BaseTools):
     """
     A collection of tools for interacting with planning projects, phases, and resource allocations.
 
     This class provides methods to retrieve, create, and update planning data through the backend service.
     """
 
-    def __init__(self, backend: BackendService, max_tool_result_length: int = 3250) -> None:
+    def __init__(
+        self,
+        bearer_token: str = "",
+        base_url: str = "https://staging.easylog.nu/api/v2",
+        max_tool_result_length: int = 3250,
+    ) -> None:
         """
         Initialize the PlanningTools with a backend service.
 
@@ -29,7 +35,7 @@ class PlanningTools:
             backend: The backend service for data operations
             max_tool_result_length: Maximum length for tool results before truncation (default: 2000)
         """
-        self.backend = backend
+        self.backend = EasylogBackendService(bearer_token, base_url)
         self.max_tool_result_length = max_tool_result_length
 
     @property

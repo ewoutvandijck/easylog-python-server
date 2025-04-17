@@ -22,7 +22,7 @@ from .schemas import (
 )
 
 
-class BackendService:
+class EasylogBackendService:
     def __init__(self, bearer_token: str = "", base_url: str = "https://staging.easylog.nu/api/v2") -> None:
         if not bearer_token:
             logger.warning("No bearer token provided. This is probably not what you want.")
@@ -107,16 +107,16 @@ class BackendService:
         """
         # Set allow_redirects to False to prevent automatic redirection
         response = await self.client.put(
-            f"/datasources/projects/{project_id}", 
+            f"/datasources/projects/{project_id}",
             json=update_planning_project.model_dump(mode="json", exclude_none=True),
-            follow_redirects=False
+            follow_redirects=False,
         )
-        
+
         # If we get a redirect, it might be an authentication issue
         if response.status_code in (301, 302, 303, 307, 308):
             logger.error(f"Redirect detected when updating project {project_id}: {response.headers.get('location')}")
             raise ValueError(f"Authentication error when updating project {project_id}. Please check your credentials.")
-            
+
         logger.debug(response.text)
         response.raise_for_status()
 
