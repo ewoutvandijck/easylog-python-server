@@ -1,7 +1,6 @@
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionContentPartImageParam,
-    ChatCompletionContentPartRefusalParam,
     ChatCompletionContentPartTextParam,
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -46,9 +45,7 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             content=[
                 message_content
                 for message_content in [
-                    text_param(content)
-                    if content.type in [message_content_type.text, message_content_type.refusal]
-                    else None
+                    text_param(content) if content.type in [message_content_type.text] else None
                     for content in message.contents
                 ]
                 if message_content is not None
@@ -112,7 +109,7 @@ def text_param(content: message_contents) -> ChatCompletionContentPartTextParam:
     if content.type != message_content_type.text:
         raise ValueError("Text is required")
 
-    if not content.text:
+    if content.text is None:
         raise ValueError("Text is required")
 
     return ChatCompletionContentPartTextParam(
@@ -128,12 +125,9 @@ def image_param(content: message_contents) -> ChatCompletionContentPartImagePara
     if not content.image_url:
         raise ValueError("Image URL is required")
 
-    if not content.image_detail:
-        raise ValueError("Image detail is required")
-
     return ChatCompletionContentPartImageParam(
         type="image_url",
-        image_url={"url": content.image_url, "detail": content.image_detail.value},
+        image_url={"url": content.image_url, "detail": "auto"},
     )
 
 
@@ -189,17 +183,4 @@ def tool_result_param(content: message_contents) -> ChatCompletionContentPartTex
     return ChatCompletionContentPartTextParam(
         type="text",
         text=content.tool_output,
-    )
-
-
-def refusal_param(content: message_contents) -> ChatCompletionContentPartRefusalParam:
-    if content.type != message_content_type.refusal:
-        raise ValueError("Refusal is required")
-
-    if not content.refusal:
-        raise ValueError("Refusal is required")
-
-    return ChatCompletionContentPartRefusalParam(
-        type="refusal",
-        refusal=content.refusal,
     )

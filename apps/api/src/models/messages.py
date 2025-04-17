@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -8,8 +7,6 @@ MessageRole = Literal["assistant", "user", "system", "developer", "tool"]
 
 class BaseContent(BaseModel):
     id: str = Field(..., description="The ID of the content.")
-
-    created_at: datetime = Field(..., description="The creation date of the content.")
 
 
 class TextContent(BaseContent):

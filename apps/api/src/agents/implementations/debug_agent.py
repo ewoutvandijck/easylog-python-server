@@ -21,7 +21,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             return f"Hello, {name}!"
 
         response = await self.client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
+            model="openai/gpt-4.1",
             messages=messages,
             stream=False,
             tools=[
@@ -40,6 +40,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     },
                 }
             ],
+            tool_choice="auto",
         )
 
         return response, [test]

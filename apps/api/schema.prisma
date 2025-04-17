@@ -137,8 +137,6 @@ enum message_content_type {
     file
     tool_use
     tool_result
-    annotation
-    refusal
 
     @@schema("public")
 }
@@ -190,28 +188,21 @@ model messages {
 }
 
 model message_contents {
-    id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    message                messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    message_id             String               @db.Uuid
-    type                   message_content_type @default(text)
-    refusal                String?
-    image_url              String?
-    image_detail           image_detail?
-    file_data              Bytes?
-    file_name              String?
-    text                   String?
-    widget_type            widget_type?
-    tool_use_id            String?
-    tool_name              String?
-    tool_input             Json?                @db.JsonB
-    tool_output            String?
-    annotation_type        annotation_type?
-    annotation_url         String?
-    annotation_title       String?
-    annotation_start_index Int?
-    annotation_end_index   Int?
-    created_at             DateTime             @default(now())
-    updated_at             DateTime             @default(now()) @updatedAt
+    id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    message     messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    message_id  String               @db.Uuid
+    type        message_content_type @default(text)
+    image_url   String?
+    file_data   Bytes?
+    file_name   String?
+    text        String?
+    widget_type widget_type?
+    tool_use_id String?
+    tool_name   String?
+    tool_input  Json?                @db.JsonB
+    tool_output String?
+    created_at  DateTime             @default(now())
+    updated_at  DateTime             @default(now()) @updatedAt
 
     @@map("message_contents")
     @@schema("public")

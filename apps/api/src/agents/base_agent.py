@@ -1,9 +1,9 @@
+import asyncio
 import json
 import logging
 import uuid
 from abc import abstractmethod
 from collections.abc import AsyncGenerator, Callable, Iterable
-from datetime import datetime
 from types import UnionType
 from typing import (
     Any,
@@ -17,6 +17,7 @@ from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from PIL import Image
 from prisma import Json
 from prisma.models import threads
 from pydantic import BaseModel
@@ -24,10 +25,10 @@ from pydantic import BaseModel
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.chart_widget import ChartWidget
-from src.models.image_widget import ImageWidget
 from src.models.messages import MessageContent, TextContent, ToolResultContent, ToolUseContent
 from src.models.stream_tool_call import StreamToolCall
 from src.settings import settings
+from src.utils.image_to_base64 import image_to_base64
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
 
@@ -128,21 +129,19 @@ class BaseAgent(Generic[TConfig]):
             raise ValueError(f"Tool {name} not found") from e
 
         try:
-            result = await tool(**arguments)
+            result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
 
-            if isinstance(result, ImageWidget):
+            if isinstance(result, Image.Image):
                 return ToolResultContent(
                     id=str(uuid.uuid4()),
-                    created_at=datetime.now(),
                     tool_use_id=tool_call_id,
-                    output=result.to_base64(),
+                    output=image_to_base64(result),
                     widget_type="image",
                     is_error=False,
                 )
             elif isinstance(result, ChartWidget):
                 return ToolResultContent(
                     id=str(uuid.uuid4()),
-                    created_at=datetime.now(),
                     tool_use_id=tool_call_id,
                     output=result.model_dump_json(),
                     widget_type="chart",
@@ -151,15 +150,14 @@ class BaseAgent(Generic[TConfig]):
             else:
                 return ToolResultContent(
                     id=str(uuid.uuid4()),
-                    created_at=datetime.now(),
                     tool_use_id=tool_call_id,
                     output=str(result),
                     is_error=False,
                 )
         except Exception as e:
+            raise e
             return ToolResultContent(
                 id=str(uuid.uuid4()),
-                created_at=datetime.now(),
                 tool_use_id=tool_call_id,
                 output=f"Error: {e}",
                 is_error=True,
@@ -174,7 +172,6 @@ class BaseAgent(Generic[TConfig]):
             if event.choices[0].delta.content is not None:
                 yield TextContent(
                     id=str(uuid.uuid4()),
-                    created_at=datetime.now(),
                     text=event.choices[0].delta.content,
                 )
 
@@ -202,7 +199,6 @@ class BaseAgent(Generic[TConfig]):
 
             yield ToolUseContent(
                 id=str(uuid.uuid4()),
-                created_at=datetime.now(),
                 name=tool_call.name,
                 input=input_data,
             )
@@ -212,8 +208,8 @@ class BaseAgent(Generic[TConfig]):
     async def _handle_completion(
         self, completion: ChatCompletion, tools: list[Callable]
     ) -> AsyncGenerator[MessageContent, None]:
-        if len(completion.choices) != 1:
-            raise ValueError("Expected exactly one choice in the completion")
+        if len(completion.choices or []) != 1:
+            return
 
         choice = completion.choices[0]
 
@@ -222,7 +218,6 @@ class BaseAgent(Generic[TConfig]):
 
             yield ToolUseContent(
                 id=str(uuid.uuid4()),
-                created_at=datetime.now(),
                 name=tool_call.function.name,
                 input=input_data,
             )
@@ -232,6 +227,5 @@ class BaseAgent(Generic[TConfig]):
         if choice.message.content is not None:
             yield TextContent(
                 id=str(uuid.uuid4()),
-                created_at=datetime.now(),
                 text=choice.message.content,
             )
