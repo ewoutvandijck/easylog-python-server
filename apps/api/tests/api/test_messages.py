@@ -33,5 +33,6 @@ async def test_anthropic_supports_image_data():
         ],
         agent_class="DebugAgent",
         agent_config={},
+        headers={},
     ):
         print(chunk.model_dump_json(indent=2))

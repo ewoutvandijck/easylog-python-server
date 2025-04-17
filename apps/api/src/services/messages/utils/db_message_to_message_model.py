@@ -15,11 +15,31 @@ from src.models.messages import (
 
 
 def db_message_to_message_model(message: messages) -> Message:
+    if message.contents is None:
+        raise ValueError("Message contents are required")
+
     return Message(
         id=message.id,
         role=message.role.value,
         name=message.name,
-        content=[],
+        content=[
+            message_content
+            for message_content in [
+                text_param(content)
+                if content.type == message_content_type.text
+                else image_param(content)
+                if content.type == message_content_type.image
+                else file_param(content)
+                if content.type == message_content_type.file
+                else tool_call_param(content)
+                if content.type == message_content_type.tool_use
+                else tool_result_param(content)
+                if content.type == message_content_type.tool_result
+                else None
+                for content in message.contents
+            ]
+            if message_content is not None
+        ],
     )
 
 

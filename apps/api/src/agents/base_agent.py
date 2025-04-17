@@ -37,9 +37,10 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
 
-    def __init__(self, thread_id: str, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
         self._thread_id = thread_id
         self._raw_config = kwargs
+        self._request_headers = request_headers
 
         # Initialize the client
         self.client = AsyncOpenAI(
@@ -63,7 +64,8 @@ class BaseAgent(Generic[TConfig]):
 
     @abstractmethod
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self,
+        messages: Iterable[ChatCompletionMessageParam],
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         raise NotImplementedError()
 

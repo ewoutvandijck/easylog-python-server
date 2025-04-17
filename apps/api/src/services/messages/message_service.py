@@ -35,6 +35,7 @@ class MessageService:
         input_content: list[MessageCreateInputContent],
         agent_class: str,
         agent_config: dict,
+        headers: dict,
     ) -> AsyncGenerator[MessageContent | GeneratedMessage, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
@@ -57,7 +58,7 @@ class MessageService:
         logger.info(f"Loading agent {agent_class}")
 
         # Try to load the agent
-        agent = AgentLoader.get_agent(agent_class, thread_id, agent_config)
+        agent = AgentLoader.get_agent(agent_class, thread_id, agent_config, headers)
 
         if not agent:
             raise AgentNotFoundError(f"Agent class {agent_class} not found")
@@ -177,7 +178,11 @@ class MessageService:
 
             # Recursively call the agent if we have a tool call
             async for nested_chunk, nested_messages in cls.call_agent(
-                agent, new_thread_history, generated_messages.copy(), max_recursion_depth, current_depth + 1
+                agent,
+                new_thread_history,
+                generated_messages.copy(),
+                max_recursion_depth,
+                current_depth + 1,
             ):
                 # Yield each chunk from the nested call
                 yield nested_chunk, nested_messages
