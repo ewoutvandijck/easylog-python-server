@@ -37,7 +37,6 @@ class MessageCreateInput(BaseModel):
         ...,
         description="The configuration for the agent that generated the message. Requires at least a `agent_class` key.",
     )
-
     model_config = {
         "json_schema_extra": {
             "examples": [

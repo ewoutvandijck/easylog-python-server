@@ -2,12 +2,14 @@ import inspect
 from collections.abc import Callable
 from typing import Any, cast, get_type_hints
 
-from anthropic.types.tool_param import ToolParam
+from openai.types.chat import ChatCompletionToolParam
 
 
-def function_to_anthropic_tool(func: Callable, name: str | None = None, description: str | None = None) -> ToolParam:
+def function_to_openai_tool(
+    func: Callable, name: str | None = None, description: str | None = None
+) -> ChatCompletionToolParam:
     """
-    Converts a Python function to an Anthropic tool specification by inspecting its signature.
+    Converts a Python function to an OpenAI tool specification by inspecting its signature.
 
     Args:
         func: The Python function to convert
@@ -15,7 +17,7 @@ def function_to_anthropic_tool(func: Callable, name: str | None = None, descript
         description: Optional custom description (defaults to function docstring)
 
     Returns:
-        ToolParam containing the tool specification
+        ChatCompletionToolParam containing the tool specification
     """
     # Get function signature
     sig = inspect.signature(func)
@@ -52,12 +54,15 @@ def function_to_anthropic_tool(func: Callable, name: str | None = None, descript
 
     # Build tool specification
     tool_spec = {
-        "name": name or func.__name__,
-        "description": description or func.__doc__ or "",
-        "input_schema": parameters,
+        "type": "function",
+        "function": {
+            "name": name or func.__name__,
+            "description": description or func.__doc__ or "",
+            "parameters": parameters,
+        },
     }
 
-    return cast(ToolParam, tool_spec)
+    return cast(ChatCompletionToolParam, tool_spec)
 
 
 def _python_type_to_json_schema(py_type: type) -> str | dict:
