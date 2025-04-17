@@ -103,7 +103,8 @@ def tool_call_param(content: message_contents) -> ToolUseContent:
         raise ValueError("Tool use arguments are required")
 
     return ToolUseContent(
-        id=content.tool_use_id,
+        id=content.id,
+        tool_use_id=content.tool_use_id,
         type="tool_use",
         name=content.tool_name,
         input=json.loads(content.tool_input),
