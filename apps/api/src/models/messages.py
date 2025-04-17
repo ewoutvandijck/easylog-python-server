@@ -26,7 +26,7 @@ class TextDeltaContent(BaseContent):
 class ToolUseContent(BaseContent):
     type: Literal["tool_use"] = Field(default="tool_use")
 
-    id: str = Field(..., description="The ID of the tool use.")
+    tool_use_id: str = Field(..., description="The ID of the tool use.")
 
     name: str = Field(..., description="The name of the tool.")
 

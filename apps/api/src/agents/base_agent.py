@@ -199,6 +199,7 @@ class BaseAgent(Generic[TConfig]):
 
             yield ToolUseContent(
                 id=str(uuid.uuid4()),
+                tool_use_id=tool_call.tool_call_id,
                 name=tool_call.name,
                 input=input_data,
             )
@@ -208,24 +209,27 @@ class BaseAgent(Generic[TConfig]):
     async def _handle_completion(
         self, completion: ChatCompletion, tools: list[Callable]
     ) -> AsyncGenerator[MessageContent, None]:
-        if len(completion.choices or []) != 1:
-            return
-
-        choice = completion.choices[0]
-
-        for tool_call in choice.message.tool_calls or []:
-            input_data = json.loads(tool_call.function.arguments)
-
-            yield ToolUseContent(
-                id=str(uuid.uuid4()),
-                name=tool_call.function.name,
-                input=input_data,
+        if len(completion.choices or []) == 0:
+            raise ValueError(
+                "No choices found in completion, this usually means the messages weren't forwarded correctly"
             )
 
-            yield await self._handle_tool_call(tool_call.function.name, tool_call.id, input_data, tools)
+        choice = completion.choices[0]
 
         if choice.message.content is not None:
             yield TextContent(
                 id=str(uuid.uuid4()),
                 text=choice.message.content,
             )
+
+        for tool_call in choice.message.tool_calls or []:
+            input_data = json.loads(tool_call.function.arguments)
+
+            yield ToolUseContent(
+                id=str(uuid.uuid4()),
+                tool_use_id=tool_call.id,
+                name=tool_call.function.name,
+                input=input_data,
+            )
+
+            yield await self._handle_tool_call(tool_call.function.name, tool_call.id, input_data, tools)

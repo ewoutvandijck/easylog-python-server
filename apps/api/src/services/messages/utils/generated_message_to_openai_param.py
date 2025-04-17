@@ -115,7 +115,7 @@ def file_content_to_openai_param(content: FileContent) -> File:
 
 def tool_use_content_to_openai_param(content: ToolUseContent) -> ChatCompletionMessageToolCallParam:
     return ChatCompletionMessageToolCallParam(
-        id=content.id,
+        id=content.tool_use_id,
         type="function",
         function={
             "name": content.name,
