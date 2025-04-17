@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from src.lib.prisma import prisma
 from src.main import app
-from src.models.message_create import MessageCreateInputTextContent
+from src.models.message_create import MessageCreateInputImageContent, MessageCreateInputTextContent
 from src.services.messages.message_service import MessageService
 
 client = TestClient(app)
@@ -34,10 +34,8 @@ async def test_anthropic_supports_image_data():
     async for chunk in MessageService.forward_message(
         thread_id=thread.id,
         input_content=[
-            MessageCreateInputTextContent(
-                text="First say hi to me, then call the test tool and tell me about the result."
-            ),
-            # MessageCreateInputImageContent(image_url=url),
+            MessageCreateInputTextContent(text="What is the weather in Tokyo?"),
+            MessageCreateInputImageContent(image_url=url),
         ],
         agent_class="DebugAgent",
         agent_config={},

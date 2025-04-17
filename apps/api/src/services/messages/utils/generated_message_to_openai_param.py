@@ -42,32 +42,36 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
             ],
         )
     elif message.role == "assistant":
-        return ChatCompletionAssistantMessageParam(
+        message_content = ChatCompletionAssistantMessageParam(
             role=message.role,
             name=message.name or "Assistant",
-            content=[
-                message_content
-                for message_content in [
-                    text_content_to_openai_param(content) if content.type == "text" else None
-                    for content in message.content
-                ]
-                if message_content is not None
-            ],
-            tool_calls=[
-                tool_use_content_to_openai_param(content) for content in message.content if content.type == "tool_use"
-            ],
+            content="".join(
+                text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
+            ),
         )
+
+        if any(content.type == "tool_use" for content in message.content):
+            message_content["tool_calls"] = [
+                tool_use_content_to_openai_param(content) for content in message.content if content.type == "tool_use"
+            ]
+
+        return message_content
+
     elif message.role == "system":
         return ChatCompletionSystemMessageParam(
             role=message.role,
             name=message.name or "System",
-            content=[text_content_to_openai_param(content) for content in message.content if content.type == "text"],
+            content="".join(
+                text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
+            ),
         )
     elif message.role == "developer":
         return ChatCompletionDeveloperMessageParam(
             role=message.role,
             name=message.name or "Developer",
-            content=[text_content_to_openai_param(content) for content in message.content if content.type == "text"],
+            content="".join(
+                text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
+            ),
         )
     elif message.role == "tool":
         if not message.tool_use_id:
@@ -76,11 +80,11 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
         return ChatCompletionToolMessageParam(
             role=message.role,
             tool_call_id=message.tool_use_id,
-            content=[
-                tool_result_content_to_openai_param(content)
+            content="".join(
+                tool_result_content_to_openai_param(content)["text"]
                 for content in message.content
                 if content.type == "tool_result"
-            ],
+            ),
         )
 
     raise ValueError(f"Unknown message role: {message.role}")

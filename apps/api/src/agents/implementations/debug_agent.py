@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable, Iterable
 
 from openai import AsyncStream
@@ -19,6 +20,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         def test(name: str) -> str:
             return f"Hello, {name}!"
+
+        self.logger.info(f"Messages: {json.dumps(messages, indent=2)}")
 
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
