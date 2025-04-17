@@ -43,13 +43,13 @@ class JobEntity(BaseModel):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
-    def on_init(self) -> None:
-        self.easylog_backend_tools = EasylogBackendTools(
+    def get_tools(self) -> list[Callable]:
+        easylog_backend_tools = EasylogBackendTools(
             bearer_token=self.request_headers.get("X-Easylog-Bearer-Token", ""),
             base_url=self.request_headers.get("X-Easylog-Base-Url", "https://staging.easylog.nu/api/v2"),
         )
 
-        self.easylog_sql_tools = EasylogSqlTools(
+        easylog_sql_tools = EasylogSqlTools(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
             ssh_host=settings.EASYLOG_SSH_HOST,
             ssh_username=settings.EASYLOG_SSH_USERNAME,
@@ -60,29 +60,30 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             db_name=settings.EASYLOG_DB_NAME,
         )
 
-        self.knowledge_graph_tools = KnowledgeGraphTools(
+        knowledge_graph_tools = KnowledgeGraphTools(
             thread_id=self.thread_id,
             entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
         )
 
+        return [
+            *easylog_backend_tools.all_tools,
+            *easylog_sql_tools.all_tools,
+            *knowledge_graph_tools.all_tools,
+        ]
+
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        def test(name: str) -> str:
-            return f"Hello, {name}!"
-
         self.logger.info(f"Messages: {json.dumps(messages, indent=2)}")
+
+        tools = self.get_tools()
 
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=messages,
             stream=True,
-            tools=[
-                *[function_to_openai_tool(tool) for tool in self.easylog_backend_tools.all_tools],
-                *[function_to_openai_tool(tool) for tool in self.easylog_sql_tools.all_tools],
-                *[function_to_openai_tool(tool) for tool in self.knowledge_graph_tools.all_tools],
-            ],
+            tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
         )
 
-        return response, [test]
+        return response, tools
