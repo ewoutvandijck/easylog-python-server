@@ -3,15 +3,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.models.charts import Chart
-
 MessageRole = Literal["assistant", "user", "system", "developer", "tool"]
 
 
 class BaseContent(BaseModel):
     id: str = Field(..., description="The ID of the content.")
-
-    role: MessageRole = Field(..., description="The role of the content.")
 
     created_at: datetime = Field(..., description="The creation date of the content.")
 
@@ -45,35 +41,11 @@ class ToolResultContent(BaseContent):
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
+    widget_type: Literal["image", "chart"] | None = Field(default=None, description="The type of the widget.")
+
     output: str = Field(..., description="The result of the tool.")
 
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
-
-
-class ToolResultDeltaContent(BaseContent):
-    type: Literal["tool_result_delta"] = Field(default="tool_result_delta")
-
-    content_id: str = Field(..., description="The ID of the content that the delta is for.")
-
-    delta: str = Field(..., description="The delta of the tool result.")
-
-
-class ImageWidgetContent(BaseContent):
-    type: Literal["tool_result"] = Field(default="tool_result")
-
-    widget_type: Literal["image"] = Field(default="image", description="The type of the widget.")
-
-    image_url: str = Field(..., description="The URL of the image.")
-
-    image_detail: Literal["low", "medium", "high"] = Field(default="low", description="The detail of the image.")
-
-
-class ChartWidgetContent(BaseContent):
-    type: Literal["tool_result"] = Field(default="tool_result")
-
-    widget_type: Literal["chart"] = Field(default="chart", description="The type of the widget.")
-
-    chart_data: Chart = Field(..., description="The data of the chart.")
 
 
 class ImageContent(BaseContent):
@@ -105,18 +77,12 @@ class FileContent(BaseContent):
 #     end_index: int = Field(..., description="The end index of the annotation.")
 
 
-MessageContent = (
-    TextContent
-    | ToolUseContent
-    | ToolResultContent
-    | ImageContent
-    | FileContent
-    | TextDeltaContent
-    | ToolResultDeltaContent
-)
+MessageContent = TextContent | ToolUseContent | ToolResultContent | ImageContent | FileContent | TextDeltaContent
 
 
-class GeneratedMessage(BaseModel):
+class Message(BaseModel):
+    id: str
+
     role: MessageRole
 
     name: str | None = None

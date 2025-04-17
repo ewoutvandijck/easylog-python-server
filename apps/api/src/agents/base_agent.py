@@ -23,9 +23,10 @@ from pydantic import BaseModel
 
 from src.lib.prisma import prisma
 from src.logger import logger
-
-# from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
+from src.models.chart_widget import ChartWidget
+from src.models.image_widget import ImageWidget
 from src.models.messages import MessageContent, TextContent, ToolResultContent, ToolUseContent
+from src.models.stream_tool_call import StreamToolCall
 from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -72,7 +73,7 @@ class BaseAgent(Generic[TConfig]):
         result, tools = await self.on_message(messages)
 
         async for chunk in (
-            await self._handle_stream(result, tools)
+            self._handle_stream(result, tools)
             if isinstance(result, AsyncStream)
             else self._handle_completion(result, tools)
         ):
@@ -116,25 +117,95 @@ class BaseAgent(Generic[TConfig]):
 
         return self._config_type(**kwargs)
 
-    async def _handle_tool_call(self, name: str, input: dict[str, Any], tools: list[Callable]) -> str:
+    async def _handle_tool_call(
+        self, name: str, tool_call_id: str, arguments: dict[str, Any], tools: list[Callable]
+    ) -> ToolResultContent:
         try:
             tool = next(tool for tool in tools if tool.__name__ == name)
         except StopIteration as e:
             raise ValueError(f"Tool {name} not found") from e
 
         try:
-            result = str(await tool(input))
+            result = await tool(**arguments)
 
-            # TODO: handle image, file, etc.
+            if isinstance(result, ImageWidget):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(),
+                    tool_use_id=tool_call_id,
+                    output=result.to_base64(),
+                    widget_type="image",
+                    is_error=False,
+                )
+            elif isinstance(result, ChartWidget):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(),
+                    tool_use_id=tool_call_id,
+                    output=result.model_dump_json(),
+                    widget_type="chart",
+                    is_error=False,
+                )
+            else:
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(),
+                    tool_use_id=tool_call_id,
+                    output=str(result),
+                    is_error=False,
+                )
         except Exception as e:
-            result = f"Error: {e}"
-
-        return result
+            return ToolResultContent(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                tool_use_id=tool_call_id,
+                output=f"Error: {e}",
+                is_error=True,
+            )
 
     async def _handle_stream(
         self, stream: AsyncStream[ChatCompletionChunk], tools: list[Callable]
     ) -> AsyncGenerator[MessageContent, None]:
-        raise NotImplementedError()
+        final_tool_calls: dict[int, StreamToolCall] = {}
+
+        async for event in stream:
+            if event.choices[0].delta.content is not None:
+                yield TextContent(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(),
+                    text=event.choices[0].delta.content,
+                )
+
+            for tool_call in event.choices[0].delta.tool_calls or []:
+                index = tool_call.index
+
+                if (
+                    tool_call.function is None
+                    or tool_call.function.arguments is None
+                    or tool_call.function.name is None
+                    or tool_call.id is None
+                ):
+                    self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
+                    continue
+
+                if index not in final_tool_calls:
+                    final_tool_calls[index] = StreamToolCall(
+                        tool_call_id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments
+                    )
+                else:
+                    final_tool_calls[index].arguments += tool_call.function.arguments
+
+        for _, tool_call in final_tool_calls.items():
+            input_data = json.loads(tool_call.arguments)
+
+            yield ToolUseContent(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                name=tool_call.name,
+                input=input_data,
+            )
+
+            yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
 
     async def _handle_completion(
         self, completion: ChatCompletion, tools: list[Callable]
@@ -150,26 +221,15 @@ class BaseAgent(Generic[TConfig]):
             yield ToolUseContent(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
-                role="assistant",
                 name=tool_call.function.name,
                 input=input_data,
             )
 
-            tool_result = await self._handle_tool_call(tool_call.function.name, input_data, tools)
-
-            yield ToolResultContent(
-                id=str(uuid.uuid4()),
-                created_at=datetime.now(),
-                role="assistant",
-                tool_use_id=tool_call.id,
-                output=tool_result,
-                is_error=False,
-            )
+            yield await self._handle_tool_call(tool_call.function.name, tool_call.id, input_data, tools)
 
         if choice.message.content is not None:
             yield TextContent(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
-                role="assistant",
                 text=choice.message.content,
             )

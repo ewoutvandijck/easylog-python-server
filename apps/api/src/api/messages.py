@@ -36,12 +36,7 @@ async def get_messages(
     order: Literal["asc", "desc"] = Query(default="asc"),
 ) -> Pagination[messages]:
     messages = await prisma.messages.find_many(
-        where={
-            "OR": [
-                {"thread_id": thread_id},
-                {"thread": {"is": {"external_id": thread_id}}},
-            ],
-        },
+        where={"thread_id": thread_id} if is_valid_uuid(thread_id) else {"thread": {"is": {"external_id": thread_id}}},
         order=[{"created_at": order}],
         include={"contents": True},
         take=limit,
@@ -86,14 +81,22 @@ async def create_message(
     )
 
     async def stream() -> AsyncGenerator[str, None]:
+        max_chunk_size = 4096 - 32  # 4096 is the max chunk size for SSE, 32 is extra padding for the event metadata.
+
         try:
             async for chunk in forward_message_generator:
-                sse_event = create_sse_event("delta", chunk.model_dump_json())
-                logger.debug(f"Sending sse delta event to client: {sse_event}")
-                yield sse_event
+                yield create_sse_event("start", "{}")
+
+                data = chunk.model_dump_json()
+                while len(data) > max_chunk_size:
+                    yield create_sse_event("delta", data[:max_chunk_size])
+                    data = data[max_chunk_size:]
+
+                yield create_sse_event("stop", "{}")
+
         except Exception as e:
             logger.exception("Error in SSE stream", exc_info=e)
-            sse_event = create_sse_event("error", json.dumps({"detail": str(e)}))
+            sse_event = create_sse_event("error", json.dumps({"detail": str(e)[:max_chunk_size]}))
             logger.warning(f"Sending sse error event to client: {sse_event}")
             yield sse_event
 

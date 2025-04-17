@@ -68,7 +68,7 @@ class SeriesConfig(BaseModel):
     stack_id: str | None = None  # For stacked charts
 
 
-class Chart(BaseModel):
+class ChartWidget(BaseModel):
     """Chart configuration.
 
     Complete configuration for a chart, including data, styling, and behavior.
@@ -112,7 +112,7 @@ class Chart(BaseModel):
         description: str | None = None,
         is_donut: bool = False,
         height: int = 400,
-    ) -> "Chart":
+    ) -> "ChartWidget":
         """Create a pie or donut chart with minimal configuration.
 
         Args:
@@ -172,7 +172,7 @@ class Chart(BaseModel):
         description: str | None = None,
         height: int = 400,
         stacked: bool = False,
-    ) -> "Chart":
+    ) -> "ChartWidget":
         """Create a bar chart with minimal configuration.
 
         Args:
@@ -261,7 +261,7 @@ class Chart(BaseModel):
         description: str | None = None,
         height: int = 400,
         colors: list[str] | None = None,
-    ) -> "Chart":
+    ) -> "ChartWidget":
         """Create a line chart with minimal configuration.
 
         Args:
