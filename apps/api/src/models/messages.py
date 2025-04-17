@@ -18,8 +18,6 @@ class TextContent(BaseContent):
 class TextDeltaContent(BaseContent):
     type: Literal["text_delta"] = Field(default="text_delta")
 
-    content_id: str = Field(..., description="The ID of the content that the delta is for.")
-
     delta: str = Field(..., description="The delta of the content.")
 
 

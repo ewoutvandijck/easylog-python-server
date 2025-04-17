@@ -34,7 +34,7 @@ async def test_anthropic_supports_image_data():
     async for chunk in MessageService.forward_message(
         thread_id=thread.id,
         input_content=[
-            MessageCreateInputTextContent(text="What is the weather in Tokyo?"),
+            MessageCreateInputTextContent(text="Wat staat er in deze afbeelding?"),
             MessageCreateInputImageContent(image_url=url),
         ],
         agent_class="DebugAgent",

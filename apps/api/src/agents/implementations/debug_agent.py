@@ -43,7 +43,7 @@ class JobEntity(BaseModel):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
-    async def on_init(self) -> None:
+    def on_init(self) -> None:
         self.easylog_backend_tools = EasylogBackendTools(
             bearer_token=self.request_headers.get("X-Easylog-Bearer-Token", ""),
             base_url=self.request_headers.get("X-Easylog-Base-Url", "https://staging.easylog.nu/api/v2"),
