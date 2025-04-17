@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator, Iterable
 
 from openai.types.chat import ChatCompletionMessageParam
@@ -10,7 +11,9 @@ from src.models.message_create import (
     MessageCreateInputContent,
 )
 from src.models.messages import (
-    GeneratedMessage,
+    Message as GeneratedMessage,
+)
+from src.models.messages import (
     MessageContent,
     TextDeltaContent,
     ToolResultContent,
@@ -32,7 +35,7 @@ class MessageService:
         input_content: list[MessageCreateInputContent],
         agent_class: str,
         agent_config: dict,
-    ) -> AsyncGenerator[MessageContent, None]:
+    ) -> AsyncGenerator[MessageContent | GeneratedMessage, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
@@ -85,11 +88,22 @@ class MessageService:
         # Forward the history through the agent
         generated_messages: list[GeneratedMessage] = []
 
+        yielded_messages: set[str] = set()
+
         try:
             async for content_chunk, messages in cls.call_agent(agent, thread_history, generated_messages):
+                generated_messages = messages
+
+                for message in messages:
+                    if message.id in yielded_messages:
+                        continue
+
+                    yield GeneratedMessage(**message.model_dump(exclude={"content"}), content=[])
+
+                    yielded_messages.add(message.id)
+
                 yield content_chunk
 
-                generated_messages = messages
         except Exception as e:
             logger.error(f"Error forwarding message: {e}", exc_info=e)
             raise e
@@ -133,11 +147,22 @@ class MessageService:
 
             if isinstance(content_chunk, ToolResultContent):
                 generated_messages.append(
-                    GeneratedMessage(role="tool", tool_use_id=content_chunk.tool_use_id, content=[content_chunk])
+                    GeneratedMessage(
+                        id=str(uuid.uuid4()),
+                        role="tool",
+                        tool_use_id=content_chunk.tool_use_id,
+                        content=[content_chunk],
+                    )
                 )
             elif not isinstance(content_chunk, TextDeltaContent):
                 if not last_message or last_message.role == "tool":
-                    generated_messages.append(GeneratedMessage(role="assistant", content=[]))
+                    generated_messages.append(
+                        GeneratedMessage(
+                            id=str(uuid.uuid4()),
+                            role="assistant",
+                            content=[],
+                        )
+                    )
 
                 generated_messages[-1].content.append(content_chunk)
 

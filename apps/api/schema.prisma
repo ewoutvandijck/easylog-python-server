@@ -201,7 +201,6 @@ model message_contents {
     file_name              String?
     text                   String?
     widget_type            widget_type?
-    widget_data            Json?                @db.JsonB
     tool_use_id            String?
     tool_name              String?
     tool_input             Json?                @db.JsonB

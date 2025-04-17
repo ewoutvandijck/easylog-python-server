@@ -19,7 +19,7 @@ from src.agents.utils.resize_image_to_byte_size import resize_image_to_byte_size
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
-from src.models.charts import Chart
+from src.models.chart_widget import Chart
 from src.services.easylog_backend.backend_service import BackendService
 from src.utils.media_detection import extract_base64_content, guess_media_type
 from src.utils.pydantic_to_anthropic_tool import pydantic_to_anthropic_tool
