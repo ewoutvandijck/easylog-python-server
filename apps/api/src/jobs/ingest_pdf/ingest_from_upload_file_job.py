@@ -1,27 +1,19 @@
 import os
 
-from prefect import task
-
 from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
 from src.lib.prisma import prisma
 from src.lib.supabase import supabase
 from src.logger import logger
 
 
-@task(
-    name="Ingest from upload file job",
-    log_prints=True,
-)
-def ingest_from_upload_file_job(
+async def ingest_from_upload_file_job(
     file_data: bytes,
     file_name: str | None = None,
     bucket: str = "knowledge",
     target_path: str = "/",
 ) -> None:
     try:
-        prisma.connect()
-
-        processed_pdf = extract_and_process_pdf(file_data)
+        processed_pdf = await extract_and_process_pdf(file_data)
 
         if file_name:
             processed_pdf.file_name = file_name
@@ -37,9 +29,9 @@ def ingest_from_upload_file_job(
             },
         )
 
-        pdf_file_object = prisma.objects.find_first_or_raise(where={"name": full_pdf_path, "bucket_id": bucket})
+        pdf_file_object = await prisma.objects.find_first_or_raise(where={"name": full_pdf_path, "bucket_id": bucket})
 
-        processed_pdf_db = prisma.processed_pdfs.upsert(
+        processed_pdf_db = await prisma.processed_pdfs.upsert(
             where={
                 "object_id": pdf_file_object.id,
             },
@@ -72,11 +64,11 @@ def ingest_from_upload_file_job(
                 },
             )
 
-            image_storage_upload = prisma.objects.find_first_or_raise(
+            image_storage_upload = await prisma.objects.find_first_or_raise(
                 where={"name": image_full_path, "bucket_id": bucket}
             )
 
-            prisma.processed_pdf_images.upsert(
+            await prisma.processed_pdf_images.upsert(
                 where={"object_id": image_storage_upload.id},
                 data={
                     "create": {
@@ -96,5 +88,3 @@ def ingest_from_upload_file_job(
     except Exception as e:
         logger.error(f"Error ingesting from upload file job: {str(e)}")
         raise e
-    finally:
-        prisma.disconnect()
