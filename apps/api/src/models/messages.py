@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -72,7 +72,7 @@ class FileContent(BaseContent):
 #     end_index: int = Field(..., description="The end index of the annotation.")
 
 
-MessageContent = TextContent | ToolUseContent | ToolResultContent | ImageContent | FileContent | TextDeltaContent
+MessageContent = Union[TextContent, ToolUseContent, ToolResultContent, ImageContent, FileContent, TextDeltaContent]
 
 
 class Message(BaseModel):
@@ -84,4 +84,4 @@ class Message(BaseModel):
 
     tool_use_id: str | None = None
 
-    content: list[MessageContent]
+    content: list[Annotated[MessageContent, Field(discriminator="type")]]

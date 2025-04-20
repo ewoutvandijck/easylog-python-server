@@ -170,3 +170,5 @@ node_modules
 .env*
 
 llm_cache
+
+generated
