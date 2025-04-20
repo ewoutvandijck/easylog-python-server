@@ -1,5 +1,5 @@
 from prisma import Base64
-from prisma.enums import message_content_type
+from prisma.enums import message_content_type, message_role
 from prisma.models import message_contents, messages
 
 from src.models.messages import (
@@ -16,9 +16,19 @@ def db_message_to_message_model(message: messages) -> Message:
     if message.contents is None:
         raise ValueError("Message contents are required")
 
+    # Determine the role value safely
+    role_value: str
+    if isinstance(message.role, message_role):
+        role_value = message.role.value
+    elif isinstance(message.role, str):
+        role_value = message.role
+    else:
+        # Handle unexpected type if necessary, or raise an error
+        raise TypeError(f"Unexpected type for message.role: {type(message.role)}")
+
     return Message(
         id=message.id,
-        role=message.role.value,
+        role=role_value,
         name=message.name,
         content=[
             message_content

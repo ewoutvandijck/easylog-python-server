@@ -172,3 +172,4 @@ node_modules
 llm_cache
 
 generated
+ai_chat_client
