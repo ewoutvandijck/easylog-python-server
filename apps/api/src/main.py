@@ -13,7 +13,6 @@ from src.lib.graphiti import graphiti
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.security.api_token import verify_api_key
-from src.security.optional_http_bearer import optional_bearer_header
 from src.settings import settings
 
 load_dotenv()
@@ -38,7 +37,7 @@ app = FastAPI(
     openapi_version="3.0.3",
     root_path=settings.API_ROOT_PATH,
     lifespan=lifespan,
-    dependencies=[Depends(verify_api_key), Depends(optional_bearer_header)],
+    dependencies=[Depends(verify_api_key)],
 )
 
 app.add_middleware(

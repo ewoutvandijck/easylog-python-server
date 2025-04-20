@@ -1,48 +1,55 @@
-import { MessageCreateInput } from '@/lib/api/generated-client';
-import useConnections from './use-connections';
+import { Message, MessageCreateInput } from '@/lib/api/generated-client';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useAtom } from 'jotai';
 import useConfigurations from './use-configurations';
 
-import { messageContentSchema } from '@/app/schemas/message-contents';
-import useThreadId from './use-thread-id';
-import useThreadMessages from './use-thread-messages';
+import { loadingAtom } from '@/atoms/messages';
+import useApiClient from './use-api-client';
+import { useQueryClient } from '@tanstack/react-query';
+import { getThreadMessagesQueryKey } from './use-thread-messages';
 import {
-  loadingAtom,
-  userMessageAtom,
-  assistantMessageAtom
-} from '@/atoms/messages';
+  messageContentSchema,
+  messageSchema
+} from '@/schemas/message-contents';
 
 const useSendMessage = () => {
-  const { activeConnection } = useConnections();
+  const { activeConnection } = useApiClient();
   const { activeConfiguration } = useConfigurations();
 
   const [isLoading, setIsLoading] = useAtom(loadingAtom);
-
-  const [, setUserMessage] = useAtom(userMessageAtom);
-  const [, setAssistantMessage] = useAtom(assistantMessageAtom);
-
-  const threadId = useThreadId();
-
-  useEffect(() => {
-    setAssistantMessage(null);
-    setUserMessage(null);
-  }, [setAssistantMessage, setUserMessage, threadId]);
-
-  const { refetch: refetchThreadMessages } = useThreadMessages();
+  const queryClient = useQueryClient();
 
   const sendMessage = useCallback(
     async (threadId: string, message: MessageCreateInput) => {
-      setUserMessage({
-        role: 'user' as const,
-        contents: message.content.map((content) => ({
-          type: 'text' as const,
-          content: content.content
-        }))
-      });
+      queryClient.setQueryData(
+        getThreadMessagesQueryKey(threadId, activeConnection.name),
+        (old: Message[]) => {
+          return [
+            ...old,
+            {
+              id: uuidv4(),
+              role: 'user',
+              content: message.content.map((content) => ({
+                id: uuidv4(),
+                type: content.type,
+                text: content.type === 'text' ? content.text : '',
+                tool_use_id: '',
+                name: '',
+                input: {},
+                output: '',
+                image_url: content.type === 'image' ? content.image_url : '',
+                file_data: content.type === 'file' ? content.file_data : '',
+                file_name: content.type === 'file' ? content.file_name : '',
+                delta: ''
+              }))
+            } satisfies Message
+          ];
+        }
+      );
 
       setIsLoading(true);
 
@@ -50,15 +57,12 @@ const useSendMessage = () => {
         `${activeConnection.url}/threads/${threadId}/messages`
       );
 
-      let toolResultBuffer: string | null = null;
-      let toolResultBufferFormat: 'image' | 'chart' | 'unknown' | null = null;
-
       await new Promise(async (resolve, reject) => {
         await fetchEventSource(endpointURL.toString(), {
           method: 'POST',
           headers: {
-            'X-API-KEY': activeConnection.secret,
-            Authorization: `Bearer ${activeConfiguration?.easylogApiKey}`,
+            Authorization: `Bearer ${activeConnection.secret}`,
+            'X-Easylog-Bearer-Token': `Bearer ${activeConfiguration?.easylogApiKey}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(message),
@@ -67,48 +71,37 @@ const useSendMessage = () => {
 
             if (ev.event === 'error') {
               toast.error(data.detail);
+              queryClient.invalidateQueries({
+                queryKey: getThreadMessagesQueryKey(
+                  threadId,
+                  activeConnection.name
+                )
+              });
             }
 
-            if (ev.event === 'delta') {
-              const content = messageContentSchema.parse(data);
-
-              setAssistantMessage((prev) => {
-                const newContents = [...(prev?.contents ?? [])];
-                const lastContent = newContents[newContents.length - 1];
-
-                if (
-                  content.type === 'text_delta' &&
-                  lastContent?.type === 'text_delta'
-                ) {
-                  lastContent.content = lastContent.content + content.content;
-                } else if (
-                  content.type === 'text' &&
-                  lastContent?.type === 'text_delta'
-                ) {
-                  // @ts-expect-error - TODO: fix this
-                  lastContent.type = 'text';
-                  lastContent.content = content.content;
-                } else if (content.type === 'tool_result_delta') {
-                  toolResultBuffer = (toolResultBuffer ?? '') + content.content;
-                  toolResultBufferFormat = content.content_format;
-                } else if (
-                  content.type === 'tool_result' &&
-                  content.content.length === 0
-                ) {
-                  content.content = toolResultBuffer ?? '';
-                  content.content_format = toolResultBufferFormat ?? 'unknown';
-                  toolResultBuffer = null;
-                  toolResultBufferFormat = null;
-                  newContents.push(content);
-                } else {
-                  newContents.push(content);
+            if (ev.event === 'message') {
+              const message = messageSchema.parse(JSON.parse(ev.data));
+              queryClient.setQueryData(
+                getThreadMessagesQueryKey(threadId, activeConnection.name),
+                (old: Message[]) => {
+                  return [...old, message];
                 }
+              );
+            }
 
-                return {
-                  role: 'assistant' as const,
-                  contents: newContents
-                };
-              });
+            if (ev.event === 'content') {
+              const content = messageContentSchema.parse(JSON.parse(ev.data));
+              queryClient.setQueryData(
+                getThreadMessagesQueryKey(threadId, activeConnection.name),
+                (old: Message[]) => {
+                  return old.map((message) => {
+                    return {
+                      ...message,
+                      content: [...message.content, content]
+                    };
+                  });
+                }
+              );
             }
           },
           onerror(ev) {
@@ -117,30 +110,22 @@ const useSendMessage = () => {
             reject(ev);
           },
           async onopen() {
-            setAssistantMessage(() => ({
-              role: 'assistant',
-              contents: []
-            }));
             setIsLoading(true);
           },
           async onclose() {
             setIsLoading(false);
-            await refetchThreadMessages();
-            setUserMessage(null);
-            setAssistantMessage(null);
             resolve(void 0);
           }
         });
       });
     },
     [
-      setIsLoading,
-      activeConnection.url,
-      activeConnection.secret,
       activeConfiguration?.easylogApiKey,
-      setAssistantMessage,
-      setUserMessage,
-      refetchThreadMessages
+      activeConnection.name,
+      activeConnection.secret,
+      activeConnection.url,
+      queryClient,
+      setIsLoading
     ]
   );
 

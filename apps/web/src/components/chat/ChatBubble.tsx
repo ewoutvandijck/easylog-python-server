@@ -1,11 +1,11 @@
-import { MessageContent } from '@/app/schemas/message-contents';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DynamicChart } from '@/components/charts/DynamicChart';
+import { MessageContentInner } from '@/lib/api/generated-client';
 
 export interface ChatBubbleProps {
-  content: MessageContent;
+  content: MessageContentInner;
   role: 'user' | 'assistant' | 'system' | 'developer';
 }
 
@@ -15,15 +15,16 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
       className={cn(
         'rounded-lg px-4 py-1 max-w-lg bg-secondary flex flex-col',
         role === 'user' ? 'ml-auto' : 'mr-auto',
+        (content.type === 'tool_result' && content.widget_type === 'image') ||
+          content.type === 'image'
+          ? 'p-0 border border-secondary'
+          : null,
         content.type === 'tool_result' &&
-          content.content_format === 'image' &&
-          'p-0 border border-secondary',
-        content.type === 'tool_result' &&
-          content.content_format === 'chart' &&
+          content.widget_type === 'chart' &&
           'p-0 w-[32rem]'
       )}
     >
-      {content.type === 'text' || content.type === 'text_delta' ? (
+      {content.type === 'text' ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -106,15 +107,16 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             em: ({ ...props }) => <em {...props} className="italic" />
           }}
         >
-          {content.content}
+          {content.text}
         </ReactMarkdown>
-      ) : content.type === 'tool_result' &&
-        content.content_format === 'image' ? (
+      ) : content.type === 'tool_result' && content.widget_type === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={content.content} alt="tool result" className="rounded-lg" />
-      ) : content.type === 'tool_result' &&
-        content.content_format === 'chart' ? (
-        <DynamicChart chartJson={content.content} />
+        <img src={content.output} alt="tool result" className="rounded-lg" />
+      ) : content.type === 'tool_result' && content.widget_type === 'chart' ? (
+        <DynamicChart chartJson={content.output} />
+      ) : content.type === 'image' ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={content.image_url} alt="tool result" className="rounded-lg" />
       ) : null}
     </div>
   );
