@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "uv sync && source ./.venv/bin/activate && uv run prisma generate && uv run fastapi dev ./src/main.py"
+    "dev": "uv sync && source ./.venv/bin/activate && uv run prisma generate && uv run fastapi dev ./src/main.py",
+    "generate": "docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i http://host.docker.internal:8000/openapi.json -g dart-dio -o /local/generated/dart"
   },
   "keywords": [],
   "author": "",
