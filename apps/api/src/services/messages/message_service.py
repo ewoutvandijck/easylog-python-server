@@ -145,6 +145,10 @@ class MessageService:
         )
 
         for message in generated_messages:
+            for content in message.content:
+                if isinstance(content, ToolUseContent):
+                    logger.info(f"Tool use content: {content.input}")
+
             await prisma.messages.create(
                 data={
                     "id": message.id,
@@ -167,9 +171,7 @@ class MessageService:
                                 if isinstance(content, ToolResultContent) and content.widget_type is not None
                                 else None,
                                 "tool_use_id": content.tool_use_id
-                                if isinstance(content, ToolResultContent)
-                                else content.id
-                                if isinstance(content, ToolUseContent)
+                                if isinstance(content, ToolResultContent) or isinstance(content, ToolUseContent)
                                 else None,
                                 "tool_name": content.name if isinstance(content, ToolUseContent) else None,
                                 "tool_input": Json(content.input) if isinstance(content, ToolUseContent) else Json({}),
@@ -204,18 +206,26 @@ class MessageService:
             AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
                 A generator of message chunks and the current state of generated messages.
         """
+
+        logger.info(f"Calling agent with depth {current_depth}")
+
         if current_depth >= max_recursion_depth:
             logger.warning(f"Maximum recursion depth ({max_recursion_depth}) reached, stopping recursion")
             return
 
         generated_messages: list[GeneratedMessage] = []
 
+        logger.info(f"Thread history: {thread_history}")
+
         async for content_chunk in agent.forward_message(thread_history):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
 
             last_message = generated_messages[-1] if len(generated_messages) > 0 else None
 
+            logger.info(f"Last message: {last_message.model_dump_json() if last_message else 'None'}")
+
             if isinstance(content_chunk, ToolResultContent):
+                logger.info(f"Appending tool result content: {content_chunk.model_dump_json()}")
                 generated_messages.append(
                     GeneratedMessage(
                         id=str(uuid.uuid4()),
@@ -225,6 +235,7 @@ class MessageService:
                     )
                 )
             elif not last_message or last_message.role == "tool":
+                logger.info("Appending assistant message")
                 generated_messages.append(
                     GeneratedMessage(
                         id=str(uuid.uuid4()),
@@ -233,24 +244,38 @@ class MessageService:
                     )
                 )
 
-            generated_messages[-1].content.append(content_chunk)
+            if not isinstance(content_chunk, TextDeltaContent):
+                logger.info(f"Appending content chunk: {content_chunk.model_dump_json()}")
+                generated_messages[-1].content.append(content_chunk)
+
+            logger.info(f"Yielding {content_chunk}, {[*initial_generated_messages, *generated_messages]}")
 
             # First yield the current chunk before potential recursive calls
-            yield content_chunk, initial_generated_messages.copy() + generated_messages.copy()
+            yield content_chunk, [*initial_generated_messages, *generated_messages]
 
         if any(generated_message.role == "tool" for generated_message in generated_messages):
+            logger.info("Appending tool call to thread history")
+
             new_thread_history = [
                 *thread_history,
                 *[generated_message_to_openai_param(message) for message in generated_messages],
             ]
 
+            logger.info(f"New thread history: {new_thread_history}")
+
+            new_initial_generated_messages = [*initial_generated_messages, *generated_messages]
+
+            logger.info(f"New initial generated messages: {new_initial_generated_messages}")
+
             # Recursively call the agent if we have a tool call
             async for nested_chunk, nested_messages in cls.call_agent(
                 agent,
                 new_thread_history,
-                initial_generated_messages.copy() + generated_messages.copy(),
+                new_initial_generated_messages,
                 max_recursion_depth,
                 current_depth + 1,
             ):
+                logger.info(f"Yielding nested chunk: {nested_chunk}, {nested_messages}")
+
                 # Yield each chunk from the nested call
-                yield nested_chunk, initial_generated_messages.copy() + nested_messages
+                yield nested_chunk, nested_messages

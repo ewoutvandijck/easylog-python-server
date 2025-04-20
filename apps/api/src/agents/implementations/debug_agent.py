@@ -5,6 +5,7 @@ from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -62,9 +63,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     def get_tools(self) -> list[Callable]:
         easylog_backend_tools = EasylogBackendTools(
             bearer_token=self.request_headers.get("X-Easylog-Bearer-Token", ""),
-            base_url=self.request_headers.get(
-                "X-Easylog-Base-Url", "https://staging.easylog.nu/api/v2"
-            ),
+            base_url=self.request_headers.get("X-Easylog-Base-Url", "https://staging.easylog.nu/api/v2"),
         )
 
         easylog_sql_tools = EasylogSqlTools(
@@ -128,17 +127,13 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         self.logger.info(
             self.config.prompt.format(
                 current_role=role,
                 current_role_prompt=role_config.prompt,
-                available_roles="\n".join(
-                    [f"'{role.name}'" for role in self.config.roles]
-                ),
+                available_roles="\n".join([f"'{role.name}'" for role in self.config.roles]),
             )
         )
 
@@ -150,17 +145,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
+                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                     ),
                 },
                 *messages,
             ],
-            stream=True,
+            stream=False,
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
         )

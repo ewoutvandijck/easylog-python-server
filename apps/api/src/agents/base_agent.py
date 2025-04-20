@@ -173,11 +173,15 @@ class BaseAgent(Generic[TConfig]):
     ) -> AsyncGenerator[MessageContent, None]:
         final_tool_calls: dict[int, StreamToolCall] = {}
 
-        text_content = ""
+        text_content: str | None = ""
         text_id = str(uuid.uuid4())
         async for event in stream:
             if event.choices[0].delta.content is not None:
-                text_content += event.choices[0].delta.content
+                text_content = (
+                    event.choices[0].delta.content
+                    if text_content is None
+                    else text_content + event.choices[0].delta.content
+                )
 
                 yield TextDeltaContent(
                     id=text_id,
@@ -200,10 +204,11 @@ class BaseAgent(Generic[TConfig]):
                 else:
                     final_tool_calls[index].arguments += tool_call.function.arguments
 
-        yield TextContent(
-            id=text_id,
-            text=text_content,
-        )
+        if text_content is not None:
+            yield TextContent(
+                id=text_id,
+                text=text_content,
+            )
 
         self.logger.info(f"Final tool calls: {final_tool_calls}")
 
