@@ -2,14 +2,16 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Development",
-      "type": "node",
+      "name": "Python Debugger: FastAPI",
+      "type": "debugpy",
       "request": "launch",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["turbo", "run", "dev"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}/apps/api",
+      "args": [
+        "src.main:app",
+        "--reload"
+      ],
+      "jinja": true
     }
   ]
 }

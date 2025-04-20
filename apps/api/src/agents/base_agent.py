@@ -89,12 +89,12 @@ class BaseAgent(Generic[TConfig]):
             yield chunk
 
     async def get_metadata(self, key: str, default: Any | None = None) -> Any:
-        metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
+        metadata: dict = dict((await self._get_thread()).metadata) or {}
 
         return metadata.get(key, default)
 
     async def set_metadata(self, key: str, value: Any) -> None:
-        metadata: dict = json.loads((await self._get_thread()).metadata or "{}")
+        metadata: dict = dict((await self._get_thread()).metadata) or {}
         metadata[key] = value
 
         await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(metadata)})
@@ -173,11 +173,15 @@ class BaseAgent(Generic[TConfig]):
     ) -> AsyncGenerator[MessageContent, None]:
         final_tool_calls: dict[int, StreamToolCall] = {}
 
-        text_content = ""
+        text_content: str | None = ""
         text_id = str(uuid.uuid4())
         async for event in stream:
             if event.choices[0].delta.content is not None:
-                text_content += event.choices[0].delta.content
+                text_content = (
+                    event.choices[0].delta.content
+                    if text_content is None
+                    else text_content + event.choices[0].delta.content
+                )
 
                 yield TextDeltaContent(
                     id=text_id,
@@ -187,26 +191,26 @@ class BaseAgent(Generic[TConfig]):
             for tool_call in event.choices[0].delta.tool_calls or []:
                 index = tool_call.index
 
-                if (
-                    tool_call.function is None
-                    or tool_call.function.arguments is None
-                    or tool_call.function.name is None
-                    or tool_call.id is None
-                ):
+                self.logger.info(f"Tool call: {tool_call}")
+
+                if tool_call.function is None or tool_call.function.arguments is None:
                     self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
                     continue
 
-                if index not in final_tool_calls:
+                if index not in final_tool_calls and tool_call.function.name is not None and tool_call.id is not None:
                     final_tool_calls[index] = StreamToolCall(
                         tool_call_id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments
                     )
                 else:
                     final_tool_calls[index].arguments += tool_call.function.arguments
 
-        yield TextContent(
-            id=text_id,
-            text=text_content,
-        )
+        if text_content is not None:
+            yield TextContent(
+                id=text_id,
+                text=text_content,
+            )
+
+        self.logger.info(f"Final tool calls: {final_tool_calls}")
 
         for _, tool_call in final_tool_calls.items():
             input_data = json.loads(tool_call.arguments)

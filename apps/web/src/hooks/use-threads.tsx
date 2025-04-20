@@ -6,13 +6,18 @@ const useThreads = () => {
   return useInfiniteQuery({
     queryKey: ['threads', activeConnection.name],
     queryFn: async ({ pageParam = 0 }) => {
-      const response = await threads.getThreadsThreadsGet({
-        limit: 5,
-        offset: pageParam,
-        order: 'desc'
-      });
+      try {
+        const response = await threads.getThreadsThreadsGet({
+          limit: 5,
+          offset: pageParam,
+          order: 'desc'
+        });
 
-      return response.data;
+        return response.data;
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
     },
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.length === 5 ? allPages.length * 5 : undefined;
