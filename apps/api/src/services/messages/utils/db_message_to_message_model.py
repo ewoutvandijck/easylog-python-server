@@ -59,7 +59,7 @@ def image_param(content: message_contents) -> ImageContent:
     if content.type != message_content_type.image:
         raise ValueError("Image is required")
 
-    if not content.image_url:
+    if content.image_url is None:
         raise ValueError("Image URL is required")
 
     return ImageContent(
@@ -73,10 +73,10 @@ def file_param(content: message_contents) -> FileContent:
     if content.type != message_content_type.file:
         raise ValueError("File is required")
 
-    if not content.file_data:
+    if content.file_data is None:
         raise ValueError("File data is required")
 
-    if not content.file_name:
+    if content.file_name is None:
         raise ValueError("File name is required")
 
     return FileContent(
@@ -91,13 +91,13 @@ def tool_call_param(content: message_contents) -> ToolUseContent:
     if content.type != message_content_type.tool_use:
         raise ValueError("Tool use is required")
 
-    if not content.tool_use_id:
+    if content.tool_use_id is None:
         raise ValueError("Tool use ID is required")
 
-    if not content.tool_name:
+    if content.tool_name is None:
         raise ValueError("Tool use name is required")
 
-    if not content.tool_input:
+    if content.tool_input is None:
         raise ValueError("Tool use arguments are required")
 
     return ToolUseContent(
@@ -122,7 +122,7 @@ def tool_result_param(content: message_contents) -> ToolResultContent:
     return ToolResultContent(
         id=content.id,
         type="tool_result",
-        widget_type=content.widget_type.value if content.widget_type else None,
+        widget_type="image" if content.widget_type == "image" else "chart" if content.widget_type == "chart" else None,
         tool_use_id=content.tool_use_id,
         output=content.tool_output,
     )

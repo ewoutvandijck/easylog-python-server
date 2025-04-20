@@ -90,16 +90,13 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             raise ValueError("Tool use ID is required")
 
         return ChatCompletionToolMessageParam(
-            role=message.role.value,
+            role="tool",
             tool_call_id=message.tool_use_id,
-            content=[
-                message_content
-                for message_content in [
-                    tool_result_param(content) if content.type == message_content_type.tool_use else None
-                    for content in message.contents
-                ]
-                if message_content is not None
-            ],
+            content="".join(
+                tool_result_param(content)["text"]
+                for content in message.contents
+                if content.type == message_content_type.tool_result
+            ),
         )
 
     raise ValueError(f"Unsupported message role: {message.role}")
@@ -122,7 +119,7 @@ def image_param(content: message_contents) -> ChatCompletionContentPartImagePara
     if content.type != message_content_type.image:
         raise ValueError("Image is required")
 
-    if not content.image_url:
+    if content.image_url is None:
         raise ValueError("Image URL is required")
 
     return ChatCompletionContentPartImageParam(
@@ -135,10 +132,10 @@ def file_param(content: message_contents) -> File:
     if content.type != message_content_type.file:
         raise ValueError("File is required")
 
-    if not content.file_data:
+    if content.file_data is None:
         raise ValueError("File data is required")
 
-    if not content.file_name:
+    if content.file_name is None:
         raise ValueError("File name is required")
 
     return File(
@@ -163,8 +160,6 @@ def tool_call_param(content: message_contents) -> ChatCompletionMessageToolCallP
     if content.tool_input is None:
         raise ValueError("Tool use arguments are required")
 
-    print(content.tool_input)
-
     return ChatCompletionMessageToolCallParam(
         id=content.tool_use_id,
         type="function",
@@ -179,7 +174,7 @@ def tool_result_param(content: message_contents) -> ChatCompletionContentPartTex
     if content.type != message_content_type.tool_result:
         raise ValueError("Tool result is required")
 
-    if not content.tool_output:
+    if content.tool_output is None:
         raise ValueError("Tool output is required")
 
     return ChatCompletionContentPartTextParam(
