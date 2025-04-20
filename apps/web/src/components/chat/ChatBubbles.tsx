@@ -26,32 +26,29 @@ const ChatBubbles = () => {
       ref={scrollRef}
     >
       {messageData?.flatMap((message, messageIndex) =>
-        message.contents
-          .filter((content) => {
-            if (content.type === 'text') {
-              return true;
-            }
-
-            if (content.type === 'text_delta') {
-              return true;
-            }
-
+        message.content
+          .map((content) => {
             if (
               content.type === 'tool_result' &&
-              (content.content_format === 'image' ||
-                content.content_format === 'chart')
+              (content.widget_type === 'image' ||
+                content.widget_type === 'chart')
             ) {
               message.role = 'assistant';
-              return true;
             }
 
-            return false;
+            return content;
           })
           .map((content, contentIndex) => (
             <ChatBubble
               key={`${messageIndex}-${contentIndex}`}
               content={content}
-              role={message.role}
+              role={
+                message.role.toLowerCase() as
+                  | 'user'
+                  | 'assistant'
+                  | 'system'
+                  | 'developer'
+              }
             />
           ))
       )}

@@ -86,14 +86,20 @@ async def create_message(
 
         try:
             async for chunk in forward_message_generator:
-                yield create_sse_event("start", json.dumps({"chunk_id": chunk_count}))
+                if isinstance(chunk, Message):
+                    yield create_sse_event("message", chunk.model_dump_json())
+                    continue
 
                 data = chunk.model_dump_json()
-                while len(data) > max_chunk_size:
-                    yield create_sse_event("delta", data[:max_chunk_size])
-                    data = data[max_chunk_size:]
+                if len(data) > max_chunk_size:
+                    yield create_sse_event("content_start", json.dumps({"chunk_id": chunk_count}))
+                    while len(data) > max_chunk_size:
+                        yield create_sse_event("content_delta", data[:max_chunk_size])
+                        data = data[max_chunk_size:]
 
-                yield create_sse_event("end", json.dumps({"chunk_id": chunk_count}))
+                    yield create_sse_event("content_end", json.dumps({"chunk_id": chunk_count}))
+                else:
+                    yield create_sse_event("content", data)
 
                 chunk_count += 1
 

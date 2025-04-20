@@ -1,4 +1,4 @@
-import { Message } from '@/app/schemas/messages';
+import { Message } from '@/schemas/messages';
 import { atom } from 'jotai';
 
 export const loadingAtom = atom<boolean>(false);

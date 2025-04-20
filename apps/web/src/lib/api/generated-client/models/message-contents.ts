@@ -12,27 +12,27 @@
  */
 
 import { mapValues } from '../runtime';
-import type { MessageContentType } from './MessageContentType';
+import type { MessageContentType } from './message-content-type';
 import {
   MessageContentTypeFromJSON,
   MessageContentTypeFromJSONTyped,
   MessageContentTypeToJSON,
   MessageContentTypeToJSONTyped
-} from './MessageContentType';
-import type { Messages } from './Messages';
+} from './message-content-type';
+import type { Messages } from './messages';
 import {
   MessagesFromJSON,
   MessagesFromJSONTyped,
   MessagesToJSON,
   MessagesToJSONTyped
-} from './Messages';
-import type { MessageContentFormat } from './MessageContentFormat';
+} from './messages';
+import type { WidgetType } from './widget-type';
 import {
-  MessageContentFormatFromJSON,
-  MessageContentFormatFromJSONTyped,
-  MessageContentFormatToJSON,
-  MessageContentFormatToJSONTyped
-} from './MessageContentFormat';
+  WidgetTypeFromJSON,
+  WidgetTypeFromJSONTyped,
+  WidgetTypeToJSON,
+  WidgetTypeToJSONTyped
+} from './widget-type';
 
 /**
  * Represents a message_contents record
@@ -65,42 +65,47 @@ export interface MessageContents {
    * @memberof MessageContents
    * @type {string}
    */
-  tool_use_id?: string | null;
-  /**
-   * @memberof MessageContents
-   * @type {boolean}
-   */
-  tool_use_is_error?: boolean | null;
+  image_url?: string | null;
   /**
    * @memberof MessageContents
    * @type {string}
    */
-  tool_use_name?: string | null;
+  file_data?: string | null;
+  /**
+   * @memberof MessageContents
+   * @type {string}
+   */
+  file_name?: string | null;
+  /**
+   * @memberof MessageContents
+   * @type {string}
+   */
+  text?: string | null;
+  /**
+   * @memberof MessageContents
+   * @type {WidgetType}
+   */
+  widget_type?: WidgetType | null;
+  /**
+   * @memberof MessageContents
+   * @type {string}
+   */
+  tool_use_id?: string | null;
+  /**
+   * @memberof MessageContents
+   * @type {string}
+   */
+  tool_name?: string | null;
   /**
    * @memberof MessageContents
    * @type
    */
-  tool_use_input?: null;
+  tool_input?: null;
   /**
    * @memberof MessageContents
    * @type {string}
    */
-  content?: string | null;
-  /**
-   * @memberof MessageContents
-   * @type {string}
-   */
-  content_type?: string | null;
-  /**
-   * @memberof MessageContents
-   * @type {MessageContentFormat}
-   */
-  content_format: MessageContentFormat;
-  /**
-   * @memberof MessageContents
-   * @type {string}
-   */
-  data?: string | null;
+  tool_output?: string | null;
   /**
    * @memberof MessageContents
    * @type {Date}
@@ -121,8 +126,6 @@ export function instanceOfMessageContents(
   if (!('message_id' in value) || value['message_id'] === undefined)
     return false;
   if (!('type' in value) || value['type'] === undefined) return false;
-  if (!('content_format' in value) || value['content_format'] === undefined)
-    return false;
   if (!('created_at' in value) || value['created_at'] === undefined)
     return false;
   if (!('updated_at' in value) || value['updated_at'] === undefined)
@@ -147,18 +150,19 @@ export function MessageContentsFromJSONTyped(
       json['message'] == null ? undefined : MessagesFromJSON(json['message']),
     message_id: json['message_id'],
     type: MessageContentTypeFromJSON(json['type']),
+    image_url: json['image_url'] == null ? undefined : json['image_url'],
+    file_data: json['file_data'] == null ? undefined : json['file_data'],
+    file_name: json['file_name'] == null ? undefined : json['file_name'],
+    text: json['text'] == null ? undefined : json['text'],
+    widget_type:
+      json['widget_type'] == null
+        ? undefined
+        : WidgetTypeFromJSON(json['widget_type']),
     tool_use_id: json['tool_use_id'] == null ? undefined : json['tool_use_id'],
-    tool_use_is_error:
-      json['tool_use_is_error'] == null ? undefined : json['tool_use_is_error'],
-    tool_use_name:
-      json['tool_use_name'] == null ? undefined : json['tool_use_name'],
-    tool_use_input:
-      json['tool_use_input'] == null ? undefined : json['tool_use_input'],
-    content: json['content'] == null ? undefined : json['content'],
-    content_type:
-      json['content_type'] == null ? undefined : json['content_type'],
-    content_format: MessageContentFormatFromJSON(json['content_format']),
-    data: json['data'] == null ? undefined : json['data'],
+    tool_name: json['tool_name'] == null ? undefined : json['tool_name'],
+    tool_input:
+      json['tool_input'] == null ? undefined : FromJSON(json['tool_input']),
+    tool_output: json['tool_output'] == null ? undefined : json['tool_output'],
     created_at: new Date(json['created_at']),
     updated_at: new Date(json['updated_at'])
   };
@@ -181,14 +185,15 @@ export function MessageContentsToJSONTyped(
     message: MessagesToJSON(value['message']),
     message_id: value['message_id'],
     type: MessageContentTypeToJSON(value['type']),
+    image_url: value['image_url'],
+    file_data: value['file_data'],
+    file_name: value['file_name'],
+    text: value['text'],
+    widget_type: WidgetTypeToJSON(value['widget_type']),
     tool_use_id: value['tool_use_id'],
-    tool_use_is_error: value['tool_use_is_error'],
-    tool_use_name: value['tool_use_name'],
-    tool_use_input: JSON.stringify(value['tool_use_input']),
-    content: value['content'],
-    content_type: value['content_type'],
-    content_format: MessageContentFormatToJSON(value['content_format']),
-    data: value['data'],
+    tool_name: value['tool_name'],
+    tool_input: ToJSON(value['tool_input']),
+    tool_output: value['tool_output'],
     created_at: value['created_at'].toISOString(),
     updated_at: value['updated_at'].toISOString()
   };
