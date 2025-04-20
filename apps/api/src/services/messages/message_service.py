@@ -221,7 +221,7 @@ class MessageService:
                         id=str(uuid.uuid4()),
                         role="tool",
                         tool_use_id=content_chunk.tool_use_id,
-                        content=[content_chunk],
+                        content=[],
                     )
                 )
             elif not last_message or last_message.role == "tool":
@@ -233,7 +233,7 @@ class MessageService:
                     )
                 )
 
-                generated_messages[-1].content.append(content_chunk)
+            generated_messages[-1].content.append(content_chunk)
 
             # First yield the current chunk before potential recursive calls
             yield content_chunk, initial_generated_messages.copy() + generated_messages.copy()
