@@ -1,3 +1,5 @@
+import json
+
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionContentPartImageParam,
@@ -123,7 +125,7 @@ def tool_use_content_to_openai_param(content: ToolUseContent) -> ChatCompletionM
         type="function",
         function={
             "name": content.name,
-            "arguments": str(content.input),
+            "arguments": json.dumps(content.input),
         },
     )
 

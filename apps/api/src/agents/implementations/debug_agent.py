@@ -9,6 +9,7 @@ from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
+from src.models.chart_widget import ChartWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
@@ -82,7 +83,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
         )
 
-        async def set_current_role(role: str) -> None:
+        async def tool_set_current_role(role: str) -> None:
             """Set the current role for the agent.
 
             Args:
@@ -97,11 +98,23 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             await self.set_metadata("current_role", role)
 
+        def tool_example_chart():
+            return ChartWidget.create_bar_chart(
+                title="Example chart",
+                data=[
+                    {"name": "James", "value": 10},
+                    {"name": "John", "value": 20},
+                ],
+                x_key="name",
+                y_keys=["value"],
+            )
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
             *knowledge_graph_tools.all_tools,
-            set_current_role,
+            tool_set_current_role,
+            tool_example_chart,
         ]
 
     async def on_message(
@@ -124,7 +137,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 current_role=role,
                 current_role_prompt=role_config.prompt,
                 available_roles="\n".join(
-                    [f"- {role.name}: {role.prompt}" for role in self.config.roles]
+                    [f"'{role.name}'" for role in self.config.roles]
                 ),
             )
         )

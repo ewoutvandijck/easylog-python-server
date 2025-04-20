@@ -154,14 +154,16 @@ def tool_call_param(content: message_contents) -> ChatCompletionMessageToolCallP
     if content.type != message_content_type.tool_use:
         raise ValueError("Tool use is required")
 
-    if not content.tool_use_id:
+    if content.tool_use_id is None:
         raise ValueError("Tool use ID is required")
 
-    if not content.tool_name:
+    if content.tool_name is None:
         raise ValueError("Tool use name is required")
 
-    if not content.tool_input:
+    if content.tool_input is None:
         raise ValueError("Tool use arguments are required")
+
+    print(content.tool_input)
 
     return ChatCompletionMessageToolCallParam(
         id=content.tool_use_id,
