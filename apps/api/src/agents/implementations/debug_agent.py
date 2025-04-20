@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable, Iterable
 
 from openai import AsyncStream
@@ -30,7 +29,9 @@ class DebugAgentConfig(BaseModel):
             )
         ]
     )
-    prompt: str = Field(default="You are a helpful assistant.")
+    prompt: str = Field(
+        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}."
+    )
 
 
 class CarEntity(BaseModel):
@@ -106,8 +107,6 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        self.logger.info(f"Messages: {json.dumps(messages, indent=2)}")
-
         tools = self.get_tools()
 
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -116,6 +115,16 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         role_config = next(
             role_config for role_config in self.config.roles if role_config.name == role
+        )
+
+        self.logger.info(
+            self.config.prompt.format(
+                current_role=role,
+                current_role_prompt=role_config.prompt,
+                available_roles="\n".join(
+                    [f"- {role.name}: {role.prompt}" for role in self.config.roles]
+                ),
+            )
         )
 
         response = await self.client.chat.completions.create(

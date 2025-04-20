@@ -3,18 +3,24 @@
 import useThreadMessages from '@/hooks/use-thread-messages';
 import ChatBubble from './ChatBubble';
 import { useRef, useEffect } from 'react';
+import { useAtom } from 'jotai';
+import { eventCountAtom } from '@/atoms/messages';
 
 const ChatBubbles = () => {
+  'use no memo';
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messageData, isLoading } = useThreadMessages();
+
+  const [eventCount] = useAtom(eventCountAtom);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current?.scrollHeight,
       behavior: 'smooth'
     });
-  }, [messageData]);
+  }, [messageData, eventCount]);
 
   if (isLoading) {
     return <div className="flex flex-col flex-1 gap-4">Loading...</div>;

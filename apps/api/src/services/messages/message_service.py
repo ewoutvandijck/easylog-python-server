@@ -176,6 +176,7 @@ class MessageService:
                                 "tool_output": content.output if isinstance(content, ToolResultContent) else None,
                             }
                             for content in message.content
+                            if not isinstance(content, TextDeltaContent)
                         ]
                     },
                 }
@@ -223,15 +224,14 @@ class MessageService:
                         content=[content_chunk],
                     )
                 )
-            elif not isinstance(content_chunk, TextDeltaContent):
-                if not last_message or last_message.role == "tool":
-                    generated_messages.append(
-                        GeneratedMessage(
-                            id=str(uuid.uuid4()),
-                            role="assistant",
-                            content=[],
-                        )
+            elif not last_message or last_message.role == "tool":
+                generated_messages.append(
+                    GeneratedMessage(
+                        id=str(uuid.uuid4()),
+                        role="assistant",
+                        content=[],
                     )
+                )
 
                 generated_messages[-1].content.append(content_chunk)
 
