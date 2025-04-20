@@ -160,8 +160,7 @@ export function MessageContentsFromJSONTyped(
         : WidgetTypeFromJSON(json['widget_type']),
     tool_use_id: json['tool_use_id'] == null ? undefined : json['tool_use_id'],
     tool_name: json['tool_name'] == null ? undefined : json['tool_name'],
-    tool_input:
-      json['tool_input'] == null ? undefined : FromJSON(json['tool_input']),
+    tool_input: null,
     tool_output: json['tool_output'] == null ? undefined : json['tool_output'],
     created_at: new Date(json['created_at']),
     updated_at: new Date(json['updated_at'])
@@ -192,7 +191,7 @@ export function MessageContentsToJSONTyped(
     widget_type: WidgetTypeToJSON(value['widget_type']),
     tool_use_id: value['tool_use_id'],
     tool_name: value['tool_name'],
-    tool_input: ToJSON(value['tool_input']),
+    tool_input: null,
     tool_output: value['tool_output'],
     created_at: value['created_at'].toISOString(),
     updated_at: value['updated_at'].toISOString()

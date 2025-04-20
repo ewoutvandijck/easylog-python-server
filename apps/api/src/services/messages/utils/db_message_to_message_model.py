@@ -1,5 +1,3 @@
-import json
-
 from prisma import Base64
 from prisma.enums import message_content_type
 from prisma.models import message_contents, messages
@@ -107,7 +105,7 @@ def tool_call_param(content: message_contents) -> ToolUseContent:
         tool_use_id=content.tool_use_id,
         type="tool_use",
         name=content.tool_name,
-        input=json.loads(content.tool_input),
+        input=dict(content.tool_input),
     )
 
 
