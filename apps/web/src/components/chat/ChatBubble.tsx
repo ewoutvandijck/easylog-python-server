@@ -2,10 +2,10 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DynamicChart } from '@/components/charts/DynamicChart';
-import { MessageContent } from '@/schemas/messages';
+import { MessageResponseContentInner } from '@/lib/api/generated-client';
 
 export interface ChatBubbleProps {
-  content: MessageContent;
+  content: MessageResponseContentInner;
   role: 'user' | 'assistant' | 'system' | 'developer' | 'tool';
 }
 

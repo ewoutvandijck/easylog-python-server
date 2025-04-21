@@ -153,24 +153,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         tools = self.get_tools()
 
-        self.logger.info(messages)
-
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
         role_config = next(
             role_config for role_config in self.config.roles if role_config.name == role
-        )
-
-        self.logger.info(
-            self.config.prompt.format(
-                current_role=role,
-                current_role_prompt=role_config.prompt,
-                available_roles="\n".join(
-                    [f"'{role.name}'" for role in self.config.roles]
-                ),
-            )
         )
 
         response = await self.client.chat.completions.create(

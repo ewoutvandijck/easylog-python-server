@@ -14,6 +14,7 @@ import {
   Message,
   MessageContent,
   messageContentSchema,
+  messageDeltaSchema,
   messageSchema
 } from '@/schemas/messages';
 
@@ -123,20 +124,22 @@ const useSendMessage = () => {
           }
 
           if (ev.event === 'content_delta') {
-            contentCache += ev.data;
+            const delta = messageDeltaSchema.parse(JSON.parse(ev.data));
+            contentCache += delta.delta;
           }
 
           if (ev.event === 'content_end') {
-            console.log('content_cache', contentCache);
             handleMessageContent(
               messageContentSchema.parse(JSON.parse(contentCache))
             );
           }
         },
-        onerror(ev) {
+        onerror(ev: Error) {
           setIsLoading(false);
-          toast.error(ev.data);
-          reject(new Error(ev.data));
+          console.log('onerror', ev);
+          console.log(contentCache);
+          toast.error(ev.message);
+          reject(ev);
         },
         async onopen() {
           setIsLoading(true);

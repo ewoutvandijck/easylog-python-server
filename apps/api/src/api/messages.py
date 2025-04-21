@@ -81,7 +81,7 @@ async def create_message(
     )
 
     async def stream() -> AsyncGenerator[str, None]:
-        max_chunk_size = 4096 - 32  # 4096 is the max chunk size for SSE, 32 is extra padding for the event metadata.
+        max_chunk_size = 4000
         chunk_count = 0
 
         try:
@@ -94,9 +94,13 @@ async def create_message(
                 if len(data) > max_chunk_size:
                     yield create_sse_event("content_start", json.dumps({"chunk_id": chunk_count}))
                     while len(data) > max_chunk_size:
-                        yield create_sse_event("content_delta", data[:max_chunk_size])
+                        yield create_sse_event(
+                            "content_delta", json.dumps({"chunk_id": chunk_count, "delta": data[:max_chunk_size]})
+                        )
+
                         data = data[max_chunk_size:]
 
+                    yield create_sse_event("content_delta", json.dumps({"chunk_id": chunk_count, "delta": data}))
                     yield create_sse_event("content_end", json.dumps({"chunk_id": chunk_count}))
                 else:
                     yield create_sse_event("content", data)

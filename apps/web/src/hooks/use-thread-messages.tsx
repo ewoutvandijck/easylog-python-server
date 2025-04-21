@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import useThreadId from './use-thread-id';
 import useApiClient from './use-api-client';
-import { messageSchema } from '@/schemas/messages';
 
 export const getThreadMessagesQueryKey = (
   threadId: string,
@@ -22,7 +21,7 @@ const useThreadMessages = () => {
         order: 'asc'
       });
 
-      return result.data.map((message) => messageSchema.parse(message));
+      return result.data.map((message) => message);
     }
   });
 };

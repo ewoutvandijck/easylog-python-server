@@ -192,8 +192,6 @@ class BaseAgent(Generic[TConfig]):
                 for tool_call in event.choices[0].delta.tool_calls or []:
                     index = tool_call.index
 
-                    self.logger.info(f"Tool call: {tool_call}")
-
                     if tool_call.function is None or tool_call.function.arguments is None:
                         self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
                         continue
@@ -216,8 +214,6 @@ class BaseAgent(Generic[TConfig]):
                     id=text_id,
                     text=text_content,
                 )
-
-            self.logger.info(f"Final tool calls: {final_tool_calls}")
 
             for _, tool_call in final_tool_calls.items():
                 input_data = json.loads(tool_call.arguments)

@@ -62,3 +62,10 @@ export const messageSchema = z.object({
 });
 
 export type Message = z.infer<typeof messageSchema>;
+
+export const messageDeltaSchema = z.object({
+  chunk_id: z.number(),
+  delta: z.string()
+});
+
+export type MessageDelta = z.infer<typeof messageDeltaSchema>;
