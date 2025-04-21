@@ -24,7 +24,8 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
           'p-0 w-[32rem]'
       )}
     >
-      {content.type === 'text' ? (
+      {content.type === 'text' ||
+      (content.type === 'tool_result' && !content.widget_type) ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -107,7 +108,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             em: ({ ...props }) => <em {...props} className="italic" />
           }}
         >
-          {content.text}
+          {content.type === 'text' ? content.text : content.output}
         </ReactMarkdown>
       ) : content.type === 'tool_result' && content.widget_type === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element

@@ -37,6 +37,8 @@ const ChatBubbles = () => {
             (content) =>
               !(
                 content.type === 'tool_use' ||
+                (content.type === 'tool_result' &&
+                  (content.output === '{}' || content.output === 'None')) ||
                 (content.type === 'text' && !content.text)
               )
           )
