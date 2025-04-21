@@ -26,37 +26,28 @@ const ChatBubbles = () => {
     return <div className="flex flex-col flex-1 gap-4">Loading...</div>;
   }
 
+  console.log(messageData);
+
   return (
     <div
       className="h-full max-h-full overflow-y-auto flex flex-col gap-4 p-10"
       ref={scrollRef}
     >
       {messageData?.flatMap((message, messageIndex) =>
-        message.content
-          .map((content) => {
-            if (
-              content.type === 'tool_result' &&
-              (content.widget_type === 'image' ||
-                content.widget_type === 'chart')
-            ) {
-              message.role = 'assistant';
+        message.content.map((content, contentIndex) => (
+          <ChatBubble
+            key={`${messageIndex}-${contentIndex}`}
+            content={content}
+            role={
+              message.role.toLowerCase() as
+                | 'user'
+                | 'assistant'
+                | 'system'
+                | 'developer'
+                | 'tool'
             }
-
-            return content;
-          })
-          .map((content, contentIndex) => (
-            <ChatBubble
-              key={`${messageIndex}-${contentIndex}`}
-              content={content}
-              role={
-                message.role.toLowerCase() as
-                  | 'user'
-                  | 'assistant'
-                  | 'system'
-                  | 'developer'
-              }
-            />
-          ))
+          />
+        ))
       )}
     </div>
   );

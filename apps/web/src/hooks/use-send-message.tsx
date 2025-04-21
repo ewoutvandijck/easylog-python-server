@@ -1,4 +1,4 @@
-import { Message, MessageCreateInput } from '@/lib/api/generated-client';
+import { MessageCreateInput } from '@/lib/api/generated-client';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
@@ -11,9 +11,11 @@ import useApiClient from './use-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { getThreadMessagesQueryKey } from './use-thread-messages';
 import {
+  Message,
+  MessageContent,
   messageContentSchema,
   messageSchema
-} from '@/schemas/message-contents';
+} from '@/schemas/messages';
 
 const useSendMessage = () => {
   const { activeConnection } = useApiClient();
@@ -23,42 +25,65 @@ const useSendMessage = () => {
   const setEventCount = useAtom(eventCountAtom)[1];
 
   const queryClient = useQueryClient();
-  const sendMessage = async (threadId: string, message: MessageCreateInput) => {
-    queryClient.setQueryData(
-      getThreadMessagesQueryKey(threadId, activeConnection.name),
-      (old: Message[]) => {
-        return [
-          ...old,
-          {
-            id: uuidv4(),
-            role: 'user',
-            content: message.content.map((content) => ({
-              id: uuidv4(),
-              type: content.type,
-              text: content.type === 'text' ? content.text : '',
-              tool_use_id: '',
-              name: '',
-              input: {},
-              output: '',
-              image_url: content.type === 'image' ? content.image_url : '',
-              file_data: content.type === 'file' ? content.file_data : '',
-              file_name: content.type === 'file' ? content.file_name : '',
-              delta: ''
-            }))
-          } satisfies Message
-        ];
-      }
-    );
 
+  const sendMessage = async (threadId: string, message: MessageCreateInput) => {
     setIsLoading(true);
+    setEventCount(0);
+    let contentCache = '';
 
     const endpointURL = new URL(
       `${activeConnection.url}/threads/${threadId}/messages`
     );
 
-    let contentCache = '';
+    const queryKey = getThreadMessagesQueryKey(threadId, activeConnection.name);
 
-    setEventCount(0);
+    const handleMessageContent = (content: MessageContent) => {
+      queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+        if (old.length === 0) return old;
+
+        const lastMessage = old[old.length - 1];
+
+        if (
+          content.type === 'text' &&
+          lastMessage.content.find((c) => c.id === content.id)
+        ) {
+          return old;
+        }
+
+        const matchingContent = lastMessage.content.findIndex(
+          (c) => c.id === content.id
+        );
+
+        if (
+          content.type === 'text_delta' &&
+          matchingContent !== -1 &&
+          lastMessage.content[matchingContent].type === 'text'
+        ) {
+          lastMessage.content[matchingContent].text += content.delta;
+        } else if (content.type === 'text_delta') {
+          lastMessage.content.push({
+            ...content,
+            type: 'text',
+            text: content.delta
+          });
+        } else {
+          lastMessage.content.push(content);
+        }
+
+        return old;
+      });
+    };
+
+    queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+      return [
+        ...old,
+        {
+          id: uuidv4(),
+          role: 'user',
+          content: message.content
+        }
+      ];
+    });
 
     await new Promise(async (resolve, reject) => {
       await fetchEventSource(endpointURL.toString(), {
@@ -76,72 +101,19 @@ const useSendMessage = () => {
 
           if (ev.event === 'error') {
             toast.error(data.detail);
-            queryClient.invalidateQueries({
-              queryKey: getThreadMessagesQueryKey(
-                threadId,
-                activeConnection.name
-              )
-            });
+            queryClient.invalidateQueries({ queryKey });
           }
 
           if (ev.event === 'message') {
             console.log('message', ev.data);
-            const message = messageSchema.parse(JSON.parse(ev.data));
-            queryClient.setQueryData(
-              getThreadMessagesQueryKey(threadId, activeConnection.name),
-              (old: Message[]) => {
-                return [...old, message];
-              }
-            );
+            queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+              return [...old, messageSchema.parse(JSON.parse(ev.data))];
+            });
           }
 
           if (ev.event === 'content') {
-            console.log('content', ev.data);
-            const content = messageContentSchema.parse(JSON.parse(ev.data));
-            if (content.type === 'text') {
-              return;
-            }
-
-            queryClient.setQueryData(
-              getThreadMessagesQueryKey(threadId, activeConnection.name),
-              (old: Message[]) => {
-                if (content.type === 'text_delta') {
-                  const messageContentIndex = old[
-                    old.length - 1
-                  ].content.findIndex((c) => c.id === content.id);
-
-                  if (messageContentIndex !== -1) {
-                    old[old.length - 1].content[messageContentIndex].text +=
-                      content.delta;
-                  } else {
-                    old[old.length - 1].content.push({
-                      type: 'text',
-                      text: content.delta,
-                      file_data: '',
-                      file_name: '',
-                      image_url: '',
-                      tool_use_id: '',
-                      name: '',
-                      input: {},
-                      output: '',
-                      id: content.id,
-                      delta: ''
-                    });
-                  }
-
-                  console.log(old[old.length - 1].content);
-
-                  return old;
-                }
-
-                return [
-                  ...old.slice(0, -1),
-                  {
-                    ...message,
-                    content: [...message.content, content]
-                  }
-                ];
-              }
+            handleMessageContent(
+              messageContentSchema.parse(JSON.parse(ev.data))
             );
           }
 
@@ -154,24 +126,8 @@ const useSendMessage = () => {
           }
 
           if (ev.event === 'content_end') {
-            const content = messageContentSchema.parse(
-              JSON.parse(contentCache)
-            );
-
-            if (content.type === 'text') {
-              return;
-            }
-
-            queryClient.setQueryData(
-              getThreadMessagesQueryKey(threadId, activeConnection.name),
-              (old: Message[]) => {
-                return old.map((message) => {
-                  return {
-                    ...message,
-                    content: [...message.content, content]
-                  };
-                });
-              }
+            handleMessageContent(
+              messageContentSchema.parse(JSON.parse(contentCache))
             );
           }
         },
