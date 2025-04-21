@@ -13,7 +13,7 @@ from typing import (
     get_args,
 )
 
-from openai import AsyncOpenAI, AsyncStream
+from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
@@ -22,12 +22,12 @@ from prisma import Json
 from prisma.models import threads
 from pydantic import BaseModel
 
+from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.chart_widget import ChartWidget
 from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
 from src.models.stream_tool_call import StreamToolCall
-from src.settings import settings
 from src.utils.image_to_base64 import image_to_base64
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -44,10 +44,7 @@ class BaseAgent(Generic[TConfig]):
         self.request_headers = request_headers
 
         # Initialize the client
-        self.client = AsyncOpenAI(
-            api_key=settings.OPENROUTER_API_KEY,
-            base_url="https://openrouter.ai/api/v1",
-        )
+        self.client = openai_client
 
         self.on_init()
 

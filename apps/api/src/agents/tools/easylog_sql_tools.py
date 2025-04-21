@@ -16,7 +16,7 @@ class EasylogSqlTools(BaseTools):
         db_name: str = "easylog",
         db_password: str = "",
         connect_timeout: int = 10,
-    ):
+    ) -> None:
         self.db = EasylogSqlService(
             ssh_key_path=ssh_key_path,
             ssh_host=ssh_host,

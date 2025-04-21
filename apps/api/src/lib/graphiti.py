@@ -1,5 +1,9 @@
-# from graphiti_core import Graphiti
+from graphiti_core import Graphiti
 
-# from src.settings import settings
+graphiti_connection: Graphiti | None = None
 
-# graphiti = Graphiti(settings.NEO4J_URI, settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+
+def get_graphiti_connection() -> Graphiti:
+    if graphiti_connection is None:
+        raise RuntimeError("Graphiti connection not initialized. Ensure the lifespan event ran.")
+    return graphiti_connection

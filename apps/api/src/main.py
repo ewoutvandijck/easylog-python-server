@@ -1,16 +1,18 @@
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from graphiti_core import Graphiti
+from graphiti_core.llm_client import LLMConfig, OpenAIClient
 
 from src.api import health, knowledge, messages, threads
-
-# from src.lib.graphiti import graphiti
+from src.lib import graphiti as graphiti_lib
+from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.security.api_token import verify_api_key
@@ -20,18 +22,32 @@ load_dotenv()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    # try:
-    #     # await graphiti.driver.verify_connectivity()
-    #     # await graphiti.build_indices_and_constraints()
-    # except Exception as e:
-    #     logger.warning(f"Error verifying connectivity or building indices and constraints: {e}")
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+    try:
+        graphiti_lib.graphiti_connection = Graphiti(
+            user=settings.NEO4J_USER,
+            password=settings.NEO4J_PASSWORD,
+            uri=settings.NEO4J_URI,
+            llm_client=OpenAIClient(
+                config=LLMConfig(
+                    api_key=settings.OPENROUTER_API_KEY,
+                    base_url="https://openrouter.ai/api/v1",
+                    model="openai/gpt-4.1",
+                ),
+                client=openai_client,
+            ),
+        )
+    except Exception as e:
+        logger.warning(f"Error initializing Graphiti connection: {e}", exc_info=True)
 
     await prisma.connect()
+
     yield
+
     await prisma.disconnect()
 
-    # await graphiti.close()
+    if graphiti_lib.graphiti_connection:
+        await graphiti_lib.graphiti_connection.close()
 
 
 app = FastAPI(
@@ -52,7 +68,7 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
+async def add_process_time_header(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     start_time = time.perf_counter()
     response = await call_next(request)
     process_time = time.perf_counter() - start_time
@@ -61,7 +77,7 @@ async def add_process_time_header(request: Request, call_next: Callable[[Request
 
 
 @app.middleware("http")
-async def timeout_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
+async def timeout_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     try:
         async with asyncio.timeout(90):  # 90 second timeout
             response = await call_next(request)
@@ -71,7 +87,7 @@ async def timeout_middleware(request: Request, call_next: Callable[[Request], Aw
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]):
+async def log_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time

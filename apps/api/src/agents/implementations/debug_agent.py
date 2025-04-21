@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
+from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.chart_widget import ChartWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -64,9 +65,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     def get_tools(self) -> list[Callable]:
         easylog_backend_tools = EasylogBackendTools(
             bearer_token=self.request_headers.get("X-Easylog-Bearer-Token", ""),
-            base_url=self.request_headers.get(
-                "X-Easylog-Base-Url", "https://staging.easylog.nu/api/v2"
-            ),
+            base_url=settings.EASYLOG_API_URL,
         )
 
         easylog_sql_tools = EasylogSqlTools(
@@ -80,10 +79,10 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             db_name=settings.EASYLOG_DB_NAME,
         )
 
-        # knowledge_graph_tools = KnowledgeGraphTools(
-        #     thread_id=self.thread_id,
-        #     entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
-        # )
+        knowledge_graph_tools = KnowledgeGraphTools(
+            thread_id=self.thread_id,
+            entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
+        )
 
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
@@ -142,7 +141,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
-            # *knowledge_graph_tools.all_tools,
+            *knowledge_graph_tools.all_tools,
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
