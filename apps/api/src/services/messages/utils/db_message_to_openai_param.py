@@ -22,7 +22,6 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
     if message.role == message_role.user:
         return ChatCompletionUserMessageParam(
             role=message.role.value,
-            name=message.name or "User",
             content=[
                 message_content
                 for message_content in [
@@ -39,30 +38,25 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
             ],
         )
     elif message.role == message_role.assistant:
-        return ChatCompletionAssistantMessageParam(
+        message_content = ChatCompletionAssistantMessageParam(
             role=message.role.value,
-            name=message.name or "Assistant",
-            content=[
-                message_content
-                for message_content in [
-                    text_param(content) if content.type in [message_content_type.text] else None
-                    for content in message.contents
-                ]
-                if message_content is not None
-            ],
-            tool_calls=[
-                tool_call
-                for tool_call in [
-                    tool_call_param(content) if content.type == message_content_type.tool_use else None
-                    for content in message.contents
-                ]
-                if tool_call is not None
-            ],
+            content="".join(
+                text_param(content)["text"] for content in message.contents if content.type == message_content_type.text
+            ),
         )
+
+        if any(content.type == message_content_type.tool_use for content in message.contents):
+            message_content["tool_calls"] = [
+                tool_call_param(content)
+                for content in message.contents
+                if content.type == message_content_type.tool_use
+            ]
+
+        return message_content
+
     elif message.role == message_role.system:
         return ChatCompletionSystemMessageParam(
             role=message.role.value,
-            name=message.name or "System",
             content=[
                 message_content
                 for message_content in [
