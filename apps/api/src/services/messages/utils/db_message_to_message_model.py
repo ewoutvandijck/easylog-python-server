@@ -16,7 +16,6 @@ def db_message_to_message_model(message: messages) -> Message:
     if message.contents is None:
         raise ValueError("Message contents are required")
 
-    # Determine the role value safely
     role_value: str
     if isinstance(message.role, message_role):
         role_value = message.role.value
