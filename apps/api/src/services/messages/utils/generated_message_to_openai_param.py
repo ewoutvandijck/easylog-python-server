@@ -27,7 +27,6 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
     if message.role == "user":
         return ChatCompletionUserMessageParam(
             role=message.role,
-            name=message.name or "User",
             content=[
                 message_content
                 for message_content in [
@@ -46,7 +45,6 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
     elif message.role == "assistant":
         message_content = ChatCompletionAssistantMessageParam(
             role=message.role,
-            name=message.name or "Assistant",
             content="".join(
                 text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
             ),
@@ -62,7 +60,6 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
     elif message.role == "system":
         return ChatCompletionSystemMessageParam(
             role=message.role,
-            name=message.name or "System",
             content="".join(
                 text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
             ),
@@ -70,7 +67,6 @@ def generated_message_to_openai_param(message: Message) -> ChatCompletionMessage
     elif message.role == "developer":
         return ChatCompletionDeveloperMessageParam(
             role=message.role,
-            name=message.name or "Developer",
             content="".join(
                 text_content_to_openai_param(content)["text"] for content in message.content if content.type == "text"
             ),

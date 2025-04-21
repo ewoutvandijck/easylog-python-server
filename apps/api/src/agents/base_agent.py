@@ -175,54 +175,64 @@ class BaseAgent(Generic[TConfig]):
 
         text_content: str | None = ""
         text_id = str(uuid.uuid4())
-        async for event in stream:
-            if event.choices[0].delta.content is not None:
-                text_content = (
-                    event.choices[0].delta.content
-                    if text_content is None
-                    else text_content + event.choices[0].delta.content
-                )
-
-                yield TextDeltaContent(
-                    id=text_id,
-                    delta=event.choices[0].delta.content,
-                )
-
-            for tool_call in event.choices[0].delta.tool_calls or []:
-                index = tool_call.index
-
-                self.logger.info(f"Tool call: {tool_call}")
-
-                if tool_call.function is None or tool_call.function.arguments is None:
-                    self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
-                    continue
-
-                if index not in final_tool_calls and tool_call.function.name is not None and tool_call.id is not None:
-                    final_tool_calls[index] = StreamToolCall(
-                        tool_call_id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments
+        try:
+            async for event in stream:
+                if event.choices[0].delta.content is not None:
+                    text_content = (
+                        event.choices[0].delta.content
+                        if text_content is None
+                        else text_content + event.choices[0].delta.content
                     )
-                else:
-                    final_tool_calls[index].arguments += tool_call.function.arguments
 
-        if text_content is not None:
-            yield TextContent(
-                id=text_id,
-                text=text_content,
-            )
+                    yield TextDeltaContent(
+                        id=text_id,
+                        delta=event.choices[0].delta.content,
+                    )
 
-        self.logger.info(f"Final tool calls: {final_tool_calls}")
+                for tool_call in event.choices[0].delta.tool_calls or []:
+                    index = tool_call.index
 
-        for _, tool_call in final_tool_calls.items():
-            input_data = json.loads(tool_call.arguments)
+                    self.logger.info(f"Tool call: {tool_call}")
 
-            yield ToolUseContent(
-                id=str(uuid.uuid4()),
-                tool_use_id=tool_call.tool_call_id,
-                name=tool_call.name,
-                input=input_data,
-            )
+                    if tool_call.function is None or tool_call.function.arguments is None:
+                        self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
+                        continue
 
-            yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
+                    if (
+                        index not in final_tool_calls
+                        and tool_call.function.name is not None
+                        and tool_call.id is not None
+                    ):
+                        final_tool_calls[index] = StreamToolCall(
+                            tool_call_id=tool_call.id,
+                            name=tool_call.function.name,
+                            arguments=tool_call.function.arguments,
+                        )
+                    else:
+                        final_tool_calls[index].arguments += tool_call.function.arguments
+
+            if text_content is not None:
+                yield TextContent(
+                    id=text_id,
+                    text=text_content,
+                )
+
+            self.logger.info(f"Final tool calls: {final_tool_calls}")
+
+            for _, tool_call in final_tool_calls.items():
+                input_data = json.loads(tool_call.arguments)
+
+                yield ToolUseContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call.tool_call_id,
+                    name=tool_call.name,
+                    input=input_data,
+                )
+
+                yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
+        except Exception as e:
+            self.logger.error(f"Error handling tool call: {e}")
+            raise e
 
     async def _handle_completion(
         self, completion: ChatCompletion, tools: list[Callable]

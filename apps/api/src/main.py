@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api import health, knowledge, messages, threads
-from src.lib.graphiti import graphiti
+
+# from src.lib.graphiti import graphiti
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.security.api_token import verify_api_key
@@ -20,17 +21,17 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    try:
-        await graphiti.driver.verify_connectivity()
-        await graphiti.build_indices_and_constraints()
-    except Exception as e:
-        logger.warning(f"Error verifying connectivity or building indices and constraints: {e}")
+    # try:
+    #     # await graphiti.driver.verify_connectivity()
+    #     # await graphiti.build_indices_and_constraints()
+    # except Exception as e:
+    #     logger.warning(f"Error verifying connectivity or building indices and constraints: {e}")
 
     await prisma.connect()
     yield
     await prisma.disconnect()
 
-    await graphiti.close()
+    # await graphiti.close()
 
 
 app = FastAPI(
