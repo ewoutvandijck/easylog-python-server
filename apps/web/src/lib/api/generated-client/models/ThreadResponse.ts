@@ -12,94 +12,94 @@
  */
 
 import { mapValues } from '../runtime';
-import type { Messages } from './messages';
+import type { MessageResponse } from './MessageResponse';
 import {
-  MessagesFromJSON,
-  MessagesFromJSONTyped,
-  MessagesToJSON,
-  MessagesToJSONTyped
-} from './messages';
+  MessageResponseFromJSON,
+  MessageResponseFromJSONTyped,
+  MessageResponseToJSON,
+  MessageResponseToJSONTyped
+} from './MessageResponse';
 
 /**
- * Represents a threads record
- *
  * @export
- * @interface Threads
+ * @interface ThreadResponse
  */
-export interface Threads {
+export interface ThreadResponse {
   /**
-   * @memberof Threads
+   * @memberof ThreadResponse
    * @type {string}
    */
   id: string;
   /**
-   * @memberof Threads
+   * @memberof ThreadResponse
    * @type {string}
    */
-  external_id?: string | null;
+  external_id: string | null;
   /**
-   * @memberof Threads
+   * @memberof ThreadResponse
    * @type {Date}
    */
   created_at: Date;
   /**
-   * @memberof Threads
+   * @memberof ThreadResponse
    * @type {Date}
    */
   updated_at: Date;
   /**
-   * @memberof Threads
-   * @type {any}
+   * @memberof ThreadResponse
+   * @type {object}
    */
-  metadata: any | null;
+  metadata: object;
   /**
-   * @memberof Threads
-   * @type {Messages[]}
+   * @memberof ThreadResponse
+   * @type {MessageResponse[]}
    */
-  messages?: Array<Messages> | null;
+  messages: Array<MessageResponse>;
 }
 
-/** Check if a given object implements the Threads interface. */
-export function instanceOfThreads(value: object): value is Threads {
+/** Check if a given object implements the ThreadResponse interface. */
+export function instanceOfThreadResponse(
+  value: object
+): value is ThreadResponse {
   if (!('id' in value) || value['id'] === undefined) return false;
+  if (!('external_id' in value) || value['external_id'] === undefined)
+    return false;
   if (!('created_at' in value) || value['created_at'] === undefined)
     return false;
   if (!('updated_at' in value) || value['updated_at'] === undefined)
     return false;
   if (!('metadata' in value) || value['metadata'] === undefined) return false;
+  if (!('messages' in value) || value['messages'] === undefined) return false;
   return true;
 }
 
-export function ThreadsFromJSON(json: any): Threads {
-  return ThreadsFromJSONTyped(json, false);
+export function ThreadResponseFromJSON(json: any): ThreadResponse {
+  return ThreadResponseFromJSONTyped(json, false);
 }
 
-export function ThreadsFromJSONTyped(
+export function ThreadResponseFromJSONTyped(
   json: any,
   ignoreDiscriminator: boolean
-): Threads {
+): ThreadResponse {
   if (json == null) {
     return json;
   }
   return {
     id: json['id'],
-    external_id: json['external_id'] == null ? undefined : json['external_id'],
+    external_id: json['external_id'],
     created_at: new Date(json['created_at']),
     updated_at: new Date(json['updated_at']),
     metadata: json['metadata'],
-    messages:
-      json['messages'] == null
-        ? undefined
-        : (json['messages'] as Array<any>).map(MessagesFromJSON)
+    messages: (json['messages'] as Array<any>).map(MessageResponseFromJSON)
   };
 }
 
-export function ThreadsToJSON(json: any): Threads {
-  return ThreadsToJSONTyped(json, false);
+export function ThreadResponseToJSON(json: any): ThreadResponse {
+  return ThreadResponseToJSONTyped(json, false);
 }
 
-export function ThreadsToJSONTyped(
-  value?: Threads | null,
+export function ThreadResponseToJSONTyped(
+  value?: ThreadResponse | null,
   ignoreDiscriminator: boolean = false
 ): any {
   if (value == null) {
@@ -112,9 +112,6 @@ export function ThreadsToJSONTyped(
     created_at: value['created_at'].toISOString(),
     updated_at: value['updated_at'].toISOString(),
     metadata: value['metadata'],
-    messages:
-      value['messages'] == null
-        ? undefined
-        : (value['messages'] as Array<any>).map(MessagesToJSON)
+    messages: (value['messages'] as Array<any>).map(MessageResponseToJSON)
   };
 }

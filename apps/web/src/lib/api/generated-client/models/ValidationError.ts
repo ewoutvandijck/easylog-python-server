@@ -12,13 +12,13 @@
  */
 
 import { mapValues } from '../runtime';
-import type { ValidationErrorLocInner } from './validation-error-loc-inner';
+import type { ValidationErrorLocInner } from './ValidationErrorLocInner';
 import {
   ValidationErrorLocInnerFromJSON,
   ValidationErrorLocInnerFromJSONTyped,
   ValidationErrorLocInnerToJSON,
   ValidationErrorLocInnerToJSONTyped
-} from './validation-error-loc-inner';
+} from './ValidationErrorLocInner';
 
 /**
  * @export

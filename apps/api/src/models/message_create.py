@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,7 +31,7 @@ MessageCreateInputContent = (
 
 
 class MessageCreateInput(BaseModel):
-    content: list[MessageCreateInputContent]
+    content: list[Annotated[MessageCreateInputContent, Field(discriminator="type")]]
 
     agent_config: AgentConfig = Field(
         ...,

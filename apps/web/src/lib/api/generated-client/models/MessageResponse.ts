@@ -12,73 +12,75 @@
  */
 
 import { mapValues } from '../runtime';
-import type { MessageContentInner } from './message-content-inner';
+import type { MessageResponseContentInner } from './MessageResponseContentInner';
 import {
-  MessageContentInnerFromJSON,
-  MessageContentInnerFromJSONTyped,
-  MessageContentInnerToJSON,
-  MessageContentInnerToJSONTyped
-} from './message-content-inner';
+  MessageResponseContentInnerFromJSON,
+  MessageResponseContentInnerFromJSONTyped,
+  MessageResponseContentInnerToJSON,
+  MessageResponseContentInnerToJSONTyped
+} from './MessageResponseContentInner';
 
 /**
  * @export
- * @interface Message
+ * @interface MessageResponse
  */
-export interface Message {
+export interface MessageResponse {
   /**
-   * @memberof Message
+   * @memberof MessageResponse
    * @type {string}
    */
   id: string;
   /**
-   * @memberof Message
+   * @memberof MessageResponse
    * @type {string}
    */
-  role: MessageRoleEnum;
+  role: MessageResponseRoleEnum;
   /**
-   * @memberof Message
+   * @memberof MessageResponse
    * @type {string}
    */
   name?: string | null;
   /**
-   * @memberof Message
+   * @memberof MessageResponse
    * @type {string}
    */
   tool_use_id?: string | null;
   /**
-   * @memberof Message
-   * @type {MessageContentInner[]}
+   * @memberof MessageResponse
+   * @type {MessageResponseContentInner[]}
    */
-  content: Array<MessageContentInner>;
+  content: Array<MessageResponseContentInner>;
 }
 
 /** @export */
-export const MessageRoleEnum = {
+export const MessageResponseRoleEnum = {
   Assistant: 'assistant',
   User: 'user',
   System: 'system',
   Developer: 'developer',
   Tool: 'tool'
 } as const;
-export type MessageRoleEnum =
-  (typeof MessageRoleEnum)[keyof typeof MessageRoleEnum];
+export type MessageResponseRoleEnum =
+  (typeof MessageResponseRoleEnum)[keyof typeof MessageResponseRoleEnum];
 
-/** Check if a given object implements the Message interface. */
-export function instanceOfMessage(value: object): value is Message {
+/** Check if a given object implements the MessageResponse interface. */
+export function instanceOfMessageResponse(
+  value: object
+): value is MessageResponse {
   if (!('id' in value) || value['id'] === undefined) return false;
   if (!('role' in value) || value['role'] === undefined) return false;
   if (!('content' in value) || value['content'] === undefined) return false;
   return true;
 }
 
-export function MessageFromJSON(json: any): Message {
-  return MessageFromJSONTyped(json, false);
+export function MessageResponseFromJSON(json: any): MessageResponse {
+  return MessageResponseFromJSONTyped(json, false);
 }
 
-export function MessageFromJSONTyped(
+export function MessageResponseFromJSONTyped(
   json: any,
   ignoreDiscriminator: boolean
-): Message {
+): MessageResponse {
   if (json == null) {
     return json;
   }
@@ -87,16 +89,18 @@ export function MessageFromJSONTyped(
     role: json['role'],
     name: json['name'] == null ? undefined : json['name'],
     tool_use_id: json['tool_use_id'] == null ? undefined : json['tool_use_id'],
-    content: (json['content'] as Array<any>).map(MessageContentInnerFromJSON)
+    content: (json['content'] as Array<any>).map(
+      MessageResponseContentInnerFromJSON
+    )
   };
 }
 
-export function MessageToJSON(json: any): Message {
-  return MessageToJSONTyped(json, false);
+export function MessageResponseToJSON(json: any): MessageResponse {
+  return MessageResponseToJSONTyped(json, false);
 }
 
-export function MessageToJSONTyped(
-  value?: Message | null,
+export function MessageResponseToJSONTyped(
+  value?: MessageResponse | null,
   ignoreDiscriminator: boolean = false
 ): any {
   if (value == null) {
@@ -108,6 +112,8 @@ export function MessageToJSONTyped(
     role: value['role'],
     name: value['name'],
     tool_use_id: value['tool_use_id'],
-    content: (value['content'] as Array<any>).map(MessageContentInnerToJSON)
+    content: (value['content'] as Array<any>).map(
+      MessageResponseContentInnerToJSON
+    )
   };
 }

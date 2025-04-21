@@ -12,13 +12,13 @@
  */
 
 import { mapValues } from '../runtime';
-import type { ValidationError } from './validation-error';
+import type { ValidationError } from './ValidationError';
 import {
   ValidationErrorFromJSON,
   ValidationErrorFromJSONTyped,
   ValidationErrorToJSON,
   ValidationErrorToJSONTyped
-} from './validation-error';
+} from './ValidationError';
 
 /**
  * @export

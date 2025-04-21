@@ -15,15 +15,15 @@ import * as runtime from '../runtime';
 import type {
   HTTPValidationError,
   MessageCreateInput,
-  PaginationMessage
+  PaginationMessageResponse
 } from '../models/index';
 import {
   HTTPValidationErrorFromJSON,
   HTTPValidationErrorToJSON,
   MessageCreateInputFromJSON,
   MessageCreateInputToJSON,
-  PaginationMessageFromJSON,
-  PaginationMessageToJSON
+  PaginationMessageResponseFromJSON,
+  PaginationMessageResponseToJSON
 } from '../models/index';
 
 export interface CreateMessageThreadsThreadIdMessagesPostRequest {
@@ -113,7 +113,7 @@ export interface MessagesApiInterface {
   getMessagesThreadsThreadIdMessagesGetRaw(
     requestParameters: GetMessagesThreadsThreadIdMessagesGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<PaginationMessage>>;
+  ): Promise<runtime.ApiResponse<PaginationMessageResponse>>;
 
   /**
    * Retrieves all messages for a given thread. Returns a list of all messages
@@ -123,7 +123,7 @@ export interface MessagesApiInterface {
   getMessagesThreadsThreadIdMessagesGet(
     requestParameters: GetMessagesThreadsThreadIdMessagesGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<PaginationMessage>;
+  ): Promise<PaginationMessageResponse>;
 }
 
 export class MessagesApi
@@ -279,7 +279,7 @@ export class MessagesApi
   async getMessagesThreadsThreadIdMessagesGetRaw(
     requestParameters: GetMessagesThreadsThreadIdMessagesGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<PaginationMessage>> {
+  ): Promise<runtime.ApiResponse<PaginationMessageResponse>> {
     if (requestParameters['threadId'] == null) {
       throw new runtime.RequiredError(
         'threadId',
@@ -325,7 +325,7 @@ export class MessagesApi
     );
 
     return new runtime.JSONApiResponse(response, (jsonValue) =>
-      PaginationMessageFromJSON(jsonValue)
+      PaginationMessageResponseFromJSON(jsonValue)
     );
   }
 
@@ -337,7 +337,7 @@ export class MessagesApi
   async getMessagesThreadsThreadIdMessagesGet(
     requestParameters: GetMessagesThreadsThreadIdMessagesGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<PaginationMessage> {
+  ): Promise<PaginationMessageResponse> {
     const response = await this.getMessagesThreadsThreadIdMessagesGetRaw(
       requestParameters,
       initOverrides

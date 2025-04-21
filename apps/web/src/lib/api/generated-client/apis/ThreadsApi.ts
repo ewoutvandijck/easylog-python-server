@@ -14,19 +14,19 @@
 import * as runtime from '../runtime';
 import type {
   HTTPValidationError,
-  PaginationThreads,
+  PaginationThreadResponse,
   ThreadCreateInput,
-  Threads
+  ThreadResponse
 } from '../models/index';
 import {
   HTTPValidationErrorFromJSON,
   HTTPValidationErrorToJSON,
-  PaginationThreadsFromJSON,
-  PaginationThreadsToJSON,
+  PaginationThreadResponseFromJSON,
+  PaginationThreadResponseToJSON,
   ThreadCreateInputFromJSON,
   ThreadCreateInputToJSON,
-  ThreadsFromJSON,
-  ThreadsToJSON
+  ThreadResponseFromJSON,
+  ThreadResponseToJSON
 } from '../models/index';
 
 export interface CreateThreadThreadsPostRequest {
@@ -66,7 +66,7 @@ export interface ThreadsApiInterface {
   createThreadThreadsPostRaw(
     requestParameters: CreateThreadThreadsPostRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<Threads>>;
+  ): Promise<runtime.ApiResponse<ThreadResponse>>;
 
   /**
    * Creates a new thread or returns the existing thread if it already exists.
@@ -75,7 +75,7 @@ export interface ThreadsApiInterface {
   createThreadThreadsPost(
     requestParameters: CreateThreadThreadsPostRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<Threads>;
+  ): Promise<ThreadResponse>;
 
   /**
    * Deletes a thread by its internal or external ID.
@@ -113,7 +113,7 @@ export interface ThreadsApiInterface {
   getThreadByIdThreadsIdGetRaw(
     requestParameters: GetThreadByIdThreadsIdGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<Threads>>;
+  ): Promise<runtime.ApiResponse<ThreadResponse>>;
 
   /**
    * Retrieves a specific thread by its unique ID. Returns the thread details
@@ -123,7 +123,7 @@ export interface ThreadsApiInterface {
   getThreadByIdThreadsIdGet(
     requestParameters: GetThreadByIdThreadsIdGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<Threads>;
+  ): Promise<ThreadResponse>;
 
   /**
    * Retrieves all threads. Returns a list of all threads with their messages
@@ -141,7 +141,7 @@ export interface ThreadsApiInterface {
   getThreadsThreadsGetRaw(
     requestParameters: GetThreadsThreadsGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<PaginationThreads>>;
+  ): Promise<runtime.ApiResponse<PaginationThreadResponse>>;
 
   /**
    * Retrieves all threads. Returns a list of all threads with their messages
@@ -151,7 +151,7 @@ export interface ThreadsApiInterface {
   getThreadsThreadsGet(
     requestParameters: GetThreadsThreadsGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<PaginationThreads>;
+  ): Promise<PaginationThreadResponse>;
 }
 
 export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
@@ -162,7 +162,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async createThreadThreadsPostRaw(
     requestParameters: CreateThreadThreadsPostRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<Threads>> {
+  ): Promise<runtime.ApiResponse<ThreadResponse>> {
     if (requestParameters['threadCreateInput'] == null) {
       throw new runtime.RequiredError(
         'threadCreateInput',
@@ -196,7 +196,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
     );
 
     return new runtime.JSONApiResponse(response, (jsonValue) =>
-      ThreadsFromJSON(jsonValue)
+      ThreadResponseFromJSON(jsonValue)
     );
   }
 
@@ -207,7 +207,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async createThreadThreadsPost(
     requestParameters: CreateThreadThreadsPostRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<Threads> {
+  ): Promise<ThreadResponse> {
     const response = await this.createThreadThreadsPostRaw(
       requestParameters,
       initOverrides
@@ -279,7 +279,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async getThreadByIdThreadsIdGetRaw(
     requestParameters: GetThreadByIdThreadsIdGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<Threads>> {
+  ): Promise<runtime.ApiResponse<ThreadResponse>> {
     if (requestParameters['id'] == null) {
       throw new runtime.RequiredError(
         'id',
@@ -313,7 +313,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
     );
 
     return new runtime.JSONApiResponse(response, (jsonValue) =>
-      ThreadsFromJSON(jsonValue)
+      ThreadResponseFromJSON(jsonValue)
     );
   }
 
@@ -325,7 +325,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async getThreadByIdThreadsIdGet(
     requestParameters: GetThreadByIdThreadsIdGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<Threads> {
+  ): Promise<ThreadResponse> {
     const response = await this.getThreadByIdThreadsIdGetRaw(
       requestParameters,
       initOverrides
@@ -341,7 +341,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async getThreadsThreadsGetRaw(
     requestParameters: GetThreadsThreadsGetRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<runtime.ApiResponse<PaginationThreads>> {
+  ): Promise<runtime.ApiResponse<PaginationThreadResponse>> {
     const queryParameters: any = {};
 
     if (requestParameters['limit'] != null) {
@@ -377,7 +377,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
     );
 
     return new runtime.JSONApiResponse(response, (jsonValue) =>
-      PaginationThreadsFromJSON(jsonValue)
+      PaginationThreadResponseFromJSON(jsonValue)
     );
   }
 
@@ -389,7 +389,7 @@ export class ThreadsApi extends runtime.BaseAPI implements ThreadsApiInterface {
   async getThreadsThreadsGet(
     requestParameters: GetThreadsThreadsGetRequest = {},
     initOverrides?: RequestInit | runtime.InitOverrideFunction
-  ): Promise<PaginationThreads> {
+  ): Promise<PaginationThreadResponse> {
     const response = await this.getThreadsThreadsGetRaw(
       requestParameters,
       initOverrides

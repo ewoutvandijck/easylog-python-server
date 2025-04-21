@@ -31,10 +31,7 @@ const ChatFooter = () => {
       content: [
         {
           text: data.message,
-          type: 'text',
-          file_data: '',
-          file_name: '',
-          image_url: ''
+          type: 'text'
         }
       ]
     });

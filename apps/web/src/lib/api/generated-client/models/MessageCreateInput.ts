@@ -12,20 +12,20 @@
  */
 
 import { mapValues } from '../runtime';
-import type { AgentConfig } from './agent-config';
+import type { AgentConfig } from './AgentConfig';
 import {
   AgentConfigFromJSON,
   AgentConfigFromJSONTyped,
   AgentConfigToJSON,
   AgentConfigToJSONTyped
-} from './agent-config';
-import type { MessageCreateInputContentInner } from './message-create-input-content-inner';
+} from './AgentConfig';
+import type { MessageCreateInputContentInner } from './MessageCreateInputContentInner';
 import {
   MessageCreateInputContentInnerFromJSON,
   MessageCreateInputContentInnerFromJSONTyped,
   MessageCreateInputContentInnerToJSON,
   MessageCreateInputContentInnerToJSONTyped
-} from './message-create-input-content-inner';
+} from './MessageCreateInputContentInner';
 
 /**
  * @export

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -84,4 +84,4 @@ class MessageResponse(BaseModel):
 
     tool_use_id: str | None = None
 
-    content: list[MessageContent]
+    content: list[Annotated[MessageContent, Field(discriminator="type")]]
