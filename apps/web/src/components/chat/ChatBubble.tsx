@@ -35,7 +35,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
                 {...props}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="text-blue-500 hover:underline break-words"
               />
             ),
             // Prevent large headings
@@ -71,10 +71,12 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             p: ({ ...props }) => <p {...props} className="my-2" />,
             // Tables
             table: ({ ...props }) => (
-              <table
-                {...props}
-                className="border-collapse table-auto w-full my-4 overflow-hidden rounded-lg"
-              />
+              <div className="overflow-x-auto">
+                <table
+                  {...props}
+                  className="border-collapse table-auto w-full my-4 overflow-hidden rounded-lg max-w-full overflow-x-auto"
+                />
+              </div>
             ),
             thead: ({ ...props }) => (
               <thead {...props} className="bg-gray-800 text-white" />
