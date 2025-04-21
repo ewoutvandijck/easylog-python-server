@@ -11,8 +11,10 @@ const useApiClient = () => {
 
   const apiClient = createClient({
     basePath: activeConnection.url.replace(/\/$/, ''),
-    apiKey: activeConnection.secret,
-    accessToken: easylogApiKey || undefined
+    accessToken: activeConnection.secret,
+    headers: {
+      'X-Easylog-Bearer-Token': `Bearer ${easylogApiKey}`
+    }
   });
 
   return { ...apiClient, activeConnection };

@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.12"
 
 [[package]]
@@ -116,24 +117,6 @@ wheels = [
 ]
 
 [[package]]
-name = "anthropic"
-version = "0.47.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "distro" },
-    { name = "httpx" },
-    { name = "jiter" },
-    { name = "pydantic" },
-    { name = "sniffio" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/64/65/175bf024bd9866ef96470620e164dcf8c3e0a2892178e59d1532465c8315/anthropic-0.47.2.tar.gz", hash = "sha256:452f4ca0c56ffab8b6ce9928bf8470650f88106a7001b250895eb65c54cfa44c", size = 208066 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/ad/feddd3ed83804b7f05c90b343e2d9df8f4a28028d6820c1a034de79dcdab/anthropic-0.47.2-py3-none-any.whl", hash = "sha256:61b712a56308fce69f04d92ba0230ab2bc187b5bce17811d400843a8976bb67f", size = 239536 },
-]
-
-[[package]]
 name = "anyio"
 version = "4.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -152,17 +135,16 @@ name = "app"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "anthropic" },
     { name = "cairosvg" },
     { name = "fastapi", extra = ["standard"] },
     { name = "fastapi-pagination" },
-    { name = "google-genai" },
     { name = "graphiti-core" },
     { name = "ipykernel" },
     { name = "isort" },
     { name = "markdown" },
     { name = "marvin" },
     { name = "matplotlib" },
+    { name = "mistralai" },
     { name = "openai" },
     { name = "openpyxl" },
     { name = "pandas" },
@@ -184,17 +166,16 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.42.0" },
     { name = "cairosvg", specifier = ">=2.7.1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.5" },
     { name = "fastapi-pagination", specifier = ">=0.12.32" },
-    { name = "google-genai", specifier = ">=1.4.0" },
-    { name = "graphiti-core", specifier = ">=0.8.2" },
+    { name = "graphiti-core", specifier = ">=0.10.4" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "isort", specifier = ">=6.0.0" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "marvin", specifier = ">=2.3.8" },
     { name = "matplotlib", specifier = ">=3.10.0" },
+    { name = "mistralai", specifier = ">=1.7.0" },
     { name = "openai", specifier = ">=1.65.1" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },
@@ -452,7 +433,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
@@ -743,6 +724,15 @@ wheels = [
 ]
 
 [[package]]
+name = "eval-type-backport"
+version = "0.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/ea/8b0ac4469d4c347c6a385ff09dc3c048c2d021696664e26c7ee6791631b5/eval_type_backport-0.2.2.tar.gz", hash = "sha256:f0576b4cf01ebb5bd358d02314d31846af5e07678387486e2c798af0e7d849c1", size = 9079 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/31/55cd413eaccd39125368be33c46de24a1f639f2e12349b0361b4678f3915/eval_type_backport-0.2.2-py3-none-any.whl", hash = "sha256:cb6ad7c393517f476f96d456d0412ea80f0a8cf96f6892834cd9340149111b0a", size = 5830 },
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -890,37 +880,6 @@ wheels = [
 ]
 
 [[package]]
-name = "google-auth"
-version = "2.38.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cachetools" },
-    { name = "pyasn1-modules" },
-    { name = "rsa" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/eb/d504ba1daf190af6b204a9d4714d457462b486043744901a6eeea711f913/google_auth-2.38.0.tar.gz", hash = "sha256:8285113607d3b80a3f1543b75962447ba8a09fe85783432a784fdeef6ac094c4", size = 270866 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/47/603554949a37bca5b7f894d51896a9c534b9eab808e2520a748e081669d0/google_auth-2.38.0-py2.py3-none-any.whl", hash = "sha256:e7dae6694313f434a2727bf2906f27ad259bae090d7aa896590d86feec3d9d4a", size = 210770 },
-]
-
-[[package]]
-name = "google-genai"
-version = "1.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-auth" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "requests" },
-    { name = "typing-extensions" },
-    { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/99/91/f0ee64107614cc14a8b54347de77b180a8750d296cfb52d08b7552d10622/google_genai-1.4.0.tar.gz", hash = "sha256:808eb5b73fc81d8da92b734b5ca24fc084ebf714a4c42cc42d7dcfa47b718a18", size = 134357 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/94/52191919a3c852f7342fb2924e2a4191a75759cafdffc5359475fcaa2fb9/google_genai-1.4.0-py3-none-any.whl", hash = "sha256:e2d2943a2ebb17fd442d539f7719975af3de07db41e2c72a04b24be0df3dadd9", size = 140970 },
-]
-
-[[package]]
 name = "gotrue"
 version = "2.11.4"
 source = { registry = "https://pypi.org/simple" }
@@ -934,11 +893,20 @@ wheels = [
 ]
 
 [[package]]
+name = "graph-service"
+version = "1.0.0.7"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/68/c94b57ddc6bd38b50a3f7357793f8c6a0e9d039af02dadac02b50b05746c/graph_service-1.0.0.7-py3-none-any.whl", hash = "sha256:d34cd38529ff0704b83fa4e8692b4f8fcf1524dce7110f89d4ee33423eeff0bd", size = 6392 },
+]
+
+[[package]]
 name = "graphiti-core"
-version = "0.8.2"
+version = "0.10.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "diskcache" },
+    { name = "graph-service" },
     { name = "neo4j" },
     { name = "numpy" },
     { name = "openai" },
@@ -946,9 +914,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "tenacity" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/29/f0d74adc687514a226a164340a7fa9254f9cffa2ff7ab353fc1edf4016cb/graphiti_core-0.8.2.tar.gz", hash = "sha256:477a9172728b92ba1875222f8d9c6337d9fa465363b75afd67db9a159c39d379", size = 62464 }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/6d/7e12678bc92e7c6d649cdf264c0a525b951da02faccdb4efdd7717eb24dc/graphiti_core-0.10.4.tar.gz", hash = "sha256:60282d1522579d02c289acd34bcc1889c3b1d231ad16c35f12e42cdfdff4578d", size = 67251 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/19/4b/d2065544beb24402bb41197b2adf7ed7af287453c82290d1ca757532f6d3/graphiti_core-0.8.2-py3-none-any.whl", hash = "sha256:ce992f9f3dee168d3ca442e0d0fd685a1a66dee4df94c47909037295aceac45e", size = 95052 },
+    { url = "https://files.pythonhosted.org/packages/be/48/df3673305576f251428e3e3fe4bce0032b0d41427efeb479a41e6fbf6148/graphiti_core-0.10.4-py3-none-any.whl", hash = "sha256:7036664d203c5a4a23b65b774e8245a375d7db1a0015d9211efb3594c188ba17", size = 105643 },
 ]
 
 [[package]]
@@ -1153,7 +1121,7 @@ name = "ipykernel"
 version = "6.29.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "platform_system == 'Darwin'" },
+    { name = "appnope", marker = "sys_platform == 'darwin'" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -1559,6 +1527,22 @@ wheels = [
 ]
 
 [[package]]
+name = "mistralai"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "eval-type-backport" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/d0/11e0116a02aa88701422ccc048185ed8834754f3b94140bfad09620c9d11/mistralai-1.7.0.tar.gz", hash = "sha256:94e3eb23c1d3ed398a95352062fd8c92993cc3754ed18e9a35b60aa3db0bd103", size = 141981 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/77/eb7519ddfccb6428ac430129e7b42cc662e710cb719f82c0ffe79ab50859/mistralai-1.7.0-py3-none-any.whl", hash = "sha256:e0e75ab8508598d69ae19b14d9d7e905db6259a2de3cf9204946a27e9bf81c5d", size = 301483 },
+]
+
+[[package]]
 name = "multidict"
 version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1676,7 +1660,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.65.1"
+version = "1.72.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1688,9 +1672,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/99/b7c99aaf4ab0b433556ece264d2295232704f7eebdef37d7fe3fd276f114/openai-1.65.1.tar.gz", hash = "sha256:9d9370a20d2b8c3ce319fd2194c2eef5eab59effbcc5b04ff480977edc530fba", size = 357529 }
+sdist = { url = "https://files.pythonhosted.org/packages/41/56/41de36c0e9f787c406211552ecf2ca4fba3db900207c5c158c4dc67263fc/openai-1.72.0.tar.gz", hash = "sha256:f51de971448905cc90ed5175a5b19e92fd94e31f68cde4025762f9f5257150db", size = 426061 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/0a/405970c3dad0ef5f1b2bbf770d91c4f27b883f1e3f144dca4962da09900f/openai-1.65.1-py3-none-any.whl", hash = "sha256:396652a6452dd42791b3ad8a3aab09b1feb7c1c4550a672586fb300760a8e204", size = 472817 },
+    { url = "https://files.pythonhosted.org/packages/03/1c/a0870f31bd71244c8c3a82e171677d9a148a8ea1cb157308cb9e06a41a37/openai-1.72.0-py3-none-any.whl", hash = "sha256:34f5496ba5c8cb06c592831d69e847e2d164526a2fb92afdc3b5cf2891c328c3", size = 643863 },
 ]
 
 [[package]]
@@ -2148,27 +2132,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cd/05/0a34433a064256a578f1783a10da6df098ceaa4a57bbeaa96a6c0352786b/pure_eval-0.2.3.tar.gz", hash = "sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42", size = 19752 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/37/efad0257dc6e593a18957422533ff0f87ede7c9c6ea010a2177d738fb82f/pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0", size = 11842 },
-]
-
-[[package]]
-name = "pyasn1"
-version = "0.6.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ba/e9/01f1a64245b89f039897cb0130016d79f77d52669aae6ee7b159a6c4c018/pyasn1-0.6.1.tar.gz", hash = "sha256:6f580d2bdd84365380830acf45550f2511469f673cb4a5ae3857a3170128b034", size = 145322 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/f1/d6a797abb14f6283c0ddff96bbdd46937f64122b8c925cab503dd37f8214/pyasn1-0.6.1-py3-none-any.whl", hash = "sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629", size = 83135 },
-]
-
-[[package]]
-name = "pyasn1-modules"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyasn1" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/67/6afbf0d507f73c32d21084a79946bfcfca5fbc62a72057e9c23797a737c9/pyasn1_modules-0.4.1.tar.gz", hash = "sha256:c28e2dbf9c06ad61c71a075c7e0f9fd0f1b0bb2d2ad4377f240d33ac2ab60a7c", size = 310028 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/89/bc88a6711935ba795a679ea6ebee07e128050d6382eaa35a0a47c8032bdc/pyasn1_modules-0.4.1-py3-none-any.whl", hash = "sha256:49bfa96b45a292b711e986f222502c1c9a5e1f4e568fc30e2574a6c7d07838fd", size = 181537 },
 ]
 
 [[package]]
@@ -2676,18 +2639,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rsa"
-version = "4.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyasn1" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/65/7d973b89c4d2351d7fb232c2e452547ddfa243e93131e7cfa766da627b52/rsa-4.9.tar.gz", hash = "sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21", size = 29711 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/97/fa78e3d2f65c02c8e1268b9aba606569fe97f6c8f7c2d74394553347c145/rsa-4.9-py3-none-any.whl", hash = "sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7", size = 34315 },
-]
-
-[[package]]
 name = "ruamel-yaml"
 version = "0.18.10"
 source = { registry = "https://pypi.org/simple" }
@@ -3154,7 +3105,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
 wheels = [
@@ -3195,6 +3146,18 @@ wheels = [
 ]
 
 [[package]]
+name = "typing-inspection"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/5c/e6082df02e215b846b4b8c0b887a64d7d08ffaba30605502639d44c06b82/typing_inspection-0.4.0.tar.gz", hash = "sha256:9765c87de36671694a67904bf2c96e395be9c6439bb6c87b5142569dcdd65122", size = 76222 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/08/aa4fdfb71f7de5176385bd9e90852eaf6b5d622735020ad600f2bab54385/typing_inspection-0.4.0-py3-none-any.whl", hash = "sha256:50e72559fcd2a6367a19f7a7e610e6afcb9fac940c650290eed893d61386832f", size = 14125 },
+]
+
+[[package]]
 name = "tzdata"
 version = "2025.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3208,7 +3171,7 @@ name = "tzlocal"
 version = "5.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "tzdata", marker = "platform_system == 'Windows'" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8b/2e/c14812d3d4d9cd1773c6be938f89e5735a1f11a9f184ac3639b93cef35d5/tzlocal-5.3.1.tar.gz", hash = "sha256:cceffc7edecefea1f595541dbd6e990cb1ea3d19bf01b2809f362a03dd7921fd", size = 30761 }
 wheels = [

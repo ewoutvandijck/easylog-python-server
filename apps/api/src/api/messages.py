@@ -2,17 +2,17 @@ import json
 from collections.abc import AsyncGenerator
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Query, Response, Security
+from fastapi import APIRouter, HTTPException, Path, Query, Request, Response
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials
-from prisma.models import messages
 
 from src.lib.prisma import prisma
 from src.logger import logger
-from src.models.messages import MessageContent, MessageCreateInput
+from src.models.message_create import MessageCreateInput
+from src.models.messages import MessageResponse
 from src.models.pagination import Pagination
-from src.security.optional_http_bearer import optional_bearer_header
 from src.services.messages.message_service import MessageService
+from src.services.messages.utils.db_message_to_message_model import db_message_to_message_model
+from src.utils.is_valid_uuid import is_valid_uuid
 from src.utils.sse import create_sse_event
 
 router = APIRouter()
@@ -22,7 +22,7 @@ router = APIRouter()
     "/threads/{thread_id}/messages",
     name="get_messages",
     tags=["messages"],
-    response_model=Pagination[messages],
+    response_model=Pagination[MessageResponse],
     description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
 )
 async def get_messages(
@@ -33,48 +33,37 @@ async def get_messages(
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
-) -> Pagination[messages]:
-    messages = prisma.messages.find_many(
-        where={
-            "OR": [
-                {"thread_id": thread_id},
-                {"thread": {"is": {"external_id": thread_id}}},
-            ],
-        },
+) -> Pagination[MessageResponse]:
+    messages = await prisma.messages.find_many(
+        where={"thread_id": thread_id} if is_valid_uuid(thread_id) else {"thread": {"is": {"external_id": thread_id}}},
         order=[{"created_at": order}],
         include={"contents": True},
         take=limit,
         skip=offset,
     )
 
-    return Pagination(data=messages, limit=limit, offset=offset)
+    message_data = [db_message_to_message_model(message) for message in messages]
+
+    return Pagination(data=message_data, limit=limit, offset=offset)
 
 
 @router.post(
     "/threads/{thread_id}/messages",
     name="create_message",
     tags=["messages"],
-    response_model=MessageContent,
     response_description="A stream of JSON-encoded message chunks",
     description="Creates a new message in the given thread. Will interact with the agent and return a stream of message chunks.",
 )
 async def create_message(
     message: MessageCreateInput,
+    request: Request,
     thread_id: str = Path(
         ...,
         description="The unique identifier of the thread. Can be either the internal ID or external ID.",
     ),
-    auth: HTTPAuthorizationCredentials | None = Security(optional_bearer_header),
 ) -> StreamingResponse:
-    logger.info(f"Authorization: {auth}")
-
-    thread = prisma.threads.find_first(
-        where={
-            "OR": [
-                {"id": thread_id},
-                {"external_id": thread_id},
-            ],
-        },
+    thread = await prisma.threads.find_first(
+        where={"id": thread_id} if is_valid_uuid(thread_id) else {"external_id": thread_id},
     )
 
     if not thread:
@@ -87,19 +76,40 @@ async def create_message(
         thread_id=thread.id,
         agent_class=message.agent_config.agent_class,
         agent_config=agent_config,
-        input_content=list(message.content),
-        bearer_token=auth.credentials if auth else None,
+        input_content=message.content,
+        headers=dict(request.headers),
     )
 
     async def stream() -> AsyncGenerator[str, None]:
+        max_chunk_size = 4000
+        chunk_count = 0
+
         try:
             async for chunk in forward_message_generator:
-                sse_event = create_sse_event("delta", chunk.model_dump_json())
-                logger.debug(f"Sending sse delta event to client: {sse_event}")
-                yield sse_event
+                if isinstance(chunk, MessageResponse):
+                    yield create_sse_event("message", chunk.model_dump_json())
+                    continue
+
+                data = chunk.model_dump_json()
+                if len(data) > max_chunk_size:
+                    yield create_sse_event("content_start", json.dumps({"chunk_id": chunk_count}))
+                    while len(data) > max_chunk_size:
+                        yield create_sse_event(
+                            "content_delta", json.dumps({"chunk_id": chunk_count, "delta": data[:max_chunk_size]})
+                        )
+
+                        data = data[max_chunk_size:]
+
+                    yield create_sse_event("content_delta", json.dumps({"chunk_id": chunk_count, "delta": data}))
+                    yield create_sse_event("content_end", json.dumps({"chunk_id": chunk_count}))
+                else:
+                    yield create_sse_event("content", data)
+
+                chunk_count += 1
+
         except Exception as e:
             logger.exception("Error in SSE stream", exc_info=e)
-            sse_event = create_sse_event("error", json.dumps({"detail": str(e)}))
+            sse_event = create_sse_event("error", json.dumps({"detail": str(e)[:max_chunk_size]}))
             logger.warning(f"Sending sse error event to client: {sse_event}")
             yield sse_event
 
@@ -125,7 +135,7 @@ async def delete_message(
     ),
     message_id: str = Path(..., description="The unique identifier of the message."),
 ) -> Response:
-    prisma.messages.delete_many(
+    await prisma.messages.delete_many(
         where={
             "AND": [
                 {"id": message_id},

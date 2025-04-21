@@ -1,12 +1,12 @@
-import { MessageContent } from '@/app/schemas/message-contents';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DynamicChart } from '@/components/charts/DynamicChart';
+import { MessageResponseContentInner } from '@/lib/api/generated-client';
 
 export interface ChatBubbleProps {
-  content: MessageContent;
-  role: 'user' | 'assistant' | 'system' | 'developer';
+  content: MessageResponseContentInner;
+  role: 'user' | 'assistant' | 'system' | 'developer' | 'tool';
 }
 
 const ChatBubble = ({ content, role }: ChatBubbleProps) => {
@@ -15,15 +15,17 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
       className={cn(
         'rounded-lg px-4 py-1 max-w-lg bg-secondary flex flex-col',
         role === 'user' ? 'ml-auto' : 'mr-auto',
+        (content.type === 'tool_result' && content.widget_type === 'image') ||
+          content.type === 'image'
+          ? 'p-0 border border-secondary'
+          : null,
         content.type === 'tool_result' &&
-          content.content_format === 'image' &&
-          'p-0 border border-secondary',
-        content.type === 'tool_result' &&
-          content.content_format === 'chart' &&
+          content.widget_type === 'chart' &&
           'p-0 w-[32rem]'
       )}
     >
-      {content.type === 'text' || content.type === 'text_delta' ? (
+      {content.type === 'text' ||
+      (content.type === 'tool_result' && !content.widget_type) ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -33,7 +35,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
                 {...props}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="text-blue-500 hover:underline break-words"
               />
             ),
             // Prevent large headings
@@ -69,10 +71,12 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             p: ({ ...props }) => <p {...props} className="my-2" />,
             // Tables
             table: ({ ...props }) => (
-              <table
-                {...props}
-                className="border-collapse table-auto w-full my-4 overflow-hidden rounded-lg"
-              />
+              <div className="overflow-x-auto">
+                <table
+                  {...props}
+                  className="border-collapse table-auto w-full my-4 overflow-hidden rounded-lg max-w-full overflow-x-auto"
+                />
+              </div>
             ),
             thead: ({ ...props }) => (
               <thead {...props} className="bg-gray-800 text-white" />
@@ -106,15 +110,16 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
             em: ({ ...props }) => <em {...props} className="italic" />
           }}
         >
-          {content.content}
+          {content.type === 'text' ? content.text : content.output}
         </ReactMarkdown>
-      ) : content.type === 'tool_result' &&
-        content.content_format === 'image' ? (
+      ) : content.type === 'tool_result' && content.widget_type === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={content.content} alt="tool result" className="rounded-lg" />
-      ) : content.type === 'tool_result' &&
-        content.content_format === 'chart' ? (
-        <DynamicChart chartJson={content.content} />
+        <img src={content.output} alt="tool result" className="rounded-lg" />
+      ) : content.type === 'tool_result' && content.widget_type === 'chart' ? (
+        <DynamicChart chartJson={content.output} />
+      ) : content.type === 'image' ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={content.image_url} alt="tool result" className="rounded-lg" />
       ) : null}
     </div>
   );

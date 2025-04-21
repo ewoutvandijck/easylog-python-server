@@ -28,7 +28,12 @@ const ChatFooter = () => {
         agent_class: activeConfiguration?.agentConfig.agent_class ?? '',
         ...activeConfiguration?.agentConfig
       },
-      content: [{ content: data.message, type: 'text' }]
+      content: [
+        {
+          text: data.message,
+          type: 'text'
+        }
+      ]
     });
     form.reset();
   };

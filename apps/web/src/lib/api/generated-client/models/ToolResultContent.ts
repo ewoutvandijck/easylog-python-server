@@ -18,6 +18,13 @@ import { mapValues } from '../runtime';
  */
 export interface ToolResultContent {
   /**
+   * The ID of the content.
+   *
+   * @memberof ToolResultContent
+   * @type {string}
+   */
+  id: string;
+  /**
    * @memberof ToolResultContent
    * @type {string}
    */
@@ -30,19 +37,17 @@ export interface ToolResultContent {
    */
   tool_use_id: string;
   /**
+   * @memberof ToolResultContent
+   * @type {string}
+   */
+  widget_type?: ToolResultContentWidgetTypeEnum | null;
+  /**
    * The result of the tool.
    *
    * @memberof ToolResultContent
    * @type {string}
    */
-  content: string;
-  /**
-   * The format of the content.
-   *
-   * @memberof ToolResultContent
-   * @type {string}
-   */
-  content_format?: ToolResultContentContentFormatEnum;
+  output: string;
   /**
    * Whether the tool result is an error.
    *
@@ -60,21 +65,21 @@ export type ToolResultContentTypeEnum =
   (typeof ToolResultContentTypeEnum)[keyof typeof ToolResultContentTypeEnum];
 
 /** @export */
-export const ToolResultContentContentFormatEnum = {
+export const ToolResultContentWidgetTypeEnum = {
   Image: 'image',
-  Chart: 'chart',
-  Unknown: 'unknown'
+  Chart: 'chart'
 } as const;
-export type ToolResultContentContentFormatEnum =
-  (typeof ToolResultContentContentFormatEnum)[keyof typeof ToolResultContentContentFormatEnum];
+export type ToolResultContentWidgetTypeEnum =
+  (typeof ToolResultContentWidgetTypeEnum)[keyof typeof ToolResultContentWidgetTypeEnum];
 
 /** Check if a given object implements the ToolResultContent interface. */
 export function instanceOfToolResultContent(
   value: object
 ): value is ToolResultContent {
+  if (!('id' in value) || value['id'] === undefined) return false;
   if (!('tool_use_id' in value) || value['tool_use_id'] === undefined)
     return false;
-  if (!('content' in value) || value['content'] === undefined) return false;
+  if (!('output' in value) || value['output'] === undefined) return false;
   return true;
 }
 
@@ -90,11 +95,11 @@ export function ToolResultContentFromJSONTyped(
     return json;
   }
   return {
+    id: json['id'],
     type: json['type'] == null ? undefined : json['type'],
     tool_use_id: json['tool_use_id'],
-    content: json['content'],
-    content_format:
-      json['content_format'] == null ? undefined : json['content_format'],
+    widget_type: json['widget_type'] == null ? undefined : json['widget_type'],
+    output: json['output'],
     is_error: json['is_error'] == null ? undefined : json['is_error']
   };
 }
@@ -112,10 +117,11 @@ export function ToolResultContentToJSONTyped(
   }
 
   return {
+    id: value['id'],
     type: value['type'],
     tool_use_id: value['tool_use_id'],
-    content: value['content'],
-    content_format: value['content_format'],
+    widget_type: value['widget_type'],
+    output: value['output'],
     is_error: value['is_error']
   };
 }

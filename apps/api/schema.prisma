@@ -1,7 +1,7 @@
 generator client {
     provider        = "prisma-client-py"
     previewFeatures = ["multiSchema"]
-    interface       = "sync"
+    interface       = "asyncio"
 }
 
 datasource db {
@@ -10,8 +10,6 @@ datasource db {
     schemas  = ["public", "storage"]
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model buckets {
     id                         String                       @id
     name                       String                       @unique(map: "bname")
@@ -24,13 +22,13 @@ model buckets {
     allowed_mime_types         String[]
     owner_id                   String?
     objects                    objects[]
+    prefixes                   prefixes[]
     s3_multipart_uploads       s3_multipart_uploads[]
     s3_multipart_uploads_parts s3_multipart_uploads_parts[]
 
     @@schema("storage")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model migrations {
     id          Int       @id
     name        String    @unique @db.VarChar(100)
@@ -42,6 +40,7 @@ model migrations {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model objects {
     id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     bucket_id            String?
@@ -55,13 +54,30 @@ model objects {
     version              String?
     owner_id             String?
     user_metadata        Json?
+    level                Int?
     buckets              buckets?              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
     processed_pdfs       processed_pdfs?
     processed_pdf_images processed_pdf_images?
 
     @@unique([bucket_id, name], map: "bucketid_objname")
+    @@unique([name, bucket_id], map: "idx_name_bucket_unique")
+    @@unique([bucket_id, level, name], map: "objects_bucket_id_level_idx")
     @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
     @@index([name], map: "name_prefix_search")
+    @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model prefixes {
+    bucket_id  String
+    name       String
+    level      Int       @default(dbgenerated("storage.get_level(name)"))
+    created_at DateTime? @default(now()) @db.Timestamptz(6)
+    updated_at DateTime? @default(now()) @db.Timestamptz(6)
+    buckets    buckets   @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "prefixes_bucketId_fkey")
+
+    @@id([bucket_id, level, name])
     @@schema("storage")
 }
 
@@ -101,42 +117,53 @@ model s3_multipart_uploads_parts {
     @@schema("storage")
 }
 
+enum annotation_type {
+    url_citation
+
+    @@schema("public")
+}
+
+enum image_detail {
+    auto
+    low
+    high
+
+    @@schema("public")
+}
+
 enum message_content_type {
     text
     image
-    pdf
+    file
     tool_use
     tool_result
 
-    @@map("message_content_type")
     @@schema("public")
 }
 
 enum message_role {
-    user
-    assistant
-    system
     developer
+    system
+    assistant
+    user
+    tool
 
-    @@map("message_role")
     @@schema("public")
 }
 
-enum message_content_format {
+enum widget_type {
     image
     chart
-    unknown
 
-    @@map("message_content_format")
     @@schema("public")
 }
 
 model threads {
-    id          String     @id @default(cuid())
+    id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     external_id String?    @unique
     created_at  DateTime   @default(now())
-    updated_at  DateTime   @updatedAt
-    metadata    String?
+    updated_at  DateTime   @default(now()) @updatedAt
+    metadata    Json       @default("{}") @db.JsonB
     messages    messages[]
 
     @@map("threads")
@@ -144,41 +171,45 @@ model threads {
 }
 
 model messages {
-    id          String             @id @default(cuid())
+    id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     thread      threads            @relation(fields: [thread_id], references: [id], onDelete: Cascade)
-    thread_id   String
+    thread_id   String             @db.Uuid
     role        message_role       @default(user)
+    name        String?
+    tool_use_id String?
+    refusal     String?
     contents    message_contents[]
     agent_class String
     created_at  DateTime           @default(now())
-    updated_at  DateTime           @updatedAt
+    updated_at  DateTime           @default(now()) @updatedAt
 
     @@map("messages")
     @@schema("public")
 }
 
 model message_contents {
-    id                String                 @id @default(cuid())
-    message           messages               @relation(fields: [message_id], references: [id], onDelete: Cascade)
-    message_id        String
-    type              message_content_type   @default(text)
-    tool_use_id       String?
-    tool_use_is_error Boolean?
-    tool_use_name     String?
-    tool_use_input    Json?
-    content           String?
-    content_type      String?
-    content_format    message_content_format @default(unknown)
-    data              String?
-    created_at        DateTime               @default(now())
-    updated_at        DateTime               @updatedAt
+    id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    message     messages             @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    message_id  String               @db.Uuid
+    type        message_content_type @default(text)
+    image_url   String?
+    file_data   Bytes?
+    file_name   String?
+    text        String?
+    widget_type widget_type?
+    tool_use_id String?
+    tool_name   String?
+    tool_input  Json?                @db.JsonB
+    tool_output String?
+    created_at  DateTime             @default(now())
+    updated_at  DateTime             @default(now()) @updatedAt
 
     @@map("message_contents")
     @@schema("public")
 }
 
 model processed_pdfs {
-    id               String                 @id @default(cuid())
+    id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     long_summary     String
     short_summary    String
     markdown_content String
@@ -187,15 +218,15 @@ model processed_pdfs {
     object           objects                @relation(fields: [object_id], references: [id], onDelete: Cascade)
     images           processed_pdf_images[]
     created_at       DateTime               @default(now())
-    updated_at       DateTime               @updatedAt
+    updated_at       DateTime               @default(now()) @updatedAt
 
     @@map("processed_pdfs")
     @@schema("public")
 }
 
 model processed_pdf_images {
-    id                 String         @id @default(cuid())
-    processed_pdf_id   String
+    id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    processed_pdf_id   String         @db.Uuid
     processed_pdf      processed_pdfs @relation(fields: [processed_pdf_id], references: [id], onDelete: Cascade)
     object_id          String         @unique @db.Uuid
     object             objects        @relation(fields: [object_id], references: [id], onDelete: Cascade)
@@ -203,7 +234,7 @@ model processed_pdf_images {
     summary            String
     page               Int
     created_at         DateTime       @default(now())
-    updated_at         DateTime       @updatedAt
+    updated_at         DateTime       @default(now()) @updatedAt
 
     @@map("processed_pdf_images")
     @@schema("public")

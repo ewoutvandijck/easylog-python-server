@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import { ChartConfig, chartConfigSchema } from '@/app/schemas/charts';
+import { ChartConfig, chartConfigSchema } from '@/schemas/charts';
 import { ChartContainer } from '@/components/ui/chart';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { ChartLegend, ChartLegendContent } from '@/components/ui/chart';

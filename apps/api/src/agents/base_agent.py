@@ -1,9 +1,9 @@
-import inspect
+import asyncio
 import json
 import logging
-import os
+import uuid
 from abc import abstractmethod
-from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
+from collections.abc import AsyncGenerator, Callable, Iterable
 from types import UnionType
 from typing import (
     Any,
@@ -13,16 +13,22 @@ from typing import (
     get_args,
 )
 
-import pymysql
-from prisma.models import processed_pdfs, threads
+from openai import AsyncStream
+from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from PIL import Image
+from prisma import Json
+from prisma.models import threads
 from pydantic import BaseModel
 
+from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.logger import logger
-from src.models.messages import Message, MessageContent, TextContent
-from src.services.easylog_backend.backend_service import BackendService
-from src.services.easylog_backend.easylog_sql_service import EasylogSqlService
-from src.settings import settings
+from src.models.chart_widget import ChartWidget
+from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
+from src.models.stream_tool_call import StreamToolCall
+from src.utils.image_to_base64 import image_to_base64
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
 
@@ -32,29 +38,20 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
 
-    def __init__(self, thread_id: str, backend: BackendService, **kwargs: dict[str, Any]) -> None:
-        self._thread_id = thread_id
+    def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
         self._raw_config = kwargs
-        self._thread = None
+        self.thread_id = thread_id
+        self.request_headers = request_headers
 
-        self.easylog_backend = backend
-        self.easylog_sql_service = EasylogSqlService(
-            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
-            ssh_host=settings.EASYLOG_SSH_HOST,
-            ssh_username=settings.EASYLOG_SSH_USERNAME,
-            db_host=settings.EASYLOG_DB_HOST,
-            db_port=settings.EASYLOG_DB_PORT,
-            db_user=settings.EASYLOG_DB_USER,
-            db_name=settings.EASYLOG_DB_NAME,
-            db_password=settings.EASYLOG_DB_PASSWORD,
-        )
+        # Initialize the client
+        self.client = openai_client
+
+        self.on_init()
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
-        logger.info(f"Using database: {settings.EASYLOG_DB_NAME}")
 
     def __init_subclass__(cls) -> None:
         cls._config_type = get_args(cls.__orig_bases__[0])[0]  # type: ignore
-
         logger.info(f"Initialized subclass: {cls.__name__}")
 
     @property
@@ -65,97 +62,54 @@ class BaseAgent(Generic[TConfig]):
     def logger(self) -> logging.Logger:
         return logger
 
-    @property
-    def easylog_db(self) -> pymysql.Connection:
-        if not self.easylog_sql_service.db:
-            raise ValueError("Easylog database connection not initialized")
-
-        return self.easylog_sql_service.db
-
     @abstractmethod
-    def on_message(self, messages: list[Message]) -> AsyncGenerator[TextContent, None]:
+    async def on_message(
+        self,
+        messages: Iterable[ChatCompletionMessageParam],
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_tools(
-        self,
-    ) -> dict[str, Callable[[], Any] | Callable[[], Coroutine[Any, Any, Any]]]:
-        raise NotImplementedError()
+    def on_init(self) -> None:
+        pass
 
-    def get_env(self, key: str) -> str:
-        """A convenience method to get an environment variable."""
-
-        env = os.getenv(key)
-
-        if env is None:
-            raise ValueError(f"Environment variable {key} is not found. Make sure .env file exists and {key} is set.")
-
-        return env
-
-    def forward(
-        self,
-        messages: list[Message],
+    async def forward_message(
+        self, messages: Iterable[ChatCompletionMessageParam]
     ) -> AsyncGenerator[MessageContent, None]:
-        """
-        Forward the messages to the agent. Returns a generator of message contents.
+        result, tools = await self.on_message(messages)
 
-        Args:
-            messages: The messages to forward to the agent.
+        async for chunk in (
+            self._handle_stream(result, tools)
+            if isinstance(result, AsyncStream)
+            else self._handle_completion(result, tools)
+        ):
+            yield chunk
 
-        Returns:
-            A generator of messages.
-        """
-
-        logger.info(f"Forwarding message to agent: {self.__class__.__name__}")
-
-        generator = self.on_message(messages)
-
-        if not inspect.isasyncgen(generator):
-            if inspect.isgenerator(generator):
-                logger.warning("on_message returned a sync generator, converting to async generator")
-                generator = self._sync_to_async_generator(generator)
-            else:
-                raise ValueError("on_message must return either a sync or async generator")
-
-        return generator
-
-    def get_metadata(self, key: str, default: Any | None = None) -> Any:
-        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+    async def get_metadata(self, key: str, default: Any | None = None) -> Any:
+        metadata: dict = dict((await self._get_thread()).metadata) or {}
 
         return metadata.get(key, default)
 
-    def set_metadata(self, key: str, value: Any) -> None:
-        metadata: dict = json.loads((self._get_thread()).metadata or "{}")
+    async def set_metadata(self, key: str, value: Any) -> None:
+        metadata: dict = dict((await self._get_thread()).metadata) or {}
         metadata[key] = value
 
-        prisma.threads.update(where={"id": self._thread_id}, data={"metadata": json.dumps(metadata)})
+        await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(metadata)})
 
-    def get_knowledge(self) -> list[processed_pdfs]:
-        return prisma.processed_pdfs.find_many(
-            include={"object": True},
-        )
-
-    def _get_thread(self) -> threads:
+    async def _get_thread(self) -> threads:
         """Get the thread for the agent."""
 
         if self._thread is None:
-            self._thread = prisma.threads.find_first_or_raise(where={"id": self._thread_id})
+            self._thread = await prisma.threads.find_first_or_raise(where={"id": self.thread_id})
 
         return self._thread
 
-    async def _sync_to_async_generator(self, sync_gen: Generator) -> AsyncGenerator:
-        for item in sync_gen:
-            yield item
-
     def _get_config(self, **kwargs: dict[str, Any]) -> TConfig:
         """Parse kwargs into the config type specified by the child class"""
-        # Get the generic parameters using typing.get_args
-        # Get the actual config type from the class's generic parameters
 
         if not self._config_type:
             raise ValueError("Could not determine config type from class definition")
 
-        # Handle Union types by trying each type until one works
         if (hasattr(self._config_type, "__origin__") and self._config_type.__origin__ is Union) or isinstance(
             self._config_type, UnionType
         ):
@@ -164,7 +118,139 @@ class BaseAgent(Generic[TConfig]):
                     return type_option(**kwargs)
                 except (ValueError, TypeError):
                     continue
+
             raise ValueError(f"None of the union types {self._config_type} could parse the config")
 
-        # Handle single type
         return self._config_type(**kwargs)
+
+    async def _handle_tool_call(
+        self, name: str, tool_call_id: str, arguments: dict[str, Any], tools: list[Callable]
+    ) -> ToolResultContent:
+        try:
+            tool = next(tool for tool in tools if tool.__name__ == name)
+        except StopIteration as e:
+            raise ValueError(f"Tool {name} not found") from e
+
+        try:
+            result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
+
+            if isinstance(result, Image.Image):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=image_to_base64(result),
+                    widget_type="image",
+                    is_error=False,
+                )
+            elif isinstance(result, ChartWidget):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=result.model_dump_json(),
+                    widget_type="chart",
+                    is_error=False,
+                )
+            else:
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=str(result),
+                    is_error=False,
+                )
+        except Exception as e:
+            return ToolResultContent(
+                id=str(uuid.uuid4()),
+                tool_use_id=tool_call_id,
+                output=f"Error: {e}",
+                is_error=True,
+            )
+
+    async def _handle_stream(
+        self, stream: AsyncStream[ChatCompletionChunk], tools: list[Callable]
+    ) -> AsyncGenerator[MessageContent, None]:
+        final_tool_calls: dict[int, StreamToolCall] = {}
+
+        text_content: str | None = ""
+        text_id = str(uuid.uuid4())
+        try:
+            async for event in stream:
+                if event.choices[0].delta.content is not None:
+                    text_content = (
+                        event.choices[0].delta.content
+                        if text_content is None
+                        else text_content + event.choices[0].delta.content
+                    )
+
+                    yield TextDeltaContent(
+                        id=text_id,
+                        delta=event.choices[0].delta.content,
+                    )
+
+                for tool_call in event.choices[0].delta.tool_calls or []:
+                    index = tool_call.index
+
+                    if tool_call.function is None or tool_call.function.arguments is None:
+                        self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
+                        continue
+
+                    if (
+                        index not in final_tool_calls
+                        and tool_call.function.name is not None
+                        and tool_call.id is not None
+                    ):
+                        final_tool_calls[index] = StreamToolCall(
+                            tool_call_id=tool_call.id,
+                            name=tool_call.function.name,
+                            arguments=tool_call.function.arguments,
+                        )
+                    else:
+                        final_tool_calls[index].arguments += tool_call.function.arguments
+
+            if text_content is not None:
+                yield TextContent(
+                    id=text_id,
+                    text=text_content,
+                )
+
+            for _, tool_call in final_tool_calls.items():
+                input_data = json.loads(tool_call.arguments)
+
+                yield ToolUseContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call.tool_call_id,
+                    name=tool_call.name,
+                    input=input_data,
+                )
+
+                yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
+        except Exception as e:
+            self.logger.error(f"Error handling tool call: {e}")
+            raise e
+
+    async def _handle_completion(
+        self, completion: ChatCompletion, tools: list[Callable]
+    ) -> AsyncGenerator[MessageContent, None]:
+        if len(completion.choices or []) == 0:
+            raise ValueError(
+                "No choices found in completion, this usually means the messages weren't forwarded correctly"
+            )
+
+        choice = completion.choices[0]
+
+        if choice.message.content is not None:
+            yield TextContent(
+                id=str(uuid.uuid4()),
+                text=choice.message.content,
+            )
+
+        for tool_call in choice.message.tool_calls or []:
+            input_data = json.loads(tool_call.function.arguments)
+
+            yield ToolUseContent(
+                id=str(uuid.uuid4()),
+                tool_use_id=tool_call.id,
+                name=tool_call.function.name,
+                input=input_data,
+            )
+
+            yield await self._handle_tool_call(tool_call.function.name, tool_call.id, input_data, tools)

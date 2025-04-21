@@ -1,127 +1,87 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-
-class TextDeltaContent(BaseModel):
-    type: Literal["text_delta"] = Field(default="text_delta")
-
-    content: str = Field(..., description="The text of the delta.")
+MessageRole = Literal["assistant", "user", "system", "developer", "tool"]
 
 
-class TextContent(BaseModel):
+class BaseContent(BaseModel):
+    id: str = Field(..., description="The ID of the content.")
+
+
+class TextContent(BaseContent):
     type: Literal["text"] = Field(default="text")
 
-    content: str = Field(..., description="The content of the message.")
+    text: str = Field(..., description="The content of the message.")
 
 
-class ToolUseContent(BaseModel):
+class TextDeltaContent(BaseContent):
+    type: Literal["text_delta"] = Field(default="text_delta")
+
+    delta: str = Field(..., description="The delta of the content.")
+
+
+class ToolUseContent(BaseContent):
     type: Literal["tool_use"] = Field(default="tool_use")
 
-    id: str = Field(..., description="The ID of the tool use.")
+    tool_use_id: str = Field(..., description="The ID of the tool use.")
 
     name: str = Field(..., description="The name of the tool.")
 
     input: dict = Field(..., description="The arguments of the tool.")
 
 
-ContentType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
-
-
-class ToolResultContent(BaseModel):
+class ToolResultContent(BaseContent):
     type: Literal["tool_result"] = Field(default="tool_result")
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
-    content: str = Field(..., description="The result of the tool.")
+    widget_type: Literal["image", "chart"] | None = Field(default=None, description="The type of the widget.")
 
-    content_format: Literal["image", "chart", "unknown"] = Field(
-        default="unknown", description="The format of the content."
-    )
+    output: str = Field(..., description="The result of the tool.")
 
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
 
 
-class ToolResultDeltaContent(ToolResultContent):
-    type: Literal["tool_result_delta"] = Field(default="tool_result_delta")
-
-
-class ImageContent(BaseModel):
+class ImageContent(BaseContent):
     type: Literal["image"] = Field(default="image")
 
-    content: str = Field(
-        ...,
-        description="The raw base64 encoded image data, without any prefixes like `data:image/jpeg;base64,` for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
-    )
-
-    content_type: ContentType = Field(
-        default="image/jpeg",
-        description="The content type of the image, must start with `image/`",
-    )
+    image_url: str = Field(..., description="The URL of the image.")
 
 
-class PDFContent(BaseModel):
-    type: Literal["pdf"] = Field(default="pdf")
+class FileContent(BaseContent):
+    type: Literal["file"] = Field(default="file")
 
-    content: str = Field(
-        ...,
-        description="The base64 encoded PDF data, without any prefixes like `data:application/pdf;base64,`, for example: `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==`",
-    )
+    file_data: str = Field(..., description="The file data of the message.")
 
-
-MessageContent = (
-    TextContent
-    | TextDeltaContent
-    | ToolUseContent
-    | ToolResultContent
-    | ToolResultDeltaContent
-    | ImageContent
-    | PDFContent
-)
+    file_name: str = Field(..., description="The name of the file.")
 
 
-class Message(BaseModel):
-    role: Literal["assistant", "user", "system", "developer"] = Field(
-        default="assistant", description="The role of the message."
-    )
+# TODO: Add annotation content
+# class AnnotationContent(BaseContent):
+#     type: Literal["annotation"] = Field(default="annotation")
 
-    content: list[MessageContent] = Field(..., description="The content of the message.")
+#     annotation_type: Literal["url_citation"]
+
+#     url: str = Field(..., description="The URL of the annotation.")
+
+#     title: str = Field(..., description="The title of the annotation.")
+
+#     start_index: int = Field(..., description="The start index of the annotation.")
+
+#     end_index: int = Field(..., description="The end index of the annotation.")
 
 
-class AgentConfig(BaseModel):
-    agent_class: str
-
-    model_config = ConfigDict(extra="allow")
+MessageContent = TextContent | ToolUseContent | ToolResultContent | ImageContent | FileContent | TextDeltaContent
 
 
-class MessageCreateInput(BaseModel):
-    content: list[TextContent | ImageContent | PDFContent] = Field(..., description="The content of the message.")
+class MessageResponse(BaseModel):
+    id: str
 
-    agent_config: AgentConfig = Field(
-        ...,
-        description="The configuration for the agent that generated the message. Requires at least a `agent_class` key.",
-    )
+    role: MessageRole
 
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "content": [
-                        {
-                            "type": "text",
-                            "content": "Hello, what color is this image?",
-                        },
-                        {
-                            "type": "image",
-                            "content": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAE0lEQVR42mP8/5+hngENMNJAEAD4tAx3yVEBjwAAAABJRU5ErkJggg==",
-                            "content_type": "image/png",
-                        },
-                    ],
-                    "agent_config": {
-                        "agent_class": "OpenAIAssistant",
-                        "assistant_id": "asst_5vWL7aefIopE4aU5DcFRmpA5",
-                    },
-                }
-            ]
-        }
-    }
+    name: str | None = None
+
+    tool_use_id: str | None = None
+
+    content: list[Annotated[MessageContent, Field(discriminator="type")]]
