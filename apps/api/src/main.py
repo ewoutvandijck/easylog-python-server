@@ -32,7 +32,6 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
                 config=LLMConfig(
                     api_key=settings.OPENROUTER_API_KEY,
                     base_url="https://openrouter.ai/api/v1",
-                    model="openai/gpt-4.1",
                 ),
                 client=openai_client,
             ),

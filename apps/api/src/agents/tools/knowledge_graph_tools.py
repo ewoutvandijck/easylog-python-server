@@ -49,7 +49,7 @@ class KnowledgeGraphTools(BaseTools):
             '{"id": "episode-456", "name": "thread-xyz_2", "source": "message", "source_description": "Python programming help", "content": "User needed help with Python list comprehensions...", "valid_at": "2023-01-01T00:00:00Z", "entity_edges": []}'
         """
         graphiti_connection = get_graphiti_connection()
-        await asyncio.create_task(
+        asyncio.create_task(
             graphiti_connection.add_episode(
                 name=f"{self.thread_id}_{str(uuid.uuid4())[:8]}",
                 episode_body=episode_body,
