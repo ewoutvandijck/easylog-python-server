@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from src.lib.graphiti import graphiti
+# from src.lib.graphiti import graphiti
 from src.lib.prisma import prisma
 from src.models.health import HealthResponse
 from src.services.easylog.easylog_sql_service import EasylogSqlService
@@ -26,11 +26,11 @@ async def health() -> HealthResponse:
     except Exception:
         main_db = "unhealthy"
 
-    try:
-        await graphiti.driver.verify_connectivity(connection_acquisition_timeout=1)
-        await graphiti.search("select 1")
-    except Exception:
-        neo4j = "unhealthy"
+    # try:
+    #     await graphiti.driver.verify_connectivity(connection_acquisition_timeout=1)
+    #     await graphiti.search("select 1")
+    # except Exception:
+    #     neo4j = "unhealthy"
 
     try:
         db = EasylogSqlService(

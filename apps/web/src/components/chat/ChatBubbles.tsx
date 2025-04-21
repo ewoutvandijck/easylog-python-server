@@ -33,17 +33,15 @@ const ChatBubbles = () => {
     >
       {messageData?.flatMap((message, messageIndex) =>
         message.content
-          .map((content) => {
-            if (
-              content.type === 'tool_result' &&
-              (content.widget_type === 'image' ||
-                content.widget_type === 'chart')
-            ) {
-              message.role = 'assistant';
-            }
-
-            return content;
-          })
+          .filter(
+            (content) =>
+              !(
+                content.type === 'tool_use' ||
+                (content.type === 'tool_result' &&
+                  (content.output === '{}' || content.output === 'None')) ||
+                (content.type === 'text' && !content.text)
+              )
+          )
           .map((content, contentIndex) => (
             <ChatBubble
               key={`${messageIndex}-${contentIndex}`}
@@ -54,6 +52,7 @@ const ChatBubbles = () => {
                   | 'assistant'
                   | 'system'
                   | 'developer'
+                  | 'tool'
               }
             />
           ))
