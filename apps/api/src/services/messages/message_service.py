@@ -19,13 +19,11 @@ from src.models.messages import (
     FileContent,
     ImageContent,
     MessageContent,
+    MessageResponse,
     TextContent,
     TextDeltaContent,
     ToolResultContent,
     ToolUseContent,
-)
-from src.models.messages import (
-    Message as GeneratedMessage,
 )
 from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
 from src.services.messages.utils.generated_message_to_openai_param import generated_message_to_openai_param
@@ -45,7 +43,7 @@ class MessageService:
         agent_class: str,
         agent_config: dict,
         headers: dict,
-    ) -> AsyncGenerator[MessageContent | GeneratedMessage, None]:
+    ) -> AsyncGenerator[MessageContent | MessageResponse, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
         Args:
@@ -96,7 +94,7 @@ class MessageService:
         logger.info("Forwarding message through agent")
 
         # Forward the history through the agent
-        generated_messages: list[GeneratedMessage] = []
+        generated_messages: list[MessageResponse] = []
 
         yielded_messages: set[str] = set()
 
@@ -108,7 +106,7 @@ class MessageService:
                     if message.id in yielded_messages:
                         continue
 
-                    yield GeneratedMessage(**message.model_dump(exclude={"content"}), content=[])
+                    yield MessageResponse(**message.model_dump(exclude={"content"}), content=[])
 
                     yielded_messages.add(message.id)
 
@@ -189,21 +187,21 @@ class MessageService:
         cls,
         agent: BaseAgent,
         thread_history: Iterable[ChatCompletionMessageParam],
-        initial_generated_messages: list[GeneratedMessage],
+        initial_generated_messages: list[MessageResponse],
         max_recursion_depth: int = 5,
         current_depth: int = 0,
-    ) -> AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
+    ) -> AsyncGenerator[tuple[MessageContent, list[MessageResponse]], None]:
         """Call the agent with the thread history and return the response.
 
         Args:
             agent (BaseAgent): The agent to call.
             thread_history (list[Message]): The thread history.
-            initial_generated_messages (list[GeneratedMessage]): Initial generated messages.
+            initial_generated_messages (list[MessageResponse]): Initial generated messages.
             max_recursion_depth (int): Maximum depth for recursive calls.
             current_depth (int): Current recursion depth.
 
         Returns:
-            AsyncGenerator[tuple[MessageContent, list[GeneratedMessage]], None]:
+            AsyncGenerator[tuple[MessageContent, list[MessageResponse]], None]:
                 A generator of message chunks and the current state of generated messages.
         """
 
@@ -213,7 +211,7 @@ class MessageService:
             logger.warning(f"Maximum recursion depth ({max_recursion_depth}) reached, stopping recursion")
             return
 
-        generated_messages: list[GeneratedMessage] = []
+        generated_messages: list[MessageResponse] = []
 
         logger.info(f"Thread history: {thread_history}")
 
@@ -227,7 +225,7 @@ class MessageService:
             if isinstance(content_chunk, ToolResultContent):
                 logger.info(f"Appending tool result content: {content_chunk.model_dump_json()}")
                 generated_messages.append(
-                    GeneratedMessage(
+                    MessageResponse(
                         id=str(uuid.uuid4()),
                         role="tool",
                         tool_use_id=content_chunk.tool_use_id,
@@ -237,7 +235,7 @@ class MessageService:
             elif not last_message or last_message.role == "tool":
                 logger.info("Appending assistant message")
                 generated_messages.append(
-                    GeneratedMessage(
+                    MessageResponse(
                         id=str(uuid.uuid4()),
                         role="assistant",
                         content=[],

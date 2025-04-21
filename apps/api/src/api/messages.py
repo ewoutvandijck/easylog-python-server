@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import MessageCreateInput
-from src.models.messages import Message
+from src.models.messages import MessageResponse
 from src.models.pagination import Pagination
 from src.services.messages.message_service import MessageService
 from src.services.messages.utils.db_message_to_message_model import db_message_to_message_model
@@ -22,7 +22,7 @@ router = APIRouter()
     "/threads/{thread_id}/messages",
     name="get_messages",
     tags=["messages"],
-    response_model=Pagination[Message],
+    response_model=Pagination[MessageResponse],
     description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
 )
 async def get_messages(
@@ -33,7 +33,7 @@ async def get_messages(
     limit: int = Query(default=10, ge=1),
     offset: int = Query(default=0, ge=0),
     order: Literal["asc", "desc"] = Query(default="asc"),
-) -> Pagination[Message]:
+) -> Pagination[MessageResponse]:
     messages = await prisma.messages.find_many(
         where={"thread_id": thread_id} if is_valid_uuid(thread_id) else {"thread": {"is": {"external_id": thread_id}}},
         order=[{"created_at": order}],
@@ -86,7 +86,7 @@ async def create_message(
 
         try:
             async for chunk in forward_message_generator:
-                if isinstance(chunk, Message):
+                if isinstance(chunk, MessageResponse):
                     yield create_sse_event("message", chunk.model_dump_json())
                     continue
 

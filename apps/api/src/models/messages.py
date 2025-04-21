@@ -75,7 +75,7 @@ class FileContent(BaseContent):
 MessageContent = TextContent | ToolUseContent | ToolResultContent | ImageContent | FileContent | TextDeltaContent
 
 
-class Message(BaseModel):
+class MessageResponse(BaseModel):
     id: str
 
     role: MessageRole

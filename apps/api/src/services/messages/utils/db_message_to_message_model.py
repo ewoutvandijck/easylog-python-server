@@ -1,3 +1,5 @@
+from typing import cast
+
 from prisma import Base64
 from prisma.enums import message_content_type
 from prisma.models import message_contents, messages
@@ -5,20 +7,21 @@ from prisma.models import message_contents, messages
 from src.models.messages import (
     FileContent,
     ImageContent,
-    Message,
+    MessageResponse,
+    MessageRole,
     TextContent,
     ToolResultContent,
     ToolUseContent,
 )
 
 
-def db_message_to_message_model(message: messages) -> Message:
+def db_message_to_message_model(message: messages) -> MessageResponse:
     if message.contents is None:
         raise ValueError("Message contents are required")
 
-    return Message(
+    return MessageResponse(
         id=message.id,
-        role=message.role.value,
+        role=cast(MessageRole, message.role),
         name=message.name,
         content=[
             message_content

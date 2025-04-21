@@ -16,14 +16,14 @@ from openai.types.chat.chat_completion_content_part_param import File
 from src.models.messages import (
     FileContent,
     ImageContent,
-    Message,
+    MessageResponse,
     TextContent,
     ToolResultContent,
     ToolUseContent,
 )
 
 
-def generated_message_to_openai_param(message: Message) -> ChatCompletionMessageParam:
+def generated_message_to_openai_param(message: MessageResponse) -> ChatCompletionMessageParam:
     if message.role == "user":
         return ChatCompletionUserMessageParam(
             role=message.role,

@@ -102,6 +102,7 @@ const useSendMessage = () => {
           if (ev.event === 'error') {
             toast.error(data.detail);
             queryClient.invalidateQueries({ queryKey });
+            reject(new Error(data.detail));
           }
 
           if (ev.event === 'message') {
@@ -135,7 +136,7 @@ const useSendMessage = () => {
         onerror(ev) {
           setIsLoading(false);
           toast.error(ev.data);
-          reject(ev);
+          reject(new Error(ev.data));
         },
         async onopen() {
           setIsLoading(true);
