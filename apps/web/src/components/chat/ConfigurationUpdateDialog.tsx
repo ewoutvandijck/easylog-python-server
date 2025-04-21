@@ -17,9 +17,9 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { JsonEditor } from 'json-edit-react';
 import { Controller } from 'react-hook-form';
 import useConfigurations from '@/hooks/use-configurations';
+import JsonEditor from './JsonEditor';
 
 const schema = z.object({
   name: z.string(),
@@ -88,11 +88,14 @@ const ConfigurationUpdateDialog = ({
                 name="agentConfig"
                 render={({ field }) => (
                   <JsonEditor
-                    data={field.value}
-                    setData={(data) => {
-                      field.onChange(data);
+                    value={JSON.stringify(field.value, null, 2)}
+                    onChange={(value) => {
+                      try {
+                        field.onChange(JSON.parse(value));
+                      } catch {
+                        // Do nothing
+                      }
                     }}
-                    className="w-full"
                   />
                 )}
               />
