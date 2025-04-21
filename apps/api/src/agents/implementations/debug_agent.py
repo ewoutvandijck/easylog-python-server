@@ -1,9 +1,12 @@
+import io
 from collections.abc import Callable, Iterable
 
+import httpx
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from PIL import Image
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
@@ -110,12 +113,39 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 y_keys=["value"],
             )
 
+        def tool_download_image(url: str) -> Image.Image:
+            """Download an image from a URL.
+
+            Args:
+                url (str): The URL of the image to download.
+
+            Returns:
+                Image.Image: The downloaded image.
+
+            Raises:
+                httpx.HTTPStatusError: If the download fails.
+                PIL.UnidentifiedImageError: If the content is not a valid image.
+                Exception: For other potential errors during download or processing.
+            """
+            try:
+                response = httpx.get(url, timeout=10)
+                response.raise_for_status()
+
+                return Image.open(io.BytesIO(response.content))
+            except httpx.HTTPStatusError:
+                raise
+            except Image.UnidentifiedImageError:
+                raise
+            except Exception:
+                raise
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
             # *knowledge_graph_tools.all_tools,
             tool_set_current_role,
             tool_example_chart,
+            tool_download_image,
         ]
 
     async def on_message(

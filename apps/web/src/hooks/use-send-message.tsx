@@ -126,6 +126,7 @@ const useSendMessage = () => {
           }
 
           if (ev.event === 'content_end') {
+            console.log('content_cache', contentCache);
             handleMessageContent(
               messageContentSchema.parse(JSON.parse(contentCache))
             );
