@@ -64,8 +64,9 @@ class JobEntity(BaseModel):
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
     def get_tools(self) -> list[Callable]:
+        # Get header in lowercase, given that its now a DICT and thus has been converted to lowercase
         easylog_backend_tools = EasylogBackendTools(
-            bearer_token=self.request_headers.get("X-Easylog-Bearer-Token", ""),
+            bearer_token=self.request_headers.get("x-easylog-bearer-token", ""),
             base_url=settings.EASYLOG_API_URL,
         )
 
