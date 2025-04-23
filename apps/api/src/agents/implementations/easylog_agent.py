@@ -82,7 +82,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         )
 
         knowledge_graph_tools = KnowledgeGraphTools(
-            thread_id=self.thread_id,
             entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
         )
 
