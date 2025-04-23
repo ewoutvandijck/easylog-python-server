@@ -29,8 +29,8 @@ class EasyLogAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="EasyLogAssistant",
-                prompt="You are a helpful assistant for EasyLog.",
-                model="google/gemini-2.5-pro-preview-03-25",
+                prompt="You are a helpful assistant for people.",
+                model="meta-llama/llama-4-maverick",
             )
         ]
     )
