@@ -1,5 +1,6 @@
 import io
 from collections.abc import Callable, Iterable
+from datetime import date
 
 import httpx
 from openai import AsyncStream
@@ -155,6 +156,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             except Exception:
                 raise
 
+        def tool_get_current_date() -> str:
+            """Return the current date.
+
+            Returns:
+                str: The current date in YYYY-MM-DD format.
+            """
+            return date.today().isoformat()
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -162,6 +171,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
+            tool_get_current_date,
         ]
 
     async def on_message(
@@ -175,16 +185,20 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
+        current_date = date.today().isoformat()
+        system_prompt = self.config.prompt.format(
+            current_role=role,
+            current_role_prompt=role_config.prompt,
+            available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+        )
+        system_prompt_with_date = f"{system_prompt}\n\nCurrent date is {current_date}."
+
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": self.config.prompt.format(
-                        current_role=role,
-                        current_role_prompt=role_config.prompt,
-                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
-                    ),
+                    "content": system_prompt_with_date,
                 },
                 *messages,
             ],
