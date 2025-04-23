@@ -15,7 +15,9 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
       className={cn(
         'rounded-lg px-4 py-1 max-w-lg bg-secondary flex flex-col',
         role === 'user' ? 'ml-auto' : 'mr-auto',
-        (content.type === 'tool_result' && content.widget_type === 'image') ||
+        (content.type === 'tool_result' &&
+          (content.widget_type === 'image' ||
+            content.widget_type === 'image_url')) ||
           content.type === 'image'
           ? 'p-0 border border-secondary'
           : null,
@@ -25,7 +27,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
       )}
     >
       {content.type === 'text' ||
-      (content.type === 'tool_result' && !content.widget_type) ? (
+      (content.type === 'tool_result' && content.widget_type === 'text') ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -112,7 +114,9 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
         >
           {content.type === 'text' ? content.text : content.output}
         </ReactMarkdown>
-      ) : content.type === 'tool_result' && content.widget_type === 'image' ? (
+      ) : content.type === 'tool_result' &&
+        (content.widget_type === 'image' ||
+          content.widget_type === 'image_url') ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={content.output} alt="tool result" className="rounded-lg" />
       ) : content.type === 'tool_result' && content.widget_type === 'chart' ? (
