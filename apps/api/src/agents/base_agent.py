@@ -150,6 +150,14 @@ class BaseAgent(Generic[TConfig]):
                     widget_type="chart",
                     is_error=False,
                 )
+            elif isinstance(result, str):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=result,
+                    widget_type="text",
+                    is_error=False,
+                )
             else:
                 return ToolResultContent(
                     id=str(uuid.uuid4()),

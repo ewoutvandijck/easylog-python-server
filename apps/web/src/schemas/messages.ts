@@ -25,7 +25,7 @@ export const toolResultContentSchema = z.object({
   type: z.literal('tool_result'),
   tool_use_id: z.string(),
   output: z.string(),
-  widget_type: z.enum(['image', 'chart']).nullish(),
+  widget_type: z.enum(['text', 'image', 'image_url', 'chart']).nullish(),
   is_error: z.boolean()
 });
 

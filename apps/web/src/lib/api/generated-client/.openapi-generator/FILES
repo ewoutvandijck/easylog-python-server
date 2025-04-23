@@ -1,4 +1,3 @@
-.openapi-generator-ignore
 apis/HealthApi.ts
 apis/KnowledgeApi.ts
 apis/MessagesApi.ts

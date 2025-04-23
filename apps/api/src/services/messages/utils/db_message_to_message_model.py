@@ -125,7 +125,15 @@ def tool_result_param(content: message_contents) -> ToolResultContent:
     return ToolResultContent(
         id=content.id,
         type="tool_result",
-        widget_type="image" if content.widget_type == "image" else "chart" if content.widget_type == "chart" else None,
+        widget_type="image"
+        if content.widget_type == "image"
+        else "chart"
+        if content.widget_type == "chart"
+        else "text"
+        if content.widget_type == "text"
+        else "image_url"
+        if content.widget_type == "image_url"
+        else None,
         tool_use_id=content.tool_use_id,
         output=content.tool_output,
     )
