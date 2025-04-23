@@ -63,11 +63,14 @@ class JobEntity(BaseModel):
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
     def get_tools(self) -> list[Callable]:
-        # Get header in lowercase, given that its now a DICT and thus has been converted to lowercase
+        easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
         easylog_backend_tools = EasylogBackendTools(
-            bearer_token=self.request_headers.get("x-easylog-bearer-token", ""),
+            bearer_token=easylog_token,
             base_url=settings.EASYLOG_API_URL,
         )
+
+        if easylog_token:
+            self.logger.debug(f"credentials='{easylog_token}'")
 
         easylog_sql_tools = EasylogSqlTools(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
