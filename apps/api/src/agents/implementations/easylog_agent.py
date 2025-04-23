@@ -30,7 +30,7 @@ class EasyLogAgentConfig(BaseModel):
             RoleConfig(
                 name="EasyLogAssistant",
                 prompt="You are a helpful assistant for EasyLog.",
-                model="openai/gpt-4.1",
+                model="google/gemini-2.5-pro-preview-03-25",
             )
         ]
     )
