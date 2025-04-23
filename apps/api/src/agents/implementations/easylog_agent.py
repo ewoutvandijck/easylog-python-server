@@ -30,7 +30,7 @@ class EasyLogAgentConfig(BaseModel):
             RoleConfig(
                 name="EasyLogAssistant",
                 prompt="You are a helpful assistant for people.",
-                model="meta-llama/llama-4-maverick",
+                model="google/gemini-2.5-pro-preview-03-25",
             )
         ]
     )
