@@ -2,7 +2,7 @@ import os
 
 from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
 from src.lib.prisma import prisma
-from src.lib.supabase import supabase
+from src.lib.supabase import create_supabase
 from src.logger import logger
 
 
@@ -13,6 +13,8 @@ async def ingest_from_upload_file_job(
     target_path: str = "/",
 ) -> None:
     try:
+        supabase = await create_supabase()
+
         processed_pdf = await extract_and_process_pdf(file_data)
 
         if file_name:
@@ -20,7 +22,7 @@ async def ingest_from_upload_file_job(
 
         full_pdf_path = os.path.join(target_path, processed_pdf.file_name)
 
-        supabase.storage.from_(bucket).upload(
+        await supabase.storage.from_(bucket).upload(
             full_pdf_path,
             file_data,
             {
@@ -55,7 +57,7 @@ async def ingest_from_upload_file_job(
         for image in processed_pdf.images:
             image_full_path = os.path.join(target_path, image.file_name)
 
-            supabase.storage.from_(bucket).upload(
+            await supabase.storage.from_(bucket).upload(
                 image_full_path,
                 image.file_data,
                 {

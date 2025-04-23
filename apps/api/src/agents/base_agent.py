@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 import uuid
@@ -24,8 +25,10 @@ from pydantic import BaseModel
 
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
+from src.lib.supabase import create_supabase
 from src.logger import logger
 from src.models.chart_widget import ChartWidget
+from src.models.image_widget import ImageWidget
 from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
 from src.models.stream_tool_call import StreamToolCall
 from src.utils.image_to_base64 import image_to_base64
@@ -134,11 +137,37 @@ class BaseAgent(Generic[TConfig]):
         try:
             result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
 
-            if isinstance(result, Image.Image):
+            if isinstance(result, ImageWidget) and result.mode == "image_url" or isinstance(result, Image.Image):
+                supabase = await create_supabase()
+
+                image = result if isinstance(result, Image.Image) else Image.open(io.BytesIO(result.data))
+
+                if image.mode in ("RGBA", "LA", "P"):
+                    image = image.convert("RGB")
+
+                contents = io.BytesIO()
+                image.save(contents, format="JPEG")
+
+                result = await supabase.storage.from_("user-uploads").upload(
+                    f"{self.thread_id}/{str(uuid.uuid4())}.jpg",
+                    contents.getvalue(),
+                    file_options={"content-type": "image/jpeg"},
+                )
+
+                url = await supabase.storage.from_("user-uploads").get_public_url(result.path)
+
                 return ToolResultContent(
                     id=str(uuid.uuid4()),
                     tool_use_id=tool_call_id,
-                    output=image_to_base64(result),
+                    output=url,
+                    widget_type="image_url",
+                    is_error=False,
+                )
+            elif isinstance(result, ImageWidget) and result.mode == "image":
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=image_to_base64(Image.open(io.BytesIO(result.data))),
                     widget_type="image",
                     is_error=False,
                 )
