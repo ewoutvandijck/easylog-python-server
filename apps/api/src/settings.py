@@ -30,5 +30,7 @@ class Settings(BaseSettings):
     NEO4J_USER: str = Field(default="neo4j")
     NEO4J_PASSWORD: str = Field(default="password")
 
+    SUPABASE_ORIGIN_OVERRIDE: str | None = Field(default=None)
+
 
 settings = Settings()  # type: ignore

@@ -20,7 +20,7 @@ async def upload_pdf_document(file: UploadFile, background_tasks: BackgroundTask
     background_tasks.add_task(
         ingest_from_upload_file_job,
         file_data=await file.read(),
-        file_name=f"{str(uuid.uuid4())}.pdf",
+        file_name=file.filename or f"{str(uuid.uuid4())}.pdf",
         bucket="knowledge",
     )
 

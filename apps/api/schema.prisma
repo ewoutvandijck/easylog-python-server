@@ -87,3 +87,13 @@ model message_contents {
 
     @@map("message_contents")
 }
+
+model documents {
+    id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    created_at DateTime @default(now())
+    updated_at DateTime @default(now()) @updatedAt
+    file_name  String
+    content    Json     @db.JsonB
+
+    @@map("documents")
+}

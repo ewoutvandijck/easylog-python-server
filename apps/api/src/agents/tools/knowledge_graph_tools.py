@@ -73,7 +73,8 @@ class KnowledgeGraphTools(BaseTools):
             '[{"id": "episode-123", "name": "thread-abc_1", "source": "message", "source_description": "Discussion about AI ethics", "content": "User asked about ethical considerations...", "valid_at": "2023-01-01T00:00:00Z", "entity_edges": []}]'
         """
 
-        results = await get_graphiti_connection().search(query)
+        graphiti_connection = get_graphiti_connection()
+        results = await graphiti_connection.search(query)
 
         return json.dumps(
             [
