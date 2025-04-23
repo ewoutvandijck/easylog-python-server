@@ -66,7 +66,9 @@ export type ToolResultContentTypeEnum =
 
 /** @export */
 export const ToolResultContentWidgetTypeEnum = {
+  Text: 'text',
   Image: 'image',
+  ImageUrl: 'image_url',
   Chart: 'chart'
 } as const;
 export type ToolResultContentWidgetTypeEnum =

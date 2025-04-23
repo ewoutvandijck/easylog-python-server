@@ -152,7 +152,9 @@ enum message_role {
 }
 
 enum widget_type {
+    text
     image
+    image_url
     chart
 
     @@schema("public")
