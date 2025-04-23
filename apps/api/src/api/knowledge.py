@@ -15,16 +15,13 @@ router = APIRouter()
 )
 async def upload_pdf_document(file: UploadFile, background_tasks: BackgroundTasks) -> Response:
     if not file.content_type == "application/pdf" or not (file.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-
-    file_id = str(uuid.uuid4())
+        raise HTTPException(status_code=422, detail="Only PDF files are allowed")
 
     background_tasks.add_task(
         ingest_from_upload_file_job,
         file_data=await file.read(),
-        file_name=file.filename,
+        file_name=f"{str(uuid.uuid4())}.pdf",
         bucket="knowledge",
-        target_path=file_id,
     )
 
     return Response(status_code=200)
