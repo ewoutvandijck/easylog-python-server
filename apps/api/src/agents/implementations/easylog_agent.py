@@ -29,8 +29,8 @@ class EasyLogAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="EasyLogAssistant",
-                prompt="You are a helpful assistant for people.",
-                model="openai/o4-mini-high",
+                prompt="You are a helpful friendly assistant.",
+                model="anthropic/claude-3.7-sonnet:thinking",
             )
         ]
     )
