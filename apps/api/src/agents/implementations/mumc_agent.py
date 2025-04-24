@@ -20,7 +20,7 @@ class MUMCAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="MUMCAssistant",
+                name="Coach",
                 prompt="You are a helpful friendly care taker for COPD patients.",
                 model="openai/gpt-4.1",
             )
@@ -31,15 +31,6 @@ class MUMCAgentConfig(BaseModel):
     )
 
 
-class CarEntity(BaseModel):
-    brand: str | None = None
-    model: str | None = None
-    year: int | None = None
-    horsepower: int | None = None
-    color: str | None = None
-    price: int | None = None
-
-
 class PersonEntity(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
@@ -47,18 +38,11 @@ class PersonEntity(BaseModel):
     gender: str | None = None
 
 
-class JobEntity(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-
-
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     def get_tools(self) -> list[Callable]:
         knowledge_graph_tools = KnowledgeGraphTools(
             thread_id=self.thread_id,
-            entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
+            entities={"Person": PersonEntity},
         )
 
         async def tool_set_current_role(role: str) -> str:
