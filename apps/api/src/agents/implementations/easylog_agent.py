@@ -29,7 +29,7 @@ class EasyLogAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="EasyLogAssistant",
-                prompt="Je bent een AI coach in een leefstijl app.",
+                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
                 model="openai/gpt-4.1",
             )
         ]
