@@ -31,9 +31,9 @@ class EasylogSqlTools(BaseTools):
 
     @property
     def all_tools(self) -> list[Callable]:
-        return [self.execute_query]
+        return [self.tool_execute_query]
 
-    async def execute_query(self, query: str) -> str:
+    async def tool_execute_query(self, query: str) -> str:
         if not self.db:
             raise ValueError("Database not connected")
 

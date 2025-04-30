@@ -1,3 +1,4 @@
+import fnmatch
 import io
 import uuid
 from collections.abc import Callable, Iterable
@@ -24,6 +25,7 @@ class RoleConfig(BaseModel):
     name: str
     prompt: str
     model: str
+    tools_glob: str = Field(default="*")
 
 
 class DebugAgentConfig(BaseModel):
@@ -33,6 +35,7 @@ class DebugAgentConfig(BaseModel):
                 name="James",
                 prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
+                tools_glob="*",
             )
         ]
     )
@@ -247,13 +250,13 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        tools = self.get_tools()
-
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
+
+        tools = [tool for tool in self.get_tools() if fnmatch.fnmatch(tool.__name__, role_config.tools_glob)]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
