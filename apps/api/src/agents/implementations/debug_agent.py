@@ -257,6 +257,10 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         tools = self.get_tools()
+
+        for tool in tools:
+            self.logger.info(f"{tool.__name__}: {tool.__doc__}")
+
         tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
