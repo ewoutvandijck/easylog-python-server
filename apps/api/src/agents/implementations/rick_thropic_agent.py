@@ -8,6 +8,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -145,9 +146,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
+                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -159,9 +158,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             except Exception:
                 raise
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
 
             Args:
@@ -179,12 +176,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
+                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
+                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
 
             return MultipleChoiceWidget(
                 question=question,
@@ -211,9 +204,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
@@ -223,12 +214,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
+                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                     ),
                 },
                 *messages,
