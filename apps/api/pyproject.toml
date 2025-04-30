@@ -32,6 +32,8 @@ dependencies = [
     "cairosvg>=2.7.1",
     "graphiti-core>=0.10.4",
     "mistralai>=1.7.0",
+    "weaviate-client>=4.14.1",
+    "python-slugify>=8.0.4",
 ]
 
 [tool.ruff]

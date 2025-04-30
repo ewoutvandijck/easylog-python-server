@@ -1,92 +1,159 @@
-import os
+import base64
+import datetime
+import re
+import uuid
+from io import BytesIO
 
-from src.jobs.ingest_pdf.lib.extract_and_process_pdf import extract_and_process_pdf
+from prisma import Json
+from slugify import slugify
+
+from src.jobs.ingest_pdf.models import DocumentEntity, DocumentPageEntity
+from src.lib.mistral import mistralai_client
+from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.lib.supabase import create_supabase
+from src.lib.weaviate import weaviate_client
 from src.logger import logger
 
 
 async def ingest_from_upload_file_job(
     file_data: bytes,
-    file_name: str | None = None,
-    bucket: str = "knowledge",
-    target_path: str = "/",
+    file_name: str,
+    bucket: str = "documents",
+    subject: str = "",
 ) -> None:
+    base_path = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+
     try:
         supabase = await create_supabase()
 
-        processed_pdf = await extract_and_process_pdf(file_data)
-
-        if file_name:
-            processed_pdf.file_name = file_name
-
-        full_pdf_path = os.path.join(target_path, processed_pdf.file_name)
-
-        await supabase.storage.from_(bucket).upload(
-            full_pdf_path,
+        upload_response = await supabase.storage.from_(bucket).upload(
+            f"{base_path}/{slugify(file_name)}",
             file_data,
             {
                 "upsert": "true",
-                "content-type": processed_pdf.file_type,
+                "content-type": "application/pdf",
             },
         )
 
-        pdf_file_object = await prisma.objects.find_first_or_raise(where={"name": full_pdf_path, "bucket_id": bucket})
+        logger.info(f"Uploaded file to {upload_response.path}")
 
-        processed_pdf_db = await prisma.processed_pdfs.upsert(
-            where={
-                "object_id": pdf_file_object.id,
+        document_public_url = await supabase.storage.from_(bucket).get_public_url(upload_response.path)
+
+        ocr_response = await mistralai_client.ocr.process_async(
+            model="mistral-ocr-latest",
+            document={
+                "type": "document_url",
+                "document_url": document_public_url,
             },
-            data={
-                "create": {
-                    "object_id": pdf_file_object.id,
-                    "short_summary": processed_pdf.short_summary,
-                    "long_summary": processed_pdf.long_summary,
-                    "markdown_content": processed_pdf.markdown_content,
-                    "file_type": processed_pdf.file_type,
-                },
-                "update": {
-                    "short_summary": processed_pdf.short_summary,
-                    "long_summary": processed_pdf.long_summary,
-                    "markdown_content": processed_pdf.markdown_content,
-                    "file_type": processed_pdf.file_type,
-                },
-            },
+            include_image_base64=True,
         )
 
-        for image in processed_pdf.images:
-            image_full_path = os.path.join(target_path, image.file_name)
+        logger.info(f"OCR response: {ocr_response.usage_info}")
 
-            await supabase.storage.from_(bucket).upload(
-                image_full_path,
-                image.file_data,
+        document_result = DocumentEntity(
+            file_name=file_name,
+            document_url=document_public_url,
+            pages=[],
+        )
+
+        for page_index, page in enumerate(ocr_response.pages):
+            document_page = DocumentPageEntity(
+                page_number=page_index + 1,
+                markdown=page.markdown,
+            )
+
+            for image in page.images:
+                if not isinstance(image.image_base64, str):
+                    logger.warning("Image base64 is not a string")
+                    continue
+
+                content_type_match = re.search(r"data:image/([^;]+);base64,", image.image_base64)
+                if not content_type_match:
+                    logger.warning("Could not extract image type from base64 data")
+                    continue
+
+                content_type = content_type_match.group(1)
+                logger.info(f"Image type: image/{content_type}")
+
+                image_data = base64.b64decode(image.image_base64.split(",")[1])
+                image_data = BytesIO(image_data)
+                image_data.seek(0)
+
+                image_upload_response = await supabase.storage.from_(bucket).upload(
+                    f"{base_path}/images/page-{str(page_index + 1).zfill(3)}/{image.id}",
+                    image_data.getvalue(),
+                    {
+                        "content-type": f"image/{content_type}",
+                    },
+                )
+
+                image_public_url = await supabase.storage.from_(bucket).get_public_url(image_upload_response.path)
+
+                document_page.markdown = document_page.markdown.replace(image.id, image_public_url)
+
+                logger.info(f"Added document image: {image_public_url}")
+
+            document_result.pages.append(document_page)
+
+        full_text = f"{file_name}\n\n"
+        for page in document_result.pages:
+            full_text += f"Page {page.page_number}/{len(document_result.pages)}:\n\n{page.markdown}\n\n"
+
+        response = await openai_client.chat.completions.create(
+            model="openai/gpt-4.1",
+            messages=[
                 {
-                    "upsert": "true",
-                    "content-type": image.file_type,
+                    "role": "developer",
+                    "content": """
+Act as a professional summarizer. Create a concise and summary of the text below, while adhering to the guidelines enclosed in [ ] below. 
+Guidelines:
+[
+- Ensure that the summary includes relevant details, while avoiding any unnecessary information or repetition. 
+- Rely strictly on the provided text, without including external information.
+- The length of the summary must be within 1500 characters.
+- You must start with "<filename> (<document_id>) describes <summary>"
+]""",
                 },
-            )
-
-            image_storage_upload = await prisma.objects.find_first_or_raise(
-                where={"name": image_full_path, "bucket_id": bucket}
-            )
-
-            await prisma.processed_pdf_images.upsert(
-                where={"object_id": image_storage_upload.id},
-                data={
-                    "create": {
-                        "processed_pdf_id": processed_pdf_db.id,
-                        "object_id": image_storage_upload.id,
-                        "original_file_name": image.file_name,
-                        "page": image.page,
-                        "summary": image.summary,
-                    },
-                    "update": {
-                        "summary": image.summary,
-                        "page": image.page,
-                    },
+                {
+                    "role": "user",
+                    "content": full_text,
                 },
-            )
+            ],
+            stream=False,
+        )
+
+        summary = response.choices[0].message.content or ""
+
+        logger.info(f"Summary: {summary}")
+
+        document = await prisma.documents.create(
+            data={
+                "file_name": file_name,
+                "path": upload_response.path,
+                "subject": subject,
+                "content": Json(document_result.model_dump(mode="json")),
+                "summary": summary,
+            },
+        )
+
+        logger.info(f"Created document: {document.id}")
+
+        collection = weaviate_client.collections.get("documents")
+
+        document_id = await collection.data.insert(
+            {
+                "file_name": file_name,
+                "file_public_url": document_public_url,
+                "file_path": upload_response.path,
+                "summary": summary,
+                "subject": subject,
+                "created_at": datetime.datetime.now(datetime.UTC),
+            },
+        )
+
+        logger.info(f"Inserted document: {str(document_id)}")
 
     except Exception as e:
-        logger.error(f"Error ingesting from upload file job: {str(e)}")
+        logger.error(f"Error ingesting from upload file job: {str(e)}", exc_info=True)
         raise e
