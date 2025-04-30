@@ -71,6 +71,13 @@ class JobEntity(BaseModel):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
+    async def get_current_role(self) -> RoleConfig:
+        role = await self.get_metadata("current_role", self.config.roles[0].name)
+        if role not in [role.name for role in self.config.roles]:
+            role = self.config.roles[0].name
+
+        return next(role_config for role_config in self.config.roles if role_config.name == role)
+
     def get_tools(self) -> list[Callable]:
         easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
         easylog_backend_tools = EasylogBackendTools(
@@ -255,7 +262,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                      - The relevance score indicating how well the document matches the query
             """
 
-            result = await self.search_documents(search_query, subjects=["metro"])
+            result = await self.search_documents(
+                search_query, subjects=(await self.get_current_role()).allowed_subjects
+            )
 
             return "\n-".join(
                 [
@@ -300,14 +309,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        role = await self.get_metadata("current_role", self.config.roles[0].name)
-        if role not in [role.name for role in self.config.roles]:
-            role = self.config.roles[0].name
-
-        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
+        role_config = await self.get_current_role()
 
         tools = self.get_tools()
-
         for tool in tools:
             self.logger.info(f"{tool.__name__}: {tool.__doc__}")
 
@@ -322,7 +326,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 {
                     "role": "developer",
                     "content": self.config.prompt.format(
-                        current_role=role,
+                        current_role=role_config.name,
                         current_role_prompt=role_config.prompt,
                         available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                         recurring_tasks="\n".join(
