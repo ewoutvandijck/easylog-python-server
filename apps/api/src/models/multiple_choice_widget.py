@@ -12,7 +12,7 @@ class Choice(BaseModel):
 
 class MultipleChoiceWidget(BaseModel):
     """Widget for asking the user a multiple-choice question. When using this widget, you must not formulate your
-    question in a text message, rather only in this widget."""
+    question again in a text message, but only in this widget."""
 
     type: Literal["multiple_choice"] = Field(default="multiple_choice", description="The type of widget")
     question: str = Field(..., description="The question text presented to the user")
