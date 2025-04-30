@@ -23,12 +23,12 @@ class RoleConfig(BaseModel):
     allowed_subjects: list[str] | None = Field(default=None)
 
 
-class DebugAgentConfig(BaseModel):
+class MUMCAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="James",
-                prompt="You are a helpful assistant.",
+                name="Coach",
+                prompt="You are a helpful friendly care taker for COPD patients.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=None,
@@ -47,7 +47,7 @@ class PersonEntity(BaseModel):
     gender: str | None = None
 
 
-class DebugAgent(BaseAgent[DebugAgentConfig]):
+class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
