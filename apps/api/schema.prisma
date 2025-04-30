@@ -93,7 +93,10 @@ model documents {
     created_at DateTime @default(now())
     updated_at DateTime @default(now()) @updatedAt
     file_name  String
+    path       String
     content    Json     @db.JsonB
+    summary    String
+    subject    String
 
     @@map("documents")
 }

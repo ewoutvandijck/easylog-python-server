@@ -5,19 +5,22 @@ import uuid
 from io import BytesIO
 
 from prisma import Json
+from slugify import slugify
 
 from src.jobs.ingest_pdf.models import DocumentEntity, DocumentPageEntity
 from src.lib.mistral import mistralai_client
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.lib.supabase import create_supabase
+from src.lib.weaviate import weaviate_client
 from src.logger import logger
 
 
 async def ingest_from_upload_file_job(
     file_data: bytes,
     file_name: str,
-    bucket: str = "knowledge",
+    bucket: str = "documents",
+    subject: str = "",
 ) -> None:
     base_path = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
 
@@ -25,7 +28,7 @@ async def ingest_from_upload_file_job(
         supabase = await create_supabase()
 
         upload_response = await supabase.storage.from_(bucket).upload(
-            f"{base_path}/{file_name}",
+            f"{base_path}/{slugify(file_name)}",
             file_data,
             {
                 "upsert": "true",
@@ -78,7 +81,7 @@ async def ingest_from_upload_file_job(
                 image_data.seek(0)
 
                 image_upload_response = await supabase.storage.from_(bucket).upload(
-                    f"{base_path}/images/page_{str(page_index + 1).zfill(3)}/{image.id}",
+                    f"{base_path}/images/page-{str(page_index + 1).zfill(3)}/{image.id}",
                     image_data.getvalue(),
                     {
                         "content-type": f"image/{content_type}",
@@ -92,15 +95,6 @@ async def ingest_from_upload_file_job(
                 logger.info(f"Added document image: {image_public_url}")
 
             document_result.pages.append(document_page)
-
-        document = await prisma.documents.create(
-            data={
-                "file_name": file_name,
-                "content": Json(document_result.model_dump(mode="json")),
-            },
-        )
-
-        logger.info(f"Created document: {document.id}")
 
         full_text = f"{file_name}\n\n"
         for page in document_result.pages:
@@ -133,6 +127,33 @@ Guidelines:
 
         logger.info(f"Summary: {summary}")
 
+        document = await prisma.documents.create(
+            data={
+                "file_name": file_name,
+                "path": upload_response.path,
+                "subject": subject,
+                "content": Json(document_result.model_dump(mode="json")),
+                "summary": summary,
+            },
+        )
+
+        logger.info(f"Created document: {document.id}")
+
+        collection = weaviate_client.collections.get("documents")
+
+        document_id = await collection.data.insert(
+            {
+                "file_name": file_name,
+                "file_public_url": document_public_url,
+                "file_path": upload_response.path,
+                "summary": summary,
+                "subject": subject,
+                "created_at": datetime.datetime.now(datetime.UTC),
+            },
+        )
+
+        logger.info(f"Inserted document: {str(document_id)}")
+
     except Exception as e:
-        logger.error(f"Error ingesting from upload file job: {str(e)}")
+        logger.error(f"Error ingesting from upload file job: {str(e)}", exc_info=True)
         raise e

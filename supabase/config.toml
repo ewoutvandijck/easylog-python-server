@@ -93,12 +93,12 @@ file_size_limit = "50MiB"
 [storage.buckets.user-uploads]
 public = true
 file_size_limit = "50MiB"
-allowed_mime_types = ["image/png", "image/jpeg"]
+allowed_mime_types = ["image/*"]
 
-[storage.buckets.knowledge]
+[storage.buckets.documents]
 public = true
 file_size_limit = "100MiB"
-allowed_mime_types = ["application/pdf"]
+allowed_mime_types = ["application/pdf", "image/*"]
 
 [auth]
 enabled = true

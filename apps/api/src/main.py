@@ -3,17 +3,20 @@ import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
+import weaviate
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from graphiti_core import Graphiti
 from graphiti_core.llm_client import LLMConfig, OpenAIClient
+from weaviate.classes.config import DataType, Property
 
 from src.api import health, knowledge, messages, threads
 from src.lib import graphiti as graphiti_lib
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
+from src.lib.weaviate import weaviate_client
 from src.logger import logger
 from src.security.api_token import verify_api_key
 from src.settings import settings
@@ -40,6 +43,27 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Error initializing Graphiti connection: {e}", exc_info=True)
 
+    try:
+        await weaviate_client.connect()
+
+        if not await weaviate_client.collections.exists(name="documents"):
+            logger.info("Creating documents collection in Weaviate")
+            await weaviate_client.collections.create(
+                name="documents",
+                vectorizer_config=weaviate.classes.config.Configure.Vectorizer.text2vec_openai(),
+                properties=[
+                    Property(name="file_name", data_type=DataType.TEXT),
+                    Property(name="file_public_url", data_type=DataType.TEXT),
+                    Property(name="file_path", data_type=DataType.TEXT),
+                    Property(name="summary", data_type=DataType.TEXT),
+                    Property(name="subject", data_type=DataType.TEXT),
+                    Property(name="created_at", data_type=DataType.DATE),
+                ],
+            )
+
+    except Exception as e:
+        logger.warning(f"Error initializing Weaviate connection: {e}", exc_info=True)
+
     await prisma.connect()
 
     yield
@@ -48,6 +72,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
     if graphiti_lib.graphiti_connection:
         await graphiti_lib.graphiti_connection.close()
+
+    await weaviate_client.close()
 
 
 app = FastAPI(

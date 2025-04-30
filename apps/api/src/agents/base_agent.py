@@ -4,7 +4,7 @@ import json
 import logging
 import uuid
 from abc import abstractmethod
-from collections.abc import AsyncGenerator, Callable, Iterable
+from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
 from types import UnionType
 from typing import (
     Any,
@@ -22,10 +22,12 @@ from PIL import Image
 from prisma import Json
 from prisma.models import threads
 from pydantic import BaseModel
+from weaviate.classes.query import Filter, MetadataQuery
 
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.lib.supabase import create_supabase
+from src.lib.weaviate import weaviate_client
 from src.logger import logger
 from src.models.chart_widget import ChartWidget
 from src.models.image_widget import ImageWidget
@@ -65,6 +67,10 @@ class BaseAgent(Generic[TConfig]):
     def logger(self) -> logging.Logger:
         return logger
 
+    @property
+    def documents_collection(self):
+        return weaviate_client.collections.get("documents")
+
     @abstractmethod
     async def on_message(
         self,
@@ -98,6 +104,21 @@ class BaseAgent(Generic[TConfig]):
         metadata[key] = value
 
         await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(metadata)})
+
+    async def get_document(self, document_path: str) -> dict:
+        document = await prisma.documents.find_first_or_raise(where={"path": document_path})
+
+        return dict(document.content)
+
+    async def search_documents(self, search_query: str, subjects: Sequence[str] | None = None, limit: int = 5):
+        return await self.documents_collection.query.hybrid(
+            query=search_query,
+            limit=limit,
+            alpha=0.5,
+            auto_limit=1,
+            return_metadata=MetadataQuery.full(),
+            filters=Filter.by_property("subject").contains_any(subjects) if subjects else None,
+        )
 
     async def _get_thread(self) -> threads:
         """Get the thread for the agent."""
