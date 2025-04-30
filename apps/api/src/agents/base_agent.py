@@ -32,6 +32,7 @@ from src.logger import logger
 from src.models.chart_widget import ChartWidget
 from src.models.image_widget import ImageWidget
 from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
+from src.models.multiple_choice_widget import MultipleChoiceWidget
 from src.models.stream_tool_call import StreamToolCall
 from src.utils.image_to_base64 import image_to_base64
 
@@ -198,6 +199,14 @@ class BaseAgent(Generic[TConfig]):
                     tool_use_id=tool_call_id,
                     output=result.model_dump_json(),
                     widget_type="chart",
+                    is_error=False,
+                )
+            elif isinstance(result, MultipleChoiceWidget):
+                return ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=result.model_dump_json(),
+                    widget_type="multiple_choice",
                     is_error=False,
                 )
             elif isinstance(result, str):

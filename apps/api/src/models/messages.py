@@ -36,7 +36,7 @@ class ToolResultContent(BaseContent):
 
     tool_use_id: str = Field(..., description="The ID of the tool use.")
 
-    widget_type: Literal["text", "image", "image_url", "chart"] | None = Field(
+    widget_type: Literal["text", "image", "image_url", "chart", "multiple_choice"] | None = Field(
         default=None, description="The type of the widget."
     )
 

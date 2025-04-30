@@ -39,6 +39,7 @@ enum widget_type {
     image
     image_url
     chart
+    multiple_choice
 }
 
 model threads {
