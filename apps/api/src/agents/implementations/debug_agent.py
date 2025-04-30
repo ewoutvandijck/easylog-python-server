@@ -1,4 +1,5 @@
 import io
+import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -21,9 +22,10 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
 class RoleConfig(BaseModel):
-    name: str
-    prompt: str
-    model: str
+    name: str = Field(default="James")
+    prompt: str = Field(default="You are a helpful assistant.")
+    model: str = Field(default="openai/gpt-4.1")
+    tools_regex: str = Field(default=".*")
 
 
 class DebugAgentConfig(BaseModel):
@@ -33,11 +35,12 @@ class DebugAgentConfig(BaseModel):
                 name="James",
                 prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
+                tools_regex=".*",
             )
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}."
+        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}. You can use the following recurring tasks: {recurring_tasks}. You can use the following reminders: {reminders}. The current time is: {current_time}."
     )
 
 
@@ -181,6 +184,28 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return f"Schedule set for {task} with cron expression {cron_expression}"
 
+        async def tool_add_reminder(date: str, message: str) -> str:
+            """Add a reminder.
+
+            Args:
+                date (str): The date and time of the reminder in ISO 8601 format.
+                message (str): The message to remind the user about.
+            """
+
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+
+            existing_reminders.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "date": date,
+                    "message": message,
+                }
+            )
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder added for {message} at {date}"
+
         async def tool_remove_recurring_task(id: str) -> str:
             """Remove a recurring task.
 
@@ -195,6 +220,20 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return f"Recurring task {id} removed"
 
+        async def tool_remove_reminder(id: str) -> str:
+            """Remove a reminder.
+
+            Args:
+                id (str): The ID of the reminder to remove.
+            """
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+
+            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder {id} removed"
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -204,20 +243,28 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_download_image,
             tool_set_recurring_task,
             tool_remove_recurring_task,
+            tool_add_reminder,
+            tool_remove_reminder,
         ]
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        tools = self.get_tools()
-
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
+        tools = self.get_tools()
+
+        for tool in tools:
+            self.logger.info(f"{tool.__name__}: {tool.__doc__}")
+
+        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
+
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        reminders = await self.get_metadata("reminders", [])
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
@@ -230,6 +277,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                         available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                         recurring_tasks="\n".join(
                             [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                        ),
+                        reminders="\n".join(
+                            [
+                                f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                                for reminder in reminders
+                            ]
                         ),
                         current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     ),

@@ -9,6 +9,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -83,6 +84,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         knowledge_graph_tools = KnowledgeGraphTools(
             entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
+            group_id=self.thread_id,
         )
 
         async def tool_set_current_role(role: str) -> str:
@@ -142,9 +144,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
+                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -183,17 +183,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         current_date = date.today().isoformat()
         system_prompt = self.config.prompt.format(
             current_role=role,
             current_role_prompt=role_config.prompt,
-            available_roles="\n".join(
-                [f"- {role.name}: {role.prompt}" for role in self.config.roles]
-            ),
+            available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
         )
         system_prompt_with_date = f"{system_prompt}\n\nCurrent date is {current_date}."
 

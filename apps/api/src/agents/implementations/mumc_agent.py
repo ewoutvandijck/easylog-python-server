@@ -5,6 +5,7 @@ from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -42,6 +43,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     def get_tools(self) -> list[Callable]:
         knowledge_graph_tools = KnowledgeGraphTools(
             entities={"Person": PersonEntity},
+            group_id=self.thread_id,
         )
 
         async def tool_set_current_role(role: str) -> str:
@@ -75,9 +77,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
@@ -87,12 +87,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
+                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                     ),
                 },
                 *messages,
