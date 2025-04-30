@@ -7,7 +7,6 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
-from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
@@ -46,41 +45,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             group_id=self.thread_id,
         )
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
-            """Asks the user a multiple-choice question with distinct labels and values.
-                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
-                This widget already presents the question and choices to the user.
-
-            Args:
-                question: The question to ask.
-                choices: A list of choice dictionaries, each with a 'label' (display text)
-                        and a 'value' (internal value). Example:
-                        [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
-
-            Returns:
-                A MultipleChoiceWidget object representing the question and the choices.
-
-            Raises:
-                ValueError: If a choice dictionary is missing 'label' or 'value'.
-            """
-            parsed_choices = []
-            for choice_dict in choices:
-                if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
-
-            return MultipleChoiceWidget(
-                question=question,
-                choices=parsed_choices,
-                selected_choice=None,
-            )
-
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
 
@@ -101,7 +65,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         return [
             *knowledge_graph_tools.all_tools,
             tool_set_current_role,
-            tool_ask_multiple_choice,
         ]
 
     async def on_message(
