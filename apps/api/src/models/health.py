@@ -8,3 +8,4 @@ class HealthResponse(BaseModel):
     main_db: Literal["healthy", "unhealthy"]
     easylog_db: Literal["healthy", "unhealthy"]
     neo4j: Literal["healthy", "unhealthy"]
+    weaviate: Literal["healthy", "unhealthy"]
