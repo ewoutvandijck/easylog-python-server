@@ -1,5 +1,8 @@
 import io
+import re
+import uuid
 from collections.abc import Callable, Iterable
+from datetime import datetime
 
 import httpx
 from openai import AsyncStream
@@ -19,23 +22,25 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
 class RoleConfig(BaseModel):
-    name: str
-    prompt: str
-    model: str
+    name: str = Field(default="James")
+    prompt: str = Field(default="You are a helpful assistant.")
+    model: str = Field(default="openai/gpt-4.1")
+    tools_regex: str = Field(default=".*")
 
 
 class RickThropicAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="Rick",
-                prompt="You are a helpful friendly care taker for COPD patients.",
+                name="James",
+                prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
+                tools_regex=".*",
             )
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}."
+        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}. You can use the following recurring tasks: {recurring_tasks}. You can use the following reminders: {reminders}. The current time is: {current_time}."
     )
 
 
@@ -159,10 +164,94 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             except Exception:
                 raise
 
+        async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
+            """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
+
+            Args:
+                cron_expression (str): The cron expression to set.
+                task (str): The task to set the schedule for.
+            """
+
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
+
+            existing_tasks.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "cron_expression": cron_expression,
+                    "task": task,
+                }
+            )
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Schedule set for {task} with cron expression {cron_expression}"
+
+        async def tool_add_reminder(date: str, message: str) -> str:
+            """Add a reminder.
+
+            Args:
+                date (str): The date and time of the reminder in ISO 8601 format.
+                message (str): The message to remind the user about.
+            """
+
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
+
+            existing_reminders.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "date": date,
+                    "message": message,
+                }
+            )
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder added for {message} at {date}"
+
+        async def tool_remove_recurring_task(id: str) -> str:
+            """Remove a recurring task.
+
+            Args:
+                id (str): The ID of the task to remove.
+            """
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
+
+            existing_tasks = [task for task in existing_tasks if task["id"] != id]
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Recurring task {id} removed"
+
+        async def tool_remove_reminder(id: str) -> str:
+            """Remove a reminder.
+
+            Args:
+                id (str): The ID of the reminder to remove.
+            """
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
+
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder {id} removed"
+
         def tool_ask_multiple_choice(
             question: str, choices: list[dict[str, str]]
         ) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
+                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
+                This widget already presents the question and choices to the user.
 
             Args:
                 question: The question to ask.
@@ -171,7 +260,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                          [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
 
             Returns:
-                A MultipleChoiceWidget object representing the question.
+                A MultipleChoiceWidget object representing the question and the choices.
 
             Raises:
                 ValueError: If a choice dictionary is missing 'label' or 'value'.
@@ -199,14 +288,16 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
+            tool_set_recurring_task,
+            tool_remove_recurring_task,
+            tool_add_reminder,
+            tool_remove_reminder,
             tool_ask_multiple_choice,
         ]
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        tools = self.get_tools()
-
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
@@ -214,6 +305,18 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         role_config = next(
             role_config for role_config in self.config.roles if role_config.name == role
         )
+
+        tools = self.get_tools()
+
+        for tool in tools:
+            self.logger.info(f"{tool.__name__}: {tool.__doc__}")
+
+        tools = [
+            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
+        ]
+
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        reminders = await self.get_metadata("reminders", [])
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
@@ -229,6 +332,19 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                                 for role in self.config.roles
                             ]
                         ),
+                        recurring_tasks="\n".join(
+                            [
+                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                                for task in recurring_tasks
+                            ]
+                        ),
+                        reminders="\n".join(
+                            [
+                                f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                                for reminder in reminders
+                            ]
+                        ),
+                        current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     ),
                 },
                 *messages,
