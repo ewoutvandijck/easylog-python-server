@@ -1,5 +1,5 @@
-import fnmatch
 import io
+import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -22,10 +22,10 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
 class RoleConfig(BaseModel):
-    name: str
-    prompt: str
-    model: str
-    tools_glob: str = Field(default="*")
+    name: str = Field(default="James")
+    prompt: str = Field(default="You are a helpful assistant.")
+    model: str = Field(default="openai/gpt-4.1")
+    tools_regex: str = Field(default=".*")
 
 
 class DebugAgentConfig(BaseModel):
@@ -35,7 +35,7 @@ class DebugAgentConfig(BaseModel):
                 name="James",
                 prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
-                tools_glob="*",
+                tools_regex=".*",
             )
         ]
     )
@@ -256,7 +256,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
-        tools = [tool for tool in self.get_tools() if fnmatch.fnmatch(tool.__name__, role_config.tools_glob)]
+        tools = self.get_tools()
+        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
