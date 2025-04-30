@@ -11,8 +11,9 @@ from src.lib.graphiti import get_graphiti_connection
 
 
 class KnowledgeGraphTools(BaseTools):
-    def __init__(self, entities: dict[str, type[BaseModel]] | None = None) -> None:
+    def __init__(self, entities: dict[str, type[BaseModel]] | None = None, group_id: str | None = None) -> None:
         self.entities = entities
+        self.group_id = group_id
 
     @property
     def all_tools(self) -> list[Callable]:
@@ -55,6 +56,7 @@ class KnowledgeGraphTools(BaseTools):
                 source_description=conversation_summary,
                 reference_time=datetime.datetime.now(),
                 entity_types=self.entities,  # type: ignore
+                group_id=self.group_id or "",
             )
         )
 
@@ -73,7 +75,7 @@ class KnowledgeGraphTools(BaseTools):
             '[{"id": "episode-123", "name": "thread-abc_1", "source": "message", "source_description": "Discussion about AI ethics", "content": "User asked about ethical considerations...", "valid_at": "2023-01-01T00:00:00Z", "entity_edges": []}]'
         """
 
-        results = await get_graphiti_connection().search(query)
+        results = await get_graphiti_connection().search(query, group_ids=[self.group_id] if self.group_id else None)
 
         return json.dumps(
             [
