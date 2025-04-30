@@ -133,6 +133,8 @@ def tool_result_param(content: message_contents) -> ToolResultContent:
         if content.widget_type == "text"
         else "image_url"
         if content.widget_type == "image_url"
+        else "multiple_choice"
+        if content.widget_type == "multiple_choice"
         else None,
         tool_use_id=content.tool_use_id,
         output=content.tool_output,
