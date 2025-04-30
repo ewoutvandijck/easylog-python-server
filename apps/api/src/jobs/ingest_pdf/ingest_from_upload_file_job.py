@@ -113,6 +113,7 @@ Guidelines:
 - Rely strictly on the provided text, without including external information.
 - The length of the summary must be within 1500 characters.
 - You must start with "<filename> (<document_id>) describes <summary>"
+- Your summary must always be in the same language as the document.
 ]""",
                 },
                 {
