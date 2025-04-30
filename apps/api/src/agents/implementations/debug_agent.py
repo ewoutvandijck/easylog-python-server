@@ -1,5 +1,7 @@
 import io
+import uuid
 from collections.abc import Callable, Iterable
+from datetime import datetime
 
 import httpx
 from openai import AsyncStream
@@ -157,6 +159,42 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             except Exception:
                 raise
 
+        async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
+            """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
+
+            Args:
+                cron_expression (str): The cron expression to set.
+                task (str): The task to set the schedule for.
+            """
+
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+
+            existing_tasks.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "cron_expression": cron_expression,
+                    "task": task,
+                }
+            )
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Schedule set for {task} with cron expression {cron_expression}"
+
+        async def tool_remove_recurring_task(id: str) -> str:
+            """Remove a recurring task.
+
+            Args:
+                id (str): The ID of the task to remove.
+            """
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+
+            existing_tasks = [task for task in existing_tasks if task["id"] != id]
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Recurring task {id} removed"
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -164,6 +202,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
+            tool_set_recurring_task,
+            tool_remove_recurring_task,
         ]
 
     async def on_message(
@@ -177,6 +217,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
@@ -186,6 +228,10 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                         current_role=role,
                         current_role_prompt=role_config.prompt,
                         available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+                        recurring_tasks="\n".join(
+                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                        ),
+                        current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     ),
                 },
                 *messages,
