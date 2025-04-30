@@ -41,7 +41,6 @@ class PersonEntity(BaseModel):
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     def get_tools(self) -> list[Callable]:
         knowledge_graph_tools = KnowledgeGraphTools(
-            thread_id=self.thread_id,
             entities={"Person": PersonEntity},
         )
 

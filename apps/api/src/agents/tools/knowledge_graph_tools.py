@@ -11,8 +11,7 @@ from src.lib.graphiti import get_graphiti_connection
 
 
 class KnowledgeGraphTools(BaseTools):
-    def __init__(self, thread_id: str, entities: dict[str, type[BaseModel]] | None = None) -> None:
-        self.thread_id = thread_id
+    def __init__(self, entities: dict[str, type[BaseModel]] | None = None) -> None:
         self.entities = entities
 
     @property
@@ -51,11 +50,10 @@ class KnowledgeGraphTools(BaseTools):
         graphiti_connection = get_graphiti_connection()
         asyncio.create_task(
             graphiti_connection.add_episode(
-                name=f"{self.thread_id}_{str(uuid.uuid4())[:8]}",
+                name=f"{str(uuid.uuid4())[:8]}",
                 episode_body=episode_body,
                 source_description=conversation_summary,
                 reference_time=datetime.datetime.now(),
-                group_id=self.thread_id,
                 entity_types=self.entities,  # type: ignore
             )
         )
@@ -75,7 +73,7 @@ class KnowledgeGraphTools(BaseTools):
             '[{"id": "episode-123", "name": "thread-abc_1", "source": "message", "source_description": "Discussion about AI ethics", "content": "User asked about ethical considerations...", "valid_at": "2023-01-01T00:00:00Z", "entity_edges": []}]'
         """
 
-        results = await get_graphiti_connection().search(query, group_ids=[self.thread_id])
+        results = await get_graphiti_connection().search(query)
 
         return json.dumps(
             [
