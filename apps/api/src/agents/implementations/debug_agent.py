@@ -184,6 +184,30 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return f"Schedule set for {task} with cron expression {cron_expression}"
 
+        async def tool_add_reminder(date: str, message: str) -> str:
+            """Add a reminder.
+
+            Args:
+                date (str): The date and time of the reminder in ISO 8601 format.
+                message (str): The message to remind the user about.
+            """
+
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
+
+            existing_reminders.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "date": date,
+                    "message": message,
+                }
+            )
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder added for {message} at {date}"
+
         async def tool_remove_recurring_task(id: str) -> str:
             """Remove a recurring task.
 
@@ -200,6 +224,24 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return f"Recurring task {id} removed"
 
+        async def tool_remove_reminder(id: str) -> str:
+            """Remove a reminder.
+
+            Args:
+                id (str): The ID of the reminder to remove.
+            """
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
+
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder {id} removed"
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -209,6 +251,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_download_image,
             tool_set_recurring_task,
             tool_remove_recurring_task,
+            tool_add_reminder,
+            tool_remove_reminder,
         ]
 
     async def on_message(
@@ -225,6 +269,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         )
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        reminders = await self.get_metadata("reminders", [])
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
@@ -244,6 +289,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                             [
                                 f"- {task['id']}: {task['cron_expression']} - {task['task']}"
                                 for task in recurring_tasks
+                            ]
+                        ),
+                        reminders="\n".join(
+                            [
+                                f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                                for reminder in reminders
                             ]
                         ),
                         current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
