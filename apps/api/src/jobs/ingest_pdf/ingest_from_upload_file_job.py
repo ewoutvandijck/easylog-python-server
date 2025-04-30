@@ -4,12 +4,9 @@ import re
 import uuid
 from io import BytesIO
 
-from graphiti_core.nodes import EpisodeType
 from prisma import Json
-from pydantic import BaseModel
 
 from src.jobs.ingest_pdf.models import DocumentEntity, DocumentPageEntity
-from src.lib.graphiti import get_graphiti_connection
 from src.lib.mistral import mistralai_client
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
@@ -96,8 +93,6 @@ async def ingest_from_upload_file_job(
 
             document_result.pages.append(document_page)
 
-        graphiti_connection = get_graphiti_connection()
-
         document = await prisma.documents.create(
             data={
                 "file_name": file_name,
@@ -137,27 +132,6 @@ Guidelines:
         summary = response.choices[0].message.content or ""
 
         logger.info(f"Summary: {summary}")
-
-        class WorkDescription(BaseModel):
-            file_name: str | None
-            document_id: str | None
-            revision: str | None
-
-        class Vehicle(BaseModel):
-            vehicle_type: str | None
-            vehicle_model: str | None
-            vehicle_year: str | None
-
-        episode = await graphiti_connection.add_episode(
-            name=file_name,
-            source=EpisodeType.text,
-            episode_body=summary,
-            source_description=file_name,
-            reference_time=datetime.datetime.now(),
-            entity_types={"WorkDescription": WorkDescription, "Vehicle": Vehicle},
-        )
-
-        logger.info(f"Added episode: {episode.episode}")
 
     except Exception as e:
         logger.error(f"Error ingesting from upload file job: {str(e)}")
