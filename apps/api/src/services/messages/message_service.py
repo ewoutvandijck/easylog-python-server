@@ -173,7 +173,9 @@ class MessageService:
                                 else None,
                                 "tool_name": content.name if isinstance(content, ToolUseContent) else None,
                                 "tool_input": Json(content.input) if isinstance(content, ToolUseContent) else Json({}),
-                                "tool_output": content.output if isinstance(content, ToolResultContent) else None,
+                                "tool_output": Json(content.output.model_dump())
+                                if isinstance(content, ToolResultContent)
+                                else None,
                             }
                             for content in message.content
                             if not isinstance(content, TextDeltaContent)
