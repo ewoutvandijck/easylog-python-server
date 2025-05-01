@@ -9,7 +9,6 @@ from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -28,7 +27,7 @@ class MUMCAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="Coach",
-                prompt="You are a helpful friendly care taker for COPD patients.",
+                prompt="You are a helpful friendly supporting care taker for COPD patients.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=None,
@@ -53,7 +52,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(role_config for role_config in self.config.roles if role_config.name == role)
+        return next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
     def get_tools(self) -> list[Callable]:
         knowledge_graph_tools = KnowledgeGraphTools(
@@ -86,7 +87,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -108,7 +111,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -128,7 +133,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             Args:
                 task_id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != task_id]
 
@@ -142,9 +149,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != task_id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != task_id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
@@ -215,7 +226,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         tools = self.get_tools()
 
-        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
+        tools = [
+            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
+        ]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
@@ -228,9 +241,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role_config.name,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+                        available_roles="\n".join(
+                            [
+                                f"- {role.name}: {role.prompt}"
+                                for role in self.config.roles
+                            ]
+                        ),
                         recurring_tasks="\n".join(
-                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                            [
+                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                                for task in recurring_tasks
+                            ]
                         ),
                         reminders="\n".join(
                             [
