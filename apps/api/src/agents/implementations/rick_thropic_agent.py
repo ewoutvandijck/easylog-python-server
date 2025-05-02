@@ -249,18 +249,19 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         def tool_ask_multiple_choice(
             question: str, choices: list[dict[str, str]]
         ) -> MultipleChoiceWidget:
-            """Asks the user a multiple-choice question with distinct labels and values.
-                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
-                This widget already presents the question and choices to the user.
+            """Asks the user a multiple-choice question using a dedicated widget.
+                IMPORTANT: When calling this tool, do NOT output the question or choices as text in your response.
+                The widget handles displaying the question and choices entirely.
+                Simply make the tool call with the question and choices.
 
             Args:
-                question: The question to ask.
-                choices: A list of choice dictionaries, each with a 'label' (display text)
-                         and a 'value' (internal value). Example:
-                         [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
+                question (str): The question to ask the user via the widget.
+                choices (list[dict[str, str]]): A list of choice dictionaries for the widget,
+                                                 each with a 'label' (display text) and a 'value' (internal value).
+                                                 Example: [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
 
             Returns:
-                A MultipleChoiceWidget object representing the question and the choices.
+                MultipleChoiceWidget: An object representing the question and choices for display.
 
             Raises:
                 ValueError: If a choice dictionary is missing 'label' or 'value'.
