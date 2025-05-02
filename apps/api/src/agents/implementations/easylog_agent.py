@@ -22,18 +22,22 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
 class RoleConfig(BaseModel):
-    name: str
-    prompt: str
-    model: str
+    name: str = Field(default="James")
+    prompt: str = Field(default="You are a helpful assistant.")
+    model: str = Field(default="openai/gpt-4.1")
+    tools_regex: str = Field(default=".*")
+    allowed_subjects: list[str] | None = Field(default=None)
 
 
 class EasyLogAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="EasyLogAssistant",
-                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+                name="Ewout",
+                prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
+                tools_regex=".*",
+                allowed_subjects=["ZLM"],
             )
         ]
     )
