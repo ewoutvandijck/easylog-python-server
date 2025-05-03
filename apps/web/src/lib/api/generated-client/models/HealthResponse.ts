@@ -38,6 +38,11 @@ export interface HealthResponse {
    * @type {string}
    */
   neo4j: HealthResponseNeo4jEnum;
+  /**
+   * @memberof HealthResponse
+   * @type {string}
+   */
+  weaviate: HealthResponseWeaviateEnum;
 }
 
 /** @export */
@@ -71,6 +76,14 @@ export const HealthResponseNeo4jEnum = {
 export type HealthResponseNeo4jEnum =
   (typeof HealthResponseNeo4jEnum)[keyof typeof HealthResponseNeo4jEnum];
 
+/** @export */
+export const HealthResponseWeaviateEnum = {
+  Healthy: 'healthy',
+  Unhealthy: 'unhealthy'
+} as const;
+export type HealthResponseWeaviateEnum =
+  (typeof HealthResponseWeaviateEnum)[keyof typeof HealthResponseWeaviateEnum];
+
 /** Check if a given object implements the HealthResponse interface. */
 export function instanceOfHealthResponse(
   value: object
@@ -80,6 +93,7 @@ export function instanceOfHealthResponse(
   if (!('easylog_db' in value) || value['easylog_db'] === undefined)
     return false;
   if (!('neo4j' in value) || value['neo4j'] === undefined) return false;
+  if (!('weaviate' in value) || value['weaviate'] === undefined) return false;
   return true;
 }
 
@@ -99,7 +113,8 @@ export function HealthResponseFromJSONTyped(
     api: json['api'],
     main_db: json['main_db'],
     easylog_db: json['easylog_db'],
-    neo4j: json['neo4j']
+    neo4j: json['neo4j'],
+    weaviate: json['weaviate']
   };
 }
 
@@ -120,6 +135,7 @@ export function HealthResponseToJSONTyped(
     api: value['api'],
     main_db: value['main_db'],
     easylog_db: value['easylog_db'],
-    neo4j: value['neo4j']
+    neo4j: value['neo4j'],
+    weaviate: value['weaviate']
   };
 }

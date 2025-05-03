@@ -3,6 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DynamicChart } from '@/components/charts/DynamicChart';
 import { MessageResponseContentInner } from '@/lib/api/generated-client';
+import { multipleChoiceSchema } from '@/schemas/multipleChoice';
+import useSendMessage from '@/hooks/use-send-message';
+import useThreadId from '@/hooks/use-thread-id';
+import useConfigurations from '@/hooks/use-configurations';
 
 export interface ChatBubbleProps {
   content: MessageResponseContentInner;
@@ -10,6 +14,10 @@ export interface ChatBubbleProps {
 }
 
 const ChatBubble = ({ content, role }: ChatBubbleProps) => {
+  const threadId = useThreadId();
+  const { sendMessage } = useSendMessage();
+  const { activeConfiguration } = useConfigurations();
+
   return (
     <div
       className={cn(
@@ -124,6 +132,35 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
       ) : content.type === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={content.image_url} alt="tool result" className="rounded-lg" />
+      ) : content.type === 'tool_result' &&
+        content.widget_type === 'multiple_choice' ? (
+        <div className="flex flex-col gap-2">
+          {multipleChoiceSchema
+            .parse(JSON.parse(content.output))
+            .choices.map((choice) => (
+              <button
+                key={choice.value}
+                className="rounded-lg px-4 py-2 bg-secondary"
+                onClick={() => {
+                  sendMessage(threadId!, {
+                    agent_config: {
+                      agent_class:
+                        activeConfiguration?.agentConfig.agent_class ?? '',
+                      ...activeConfiguration?.agentConfig
+                    },
+                    content: [
+                      {
+                        text: choice.value,
+                        type: 'text'
+                      }
+                    ]
+                  });
+                }}
+              >
+                {choice.label}
+              </button>
+            ))}
+        </div>
       ) : null}
     </div>
   );

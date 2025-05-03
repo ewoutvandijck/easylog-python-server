@@ -69,7 +69,8 @@ export const ToolResultContentWidgetTypeEnum = {
   Text: 'text',
   Image: 'image',
   ImageUrl: 'image_url',
-  Chart: 'chart'
+  Chart: 'chart',
+  MultipleChoice: 'multiple_choice'
 } as const;
 export type ToolResultContentWidgetTypeEnum =
   (typeof ToolResultContentWidgetTypeEnum)[keyof typeof ToolResultContentWidgetTypeEnum];

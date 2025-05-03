@@ -20,6 +20,7 @@ import {
 
 export interface UploadDocumentUploadPostRequest {
   file: Blob;
+  subject: string;
 }
 
 /**
@@ -34,6 +35,7 @@ export interface KnowledgeApiInterface {
    *
    * @memberof KnowledgeApiInterface
    * @param {Blob} file
+   * @param {string} subject
    * @param {any} [options] Override http request option.
    * @throws {RequiredError}
    * @summary Upload Document
@@ -72,6 +74,13 @@ export class KnowledgeApi
       );
     }
 
+    if (requestParameters['subject'] == null) {
+      throw new runtime.RequiredError(
+        'subject',
+        'Required parameter "subject" was null or undefined when calling uploadDocumentUploadPost().'
+      );
+    }
+
     const queryParameters: any = {};
 
     const headerParameters: runtime.HTTPHeaders = {};
@@ -102,6 +111,10 @@ export class KnowledgeApi
 
     if (requestParameters['file'] != null) {
       formParams.append('file', requestParameters['file'] as any);
+    }
+
+    if (requestParameters['subject'] != null) {
+      formParams.append('subject', requestParameters['subject'] as any);
     }
 
     const response = await this.request(
