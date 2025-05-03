@@ -40,7 +40,7 @@ class EasylogAgentConfig(BaseModel):
                 prompt="You are a helpful assistant.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
-                allowed_subjects=None,
+                allowed_subjects=["ZLM"],
             )
         ]
     )
