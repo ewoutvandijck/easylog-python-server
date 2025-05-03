@@ -245,14 +245,10 @@ class MessageService:
             # First yield the current chunk before potential recursive calls
             yield content_chunk, [*initial_generated_messages, *generated_messages]
 
-        if any(
-            [
-                content.type == "tool_use" and content.name == BaseTools.tool_noop.__name__
-                for content in generated_messages[-1].content
-            ]
-        ):
-            logger.info("Received noop tool use, stopping recursion")
-            return
+        for message in generated_messages:
+            for content in message.content:
+                if isinstance(content, ToolUseContent) and content.name == BaseTools.tool_noop.__name__:
+                    return
 
         if any(generated_message.role == "tool" for generated_message in generated_messages):
             new_thread_history = [
