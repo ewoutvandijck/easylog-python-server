@@ -11,7 +11,7 @@ class Choice(BaseModel):
 
 
 class MultipleChoiceWidget(BaseModel):
-    """Widget for asking the user a multiple-choice question. When using this widget,DONT WRITE ANY REPLY UNDER THIS WIDGET AFTER A TOOL RESULT."""
+    """Widget for asking the user a multiple-choice question."""
 
     type: Literal["multiple_choice"] = Field(default="multiple_choice", description="The type of widget")
     question: str = Field(..., description="The question text presented to the user")
