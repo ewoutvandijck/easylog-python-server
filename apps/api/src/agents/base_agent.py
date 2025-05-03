@@ -243,7 +243,7 @@ class BaseAgent(Generic[TConfig]):
         text_id = str(uuid.uuid4())
         try:
             async for event in stream:
-                if event.choices[0].delta.content is not None and event.choices[0].delta.content != "":
+                if event.choices[0].delta.content is not None:
                     text_content = (
                         event.choices[0].delta.content
                         if text_content is None
@@ -306,7 +306,7 @@ class BaseAgent(Generic[TConfig]):
 
         choice = completion.choices[0]
 
-        if choice.message.content is not None and choice.message.content != "":
+        if choice.message.content is not None:
             yield TextContent(
                 id=str(uuid.uuid4()),
                 text=choice.message.content,
