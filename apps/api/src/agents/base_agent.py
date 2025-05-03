@@ -23,6 +23,8 @@ from prisma import Json
 from prisma.models import threads
 from pydantic import BaseModel
 from weaviate.classes.query import Filter, MetadataQuery
+from weaviate.collections.classes.types import Properties
+from weaviate.collections.collection import CollectionAsync
 
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
@@ -69,7 +71,7 @@ class BaseAgent(Generic[TConfig]):
         return logger
 
     @property
-    def documents_collection(self):
+    def documents_collection(self) -> CollectionAsync[Properties, None]:
         return weaviate_client.collections.get("documents")
 
     @abstractmethod
@@ -111,7 +113,7 @@ class BaseAgent(Generic[TConfig]):
 
         return dict(document.content)
 
-    async def search_documents(self, search_query: str, subjects: Sequence[str] | None = None, limit: int = 5):
+    async def search_documents(self, search_query: str, subjects: Sequence[str] | None = None, limit: int = 5):  # noqa: ANN201
         return await self.documents_collection.query.hybrid(
             query=search_query,
             limit=limit,

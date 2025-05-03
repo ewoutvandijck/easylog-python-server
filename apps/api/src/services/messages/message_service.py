@@ -7,6 +7,7 @@ from prisma.enums import message_content_type, message_role, widget_type
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
+from src.agents.tools.base_tools import BaseTools
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import (
@@ -43,6 +44,7 @@ class MessageService:
         agent_class: str,
         agent_config: dict,
         headers: dict,
+        max_recursion_depth: int = 15,
     ) -> AsyncGenerator[MessageContent | MessageResponse, None]:
         """Forward a message to the agent and yield the individual chunks of the response. Will also save the user message and the agent response to the database.
 
@@ -51,7 +53,8 @@ class MessageService:
             content (list[TextContent]): The content of the user message.
             agent_class (str): The class of the agent.
             agent_config (dict): The config of the agent.
-
+            headers (dict): The headers of the request.
+            max_recursion_depth (int): The maximum depth of recursion for the agent.
         Raises:
             AgentNotFoundError: The agent class was not found.
 
@@ -99,7 +102,9 @@ class MessageService:
         yielded_messages: set[str] = set()
 
         try:
-            async for content_chunk, messages in cls.call_agent(agent, thread_history, generated_messages):
+            async for content_chunk, messages in cls.call_agent(
+                agent, thread_history, generated_messages, max_recursion_depth
+            ):
                 generated_messages = messages
 
                 for message in messages:
@@ -239,6 +244,15 @@ class MessageService:
 
             # First yield the current chunk before potential recursive calls
             yield content_chunk, [*initial_generated_messages, *generated_messages]
+
+        if any(
+            [
+                content.type == "tool_use" and content.name == BaseTools.tool_noop.__name__
+                for content in generated_messages[-1].content
+            ]
+        ):
+            logger.info("Received noop tool use, stopping recursion")
+            return
 
         if any(generated_message.role == "tool" for generated_message in generated_messages):
             new_thread_history = [
