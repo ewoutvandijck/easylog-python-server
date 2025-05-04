@@ -31,7 +31,7 @@ class RoleConfig(BaseModel):
     allowed_subjects: list[str] | None = Field(default=None)
 
 
-class EasylogAgentConfig(BaseModel):
+class EasyLogAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
@@ -71,7 +71,7 @@ class JobEntity(BaseModel):
     end_date: str | None = None
 
 
-class EasylogAgent(BaseAgent[EasylogAgentConfig]):
+class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
