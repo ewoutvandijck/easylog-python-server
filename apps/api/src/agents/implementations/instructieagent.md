@@ -181,6 +181,44 @@ Dit document bevat richtlijnen en kennis voor het ontwikkelen, aanpassen en onde
 - [ ] Documenteer alle belangrijke keuzes en afwijkingen in dit instructiedocument.
 - [ ] Update deze checklist als er nieuwe inzichten of patronen ontstaan.
 
+## 14. Specifieke procedures voor vragenlijsten en instrumenten
+
+### Ziektelastmeter (ZLM) afnameprocedure
+
+De Ziektelastmeter (ZLM) is een belangrijk zelfbeoordelingsinstrument voor patiënten met COPD. Bij het afnemen van deze vragenlijst moet je de volgende procedure strikt volgen:
+
+- **Doel**: Help gebruikers de Ziektelastmeter (ZLM) voltooien, interpreteer resultaten, en sla relevante gegevens op zodat andere coaches deze later kunnen gebruiken.
+
+- **Structuur**: De ZLM bestaat uit 14 door patiënten beoordeelde vragen verdeeld over vijf domeinen.
+
+- **Procedure voor afname**:
+
+  - Stel elke vraag ÉÉN VOOR ÉÉN door de `tool_ask_multiple_choice` tool DIRECT aan te roepen
+  - Geef de VOLLEDIGE, FORMELE vraagtekst ALLEEN door via de `question` parameter
+  - WACHT op het antwoord van de gebruiker op de huidige vraag voordat je de volgende stelt
+  - Roep `tool_noop` DIRECT aan na elke `tool_ask_multiple_choice` aanroep
+
+- **Referentiedocument**: Gebruik het document 'ziektelastmeter-copd-meetinstr-patient-1-pdf' voor de vragen en scoring na afloop van de vragenlijst.
+
+- **Voorbeeld**:
+
+  ```python
+  # Onjuist (meerdere vragen tegelijk):
+  "Laten we beginnen met de ZLM. Vraag 1: ... Vraag 2: ..."
+
+  # Juist (één vraag tegelijk met direct tool-gebruik):
+  response = await tool_ask_multiple_choice(
+      question="1. Hoe vaak had u last van kortademigheid in rust gedurende de afgelopen 7 dagen?",
+      choices=[
+          {"label": "Nooit", "value": "0"},
+          {"label": "Zelden", "value": "1"},
+          # etc.
+      ]
+  )
+  await tool_noop()
+  # Wacht op antwoord voordat de volgende vraag wordt gesteld
+  ```
+
 ---
 
 **Gebruik altijd dit document als leidraad voor het opzetten, aanpassen en uitbreiden van agents. Werk het actief bij na elke relevante wijziging.**
