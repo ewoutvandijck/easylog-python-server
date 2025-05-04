@@ -36,7 +36,7 @@ class EasyLogAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="Ewout",
-                prompt="You are a helpful assistant.",
+                prompt="You are a helpful COPD health coach.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=["ZLM"],
@@ -48,14 +48,6 @@ class EasyLogAgentConfig(BaseModel):
     )
 
 
-class CarEntity(BaseModel):
-    brand: str | None = None
-    model: str | None = None
-    year: int | None = None
-    horsepower: int | None = None
-    color: str | None = None
-    price: int | None = None
-
 
 class PersonEntity(BaseModel):
     first_name: str | None = None
@@ -63,12 +55,6 @@ class PersonEntity(BaseModel):
     birth_date: str | None = None
     gender: str | None = None
 
-
-class JobEntity(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
 
 
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
