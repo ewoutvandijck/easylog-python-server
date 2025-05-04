@@ -35,11 +35,11 @@ class EasyLogAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="Ewout",
-                prompt="You are a helpful COPD health coach.",
+                name="Basic",
+                prompt="You are a helpful assitant.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
-                allowed_subjects=["ZLM"],
+                allowed_subjects=None,
             )
         ]
     )
