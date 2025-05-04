@@ -56,6 +56,21 @@ class PersonEntity(BaseModel):
     gender: str | None = None
 
 
+class CarEntity(BaseModel):
+    brand: str | None = None
+    model: str | None = None
+    year: int | None = None
+    horsepower: int | None = None
+    color: str | None = None
+    price: int | None = None
+
+
+class JobEntity(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
 
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
