@@ -29,12 +29,18 @@ Dit document bevat richtlijnen en kennis voor het ontwikkelen, aanpassen en onde
 - Rollen worden gedefinieerd als aparte configuratie-items met een naam, prompt en model.
 - De actieve rol kan dynamisch worden aangepast (bijvoorbeeld via een tool).
 - Gebruik rollen om verschillende persona's, taken of specialisaties te ondersteunen.
+- Rollen kunnen beperkt worden tot specifieke onderwerpen via `allowed_subjects` parameter.
+- Tools kunnen worden beperkt per rol via het `tools_regex` patroon (bijvoorbeeld: "._\_document._" voor alleen document-tools).
 
 ## 4. Tools
 
 - Tools zijn functies of klassen die extra functionaliteit bieden (zoals API, SQL, knowledge graph).
 - Voeg tools toe via de `get_tools()` methode.
 - Tools kunnen async of sync zijn, afhankelijk van hun doel.
+- Tools kunnen per rol worden beperkt met regex patronen:
+  - `".*"`: Alle tools beschikbaar maken
+  - `".*_document.*"`: Alleen document-gerelateerde tools toestaan
+  - `"tool_search_.*|tool_get_.*"`: Alleen zoek- en ophaal-tools toestaan
 
 ## 5. Integratie met AI-modellen
 
@@ -53,10 +59,14 @@ Dit document bevat richtlijnen en kennis voor het ontwikkelen, aanpassen en onde
 ## 7. Veelvoorkomende entiteiten
 
 - Definieer entiteiten (zoals `CarEntity`, `PersonEntity`, etc.) als Pydantic-modellen voor gebruik in knowledge graph tools.
+- UI Widgets worden gebruikt voor interactie met de gebruiker:
+  - `ChartWidget`: Voor het weergeven van grafieken en diagrammen
+  - `MultipleChoiceWidget`: Voor het stellen van meerkeuze-vragen aan gebruikers
 
-## 8. Voorbeeld: DebugAgent
+## 8. Voorbeelden
 
 - Zie `agents/debug_agent.py` voor een volledig voorbeeld van een agent met rollen, tools en AI-integratie.
+- Zie `apps/api/src/agents/implementations/easylog_agent.py` voor een voorbeeld van een agent met multiple-choice functionaliteit en onderwerp-filtering.
 
 ## 9. Onderliggende architectuur en componenten
 
@@ -130,6 +140,25 @@ Dit document bevat richtlijnen en kennis voor het ontwikkelen, aanpassen en onde
 - **Werk dependencies bij**: verwijder ongebruikte packages en controleer of nieuwe dependencies invloed hebben op agents of tools.
 
 ## 12. Recente wijzigingen en aandachtspunten
+
+### EasyLogAgent (nieuw toegevoegd)
+
+- Nieuwe agent gebaseerd op DebugAgent met specifieke configuraties
+- Ondersteunt multiple-choice functionaliteit via `tool_ask_multiple_choice`
+- Bevat een 'Basic' rol met algemene assistent-functionaliteit
+- Implementeert `allowed_subjects` filter voor document zoekacties
+
+### MultipleChoiceWidget (nieuwe functionaliteit)
+
+- Toegevoegd aan EasyLogAgent, geïmporteerd van `src.models.multiple_choice_widget`
+- Maakt het mogelijk om gebruikers meerkeuze-vragen te stellen via een UI-widget
+- Voorbeeld gebruik: `tool_ask_multiple_choice(question, choices)` waarbij choices een lijst is van dictionaries met 'label' en 'value'
+
+### Allowed Subjects (functie-uitbreiding)
+
+- RoleConfig ondersteunt nu een `allowed_subjects` parameter
+- Beperkt document-zoekopdrachten tot specifieke onderwerpgebieden
+- Wordt gebruikt in `tool_search_documents` om resultaten te filteren
 
 ### KnowledgeGraphTools (laatste wijziging)
 
