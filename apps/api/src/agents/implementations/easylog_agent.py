@@ -264,7 +264,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         ) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values..
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
-                This widget already presents the question and choices to the user.
+                This widget already presents the question and choices to the user
 
             Args:
                 question: The question to ask.
