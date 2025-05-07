@@ -135,6 +135,9 @@ class BaseAgent(Generic[TConfig]):
             if isinstance(filename, str)
         ]
 
+        if not filenames:
+            return []
+
         return await prisma.documents.find_many(where={"file_name": {"in": filenames}})
 
     async def _get_thread(self) -> threads:
