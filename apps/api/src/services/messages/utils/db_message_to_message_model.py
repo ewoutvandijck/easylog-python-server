@@ -116,10 +116,10 @@ def tool_result_param(content: message_contents) -> ToolResultContent:
     if content.type != message_content_type.tool_result:
         raise ValueError("Tool result is required")
 
-    if not content.tool_output:
+    if content.tool_output is None:
         raise ValueError("Tool output is required")
 
-    if not content.tool_use_id:
+    if content.tool_use_id is None:
         raise ValueError("Tool use ID is required")
 
     return ToolResultContent(
