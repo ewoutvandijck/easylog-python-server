@@ -174,13 +174,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 search_query, subjects=(await self.get_current_role()).allowed_subjects
             )
 
-            return "\n-".join(
-                [
-                    f"data: {json.dumps(search_result.properties, default=str)}, score: {search_result.metadata.score}"
-                    for search_result in result.objects
-                    if search_result.metadata.score and search_result.metadata.score > 0
-                ]
-            )
+            return "\n-".join([f"Path: {document.path} - Summary: {document.summary}" for document in result])
 
         async def tool_get_document_contents(path: str) -> str:
             """Retrieve the complete contents of a specific document from the knowledge database.

@@ -12,7 +12,6 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
@@ -77,7 +76,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(role_config for role_config in self.config.roles if role_config.name == role)
+        return next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
     def get_tools(self) -> list[Callable]:
         easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
@@ -161,7 +162,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
+                    self.logger.info(
+                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
+                    )
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -181,7 +184,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -203,7 +208,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -223,7 +230,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -237,9 +246,13 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
@@ -269,9 +282,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return "\n-".join(
                 [
-                    f"data: {json.dumps(search_result.properties, default=str)}, score: {search_result.metadata.score}"
-                    for search_result in result.objects
-                    if search_result.metadata.score and search_result.metadata.score > 0
+                    f"Path: {document.path} - Summary: {document.summary}"
+                    for document in result
                 ]
             )
 
@@ -318,7 +330,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         tools = [
             tool
             for tool in tools
-            if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ == BaseTools.tool_noop.__name__
+            if re.match(role_config.tools_regex, tool.__name__)
+            or tool.__name__ == BaseTools.tool_noop.__name__
         ]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
@@ -332,9 +345,17 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role_config.name,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+                        available_roles="\n".join(
+                            [
+                                f"- {role.name}: {role.prompt}"
+                                for role in self.config.roles
+                            ]
+                        ),
                         recurring_tasks="\n".join(
-                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                            [
+                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                                for task in recurring_tasks
+                            ]
                         ),
                         reminders="\n".join(
                             [

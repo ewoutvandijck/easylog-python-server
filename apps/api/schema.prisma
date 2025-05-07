@@ -90,14 +90,15 @@ model message_contents {
 }
 
 model documents {
-    id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    created_at DateTime @default(now())
-    updated_at DateTime @default(now()) @updatedAt
-    file_name  String
-    path       String
-    content    Json     @db.JsonB
-    summary    String
-    subject    String
+    id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    created_at  DateTime @default(now())
+    updated_at  DateTime @default(now()) @updatedAt
+    file_name   String
+    path        String
+    content     Json     @db.JsonB
+    summary     String
+    subject     String
+    weaviate_id String?
 
     @@map("documents")
 }

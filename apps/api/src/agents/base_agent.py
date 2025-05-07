@@ -20,7 +20,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image
 from prisma import Json
-from prisma.models import threads
+from prisma.models import documents, threads
 from pydantic import BaseModel
 from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.collections.classes.types import Properties
@@ -113,7 +113,9 @@ class BaseAgent(Generic[TConfig]):
 
         return dict(document.content)
 
-    async def search_documents(self, search_query: str, subjects: Sequence[str] | None = None, limit: int = 5):
+    async def search_documents(
+        self, search_query: str, subjects: Sequence[str] | None = None, limit: int = 5
+    ) -> list[documents]:
         search_results = await self.documents_collection.query.hybrid(
             query=search_query,
             limit=limit,
@@ -133,10 +135,7 @@ class BaseAgent(Generic[TConfig]):
             if isinstance(filename, str)
         ]
 
-        return [
-            document.model_dump(exclude={"content"})
-            for document in await prisma.documents.find_many(where={"id": {"in": filenames}})
-        ]
+        return await prisma.documents.find_many(where={"file_name": {"in": filenames}})
 
     async def _get_thread(self) -> threads:
         """Get the thread for the agent."""

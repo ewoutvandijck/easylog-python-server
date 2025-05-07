@@ -5,7 +5,6 @@ import uuid
 from io import BytesIO
 
 from prisma import Json
-from slugify import slugify
 
 from src.jobs.ingest_pdf.models import DocumentEntity, DocumentPageEntity
 from src.lib.mistral import mistralai_client
@@ -28,7 +27,7 @@ async def ingest_from_upload_file_job(
         supabase = await create_supabase()
 
         upload_response = await supabase.storage.from_(bucket).upload(
-            f"{base_path}/{slugify(file_name)}",
+            f"{base_path}/{file_name}",
             file_data,
             {
                 "upsert": "true",
@@ -142,8 +141,9 @@ Guidelines:
 
         collection = weaviate_client.collections.get("documents")
 
-        document_id = await collection.data.insert(
+        weaviate_document_id = await collection.data.insert(
             {
+                "document_id": document.id,
                 "file_name": file_name,
                 "file_public_url": document_public_url,
                 "file_path": upload_response.path,
@@ -153,7 +153,12 @@ Guidelines:
             },
         )
 
-        logger.info(f"Inserted document: {str(document_id)}")
+        await prisma.documents.update(
+            where={"id": document.id},
+            data={"weaviate_id": str(weaviate_document_id)},
+        )
+
+        logger.info(f"Inserted document: {str(weaviate_document_id)}")
 
     except Exception as e:
         logger.error(f"Error ingesting from upload file job: {str(e)}", exc_info=True)
