@@ -2,6 +2,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from src.models.chart_widget import ChartWidget
+from src.models.multiple_choice_widget import MultipleChoiceWidget
+
 MessageRole = Literal["assistant", "user", "system", "developer", "tool"]
 
 
@@ -43,6 +46,9 @@ class ToolResultContent(BaseContent):
     output: str = Field(..., description="The result of the tool.")
 
     is_error: bool = Field(default=False, description="Whether the tool result is an error.")
+
+
+WidgetOutput = ChartWidget | MultipleChoiceWidget
 
 
 class ImageContent(BaseContent):

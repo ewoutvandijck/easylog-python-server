@@ -7,8 +7,10 @@ from fastapi.responses import StreamingResponse
 
 from src.lib.prisma import prisma
 from src.logger import logger
+from src.models.chart_widget import ChartWidget
 from src.models.message_create import MessageCreateInput
 from src.models.messages import MessageResponse
+from src.models.multiple_choice_widget import MultipleChoiceWidget
 from src.models.pagination import Pagination
 from src.services.messages.message_service import MessageService
 from src.services.messages.utils.db_message_to_message_model import db_message_to_message_model
@@ -16,6 +18,17 @@ from src.utils.is_valid_uuid import is_valid_uuid
 from src.utils.sse import create_sse_event
 
 router = APIRouter()
+
+
+@router.get(
+    "/models",
+    name="get_models",
+    tags=["models"],
+    response_model=MultipleChoiceWidget | ChartWidget,
+    description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
+)
+async def get_models() -> MultipleChoiceWidget | ChartWidget:
+    return True  # ignore
 
 
 @router.get(

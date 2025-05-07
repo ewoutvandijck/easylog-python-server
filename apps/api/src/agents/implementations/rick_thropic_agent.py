@@ -3,6 +3,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
+from typing import Any
 
 import httpx
 from openai import AsyncStream
@@ -109,17 +110,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             await self.set_metadata("current_role", role)
 
             return f"Gewijzigd naar rol {role}"
-
-        def tool_example_chart() -> ChartWidget:
-            return ChartWidget.create_bar_chart(
-                title="Example chart",
-                data=[
-                    {"name": "James", "value": 10},
-                    {"name": "John", "value": 20},
-                ],
-                x_key="name",
-                y_keys=["value"],
-            )
 
         def tool_download_image(url: str) -> Image.Image:
             """Download an image from a URL.
@@ -281,18 +271,61 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 selected_choice=None,
             )
 
+        def tool_create_bar_chart(
+            title: str,
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            description: str | None = None,
+            height: int = 400,
+            stacked: bool = False,
+            y_series_styles: list[dict[str, Any]] | None = None,
+        ) -> ChartWidget:
+            """Create a bar chart with customizable styles for each series.
+
+            Args:
+                title: Chart title.
+                data: List of data objects for the chart.
+                x_key: Key in data objects for the x-axis.
+                y_keys: Keys in data objects for the y-axis values.
+                y_labels: Optional labels for y-axis values (defaults to y_keys).
+                description: Optional chart description.
+                height: Chart height in pixels.
+                stacked: Whether bars should be stacked.
+                y_series_styles: Optional list of style dictionaries for each y-series.
+                                 Each dictionary can specify 'color', 'fill', 'opacity',
+                                 'stroke_width' (for bar border thickness), 'radius', etc.
+                                 The list should correspond to the order of y_keys.
+                                 Example: [{"color": "rgba(255,0,0,0.7)", "stroke_width": 1}, {"fill": "#00FF00"}]
+
+            Returns:
+                A ChartWidget object representing the bar chart.
+            """
+            return ChartWidget.create_bar_chart(
+                title=title,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                description=description,
+                height=height,
+                # stacked=stacked,
+                # y_series_styles=y_series_styles,
+            )
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
             *knowledge_graph_tools.all_tools,
             tool_set_current_role,
-            tool_example_chart,
             tool_download_image,
             tool_set_recurring_task,
             tool_remove_recurring_task,
             tool_add_reminder,
             tool_remove_reminder,
             tool_ask_multiple_choice,
+            tool_create_bar_chart,
         ]
 
     async def on_message(
