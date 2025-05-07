@@ -279,8 +279,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             y_labels: list[str] | None = None,
             description: str | None = None,
             height: int = 400,
-            stacked: bool = False,
-            y_series_styles: list[dict[str, Any]] | None = None,
         ) -> ChartWidget:
             """Create a bar chart with customizable styles for each series.
 
@@ -311,7 +309,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 description=description,
                 height=height,
                 # stacked=stacked,
-                # y_series_styles=y_series_styles,
             )
 
         return [
