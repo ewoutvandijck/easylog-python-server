@@ -11,7 +11,6 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.base_tools import BaseTools
-from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
@@ -41,13 +40,6 @@ class MUMCAgentConfig(BaseModel):
     )
 
 
-class PersonEntity(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: str | None = None
-    gender: str | None = None
-
-
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -59,11 +51,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
     def get_tools(self) -> list[Callable]:
-        knowledge_graph_tools = KnowledgeGraphTools(
-            entities={"Person": PersonEntity},
-            group_id=self.thread_id,
-        )
-
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
 

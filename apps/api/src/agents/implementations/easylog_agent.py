@@ -16,7 +16,6 @@ from src.agents.base_agent import BaseAgent
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
-from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.chart_widget import ChartWidget
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -48,29 +47,6 @@ class EasyLogAgentConfig(BaseModel):
     )
 
 
-class PersonEntity(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: str | None = None
-    gender: str | None = None
-
-
-class CarEntity(BaseModel):
-    brand: str | None = None
-    model: str | None = None
-    year: int | None = None
-    horsepower: int | None = None
-    color: str | None = None
-    price: int | None = None
-
-
-class JobEntity(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-
-
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -100,11 +76,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             db_host=settings.EASYLOG_DB_HOST,
             db_port=settings.EASYLOG_DB_PORT,
             db_name=settings.EASYLOG_DB_NAME,
-        )
-
-        knowledge_graph_tools = KnowledgeGraphTools(
-            entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
-            group_id=self.thread_id,
         )
 
         async def tool_set_current_role(role: str) -> str:
@@ -346,7 +317,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_get_document_contents,
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
-            # *knowledge_graph_tools.all_tools,
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
