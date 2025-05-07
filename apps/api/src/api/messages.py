@@ -21,17 +21,6 @@ router = APIRouter()
 
 
 @router.get(
-    "/models",
-    name="get_models",
-    tags=["models"],
-    response_model=MultipleChoiceWidget | ChartWidget,
-    description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
-)
-async def get_models() -> MultipleChoiceWidget | ChartWidget:
-    return True  # ignore
-
-
-@router.get(
     "/threads/{thread_id}/messages",
     name="get_messages",
     tags=["messages"],
@@ -158,3 +147,15 @@ async def delete_message(
     )
 
     return Response(status_code=204)
+
+
+# TODO: This is a temporary hack to get the models in openapi. Need to implement a better spec.
+@router.get(
+    "/models",
+    name="get_models",
+    tags=["models"],
+    response_model=MultipleChoiceWidget | ChartWidget,
+    description="Retrieves all messages for a given thread. Returns a list of all messages by default in descending chronological order (newest first).",
+)
+async def get_models() -> MultipleChoiceWidget | ChartWidget:
+    return True  # type: ignore
