@@ -74,6 +74,8 @@ class ChartWidget(BaseModel):
     Complete configuration for a chart, including data, styling, and behavior.
     """
 
+    widget_type: Literal["chart"] = Field("chart", description="Discriminator for chart widget.")
+
     # Basic configuration
     type: Literal["bar", "line", "pie", "donut"] = Field(..., description="The type of chart to render")
     title: str = Field(..., description="Chart title")
@@ -153,6 +155,7 @@ class ChartWidget(BaseModel):
         style = StyleConfig(radius=min(height // 3, 150), inner_radius=min(height // 6, 80) if is_donut else 0)
 
         return cls(
+            widget_type="chart",
             type=chart_type,
             title=title,
             description=description,
@@ -241,6 +244,7 @@ class ChartWidget(BaseModel):
             series.append(series_config)
 
         return cls(
+            widget_type="chart",
             type="bar",
             title=title,
             description=description,
