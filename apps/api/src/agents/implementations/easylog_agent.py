@@ -295,7 +295,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             Returns:
                 A ChartWidget object representing the bar chart.
+                
+            Raises:
+                ValueError: If y_labels is provided and doesn't have the same length as y_keys.
             """
+            # Validate that y_keys and y_labels have the same length if y_labels is provided
+            if y_labels is not None and len(y_keys) != len(y_labels):
+                raise ValueError("y_keys and y_labels must have the same length")
+                
             return ChartWidget.create_bar_chart(
                 title=title,
                 data=data,
