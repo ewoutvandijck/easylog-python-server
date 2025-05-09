@@ -3,8 +3,7 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from datetime import date
-from typing import Any
+from datetime import datetime
 
 import httpx
 from openai import AsyncStream
@@ -14,6 +13,7 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
+from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
@@ -39,14 +39,52 @@ class QuestionaireQuestionConfig(BaseModel):
 
 
 class RoleConfig(BaseModel):
-    name: str
-    prompt: str
-    model: str
-    tools_regex: str = Field(default=".*")
-    allowed_subjects: list[str] | None = Field(default=None)
+    name: str = Field(
+        default="EasyLogAssistant",
+        description="The display name of the role, used to identify and select this role in the system.",
+    )
+    prompt: str = Field(
+        default="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+        description="The system prompt or persona instructions for this role, defining its behavior and tone.",
+    )
+    model: str = Field(
+        default="openai/gpt-4.1",
+        description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
+    )
+    tools_regex: str = Field(
+        default=".*",
+        description="A regular expression specifying which tools this role is permitted to use. Use '.*' to allow all tools, or restrict as needed.",
+    )
+    allowed_subjects: list[str] | None = Field(
+        default=None,
+        description="A list of subject names from the knowledge base that this role is allowed to access. If None, all subjects are allowed.",
+    )
     questionaire: list[QuestionaireQuestionConfig] = Field(
         default_factory=list,
         description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
+    )
+
+
+class EasyLogAgentConfig(BaseModel):
+    roles: list[RoleConfig] = Field(
+        default_factory=lambda: [
+            RoleConfig(
+                name="EasyLogAssistant",
+                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+                model="openai/gpt-4.1",
+                tools_regex=".*",
+                allowed_subjects=None,
+                questionaire=[
+                    QuestionaireQuestionConfig(
+                        question="What is your name?",
+                        name="user_name",
+                    )
+                ],
+            )
+        ]
+    )
+    prompt: str = Field(
+        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}."
     )
 
 
@@ -78,28 +116,6 @@ class JobEntity(BaseModel):
     end_date: str | None = None
 
 
-class EasyLogAgentConfig(BaseModel):
-    roles: list[RoleConfig] = Field(
-        default_factory=lambda: [
-            RoleConfig(
-                name="EasyLogAssistant",
-                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model="openai/gpt-4.1",
-                tools_regex=".*",
-                questionaire=[
-                    QuestionaireQuestionConfig(
-                        question="What is your name?",
-                        name="user_name",
-                    )
-                ],
-            )
-        ]
-    )
-    prompt: str = Field(
-        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}."
-    )
-
-
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -111,6 +127,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         )
 
     def get_tools(self) -> list[Callable]:
+        # EasyLog-specific tools
         easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
         easylog_backend_tools = EasylogBackendTools(
             bearer_token=easylog_token,
@@ -136,6 +153,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             group_id=self.thread_id,
         )
 
+        # Role management tool
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
 
@@ -153,7 +171,85 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             return f"Gewijzigd naar rol {role}"
 
+        # Document search tools
+        async def tool_search_documents(search_query: str) -> str:
+            """Search for documents in the knowledge database using a semantic search query.
+
+            This tool allows you to search through the knowledge database for relevant documents
+            based on a natural language query. The search is performed using semantic matching,
+            which means it will find documents that are conceptually related to your query,
+            even if they don't contain the exact words.
+
+            Args:
+                search_query (str): A natural language query describing what you're looking for.
+                                  For example: "information about metro systems" or "how to handle customer complaints"
+
+            Returns:
+                str: A formatted string containing the search results, where each result includes:
+                     - The document's path and summary
+            """
+
+            result = await self.search_documents(
+                search_query, subjects=(await self.get_current_role()).allowed_subjects
+            )
+
+            return "\n-".join(
+                [
+                    f"Path: {document.path} - Summary: {document.summary}"
+                    for document in result
+                ]
+            )
+
+        async def tool_get_document_contents(path: str) -> str:
+            """Retrieve the complete contents of a specific document from the knowledge database.
+
+            This tool allows you to access the full content of a document when you need detailed information
+            about a specific topic. The document contents are returned in JSON format, making it easy to
+            parse and work with the data programmatically.
+
+            Args:
+                path (str): The unique path or identifier of the document you want to retrieve.
+                          This is typically obtained from the search results of tool_search_documents.
+
+            Returns:
+                str: A JSON string containing the complete document contents, including all properties
+                     and metadata. The JSON is formatted with proper string serialization for all data types.
+            """
+            return json.dumps(await self.get_document(path), default=str)
+
+        # Questionnaire tools
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
+            """Answer a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+            """
+
+            await self.set_metadata(question_name, answer)
+
+            return f"Answer to {question_name} set to {answer}"
+
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Get the answer to a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to get the answer to.
+
+            Returns:
+                str: The answer to the question.
+            """
+            return await self.get_metadata(question_name, "[not answered]")
+
+        # Visualization tools
         def tool_example_chart() -> ChartWidget:
+            """Create a simple example bar chart with two bars.
+
+            Returns:
+                ChartWidget: A bar chart widget showing two example bars.
+            """
             return ChartWidget.create_bar_chart(
                 title="Example chart",
                 data=[
@@ -164,6 +260,82 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 y_keys=["value"],
             )
 
+        def tool_create_bar_chart(
+            title: str,
+            data: list[dict],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            description: str | None = None,
+            height: int = 400,
+        ) -> ChartWidget:
+            """Create a bar chart with customizable properties.
+
+            Args:
+                title: Chart title.
+                data: List of data objects for the chart.
+                x_key: Key in data objects for the x-axis.
+                y_keys: Keys in data objects for the y-axis values.
+                y_labels: Optional labels for y-axis values (defaults to y_keys).
+                description: Optional chart description.
+                height: Chart height in pixels.
+
+            Returns:
+                A ChartWidget object representing the bar chart.
+
+            Raises:
+                ValueError: If y_labels is provided and doesn't have the same length as y_keys.
+            """
+            if y_labels is not None and len(y_keys) != len(y_labels):
+                raise ValueError("y_keys and y_labels must have the same length")
+
+            return ChartWidget.create_bar_chart(
+                title=title,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                description=description,
+                height=height,
+            )
+
+        # Interaction tools
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> MultipleChoiceWidget:
+            """Asks the user a multiple-choice question with distinct labels and values.
+                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
+                This widget already presents the question and choices to the user.
+
+            Args:
+                question: The question to ask.
+                choices: A list of choice dictionaries, each with a 'label' (display text)
+                         and a 'value' (internal value). Example:
+                         [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
+
+            Returns:
+                A MultipleChoiceWidget object representing the question and the choices.
+
+            Raises:
+                ValueError: If a choice dictionary is missing 'label' or 'value'.
+            """
+            parsed_choices = []
+            for choice_dict in choices:
+                if "label" not in choice_dict or "value" not in choice_dict:
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
+
+            return MultipleChoiceWidget(
+                question=question,
+                choices=parsed_choices,
+                selected_choice=None,
+            )
+
+        # Image tools
         def tool_download_image(url: str) -> Image.Image:
             """Download an image from a URL.
 
@@ -207,6 +379,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             except Exception:
                 raise
 
+        # Schedule and reminder tools
         async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
             """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
 
@@ -289,204 +462,55 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             return f"Reminder {id} removed"
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
-            """Asks the user a multiple-choice question with distinct labels and values..
-                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
-                This widget already presents the question and choices to the user
-
-            Args:
-                question: The question to ask.
-                choices: A list of choice dictionaries, each with a 'label' (display text)
-                         and a 'value' (internal value). Example:
-                         [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
-
-            Returns:
-                A MultipleChoiceWidget object representing the question and the choices.
-
-            Raises:
-                ValueError: If a choice dictionary is missing 'label' or 'value'.
-            """
-            parsed_choices = []
-            for choice_dict in choices:
-                if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
-
-            return MultipleChoiceWidget(
-                question=question,
-                choices=parsed_choices,
-                selected_choice=None,
-            )
-
-        def tool_create_bar_chart(
-            title: str,
-            data: list[dict[str, Any]],
-            x_key: str,
-            y_keys: list[str],
-            y_labels: list[str] | None = None,
-            description: str | None = None,
-            height: int = 400,
-        ) -> ChartWidget:
-            """Create a bar chart with customizable styles for each series.
-
-            Args:
-                title: Chart title.
-                data: List of data objects for the chart.
-                x_key: Key in data objects for the x-axis.
-                y_keys: Keys in data objects for the y-axis values.
-                y_labels: Optional labels for y-axis values (defaults to y_keys).
-                description: Optional chart description.
-                height: Chart height in pixels.
-                stacked: Whether bars should be stacked.
-                y_series_styles: Optional list of style dictionaries for each y-series.
-                                 Each dictionary can specify 'color', 'fill', 'opacity',
-                                 'stroke_width' (for bar border thickness), 'radius', etc.
-                                 The list should correspond to the order of y_keys.
-                                 Example: [{"color": "rgba(255,0,0,0.7)", "stroke_width": 1}, {"fill": "#00FF00"}]
-
-            Returns:
-                A ChartWidget object representing the bar chart.
-
-            Raises:
-                ValueError: If y_labels is provided and doesn't have the same length as y_keys.
-            """
-            # Validate that y_keys and y_labels have the same length if y_labels is provided
-            if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError("y_keys and y_labels must have the same length")
-
-            return ChartWidget.create_bar_chart(
-                title=title,
-                data=data,
-                x_key=x_key,
-                y_keys=y_keys,
-                y_labels=y_labels,
-                description=description,
-                height=height,
-                # stacked=stacked,
-            )
-
-        async def tool_search_documents(search_query: str) -> str:
-            """Search for documents in the knowledge database using a semantic search query.
-
-            This tool allows you to search through the knowledge database for relevant documents
-            based on a natural language query. The search is performed using semantic matching,
-            which means it will find documents that are conceptually related to your query,
-            even if they don't contain the exact words.
-
-            Args:
-                search_query (str): A natural language query describing what you're looking for.
-                                  For example: "information about metro systems" or "how to handle customer complaints"
-
-            Returns:
-                str: A formatted string containing the search results, where each result includes:
-                     - The document's properties in JSON format
-                     - The relevance score indicating how well the document matches the query
-            """
-
-            result = await self.search_documents(
-                search_query, subjects=(await self.get_current_role()).allowed_subjects
-            )
-
-            return "\n-".join(
-                [
-                    f"Path: {document.path} - Summary: {document.summary}"
-                    for document in result
-                ]
-            )
-
-        async def tool_get_document_contents(path: str) -> str:
-            """Retrieve the complete contents of a specific document from the knowledge database.
-
-            This tool allows you to access the full content of a document when you need detailed information
-            about a specific topic. The document contents are returned in JSON format, making it easy to
-            parse and work with the data programmatically.
-
-            Args:
-                path (str): The unique path or identifier of the document you want to retrieve.
-                          This is typically obtained from the search results of tool_search_documents.
-
-            Returns:
-                str: A JSON string containing the complete document contents, including all properties
-                     and metadata. The JSON is formatted with proper string serialization for all data types.
-            """
-            return json.dumps(await self.get_document(path), default=str)
-
-        async def tool_get_current_date() -> str:
-            """Get the current date in ISO 8601 format.
-
-            Returns:
-                str: The current date in ISO 8601 format.
-            """
-            return date.today().isoformat()
-
-        async def tool_answer_questionaire_question(
-            question_name: str, answer: str
-        ) -> str:
-            """Answer a question from the questionaire.
-
-            Args:
-                question_name (str): The name of the question to answer.
-                answer (str): The answer to the question.
-            """
-
-            await self.set_metadata(question_name, answer)
-
-            return f"Answer to {question_name} set to {answer}"
-
-        async def tool_get_questionaire_answer(question_name: str) -> str:
-            """Get the answer to a question from the questionaire.
-
-            Args:
-                question_name (str): The name of the question to get the answer to.
-
-            Returns:
-                str: The answer to the question.
-            """
-            return await self.get_metadata(question_name, "[not answered]")
-
+        # Assemble and return the complete tool list
         return [
+            # EasyLog-specific tools
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
             *knowledge_graph_tools.all_tools,
+            # Role management
             tool_set_current_role,
+            # Document tools
+            tool_search_documents,
+            tool_get_document_contents,
+            # Questionnaire tools
+            tool_answer_questionaire_question,
+            tool_get_questionaire_answer,
+            # Visualization tools
             tool_example_chart,
-            tool_download_image,
-            tool_get_current_date,
+            tool_create_bar_chart,
+            # Interaction tools
             tool_ask_multiple_choice,
+            # Image tools
+            tool_download_image,
+            # Schedule and reminder tools
             tool_set_recurring_task,
             tool_add_reminder,
             tool_remove_recurring_task,
             tool_remove_reminder,
-            tool_search_documents,
-            tool_get_document_contents,
-            tool_answer_questionaire_question,
-            tool_get_questionaire_answer,
+            # System tools
+            BaseTools.tool_noop,
         ]
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        tools = self.get_tools()
-
+        # Get the current role
         role_config = await self.get_current_role()
 
-        if role_config.tools_regex != ".*":
-            tools = [
-                tool
-                for tool in tools
-                if re.match(role_config.tools_regex, tool.__name__)
-            ]
+        # Get the available tools
+        tools = self.get_tools()
 
-        current_date = date.today().isoformat()
+        # Filter tools based on the role's regex pattern
+        tools = [
+            tool
+            for tool in tools
+            if re.match(role_config.tools_regex, tool.__name__)
+            or tool.__name__ == BaseTools.tool_noop.__name__
+        ]
 
         # Prepare questionnaire format kwargs
-        questionnaire_format_kwargs = {}
+        questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
@@ -501,31 +525,59 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
         # Format the role prompt with questionnaire data
-        formatted_current_role_prompt = role_config.prompt
         try:
             formatted_current_role_prompt = role_config.prompt.format_map(
                 DefaultKeyDict(questionnaire_format_kwargs)
             )
         except Exception as e:
             self.logger.warning(f"Error formatting role prompt: {e}")
+            formatted_current_role_prompt = role_config.prompt
 
-        # Format the system prompt
-        system_prompt = self.config.prompt.format(
-            current_role=role_config.name,
-            current_role_prompt=formatted_current_role_prompt,
-            available_roles="\n".join(
+        # Gather reminders and recurring tasks
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        reminders = await self.get_metadata("reminders", [])
+
+        # Prepare the main content for the LLM
+        main_prompt_format_args = {
+            "current_role": role_config.name,
+            "current_role_prompt": formatted_current_role_prompt,
+            "available_roles": "\\n".join(
                 [f"- {role.name}: {role.prompt}" for role in self.config.roles]
             ),
-            **questionnaire_format_kwargs,
-        )
-        system_prompt_with_date = f"{system_prompt}\n\nCurrent date is {current_date}."
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "recurring_tasks": "\\n".join(
+                [
+                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                    for task in recurring_tasks
+                ]
+            ),
+            "reminders": "\\n".join(
+                [
+                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                    for reminder in reminders
+                ]
+            ),
+        }
+        main_prompt_format_args.update(questionnaire_format_kwargs)
 
+        try:
+            llm_content = self.config.prompt.format_map(
+                DefaultKeyDict(main_prompt_format_args)
+            )
+        except Exception as e:
+            self.logger.warning(f"Error formatting system prompt: {e}")
+            # Fallback to a simple format
+            llm_content = (
+                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            )
+
+        # Create the completion request
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": system_prompt_with_date,
+                    "content": llm_content,
                 },
                 *messages,
             ],
