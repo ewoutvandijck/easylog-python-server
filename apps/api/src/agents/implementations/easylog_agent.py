@@ -3,7 +3,7 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from datetime import datetime
+from datetime import date
 from typing import Any
 
 import httpx
@@ -14,37 +14,89 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent
-from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
+from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.chart_widget import ChartWidget
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
+class QuestionaireQuestionConfig(BaseModel):
+    question: str = Field(
+        default="",
+        description="The text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
+    )
+    instructions: str = Field(
+        default="",
+        description="Additional guidance or context for the ai agent on how to answer the question, such as language requirements or format expectations.",
+    )
+    name: str = Field(
+        default="",
+        description="A unique identifier for this question, used for referencing the answer in prompts or logic. For example, if the question is 'What is your name?', the name could be 'user_name', allowing you to use {questionaire.user_name.answer} in templates.",
+    )
+
+
 class RoleConfig(BaseModel):
-    name: str = Field(default="James")
-    prompt: str = Field(default="You are a helpful assistant.")
-    model: str = Field(default="openai/gpt-4.1")
+    name: str
+    prompt: str
+    model: str
     tools_regex: str = Field(default=".*")
     allowed_subjects: list[str] | None = Field(default=None)
+    questionaire: list[QuestionaireQuestionConfig] = Field(
+        default_factory=list,
+        description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
+    )
+
+
+class DefaultKeyDict(dict):
+    def __missing__(self, key):
+        return f"[missing:{key}]"
+
+
+class CarEntity(BaseModel):
+    brand: str | None = None
+    model: str | None = None
+    year: int | None = None
+    horsepower: int | None = None
+    color: str | None = None
+    price: int | None = None
+
+
+class PersonEntity(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    birth_date: str | None = None
+    gender: str | None = None
+
+
+class JobEntity(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 class EasyLogAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="Basic",
-                prompt="You are a helpful assitant.",
+                name="EasyLogAssistant",
+                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
-                allowed_subjects=None,
+                questionaire=[
+                    QuestionaireQuestionConfig(
+                        question="What is your name?",
+                        name="user_name",
+                    )
+                ],
             )
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}. You can use the following recurring tasks: {recurring_tasks}. You can use the following reminders: {reminders}. The current time is: {current_time}."
+        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}."
     )
 
 
@@ -77,6 +129,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             db_host=settings.EASYLOG_DB_HOST,
             db_port=settings.EASYLOG_DB_PORT,
             db_name=settings.EASYLOG_DB_NAME,
+        )
+
+        knowledge_graph_tools = KnowledgeGraphTools(
+            entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
+            group_id=self.thread_id,
         )
 
         async def tool_set_current_role(role: str) -> str:
@@ -295,14 +352,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             Returns:
                 A ChartWidget object representing the bar chart.
-                
+
             Raises:
                 ValueError: If y_labels is provided and doesn't have the same length as y_keys.
             """
             # Validate that y_keys and y_labels have the same length if y_labels is provided
             if y_labels is not None and len(y_keys) != len(y_labels):
                 raise ValueError("y_keys and y_labels must have the same length")
-                
+
             return ChartWidget.create_bar_chart(
                 title=title,
                 data=data,
@@ -360,68 +417,115 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             """
             return json.dumps(await self.get_document(path), default=str)
 
+        async def tool_get_current_date() -> str:
+            """Get the current date in ISO 8601 format.
+
+            Returns:
+                str: The current date in ISO 8601 format.
+            """
+            return date.today().isoformat()
+
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
+            """Answer a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+            """
+
+            await self.set_metadata(question_name, answer)
+
+            return f"Answer to {question_name} set to {answer}"
+
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Get the answer to a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to get the answer to.
+
+            Returns:
+                str: The answer to the question.
+            """
+            return await self.get_metadata(question_name, "[not answered]")
+
         return [
-            tool_search_documents,
-            tool_get_document_contents,
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
+            *knowledge_graph_tools.all_tools,
             tool_set_current_role,
             tool_example_chart,
             tool_download_image,
-            tool_set_recurring_task,
-            tool_remove_recurring_task,
-            tool_add_reminder,
-            tool_remove_reminder,
+            tool_get_current_date,
             tool_ask_multiple_choice,
-            tool_create_bar_chart,
-            BaseTools.tool_noop,
+            tool_set_recurring_task,
+            tool_add_reminder,
+            tool_remove_recurring_task,
+            tool_remove_reminder,
+            tool_search_documents,
+            tool_get_document_contents,
+            tool_answer_questionaire_question,
+            tool_get_questionaire_answer,
         ]
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
-        role_config = await self.get_current_role()
-
         tools = self.get_tools()
 
-        tools = [
-            tool
-            for tool in tools
-            if re.match(role_config.tools_regex, tool.__name__)
-            or tool.__name__ == BaseTools.tool_noop.__name__
-        ]
+        role_config = await self.get_current_role()
 
-        recurring_tasks = await self.get_metadata("recurring_tasks", [])
-        reminders = await self.get_metadata("reminders", [])
+        if role_config.tools_regex != ".*":
+            tools = [
+                tool
+                for tool in tools
+                if re.match(role_config.tools_regex, tool.__name__)
+            ]
+
+        current_date = date.today().isoformat()
+
+        # Prepare questionnaire format kwargs
+        questionnaire_format_kwargs = {}
+        for q_item in role_config.questionaire:
+            answer = await self.get_metadata(q_item.name, "[not answered]")
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
+                q_item.question
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
+                q_item.instructions
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
+                q_item.name
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
+
+        # Format the role prompt with questionnaire data
+        formatted_current_role_prompt = role_config.prompt
+        try:
+            formatted_current_role_prompt = role_config.prompt.format_map(
+                DefaultKeyDict(questionnaire_format_kwargs)
+            )
+        except Exception as e:
+            self.logger.warning(f"Error formatting role prompt: {e}")
+
+        # Format the system prompt
+        system_prompt = self.config.prompt.format(
+            current_role=role_config.name,
+            current_role_prompt=formatted_current_role_prompt,
+            available_roles="\n".join(
+                [f"- {role.name}: {role.prompt}" for role in self.config.roles]
+            ),
+            **questionnaire_format_kwargs,
+        )
+        system_prompt_with_date = f"{system_prompt}\n\nCurrent date is {current_date}."
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": self.config.prompt.format(
-                        current_role=role_config.name,
-                        current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
-                        recurring_tasks="\n".join(
-                            [
-                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
-                                for task in recurring_tasks
-                            ]
-                        ),
-                        reminders="\n".join(
-                            [
-                                f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
-                                for reminder in reminders
-                            ]
-                        ),
-                        current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    ),
+                    "content": system_prompt_with_date,
                 },
                 *messages,
             ],
