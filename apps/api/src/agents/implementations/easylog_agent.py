@@ -49,7 +49,7 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="openai/gpt-4.1",
+        default="anthropic/claude-3.7-sonnet:thinking",
         description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
@@ -72,7 +72,7 @@ class EasyLogAgentConfig(BaseModel):
             RoleConfig(
                 name="EasyLogAssistant",
                 prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model="openai/gpt-4.1",
+                model="anthropic/claude-3.7-sonnet:thinking",
                 tools_regex=".*",
                 allowed_subjects=None,
                 questionaire=[],
@@ -140,11 +140,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             db_host=settings.EASYLOG_DB_HOST,
             db_port=settings.EASYLOG_DB_PORT,
             db_name=settings.EASYLOG_DB_NAME,
-        )
-
-        knowledge_graph_tools = KnowledgeGraphTools(
-            entities={"Car": CarEntity, "Person": PersonEntity, "Job": JobEntity},
-            group_id=self.thread_id,
         )
 
         # Role management tool
@@ -436,7 +431,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # EasyLog-specific tools
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
-            *knowledge_graph_tools.all_tools,
             # Role management
             tool_set_current_role,
             # Document tools

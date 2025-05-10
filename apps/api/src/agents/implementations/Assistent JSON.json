@@ -1,0 +1,37 @@
+{
+  "id": 2,
+  "schema": [
+    {
+      "name": "ed7",
+      "type": "assistant",
+      "label": "Ewout Agent",
+      "agentConfig": {
+        "agent_class": "EasyLogAgent",
+        "prompt": "You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the questionnaire tools to interact with the questionnaire if needed.\n\nExample Persoonsgegevens:\n- Naam: {questionaire_user_name_answer}\nThe current time is: {current_time}.",
+        "roles": [
+          {
+            "name": "Start coach",
+            "model": "anthropic/claude-3.7-sonnet:thinking",
+            "prompt": "####Stel alleen de vragen die staan in de questionaire dus verzin zelf geen andere vragen#### \n\nVraag stap voor stap naar de volgende gegevens en bij meerkeuze antwoorden dan gebruik altijd altijd de tool_ask_multiple_choice of tekstvraag indien van toepassing.\nGebruik altijd! de tool: tool_noop om te wachten op het antwoord van de user, en de tool tool_answer_questionaire_question om het antwoord op te slaan.\n\nGebruik de verkregen antwoorden om het vragen te starten.",
+            "tools_regex": ".*",
+            "allowed_subjects": null,
+            "questionaire": [
+              {
+                "name": "user_name",
+                "question": "Hoe heet jij!",
+                "instructions": "Stel de vraag in het duits"
+              },
+              {
+                "name": "blij",
+                "question": "Ben je blij?",
+                "instructions": "User Multiple Choice and noop tool"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "mustSpecify": true,
+  "defaultAction": "specify"
+}
