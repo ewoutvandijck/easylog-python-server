@@ -15,12 +15,31 @@ from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
+class QuestionaireQuestionConfig(BaseModel):
+    question: str = Field(
+        default="",
+        description="The text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
+    )
+    instructions: str = Field(
+        default="",
+        description="Additional guidance or context for the ai agent on how to answer the question, such as language requirements or format expectations.",
+    )
+    name: str = Field(
+        default="",
+        description="A unique identifier for this question, used for referencing the answer in prompts or logic. For example, if the question is 'What is your name?', the name could be 'user_name', allowing you to use {questionaire.user_name.answer} in templates.",
+    )
+
+
 class RoleConfig(BaseModel):
     name: str = Field(default="James")
     prompt: str = Field(default="You are a helpful assistant.")
     model: str = Field(default="openai/gpt-4.1")
     tools_regex: str = Field(default=".*")
     allowed_subjects: list[str] | None = Field(default=None)
+    questionaire: list[QuestionaireQuestionConfig] = Field(
+        default_factory=list,
+        description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
+    )
 
 
 class MUMCAgentConfig(BaseModel):
@@ -32,12 +51,18 @@ class MUMCAgentConfig(BaseModel):
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=None,
+                questionaire=[],  # Added empty list for questionaire
             )
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}. You are currently using the role: {current_role}. Your prompt is: {current_role_prompt}. You can use the following recurring tasks: {recurring_tasks}. You can use the following reminders: {reminders}. The current time is: {current_time}."
+        default="You can use the following roles: {available_roles}.\\nYou are currently acting as the role: {current_role}.\\nYour specific instructions for this role are: {current_role_prompt}.\\nYou can use the following recurring tasks: {recurring_tasks}.\\nYou can use the following reminders: {reminders}.\\nThe current time is: {current_time}."
     )
+
+
+class DefaultKeyDict(dict):
+    def __missing__(self, key):
+        return f"[missing:{key}]"
 
 
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
@@ -231,6 +256,31 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 selected_choice=None,
             )
 
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
+            """Answer a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+            """
+
+            await self.set_metadata(question_name, answer)
+
+            return f"Answer to {question_name} set to {answer}"
+
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Get the answer to a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to get the answer to.
+
+            Returns:
+                str: The answer to the question.
+            """
+            return await self.get_metadata(question_name, "[not answered]")
+
         return [
             tool_search_documents,
             tool_get_document_contents,
@@ -241,6 +291,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_add_reminder,
             tool_remove_reminder,
             tool_ask_multiple_choice,
+            tool_get_questionaire_answer,
+            tool_answer_questionaire_question,
             BaseTools.tool_noop,
         ]
 
@@ -261,34 +313,57 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
 
+        questionnaire_format_kwargs: dict[str, str] = {}
+        for q_item in role_config.questionaire:
+            answer = await self.get_metadata(q_item.name, "[not answered]")
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
+                q_item.question
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
+                q_item.instructions
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
+                q_item.name
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
+
+        formatted_current_role_prompt = role_config.prompt.format_map(
+            DefaultKeyDict(questionnaire_format_kwargs)
+        )
+
+        # Prepare the main content for the LLM
+        main_prompt_format_args = {
+            "current_role": role_config.name,
+            "current_role_prompt": formatted_current_role_prompt,
+            "available_roles": "\\n".join(
+                [f"- {role.name}: {role.prompt}" for role in self.config.roles]
+            ),
+            "recurring_tasks": "\\n".join(
+                [
+                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                    for task in recurring_tasks
+                ]
+            ),
+            "reminders": "\\n".join(
+                [
+                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                    for reminder in reminders
+                ]
+            ),
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        main_prompt_format_args.update(questionnaire_format_kwargs)
+
+        llm_content = self.config.prompt.format_map(
+            DefaultKeyDict(main_prompt_format_args)
+        )
+
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": self.config.prompt.format(
-                        current_role=role_config.name,
-                        current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
-                        recurring_tasks="\n".join(
-                            [
-                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
-                                for task in recurring_tasks
-                            ]
-                        ),
-                        reminders="\n".join(
-                            [
-                                f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
-                                for reminder in reminders
-                            ]
-                        ),
-                        current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    ),
+                    "content": llm_content, # Use the prepared llm_content
                 },
                 *messages,
             ],
