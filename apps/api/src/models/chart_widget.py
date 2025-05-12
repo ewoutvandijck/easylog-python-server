@@ -172,6 +172,7 @@ class ChartWidget(BaseModel):
         description: str | None = None,
         height: int = 400,
         stacked: bool = False,
+        colors: list[str] | None = None,
     ) -> "ChartWidget":
         """Create a bar chart with minimal configuration.
 
@@ -184,6 +185,7 @@ class ChartWidget(BaseModel):
             description: Optional chart description
             height: Chart height in pixels
             stacked: Whether bars should be stacked
+            colors: Optional list of colors for each bar series
 
         Example:
             ```python
@@ -200,7 +202,7 @@ class ChartWidget(BaseModel):
                 title="Monthly Sales", description="2024 Sales Data", data=data, x_key="month", y_keys=["sales"], height=400
             )
 
-            # Bar chart with multiple data series
+            # Bar chart with multiple data series and custom colors
             data = [
                 {"quarter": "Q1", "product_a": 120, "product_b": 90},
                 {"quarter": "Q2", "product_a": 150, "product_b": 110},
@@ -214,7 +216,8 @@ class ChartWidget(BaseModel):
                 x_key="quarter",
                 y_keys=["product_a", "product_b"],
                 y_labels=["Product A", "Product B"],
-                stacked=True,  # Creates a stacked bar chart
+                stacked=True,
+                colors=["#8884d8", "#82ca9d"],
             )
             ```
 
@@ -227,12 +230,21 @@ class ChartWidget(BaseModel):
         if len(y_keys) != len(y_labels):
             raise ValueError("y_keys and y_labels must have the same length")
 
+        if colors and len(colors) != len(y_keys):
+            raise ValueError("colors list length must match y_keys list length")
+
         # First series will represent the x-axis categories
         series = [SeriesConfig(label=x_key, data_key=x_key)]
 
         # Add data series for y values
         for i, y_key in enumerate(y_keys):
-            series_config = SeriesConfig(label=y_labels[i], data_key=y_key, style=StyleConfig(radius=4))
+            # Initialize style with default radius
+            style = StyleConfig(radius=4)
+
+            if colors:
+                style.color = colors[i]
+
+            series_config = SeriesConfig(label=y_labels[i], data_key=y_key, style=style)
 
             # Add stack_id for stacked bar charts
             if stacked:

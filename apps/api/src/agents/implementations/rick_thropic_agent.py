@@ -279,6 +279,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             y_labels: list[str] | None = None,
             description: str | None = None,
             height: int = 400,
+            colors: list[str] | None = None,
         ) -> ChartWidget:
             """Create a bar chart with customizable styles for each series.
 
@@ -296,6 +297,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                                  'stroke_width' (for bar border thickness), 'radius', etc.
                                  The list should correspond to the order of y_keys.
                                  Example: [{"color": "rgba(255,0,0,0.7)", "stroke_width": 1}, {"fill": "#00FF00"}]
+                colors: Optional list of colors for each bar series.
 
             Returns:
                 A ChartWidget object representing the bar chart.
@@ -308,6 +310,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_labels=y_labels,
                 description=description,
                 height=height,
+                colors=colors,
                 # stacked=stacked,
             )
 
