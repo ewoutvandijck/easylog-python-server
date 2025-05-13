@@ -239,7 +239,7 @@ class ChartWidget(BaseModel):
         # Add data series for y values
         for i, y_key in enumerate(y_keys):
             # Initialize style with default radius
-            style = StyleConfig(radius=4)
+            style = StyleConfig(radius=16)
 
             if colors:
                 style.color = colors[i]
