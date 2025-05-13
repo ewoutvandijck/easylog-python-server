@@ -29,7 +29,7 @@ class AxisConfig(BaseModel):
     tick_line: bool = True
     tick_margin: int | None = Field(default=10, ge=0, le=100)
     axis_line: bool = True
-    grid_lines: bool = True
+    grid_lines: bool = False
     formatter: str | None = None  # String template or function name
 
 
@@ -259,7 +259,7 @@ class ChartWidget(BaseModel):
             data=data,
             series=series,
             height=height,
-            x_axis=AxisConfig(label=x_key, grid_lines=True, tick_line=True),
+            x_axis=AxisConfig(label=x_key, grid_lines=False, tick_line=True),
         )
 
     @classmethod
@@ -354,6 +354,6 @@ class ChartWidget(BaseModel):
             data=data,
             series=series,
             height=height,
-            x_axis=AxisConfig(label=x_key, grid_lines=True, tick_line=True),
-            y_axis=AxisConfig(grid_lines=True, tick_line=True),
+            x_axis=AxisConfig(label=x_key, grid_lines=False, tick_line=True),
+            y_axis=AxisConfig(grid_lines=False, tick_line=True),
         )

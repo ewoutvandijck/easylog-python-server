@@ -4,6 +4,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
+from typing import Any
 
 import httpx
 from openai import AsyncStream
@@ -244,14 +245,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         def tool_create_bar_chart(
             title: str,
-            data: list[dict],
+            data: list[dict[str, Any]],
             x_key: str,
             y_keys: list[str],
             y_labels: list[str] | None = None,
+            colors: list[str] | None = None,
             description: str | None = None,
             height: int = 400,
         ) -> ChartWidget:
-            """Create a bar chart with customizable properties.
+            """Create a bar chart with customizable styles for each series.
 
             Args:
                 title: Chart title.
@@ -261,12 +263,25 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 y_labels: Optional labels for y-axis values (defaults to y_keys).
                 description: Optional chart description.
                 height: Chart height in pixels.
+                colors: Optional list of colors for each bar series.
 
+            Y labels and Y keys must be of same lenght.
+            Colors must be of same lenght as y_keys.
+
+            Example:
+                title: "Sales by Product"
+                data: [
+                    {"product": "Product A", "sales": 100},
+                    {"product": "Product B", "sales": 200},
+                ]
+                x_key: "product"
+                y_keys: ["sales"]
+                y_labels: ["Sales"]
+                colors: ["#FF0000"]
+                description: "Sales by Product"
+                height: 400
             Returns:
                 A ChartWidget object representing the bar chart.
-
-            Raises:
-                ValueError: If y_labels is provided and doesn't have the same length as y_keys.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
                 raise ValueError("y_keys and y_labels must have the same length")
@@ -279,6 +294,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 y_labels=y_labels,
                 description=description,
                 height=height,
+                colors=colors,
             )
 
         # Interaction tools

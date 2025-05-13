@@ -183,42 +183,179 @@ Dit document bevat richtlijnen en kennis voor het ontwikkelen, aanpassen en onde
 
 ## 14. Specifieke procedures voor vragenlijsten en instrumenten
 
-### Ziektelastmeter (ZLM) afnameprocedure
-
-De Ziektelastmeter (ZLM) is een belangrijk zelfbeoordelingsinstrument voor patiënten met COPD. Bij het afnemen van deze vragenlijst moet je de volgende procedure strikt volgen:
-
-- **Doel**: Help gebruikers de Ziektelastmeter (ZLM) voltooien, interpreteer resultaten, en sla relevante gegevens op zodat andere coaches deze later kunnen gebruiken.
-
-- **Structuur**: De ZLM bestaat uit 14 door patiënten beoordeelde vragen verdeeld over vijf domeinen.
-
-- **Procedure voor afname**:
-
-  - Stel elke vraag ÉÉN VOOR ÉÉN door de `tool_ask_multiple_choice` tool DIRECT aan te roepen
-  - Geef de VOLLEDIGE, FORMELE vraagtekst ALLEEN door via de `question` parameter
-  - WACHT op het antwoord van de gebruiker op de huidige vraag voordat je de volgende stelt
-  - Roep `tool_noop` DIRECT aan na elke `tool_ask_multiple_choice` aanroep
-
-- **Referentiedocument**: Gebruik het document 'ziektelastmeter-copd-meetinstr-patient-1-pdf' voor de vragen en scoring na afloop van de vragenlijst.
-
-- **Voorbeeld**:
-
-  ```python
-  # Onjuist (meerdere vragen tegelijk):
-  "Laten we beginnen met de ZLM. Vraag 1: ... Vraag 2: ..."
-
-  # Juist (één vraag tegelijk met direct tool-gebruik):
-  response = await tool_ask_multiple_choice(
-      question="1. Hoe vaak had u last van kortademigheid in rust gedurende de afgelopen 7 dagen?",
-      choices=[
-          {"label": "Nooit", "value": "0"},
-          {"label": "Zelden", "value": "1"},
-          # etc.
-      ]
-  )
-  await tool_noop()
-  # Wacht op antwoord voordat de volgende vraag wordt gesteld
-  ```
-
----
-
 **Gebruik altijd dit document als leidraad voor het opzetten, aanpassen en uitbreiden van agents. Werk het actief bij na elke relevante wijziging.**
+
+## 15. ChartWidget configuratie opties
+
+De ChartWidget biedt uitgebreide opties voor datavisualisatie binnen agents. Hier zijn de belangrijkste configuratie mogelijkheden:
+
+### Factory methodes voor eenvoudige configuratie
+
+#### 1. create_bar_chart
+
+```python
+ChartWidget.create_bar_chart(
+    title: str,                      # Titel van de grafiek
+    data: list[dict[str, Any]],      # Data voor de grafiek
+    x_key: str,                      # Sleutel voor x-as data
+    y_keys: list[str],               # Sleutels voor y-as data
+    y_labels: list[str] | None = None, # Optionele labels voor y-as waarden
+    description: str | None = None,  # Optionele beschrijving
+    height: int = 400,               # Hoogte in pixels
+    stacked: bool = False,           # Of de balken gestapeld moeten worden
+    colors: list[str] | None = None  # Optionele lijst van kleuren voor elke reeks
+)
+```
+
+Voorbeeld:
+
+```python
+data = [
+    {"quarter": "Q1", "product_a": 120, "product_b": 90},
+    {"quarter": "Q2", "product_a": 150, "product_b": 110},
+    {"quarter": "Q3", "product_a": 180, "product_b": 130},
+    {"quarter": "Q4", "product_a": 210, "product_b": 150},
+]
+
+chart = ChartWidget.create_bar_chart(
+    title="Kwartaalverkoop per Product",
+    data=data,
+    x_key="quarter",
+    y_keys=["product_a", "product_b"],
+    y_labels=["Product A", "Product B"],
+    stacked=True,
+    colors=["#8884d8", "#82ca9d"],
+)
+```
+
+#### 2. create_line_chart
+
+```python
+ChartWidget.create_line_chart(
+    title: str,                      # Titel van de grafiek
+    data: list[dict[str, Any]],      # Data voor de grafiek
+    x_key: str,                      # Sleutel voor x-as data
+    y_keys: list[str],               # Sleutels voor y-as data
+    y_labels: list[str] | None = None, # Optionele labels voor y-as waarden
+    description: str | None = None,  # Optionele beschrijving
+    height: int = 400,               # Hoogte in pixels
+    colors: list[str] | None = None  # Optionele lijst van kleuren voor elke lijn
+)
+```
+
+Voorbeeld:
+
+```python
+data = [
+    {"month": "Jan", "min_temp": 2, "max_temp": 8},
+    {"month": "Feb", "min_temp": 3, "max_temp": 10},
+    {"month": "Mar", "min_temp": 6, "max_temp": 14},
+    {"month": "Apr", "min_temp": 9, "max_temp": 18},
+    {"month": "May", "min_temp": 12, "max_temp": 22},
+]
+
+chart = ChartWidget.create_line_chart(
+    title="Temperatuurbereik",
+    data=data,
+    x_key="month",
+    y_keys=["min_temp", "max_temp"],
+    y_labels=["Minimum", "Maximum"],
+    colors=["#0000FF", "#FF0000"],
+)
+```
+
+#### 3. create_pie_chart
+
+```python
+ChartWidget.create_pie_chart(
+    title: str,                      # Titel van de grafiek
+    data: list[dict[str, Any]],      # Data voor de grafiek
+    name_key: str,                   # Sleutel voor segmentnamen
+    value_key: str,                  # Sleutel voor segmentwaarden
+    description: str | None = None,  # Optionele beschrijving
+    is_donut: bool = False,          # Of het een donut grafiek moet zijn
+    height: int = 400                # Hoogte in pixels
+)
+```
+
+Voorbeeld:
+
+```python
+data = [
+    {"browser": "Chrome", "users": 62},
+    {"browser": "Safari", "users": 19},
+    {"browser": "Firefox", "users": 5},
+    {"browser": "Edge", "users": 4},
+    {"browser": "Other", "users": 10},
+]
+
+chart = ChartWidget.create_pie_chart(
+    title="Browser Marktaandeel",
+    description="Q2 2024 Data",
+    data=data,
+    name_key="browser",
+    value_key="users",
+    is_donut=True,
+    height=400,
+)
+```
+
+### Geavanceerde configuratie
+
+Voor meer geavanceerde aanpassingen kan de ChartWidget direct worden geconfigureerd met de volgende componenten:
+
+#### StyleConfig
+
+```python
+StyleConfig(
+    color: str | None = None,           # Kleur (bv. "#FF0000")
+    fill: str | None = None,            # Vulkleur
+    opacity: float = 0.9,               # Transparantie (0.0-1.0)
+    stroke_width: int = 2,              # Lijndikte
+    stroke_dasharray: str | None = None,# Lijn dash patroon
+    radius: int = 80,                   # Radius voor cirkels
+    inner_radius: int = 40              # Binnenradius voor donut
+)
+```
+
+#### AxisConfig
+
+```python
+AxisConfig(
+    show: bool = True,                 # Of de as getoond moet worden
+    label: str | None = None,          # Label voor de as
+    tick_line: bool = True,            # Of de tickmarks getoond moeten worden
+    tick_margin: int = 10,             # Marge voor tickmarks
+    axis_line: bool = True,            # Of de aslijn getoond moet worden
+    grid_lines: bool = True,           # Of de rasterlijnen getoond moeten worden
+    formatter: str | None = None       # Formatter voor aswaarden
+)
+```
+
+#### TooltipConfig
+
+```python
+TooltipConfig(
+    show: bool = True,                 # Of tooltips getoond moeten worden
+    custom_content: str | None = None, # Template voor aangepaste inhoud
+    hide_label: bool = False           # Of labels verborgen moeten worden
+)
+```
+
+### Algemene richtlijnen voor het gebruik
+
+- **Kies het juiste grafiektype** voor je data:
+  - **Bar chart**: Voor categorische vergelijkingen
+  - **Line chart**: Voor trends en tijdreeksen
+  - **Pie/Donut chart**: Voor verhoudingen en percentages
+- **Gebruik kleurcodering** om verschillende reeksen te onderscheiden. Standaard krijgen series automatisch kleuren, maar je kunt deze overschrijven met de `colors` parameter.
+
+- **Stel een passende hoogte in** gebaseerd op de hoeveelheid data en het beschikbare schermoppervlak. Standaard is dit 400 pixels.
+
+- **Overweeg een beschrijving toe te voegen** voor extra context bij de grafiek.
+
+- **Kies betekenisvolle labels** zodat gebruikers gemakkelijk begrijpen wat de gevisualiseerde data betekent.
+
+- **Voor stacked bar charts**, zet de `stacked` parameter op `True` om gestapelde balken te maken.
+
+Zie `tool_create_bar_chart`, `tool_create_line_chart` of `tool_example_chart` in de agent-implementaties voor praktische voorbeelden van het gebruik binnen agent tools.
