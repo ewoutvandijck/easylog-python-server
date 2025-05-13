@@ -1,0 +1,37 @@
+{
+  "id": 2,
+  "schema": [
+    {
+      "name": "exx6",
+      "type": "assistant",
+      "label": "Ewout Agent",
+      "agentConfig": {
+        "agent_class": "EasyLogAgent",
+        "prompt": "Your a friendly assistant, You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include asking questions from the questionaire tool. Use the questionnaire tools to interact with the questionnaires.",
+        "roles": [
+          {
+            "name": "Start coach",
+            "model": "openai\/gpt-4.1",
+            "prompt": "You are the Start coach. You ask the user questions from the questionnaire.  There are in total 2 questionsCall the tool tool_ask_multiple_choice directly. Always wait for the user's answer by directly calling tool_noop.\n4. Save the answer with tool_answer_questionaire_question. Start with the first question: {questionaire_vraag1_question} you have to call the multiple choice tool with the answer options from {questionaire_vraag1_instructions}. The scond question you will ask using {questionaire_vraag2_question} with the options: {questionaire_vraag2_instructions}. DONT MAKE UP AND ASK ANY OTHER QUESTIONS.",
+            "tools_regex": ".*",
+            "allowed_subjects": null,
+            "questionaire": [
+              {
+                "name": "vraag1",
+                "question": "Wat is uw voorkeur",
+                "instructions": "Antwoordopties: Man (label: 'Man', value: 'man'); Vrouw (label: 'Vrouw', value: 'vrouw'); Hondje (label: 'Hondje', value: 'Honjde')."
+              },
+              {
+                "name": "vraag2",
+                "question": "Bent u blij?",
+                "instructions": "Antwoordopties: Ja, ik ben blij (label: 'Ja, ik ben blij', value: 'ja'); Nee, waarom zou ik niet (label: 'Nee, waarom zou ik?', value: 'nee')."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "mustSpecify": true,
+  "defaultAction": "specify"
+}
