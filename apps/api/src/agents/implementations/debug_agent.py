@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
 
@@ -8,6 +9,7 @@ from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.base_tools import BaseTools
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
@@ -90,9 +92,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        return next(role_config for role_config in self.config.roles if role_config.name == role)
 
     def get_tools(self) -> list[Callable]:
         async def tool_set_current_role(role: str) -> str:
@@ -134,12 +134,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 search_query, subjects=(await self.get_current_role()).allowed_subjects
             )
 
-            return "\n-".join(
-                [
-                    f"Path: {document.path} - Summary: {document.summary}"
-                    for document in result
-                ]
-            )
+            return "\n-".join([f"Path: {document.path} - Summary: {document.summary}" for document in result])
 
         async def tool_get_document_contents(path: str) -> str:
             """Retrieve the complete contents of a specific document from the knowledge database.
@@ -158,9 +153,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             """
             return json.dumps(await self.get_document(path), default=str)
 
-        async def tool_answer_questionaire_question(
-            question_name: str, answer: str
-        ) -> str:
+        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
             """Answer a question from the questionaire.
 
             Args:
@@ -183,9 +176,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -205,18 +196,37 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
+                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
+                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
 
             return MultipleChoiceWidget(
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
             )
+
+        async def tool_create_reminder(reminder: str, date_time: str) -> str:
+            """Create a reminder.
+
+            Args:
+                reminder (str): The reminder to create.
+                date_time (str): The date and time to create the reminder in the format YYYY-MM-DD HH:MM:SS
+            """
+            reminders = await self.get_metadata("reminders", [])
+            reminders.append({"id": str(uuid.uuid4())[0:8], "reminder": reminder, "date_time": date_time})
+            await self.set_metadata("reminders", reminders)
+            return f"Reminder created: {reminder}"
+
+        async def tool_delete_reminder(id: str) -> str:
+            """Delete a reminder.
+
+            Args:
+                id (str): The id of the reminder to delete.
+            """
+            reminders = await self.get_metadata("reminders", [])
+            reminders = [reminder for reminder in reminders if reminder["id"] != id]
+            await self.set_metadata("reminders", reminders)
+            return f"Reminder deleted: {id}"
 
         return [
             tool_search_documents,
@@ -225,6 +235,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_get_questionaire_answer,
             tool_answer_questionaire_question,
             tool_ask_multiple_choice,
+            tool_create_reminder,
+            tool_delete_reminder,
             BaseTools.tool_noop,
         ]
 
@@ -238,42 +250,35 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         tools = [
             tool
             for tool in tools
-            if re.match(role_config.tools_regex, tool.__name__)
-            or tool.__name__ == BaseTools.tool_noop.__name__
+            if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ == BaseTools.tool_noop.__name__
         ]
 
         questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
-                q_item.question
-            )
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
-                q_item.instructions
-            )
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
-                q_item.name
-            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
-        formatted_current_role_prompt = role_config.prompt.format_map(
-            DefaultKeyDict(questionnaire_format_kwargs)
-        )
+        formatted_current_role_prompt = role_config.prompt.format_map(DefaultKeyDict(questionnaire_format_kwargs))
 
         # Prepare the main content for the LLM
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\\n".join(
-                [f"- {role.name}: {role.prompt}" for role in self.config.roles]
-            ),
+            "available_roles": "\\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "reminders": "\n".join(
+                [
+                    f"{reminder['id']}: {reminder['reminder']} at {reminder['date_time']}"
+                    for reminder in await self.get_metadata("reminders", [])
+                ]
+            ),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        llm_content = self.config.prompt.format_map(
-            DefaultKeyDict(main_prompt_format_args)
-        )
+        llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
 
         response = await self.client.chat.completions.create(
             model=role_config.model,

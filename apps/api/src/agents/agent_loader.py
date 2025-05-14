@@ -50,3 +50,17 @@ class AgentLoader:
 
         logger.warning(f"No matching agent found for class: {agent_class}")
         return None
+
+    @staticmethod
+    def get_all_agents() -> list[BaseAgent]:
+        agents_dir = Path(__file__).parent / "implementations"
+        agents = []
+        for file in agents_dir.glob("*.py"):
+            if file.name == "base_agent.py":
+                continue
+            module_path = f"src.agents.implementations.{file.stem}"
+            module = importlib.import_module(module_path)
+            for _, obj in inspect.getmembers(module):
+                if inspect.isclass(obj) and issubclass(obj, BaseAgent) and obj != BaseAgent:
+                    agents.append(obj)
+        return agents
