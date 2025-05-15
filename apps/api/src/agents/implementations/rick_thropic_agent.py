@@ -17,11 +17,15 @@ from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.chart_widget import (
+    COLOR_BLACK,
+    DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
+    Line,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
+from typing_extensions import Literal
 
 
 class RoleConfig(BaseModel):
@@ -273,34 +277,208 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 selected_choice=None,
             )
 
+        def tool_create_zlm_chart(
+            language: Literal["nl", "en"],
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            height: int = 400,
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
+            The chart visualizes scores as percentages, expecting values in the **0-100 range**.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: The data for the chart. Each dictionary in the list represents a
+                      point or group on the x-axis.
+                      - Each dictionary MUST contain the `x_key` field.
+                      - For each `y_key` specified in `y_keys`, the dictionary MUST
+                        contain a field with that `y_key` name.
+                      - The value associated with each `y_key` MUST be a dictionary
+                        with two keys:
+                        1.  `"value"`: A numerical percentage (float or integer).
+                            **IMPORTANT: This value MUST be between 0 and 100 (inclusive).**
+                            For example, 75 represents 75%. Do NOT use values like 0.75.
+                        2.  `"colorRole"`: A string that MUST be one of "success",
+                            "warning", or "neutral". This role will be mapped to specific
+                            ZLM colors (Green for success, Pastel Orange for neutral,
+                            Pastel Red for warning).
+                      - Example (single y-key):
+                        `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
+                              `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
+                        (if x_key="category", y_keys=["score"])
+                      - Example (multiple y-keys):
+                        `data=[{"month": "Jan", "metric_a": {"value": 85, "colorRole": "success"}, "metric_b": {"value": 45, "colorRole": "warning"}},`
+                              `{"month": "Feb", "metric_a": {"value": 90, "colorRole": "success"}, "metric_b": {"value": 50, "colorRole": "neutral"}}]`
+                        (if x_key="month", y_keys=["metric_a", "metric_b"])
+                x_key: The key in each data dictionary that represents the x-axis value
+                       (e.g., "category", "month").
+                y_keys: A list of keys in each data dictionary that represent the y-axis
+                        values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
+                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
+                          will be used as labels. Must have the same length as `y_keys`
+                          if provided.
+                height: Optional. The height of the chart in pixels. Defaults to 400.
+
+            Returns:
+                A ChartWidget object configured for ZLM display.
+
+            Raises:
+                ValueError: If data is missing required keys, values are not numbers,
+                            percentages are outside the 0-100 range, or colorRole is invalid.
+            """
+
+            title = (
+                "Resultaten ziektelastmeter COPD %"
+                if language == "nl"
+                else "ZLM results %"
+            )
+            description = (
+                "Uw ziektelastmeter COPD resultaten."
+                if language == "nl"
+                else "Your COPD lung function test results."
+            )
+
+            # Custom color role map for ZLM charts
+            ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
+                # We only use a custom neutral color, the rest is re-used.
+                "success": DEFAULT_COLOR_ROLE_MAP["success"],
+                "neutral": "#ffdaaf",  # Pastel orange
+                "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
+            }
+
+            # Add a target line that should always be the exact same.
+            target_line = Line(
+                value=50,
+                color=COLOR_BLACK,
+            )
+
+            # Optional, but recommended data validation
+            for raw_item_idx, raw_item in enumerate(data):
+                if x_key not in raw_item:
+                    raise ValueError(
+                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
+                    )
+                current_x_value = raw_item[x_key]
+
+                for y_key in y_keys:
+                    if y_key not in raw_item:
+                        # This case is handled by create_bar_chart for sparse data,
+                        # but for ZLM, we might want to enforce all y_keys are present.
+                        # For now, let create_bar_chart handle it if colorRole is null.
+                        # If colorRole is provided for a non-existent y_key, it's an issue.
+                        continue
+
+                    value_container = raw_item[y_key]
+                    if not (
+                        isinstance(value_container, dict)
+                        and "value" in value_container
+                        and "colorRole" in value_container  # LLM must provide colorRole
+                    ):
+                        raise ValueError(
+                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
+                            "for ZLM chart is not in the expected format: "
+                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
+                            f"Received: {value_container}"
+                        )
+
+                    val_from_container = value_container["value"]
+                    if not isinstance(val_from_container, (int, float)):
+                        raise ValueError(
+                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
+                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
+                        )
+
+                    val_float = float(val_from_container)
+                    if not (0.0 <= val_float <= 100.0):
+                        hint = ""
+                        # Check if the original value from LLM looked like it was on a 0-1 scale
+                        if (
+                            isinstance(val_from_container, (int, float))
+                            and 0 < float(val_from_container) <= 1.0
+                            and float(val_from_container) != 0.0
+                        ):
+                            hint = (
+                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
+                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
+                            )
+                        raise ValueError(
+                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
+                            f"is outside the expected 0-100 range.{hint}"
+                        )
+
+                    role_from_data = value_container["colorRole"]
+                    if (
+                        role_from_data is not None
+                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
+                    ):
+                        raise ValueError(
+                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
+                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
+                        )
+
+            return ChartWidget.create_bar_chart(
+                title=title,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                description=description,
+                height=height,
+                custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
+                horizontal_lines=[target_line],
+            )
+
         def tool_create_bar_chart(
             title: str,
             data: list[dict[str, Any]],
             x_key: str,
             y_keys: list[str],
             y_labels: list[str] | None = None,
-            colors: list[str] | None = None,
+            horizontal_lines: list[Line] | None = None,
             description: str | None = None,
             height: int = 400,
         ) -> ChartWidget:
-            """
-            Creates a bar chart.
+            f"""
+            Creates a bar chart with customizable colors and optional horizontal lines.
+
             You MUST provide data where each y_key's value is a dictionary:
-            {"value": <actual_value>, "colorRole": <"success"|"warning"|"neutral"|null>}.
-            If colorRole is null, the chart widget will assign a default color for that series.
+            {"value": <actual_value>, "colorRole": <role_name_str> | null}.
+            - If `colorRole` is a string (e.g., "high_sales", "low_stock"), it will be
+              used as a key to look up the color in the `custom_color_role_map` if provided,
+              or in the default color role map ${DEFAULT_COLOR_ROLE_MAP} otherwise.
+              If the role is not found in any map, a default series color is used.
+            - If `colorRole` is null, the chart widget will assign a default color for that
+              bar based on its series.
 
             Args:
                 title (str): Chart title.
                 data (list[dict[str, Any]]): List of data objects.
-                    Example: [
+                    Example:
+                    [
                         {"month": "Jan", "sales": {"value": 100, "colorRole": "neutral"}, "returns": {"value": 10, "colorRole": "warning"}},
                         {"month": "Feb", "sales": {"value": 150, "colorRole": "success"}, "returns": {"value": 12, "colorRole": null}}
                     ]
                 x_key (str): Key in data objects for the x-axis (e.g., 'month').
                 y_keys (list[str]): Keys for y-axis values (e.g., ['sales', 'returns']).
-                y_labels (list[str] | None): Optional labels for y-axis values.
+                y_labels (list[str] | None): Optional labels for y-axis values. If None,
+                                            `y_keys` are used. Must match `y_keys` length.
+                horizontal_lines (list[Line] | None): Optional. A list of `Line` objects to
+                                     draw horizontal lines across the chart. Each `Line` object
+                                     defines the y-axis value, an optional label, and an optional color.
+                                     This is useful for indicating targets, thresholds, or averages.
+                                     The `Line` model requires:
+                                     - `value` (float): The y-axis value where the line is drawn.
+                                     - `label` (str | None): Optional text label for the line.
+                                     - `color` (str | None): Optional HEX color (e.g., '#000000' for black).
+                                       Defaults to black if not specified.
+                                     Example:
+                                     `[{"value": 80, "label": "Target Sales", "color": "#FF0000"}, {"value": 50}]`
                 description (str | None): Optional chart description.
-                height (int): Chart height in pixels.
+                height (int): Chart height in pixels. Defaults to 400.
+
             Returns:
                 A ChartWidget object.
             """
@@ -313,6 +491,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_labels=y_labels,
                 description=description,
                 height=height,
+                horizontal_lines=horizontal_lines,
             )
 
         return [
@@ -327,6 +506,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_remove_reminder,
             tool_ask_multiple_choice,
             tool_create_bar_chart,
+            tool_create_zlm_chart,
         ]
 
     async def on_message(

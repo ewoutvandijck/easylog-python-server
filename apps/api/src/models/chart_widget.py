@@ -1,13 +1,17 @@
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
-# Semantic roles for individual data points, change or add just make sure that colorRoles equal the colorRole in the DEFAULT_COLOR_ROLE_MAP
-ColorRole = Literal["success", "warning", "neutral"]
+# Semantic roles for individual data points
+ColorRole = Literal["success", "warning", "neutral", "info", "primary", "accent", "muted"]
 DEFAULT_COLOR_ROLE_MAP: dict[str, str] = {
     "success": "#b2f2bb",  # Pastel Green
     "neutral": "#a1c9f4",  # Pastel Blue
     "warning": "#ffb3ba",  # Pastel Red
+    "info": "#FFFACD",  # LemonChiffon (Pastel Yellow for informational points)
+    "primary": "#DDA0DD",  # Plum (Pastel Purple for primary emphasis)
+    "accent": "#B0E0E6",  # PowderBlue (Pastel Cyan/Blue for secondary emphasis)
+    "muted": "#D3D3D3",  # LightGray (For de-emphasized points)
 }
 
 # Predefined palette for default series colors (used for legends and when colorRole is null)
@@ -22,6 +26,7 @@ DEFAULT_SERIES_COLORS_PALETTE: list[str] = [
 ]
 # Fallback color if the palette is exhausted or for unexpected scenarios
 DEFAULT_FALLBACK_COLOR = "#343a40"  # Dark Gray
+COLOR_BLACK = "#000000"
 
 
 class ChartDataPointValue(BaseModel):
@@ -30,6 +35,18 @@ class ChartDataPointValue(BaseModel):
     value: float | str
     color: str = Field(
         ..., description="The HEX color string for this data point (e.g., '#RRGGBB').", pattern=r"^#[0-9a-fA-F]{6}$"
+    )
+
+
+class Line(BaseModel):
+    """Represents a line in a chart, including its color. Helpful for things such as goal lines."""
+
+    value: float = Field(..., description="The y-value for this line.")
+    label: str | None = Field(default=None, description="The label for this line.")
+    color: str | None = Field(
+        default=COLOR_BLACK,
+        description="The HEX color string for this line (e.g., '#RRGGBB').",
+        pattern=r"^#[0-9a-fA-F]{6}$",
     )
 
 
@@ -138,6 +155,9 @@ class ChartWidget(BaseModel):
     # Axes configuration (not used for pie/donut)
     x_axis: AxisConfig | None = Field(default_factory=AxisConfig, description="X-axis configuration")
     y_axis: AxisConfig | None = Field(default_factory=AxisConfig, description="Y-axis configuration")
+    horizontal_lines: list[Line] | None = Field(
+        default=None, description="Optional list of horizontal lines to draw on the chart."
+    )
 
     # Visual configuration
     style: StyleConfig | None = Field(default_factory=StyleConfig, description="Global style configuration")
@@ -223,6 +243,7 @@ class ChartWidget(BaseModel):
         y_labels: list[str] | None = None,
         description: str | None = None,
         height: int = 400,
+        horizontal_lines: list[Line] | None = None,
         custom_color_role_map: dict[str, str] | None = None,
         custom_series_colors_palette: list[str] | None = None,
     ) -> "ChartWidget":
@@ -234,8 +255,15 @@ class ChartWidget(BaseModel):
         Args:
             data: LLM input. Each y_key's value must be like:
                   {"value": 123, "colorRole": "success"} or {"value": 456, "colorRole": null}.
-                  If custom_color_role_map is provided, colorRole must be a key in that map.
+                  If custom_color_role_map is NOT provided, colorRole (if not null)
+                  MUST be one of the defined ColorRole literals (e.g., "success", "info", "primary").
+            horizontal_lines: Optional. A list of HorizontalLine objects.
             custom_color_role_map: Optional. A dictionary mapping custom role names (str) to HEX color strings.
+                                   If provided, this map takes precedence. If a role from data is not
+                                   in this custom map, it will NOT fall back to DEFAULT_COLOR_ROLE_MAP;
+                                   instead, it might be treated as an invalid role or use series default
+                                   depending on subsequent logic here. It's better for custom_map to be exhaustive
+                                   for roles used with it, or for roles not in it to use series default (colorRole=null).
                                    If None, DEFAULT_COLOR_ROLE_MAP is used.
             custom_series_colors_palette: Optional. A list of HEX color strings for default series colors.
                                           If None, DEFAULT_SERIES_COLORS_PALETTE is used.
@@ -296,13 +324,23 @@ class ChartWidget(BaseModel):
                     if role_from_data is None:
                         point_color_hex_final = series_default_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
                     elif role_from_data in active_color_role_map:
-                        point_color_hex_final = active_color_role_map[role_from_data]
+                        # If active_color_role_map is DEFAULT_COLOR_ROLE_MAP (dict[ColorRole, str]),
+                        # and role_from_data (str) is in its keys, then role_from_data is a valid ColorRole string.
+                        # Pylance might require a cast here if the active_map is strictly typed with ColorRole keys.
+                        if active_color_role_map is DEFAULT_COLOR_ROLE_MAP:
+                            point_color_hex_final = active_color_role_map[cast(ColorRole, role_from_data)]
+                        else:  # active_color_role_map is custom_color_role_map (dict[str, str])
+                            point_color_hex_final = active_color_role_map[role_from_data]
                     else:
+                        # Behavior if role_from_data is not in active_color_role_map:
+                        # If a custom_map was provided but the role isn't in it, it's an issue.
+                        # If default_map was used and role isn't a defined ColorRole, it's an issue.
                         raise ValueError(
                             f"Invalid colorRole '{role_from_data}' for y_key '{y_key}' "
                             f"in x_value '{current_x_value}' (index {raw_item_idx}). "
                             f"It's not defined in the active color_role_map. "
-                            f"Available roles: {list(active_color_role_map.keys())}"
+                            f"Available in default map: {list(DEFAULT_COLOR_ROLE_MAP.keys())}. "
+                            f"If using custom map, ensure role is defined there."
                         )
 
                 current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
@@ -328,6 +366,7 @@ class ChartWidget(BaseModel):
             height=height,
             x_axis=AxisConfig(label=x_key, grid_lines=True, tick_line=True),
             y_axis=AxisConfig(grid_lines=True, tick_line=True),
+            horizontal_lines=horizontal_lines,
             tooltip=TooltipConfig(show=True),
             legend=True,
         )
