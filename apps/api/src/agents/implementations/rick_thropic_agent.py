@@ -349,14 +349,16 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
             }
 
-            # Add a target line that should always be the exact same.
+            # Add a target line that should always be the exact same. Be su
             target_line = Line(
                 label="Target",
                 value=50,
                 color=COLOR_BLACK,
             )
 
-            # Optional, but recommended data validation
+            horizontal_lines = [target_line]
+
+            # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
                     raise ValueError(
@@ -422,14 +424,14 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             return ChartWidget.create_bar_chart(
                 title=title,
+                description=description,
                 data=data,
                 x_key=x_key,
                 y_keys=y_keys,
                 y_labels=y_labels,
-                description=description,
                 height=height,
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
-                horizontal_lines=[target_line],
+                horizontal_lines=horizontal_lines,
                 y_axis_domain_min=0,
                 y_axis_domain_max=100,
             )
