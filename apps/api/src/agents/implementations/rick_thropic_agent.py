@@ -552,6 +552,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         {{"date": "2024-01-02", "temp": 12, "humidity": 65}},
                         {{"date": "2024-01-03", "temp": 9, "humidity": null}} // null for missing humidity
                     ]
+                **Important** Do not add colors in the data object for line charts.
                 x_key (str): Key in data objects for the x-axis (e.g., 'date').
                 y_keys (list[str]): Keys for y-axis values (e.g., ['temp', 'humidity']).
                 y_labels (list[str] | None): Optional labels for y-axis series. If None,
