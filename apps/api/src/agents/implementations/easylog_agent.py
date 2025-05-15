@@ -311,14 +311,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
             }
 
-            # Add a target line that should always be the exact same. Be su
-            target_line = Line(
-                label="Target",
-                value=50,
-                color=COLOR_BLACK,
-            )
-
-            horizontal_lines = [target_line]
+            horizontal_lines = None
 
             # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
             for raw_item_idx, raw_item in enumerate(data):
