@@ -377,98 +377,115 @@ class ChartWidget(BaseModel):
             legend=True,
         )
 
-    # @classmethod
-    # def create_line_chart(
-    #     cls,
-    #     title: str,
-    #     data: list[dict[str, Any]],
-    #     x_key: str,
-    #     y_keys: list[str],
-    #     y_labels: list[str] | None = None,
-    #     description: str | None = None,
-    #     height: int = 400,
-    #     colors: list[str] | None = None,
-    # ) -> "ChartWidget":
-    #     """Create a line chart with minimal configuration.
+    @classmethod
+    def create_line_chart(
+        cls,
+        title: str,
+        data: list[dict[str, Any]],
+        x_key: str,
+        y_keys: list[str],
+        y_labels: list[str] | None = None,
+        description: str | None = None,
+        height: int = 400,
+        horizontal_lines: list[Line] | None = None,
+        custom_series_colors_palette: list[str] | None = None,
+        y_axis_domain_min: float | None = None,
+        y_axis_domain_max: float | None = None,
+    ) -> "ChartWidget":
+        """
+        Create a line chart. Data points for y_keys should be direct numerical values.
+        `custom_series_colors_palette` affects line colors.
+        """
+        if y_labels is None:
+            y_labels = y_keys
 
-    #     Args:
-    #         title: Chart title
-    #         data: List of data objects
-    #         x_key: Key in data objects for the x-axis
-    #         y_keys: Keys in data objects for the y-axis values
-    #         y_labels: Optional labels for y-axis values (defaults to y_keys)
-    #         description: Optional chart description
-    #         height: Chart height in pixels
-    #         colors: Optional list of colors for each line
+        if len(y_keys) != len(y_labels):
+            raise ValueError("y_keys and y_labels must have the same length for line chart")
 
-    #     Example:
-    #         ```python
-    #         # Simple line chart with a single data series
-    #         data = [
-    #             {"date": "2024-01", "temperature": 5},
-    #             {"date": "2024-02", "temperature": 7},
-    #             {"date": "2024-03", "temperature": 12},
-    #             {"date": "2024-04", "temperature": 16},
-    #             {"date": "2024-05", "temperature": 20},
-    #         ]
+        active_series_colors_palette = (
+            custom_series_colors_palette if custom_series_colors_palette is not None else DEFAULT_SERIES_COLORS_PALETTE
+        )
+        if not active_series_colors_palette:
+            active_series_colors_palette = [DEFAULT_FALLBACK_COLOR]
 
-    #         chart = Chart.create_line_chart(
-    #             title="Temperature Trend",
-    #             description="First half of 2024",
-    #             data=data,
-    #             x_key="date",
-    #             y_keys=["temperature"],
-    #             height=400,
-    #         )
+        series_hex_colors: dict[str, str] = {}  # Renamed for clarity, this is for line series colors
+        for i, y_key_for_default in enumerate(y_keys):
+            series_hex_colors[y_key_for_default] = active_series_colors_palette[i % len(active_series_colors_palette)]
 
-    #         # Line chart with multiple data series and custom colors
-    #         data = [
-    #             {"month": "Jan", "min_temp": 2, "max_temp": 8},
-    #             {"month": "Feb", "min_temp": 3, "max_temp": 10},
-    #             {"month": "Mar", "min_temp": 6, "max_temp": 14},
-    #             {"month": "Apr", "min_temp": 9, "max_temp": 18},
-    #             {"month": "May", "min_temp": 12, "max_temp": 22},
-    #         ]
+        processed_data_rows: list[ChartDataRow] = []
+        for raw_item_idx, raw_item in enumerate(data):
+            if x_key not in raw_item:
+                raise ValueError(
+                    f"x_key '{x_key}' not found in line chart data item at index {raw_item_idx}: {raw_item}"
+                )
 
-    #         chart = Chart.create_line_chart(
-    #             title="Temperature Range",
-    #             data=data,
-    #             x_key="month",
-    #             y_keys=["min_temp", "max_temp"],
-    #             y_labels=["Minimum", "Maximum"],
-    #             colors=["#0000FF", "#FF0000"],  # Blue for min, red for max
-    #         )
-    #         ```
+            current_x_value = str(raw_item[x_key])  # Ensure x_value is string
+            current_y_values: dict[str, ChartDataPointValue] = {}
 
-    #     Returns:
-    #         Configured Chart instance
-    #     """
-    #     if y_labels is None:
-    #         y_labels = y_keys
+            for y_key in y_keys:
+                point_value_final: Any
+                # The color of the data point (and its marker) will be the series color
+                point_color_hex_final: str = series_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
 
-    #     if len(y_keys) != len(y_labels):
-    #         raise ValueError("y_keys and y_labels must have the same length")
+                if y_key not in raw_item:
+                    point_value_final = None
+                else:
+                    # Data for y_key is now expected to be the value directly
+                    value_from_data = raw_item[y_key]
+                    if not isinstance(value_from_data, (int, float, str)) and value_from_data is not None:
+                        # Allow string if it can be cast to float, or None
+                        try:
+                            if isinstance(value_from_data, str):
+                                point_value_final = float(value_from_data)
+                            else:  # Should be int or float
+                                point_value_final = value_from_data
+                        except ValueError:
+                            raise ValueError(
+                                f"Data for y_key '{y_key}' in x_value '{current_x_value}' (line chart, index {raw_item_idx}) "
+                                f"must be a number or None. Received: {value_from_data}"
+                            )
+                    elif value_from_data is None:
+                        point_value_final = None
+                    else:  # Is already a number
+                        point_value_final = value_from_data
 
-    #     # First series will represent the x-axis data
-    #     series = [SeriesConfig(label=x_key, data_key=x_key)]
+                current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
 
-    #     # Add y-series
-    #     for i, y_key in enumerate(y_keys):
-    #         style = StyleConfig(stroke_width=2, opacity=0.9, radius=4)
+            processed_data_rows.append(ChartDataRow(x_value=current_x_value, y_values=current_y_values))
 
-    #         # Add color if provided
-    #         if colors and i < len(colors):
-    #             style.color = colors[i]
+        series_configs = []
+        for i, y_key in enumerate(y_keys):
+            line_color = series_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
+            style = StyleConfig(
+                color=line_color,  # Line color
+                stroke_width=2,  # Default stroke width for lines
+                radius=4,  # Default radius for markers on lines (markers will also be line_color)
+            )
+            series_configs.append(SeriesConfig(label=y_labels[i], data_key=y_key, style=style))
 
-    #         series.append(SeriesConfig(label=y_labels[i], data_key=y_key, style=style))
+        y_axis_config = AxisConfig(
+            grid_lines=True,  # Common default for line charts
+            tick_line=True,
+            domain_min=y_axis_domain_min,
+            domain_max=y_axis_domain_max,
+        )
+        x_axis_config = AxisConfig(
+            label=x_key,
+            grid_lines=False,  # Often false for x-axis on line charts
+            tick_line=True,
+        )
 
-    #     return cls(
-    #         type="line",
-    #         title=title,
-    #         description=description,
-    #         data=data,
-    #         series=series,
-    #         height=height,
-    #         x_axis=AxisConfig(label=x_key, grid_lines=False, tick_line=True),
-    #         y_axis=AxisConfig(grid_lines=False, tick_line=True),
-    #     )
+        return cls(
+            type="line",
+            title=title,
+            description=description,
+            data=processed_data_rows,
+            series=series_configs,
+            height=height,
+            x_axis=x_axis_config,
+            y_axis=y_axis_config,
+            horizontal_lines=horizontal_lines,
+            tooltip=TooltipConfig(show=True),
+            legend=True,
+            animation=True,  # Animation is often nice for line charts
+        )
