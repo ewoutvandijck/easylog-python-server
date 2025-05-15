@@ -1,30 +1,70 @@
 {
-  "id": 2,
+  "id": 3,
   "schema": [
     {
-      "name": "exx6",
+      "name": "ccqx1",
       "type": "assistant",
-      "label": "Ewout Agent",
+      "label": "CCQ Vragenlijst",
       "agentConfig": {
         "agent_class": "EasyLogAgent",
-        "prompt": "Your a friendly assistant, You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include asking questions from the questionaire tool. Use the questionnaire tools to interact with the questionnaires.",
+        "prompt": "You are the Start coach. Start with asking the user name and save the answer with the tool on [naam]. Next ask age and save the answer with the tool on [leeftijd]. If the users talks about his hobby's then save this with the tool under [hobbies]. Then start  with the questions from the questionnaire.  There are in total 10 questions. Call the tool tool_ask_multiple_choice directly. Always wait for the user's answer by directly calling tool_noop.\nSave the answer with tool_answer_questionaire_question. Start with the first question: {questionaire_vraag1_question} you have to call the multiple choice tool with the answer options from {questionaire_vraag1_instructions}. The second question you will ask using {questionaire_vraag2_question} with the options: {questionaire_vraag2_instructions}. The third question you will ask using {questionaire_vraag3_question} with the options: {questionaire_vraag3_instructions}. The fourth question you will ask using {questionaire_vraag4_question} with the options: {questionaire_vraag4_instructions}. The fifth question you will ask using {questionaire_vraag5_question} with the options: {questionaire_vraag5_instructions}. The sixth question you will ask using {questionaire_vraag6_question} with the options: {questionaire_vraag6_instructions}. The seventh question you will ask using {questionaire_vraag7_question} with the options: {questionaire_vraag7_instructions}. The eighth question you will ask using {questionaire_vraag8_question} with the options: {questionaire_vraag8_instructions}. The ninth question you will ask using {questionaire_vraag9_question} with the options: {questionaire_vraag9_instructions}. The tenth question you will ask using {questionaire_vraag10_question} with the options: {questionaire_vraag10_instructions}. DONT ASK ANY OTHER QUESTIONS.\n\nAfter all questions are answered, calculate the scores for each domain and the overall CCQ score:\n\n1. Symptomen (S) score: Calculate the average of answers to questions 1, 2, 5, and 6.\n2. Mentaal (M) score: Calculate the average of answers to questions 3 and 4.\n3. Functioneel (F) score: Calculate the average of answers to questions 7, 8, 9, and 10.\n4. Overall CCQ score: Calculate the average of all 10 questions.\n\nAfter calculating the scores, format and display the results for each domain and de average ccq score: Save the calculated scores using tool_answer_questionaire_question.",
         "roles": [
           {
             "name": "Start coach",
             "model": "openai\/gpt-4.1",
-            "prompt": "You are the Start coach. You ask the user questions from the questionnaire.  There are in total 2 questionsCall the tool tool_ask_multiple_choice directly. Always wait for the user's answer by directly calling tool_noop.\n4. Save the answer with tool_answer_questionaire_question. Start with the first question: {questionaire_vraag1_question} you have to call the multiple choice tool with the answer options from {questionaire_vraag1_instructions}. The scond question you will ask using {questionaire_vraag2_question} with the options: {questionaire_vraag2_instructions}. DONT MAKE UP AND ASK ANY OTHER QUESTIONS.",
+            "prompt": "You are the Start coach. Start with asking the user name and save the answer with the tool on [naam]. Next ask age and save the answer with the tool on [leeftijd]. If the users talks about his hobby's then save this with the tool under [hobbies]. Then start  with the questions from the questionnaire.  There are in total 10 questions. Call the tool tool_ask_multiple_choice directly. Always wait for the user's answer by directly calling tool_noop.\nSave the answer with tool_answer_questionaire_question. Start with the first question: {questionaire_vraag1_question} you have to call the multiple choice tool with the answer options from {questionaire_vraag1_instructions}. The second question you will ask using {questionaire_vraag2_question} with the options: {questionaire_vraag2_instructions}. The third question you will ask using {questionaire_vraag3_question} with the options: {questionaire_vraag3_instructions}. The fourth question you will ask using {questionaire_vraag4_question} with the options: {questionaire_vraag4_instructions}. The fifth question you will ask using {questionaire_vraag5_question} with the options: {questionaire_vraag5_instructions}. The sixth question you will ask using {questionaire_vraag6_question} with the options: {questionaire_vraag6_instructions}. The seventh question you will ask using {questionaire_vraag7_question} with the options: {questionaire_vraag7_instructions}. The eighth question you will ask using {questionaire_vraag8_question} with the options: {questionaire_vraag8_instructions}. The ninth question you will ask using {questionaire_vraag9_question} with the options: {questionaire_vraag9_instructions}. The tenth question you will ask using {questionaire_vraag10_question} with the options: {questionaire_vraag10_instructions}. DONT ASK ANY OTHER QUESTIONS.\n\nAfter all questions are answered, calculate the scores for each domain and the overall CCQ score:\n\n1. Symptomen (S) score: Calculate the average of answers to questions 1, 2, 5, and 6.\n2. Mentaal (M) score: Calculate the average of answers to questions 3 and 4.\n3. Functioneel (F) score: Calculate the average of answers to questions 7, 8, 9, and 10.\n4. Overall CCQ score: Calculate the average of all 10 questions.\n\nAfter calculating the scores, format and display the results for each domain and the average ccq score: Save the calculated scores using tool_answer_questionaire_question. Maak een CCQ-uitslag grafiek op basis van de beantwoorde vragen.\\nToon vier balken:\\n- Symptomen (het gemiddelde van vraag 1, 2, 5, en 6)\\n- Mentaal (het gemiddelde van vraag 3 en 4)\\n- Functioneel (het gemiddelde van vraag 7, 8, 9, en 10)\\n- CCQ score (het gemiddelde van alle 10 vragen)\\nZet scores onder de 1.7 als groene balk in de serie ‘groen’, en scores van 1.7 of hoger als rode balk in de serie ‘rood’. Gebruik exact de labels: ‘Symptomen’, ‘Mentaal’, ‘Functioneel’, ‘CCQ score’. Geef de grafiek de titel: “CCQ Uitslag”. Voeg geen subtitel of beschrijving toe. De legenda moet de kleuren uitleggen: Groen (<1.7), Rood (≥1.7).",
             "tools_regex": ".*",
             "allowed_subjects": null,
             "questionaire": [
               {
                 "name": "vraag1",
-                "question": "Wat is uw voorkeur",
-                "instructions": "Antwoordopties: Man (label: 'Man', value: 'man'); Vrouw (label: 'Vrouw', value: 'vrouw'); Hondje (label: 'Hondje', value: 'Honjde')."
+                "question": "Hoe vaak voelde u zich in de afgelopen week kortademig in rust?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
               },
               {
                 "name": "vraag2",
-                "question": "Bent u blij?",
-                "instructions": "Antwoordopties: Ja, ik ben blij (label: 'Ja, ik ben blij', value: 'ja'); Nee, waarom zou ik niet (label: 'Nee, waarom zou ik?', value: 'nee')."
+                "question": "Hoe vaak voelde u zich in de afgelopen week kortademig gedurende lichamelijke inspanning?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
+              },
+              {
+                "name": "vraag3",
+                "question": "Hoe vaak voelde u zich in de afgelopen week angstig\/bezorgd voor de volgende benauwdheidsaanval?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
+              },
+              {
+                "name": "vraag4",
+                "question": "Hoe vaak voelde u zich in de afgelopen week neerslachtig vanwege uw ademhalingsproblemen?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
+              },
+              {
+                "name": "vraag5",
+                "question": "In de afgelopen week, hoe vaak heeft u gehoest?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
+              },
+              {
+                "name": "vraag6",
+                "question": "In de afgelopen week, hoe vaak heeft u slijm opgehoest?",
+                "instructions": "Antwoordopties: nooit (label: 'nooit', value: '0'); zelden (label: 'zelden', value: '1'); af en toe (label: 'af en toe', value: '2'); regelmatig (label: 'regelmatig', value: '3'); meestal (label: 'meestal', value: '4'); heel vaak (label: 'heel vaak', value: '5'); altijd (label: 'altijd', value: '6')."
+              },
+              {
+                "name": "vraag7",
+                "question": "In welke mate voelde u zich in de afgelopen week beperkt door uw ademhalingsproblemen bij het uitvoeren van zware lichamelijke activiteiten (trap lopen, haasten, sporten)?",
+                "instructions": "Antwoordopties: helemaal niet beperkt (label: 'helemaal niet beperkt', value: '0'); h\u00e9\u00e9l weinig beperkt (label: 'h\u00e9\u00e9l weinig beperkt', value: '1'); een beetje beperkt (label: 'een beetje beperkt', value: '2'); tamelijk beperkt (label: 'tamelijk beperkt', value: '3'); erg beperkt (label: 'erg beperkt', value: '4'); h\u00e9\u00e9l erg beperkt (label: 'h\u00e9\u00e9l erg beperkt', value: '5'); volledig beperkt\/of niet mogelijk (label: 'volledig beperkt\/of niet mogelijk', value: '6')."
+              },
+              {
+                "name": "vraag8",
+                "question": "In welke mate voelde u zich in de afgelopen week beperkt door uw ademhalingsproblemen bij het uitvoeren van matige lichamelijke activiteiten (wandelen, huishoudelijk werk, boodschappen doen)?",
+                "instructions": "Antwoordopties: helemaal niet beperkt (label: 'helemaal niet beperkt', value: '0'); h\u00e9\u00e9l weinig beperkt (label: 'h\u00e9\u00e9l weinig beperkt', value: '1'); een beetje beperkt (label: 'een beetje beperkt', value: '2'); tamelijk beperkt (label: 'tamelijk beperkt', value: '3'); erg beperkt (label: 'erg beperkt', value: '4'); h\u00e9\u00e9l erg beperkt (label: 'h\u00e9\u00e9l erg beperkt', value: '5'); volledig beperkt\/of niet mogelijk (label: 'volledig beperkt\/of niet mogelijk', value: '6')."
+              },
+              {
+                "name": "vraag9",
+                "question": "In welke mate voelde u zich in de afgelopen week beperkt door uw ademhalingsproblemen bij het uitvoeren van dagelijkse activiteiten (u zelf aankleden, wassen)?",
+                "instructions": "Antwoordopties: helemaal niet beperkt (label: 'helemaal niet beperkt', value: '0'); h\u00e9\u00e9l weinig beperkt (label: 'h\u00e9\u00e9l weinig beperkt', value: '1'); een beetje beperkt (label: 'een beetje beperkt', value: '2'); tamelijk beperkt (label: 'tamelijk beperkt', value: '3'); erg beperkt (label: 'erg beperkt', value: '4'); h\u00e9\u00e9l erg beperkt (label: 'h\u00e9\u00e9l erg beperkt', value: '5'); volledig beperkt\/of niet mogelijk (label: 'volledig beperkt\/of niet mogelijk', value: '6')."
+              },
+              {
+                "name": "vraag10",
+                "question": "In welke mate voelde u zich in de afgelopen week beperkt door uw ademhalingsproblemen bij het uitvoeren van sociale activiteiten (praten, omgaan met kinderen, vrienden\/familie bezoeken)?",
+                "instructions": "Antwoordopties: helemaal niet beperkt (label: 'helemaal niet beperkt', value: '0'); h\u00e9\u00e9l weinig beperkt (label: 'h\u00e9\u00e9l weinig beperkt', value: '1'); een beetje beperkt (label: 'een beetje beperkt', value: '2'); tamelijk beperkt (label: 'tamelijk beperkt', value: '3'); erg beperkt (label: 'erg beperkt', value: '4'); h\u00e9\u00e9l erg beperkt (label: 'h\u00e9\u00e9l erg beperkt', value: '5'); volledig beperkt\/of niet mogelijk (label: 'volledig beperkt\/of niet mogelijk', value: '6')."
               }
             ]
           }

@@ -2,33 +2,21 @@
   "id": 2,
   "schema": [
     {
-      "name": "ed7",
+      "name": "prorail-2",
       "type": "assistant",
-      "label": "Ewout Agent",
+      "label": "ERTMS Coach",
       "agentConfig": {
-        "agent_class": "EasyLogAgent",
-        "prompt": "You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the questionnaire tools to interact with the questionnaire if needed.\n\nExample Persoonsgegevens:\n- Naam: {questionaire_user_name_answer}\nThe current time is: {current_time}.",
         "roles": [
           {
-            "name": "Start coach",
-            "model": "anthropic/claude-3.7-sonnet:thinking",
-            "prompt": "####Stel alleen de vragen die staan in de questionaire dus verzin zelf geen andere vragen#### \n\nVraag stap voor stap naar de volgende gegevens en bij meerkeuze antwoorden dan gebruik altijd altijd de tool_ask_multiple_choice of tekstvraag indien van toepassing.\nGebruik altijd! de tool: tool_noop om te wachten op het antwoord van de user, en de tool tool_answer_questionaire_question om het antwoord op te slaan.\n\nGebruik de verkregen antwoorden om het vragen te starten.",
+            "name": "ERTMS",
+            "model": "openai\/gpt-4.1",
+            "prompt": "Help de gebruiker met de uitvoering van de Operationele Regels ERTMS Nederlandm zoals beschreven in het document [Regels ERTMS Nederland.pdf]",
             "tools_regex": ".*",
-            "allowed_subjects": null,
-            "questionaire": [
-              {
-                "name": "user_name",
-                "question": "Hoe heet jij!",
-                "instructions": "Stel de vraag in het duits"
-              },
-              {
-                "name": "blij",
-                "question": "Ben je blij?",
-                "instructions": "User Multiple Choice and noop tool"
-              }
-            ]
+            "allowed_subjects": ["ERTMS"]
           }
-        ]
+        ],
+        "prompt": "You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\n\nPersoonsgegevens:\n- Naam: {questionaire_user_name_answer}\n- Laatste artsbezoek: {questionaire_last_doctor_visit_answer}\n- Diagnose: {questionaire_diagnosis_detail_answer}\n- Medicatie: {questionaire_current_medication_answer}\n- ZLM ingevuld: {questionaire_zlm_taken_answer}\n- Bestaande doelen: {questionaire_existing_goals_answer}\n\nDe huidige tijd is: {current_time}.\nAnswer always in Dutch unless the user speaks another language.",
+        "agent_class": "EasyLogAgent"
       }
     }
   ],
