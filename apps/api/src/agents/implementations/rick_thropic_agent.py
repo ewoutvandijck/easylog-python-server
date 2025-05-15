@@ -303,8 +303,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                             For example, 75 represents 75%. Do NOT use values like 0.75.
                         2.  `"colorRole"`: A string that MUST be one of "success",
                             "warning", or "neutral". This role will be mapped to specific
-                            ZLM colors (Green for success, Pastel Orange for neutral,
-                            Pastel Red for warning).
+                            ZLM colors. 0-40 = warning, 40-70 = neutral, 70-100 = success.
                       - Example (single y-key):
                         `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
                               `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
@@ -446,9 +445,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             custom_series_colors_palette: list[str] | None = None,
             horizontal_lines: list[Line] | None = None,
             description: str | None = None,
-            height: int = 400,
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
+            height: int = 400,
         ) -> ChartWidget:
             f"""
             Creates a bar chart with customizable colors and optional horizontal lines.
