@@ -52,7 +52,7 @@ class AgentLoader:
         return None
 
     @staticmethod
-    def get_all_agents() -> list[BaseAgent]:
+    def get_all_agents() -> list[type[BaseAgent]]:
         agents_dir = Path(__file__).parent / "implementations"
         agents = []
         for file in agents_dir.glob("*.py"):

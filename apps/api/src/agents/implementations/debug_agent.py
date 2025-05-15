@@ -10,7 +10,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
-from src.agents.base_agent import BaseAgent
+from src.agents.base_agent import BaseAgent, CronConfig
 from src.agents.tools.base_tools import BaseTools
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -87,6 +87,19 @@ class DefaultKeyDict(dict):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
+    @staticmethod
+    def super_agent_config() -> CronConfig[DebugAgentConfig] | None:
+        return CronConfig(
+            interval_seconds=10,
+            message_input=[],
+            agent_config=DebugAgentConfig(),
+            headers={},
+        )
+
+    @staticmethod
+    async def should_run_super_agent() -> bool:
+        return True
+
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
