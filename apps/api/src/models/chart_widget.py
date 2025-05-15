@@ -92,6 +92,8 @@ class AxisConfig(BaseModel):
     axis_line: bool = True
     grid_lines: bool = False
     formatter: str | None = None  # String template or function name
+    domain_min: float | None = Field(default=None, description="Optional minimum value for the axis domain.")
+    domain_max: float | None = Field(default=None, description="Optional maximum value for the axis domain.")
 
 
 class TooltipConfig(BaseModel):
@@ -246,6 +248,8 @@ class ChartWidget(BaseModel):
         horizontal_lines: list[Line] | None = None,
         custom_color_role_map: dict[str, str] | None = None,
         custom_series_colors_palette: list[str] | None = None,
+        y_axis_domain_min: float | None = None,
+        y_axis_domain_max: float | None = None,
     ) -> "ChartWidget":
         """
         Create a bar chart. LLM provides data where each y_key value is structured as:
@@ -259,14 +263,11 @@ class ChartWidget(BaseModel):
                   MUST be one of the defined ColorRole literals (e.g., "success", "info", "primary").
             horizontal_lines: Optional. A list of HorizontalLine objects.
             custom_color_role_map: Optional. A dictionary mapping custom role names (str) to HEX color strings.
-                                   If provided, this map takes precedence. If a role from data is not
-                                   in this custom map, it will NOT fall back to DEFAULT_COLOR_ROLE_MAP;
-                                   instead, it might be treated as an invalid role or use series default
-                                   depending on subsequent logic here. It's better for custom_map to be exhaustive
-                                   for roles used with it, or for roles not in it to use series default (colorRole=null).
                                    If None, DEFAULT_COLOR_ROLE_MAP is used.
             custom_series_colors_palette: Optional. A list of HEX color strings for default series colors.
                                           If None, DEFAULT_SERIES_COLORS_PALETTE is used.
+            y_axis_domain_min: Optional. Sets the minimum value for the Y-axis scale.
+            y_axis_domain_max: Optional. Sets the maximum value for the Y-axis scale.
         """
         if y_labels is None:
             y_labels = y_keys
@@ -357,6 +358,11 @@ class ChartWidget(BaseModel):
             )
             series_configs.append(SeriesConfig(label=y_labels[i], data_key=y_key, style=style))
 
+        # Configure Y-axis with optional domain settings
+        y_axis_config = AxisConfig(
+            grid_lines=True, tick_line=True, domain_min=y_axis_domain_min, domain_max=y_axis_domain_max
+        )
+
         return cls(
             type="bar",
             title=title,
@@ -365,7 +371,7 @@ class ChartWidget(BaseModel):
             series=series_configs,
             height=height,
             x_axis=AxisConfig(label=x_key, grid_lines=True, tick_line=True),
-            y_axis=AxisConfig(grid_lines=True, tick_line=True),
+            y_axis=y_axis_config,
             horizontal_lines=horizontal_lines,
             tooltip=TooltipConfig(show=True),
             legend=True,

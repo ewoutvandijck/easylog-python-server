@@ -318,7 +318,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_keys: A list of keys in each data dictionary that represent the y-axis
                         values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
                 y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
-                          will be used as labels. Must have the same length as `y_keys`
+                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
                           if provided.
                 height: Optional. The height of the chart in pixels. Defaults to 400.
 
@@ -333,12 +333,12 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             title = (
                 "Resultaten ziektelastmeter COPD %"
                 if language == "nl"
-                else "ZLM results %"
+                else "Disease burden results %"
             )
             description = (
                 "Uw ziektelastmeter COPD resultaten."
                 if language == "nl"
-                else "Your COPD lung function test results."
+                else "Your COPD burden results."
             )
 
             # Custom color role map for ZLM charts
@@ -351,6 +351,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             # Add a target line that should always be the exact same.
             target_line = Line(
+                label="Target",
                 value=50,
                 color=COLOR_BLACK,
             )
@@ -429,6 +430,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 height=height,
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
                 horizontal_lines=[target_line],
+                y_axis_domain_min=0,
+                y_axis_domain_max=100,
             )
 
         def tool_create_bar_chart(
@@ -463,8 +466,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     ]
                 x_key (str): Key in data objects for the x-axis (e.g., 'month').
                 y_keys (list[str]): Keys for y-axis values (e.g., ['sales', 'returns']).
-                y_labels (list[str] | None): Optional labels for y-axis values. If None,
-                                            `y_keys` are used. Must match `y_keys` length.
+                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
+                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
+                          if provided.
                 horizontal_lines (list[Line] | None): Optional. A list of `Line` objects to
                                      draw horizontal lines across the chart. Each `Line` object
                                      defines the y-axis value, an optional label, and an optional color.
