@@ -12,12 +12,13 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
-from src.models.chart_widget import ChartWidget
+from src.models.chart_widget import (
+    ChartWidget,
+)
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -141,7 +142,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
+                    self.logger.info(
+                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
+                    )
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -161,7 +164,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -183,7 +188,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -203,7 +210,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -217,15 +226,21 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
             return f"Reminder {id} removed"
 
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -245,8 +260,12 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
-                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
 
             return MultipleChoiceWidget(
                 question=question,
@@ -264,35 +283,26 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             description: str | None = None,
             height: int = 400,
         ) -> ChartWidget:
-            """Create a bar chart with customizable styles for each series.
+            """
+            Creates a bar chart.
+            You MUST provide data where each y_key's value is a dictionary:
+            {"value": <actual_value>, "colorRole": <"success"|"warning"|"neutral"|null>}.
+            If colorRole is null, the chart widget will assign a default color for that series.
 
             Args:
-                title: Chart title.
-                data: List of data objects for the chart.
-                x_key: Key in data objects for the x-axis.
-                y_keys: Keys in data objects for the y-axis values.
-                y_labels: Optional labels for y-axis values (defaults to y_keys).
-                description: Optional chart description.
-                height: Chart height in pixels.
-                colors: Optional list of colors for each bar series.
-
-            Y labels and Y keys must be of same lenght.
-            Colors must be of same lenght as y_keys.
-
-            Example:
-                title: "Sales by Product"
-                data: [
-                    {"product": "Product A", "sales": 100},
-                    {"product": "Product B", "sales": 200},
-                ]
-                x_key: "product"
-                y_keys: ["sales"]
-                y_labels: ["Sales"]
-                colors: ["#FF0000"]
-                description: "Sales by Product"
-                height: 400
+                title (str): Chart title.
+                data (list[dict[str, Any]]): List of data objects.
+                    Example: [
+                        {"month": "Jan", "sales": {"value": 100, "colorRole": "neutral"}, "returns": {"value": 10, "colorRole": "warning"}},
+                        {"month": "Feb", "sales": {"value": 150, "colorRole": "success"}, "returns": {"value": 12, "colorRole": null}}
+                    ]
+                x_key (str): Key in data objects for the x-axis (e.g., 'month').
+                y_keys (list[str]): Keys for y-axis values (e.g., ['sales', 'returns']).
+                y_labels (list[str] | None): Optional labels for y-axis values.
+                description (str | None): Optional chart description.
+                height (int): Chart height in pixels.
             Returns:
-                A ChartWidget object representing the bar chart.
+                A ChartWidget object.
             """
 
             return ChartWidget.create_bar_chart(
@@ -303,8 +313,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_labels=y_labels,
                 description=description,
                 height=height,
-                colors=colors,
-                # stacked=stacked,
             )
 
         return [
@@ -328,14 +336,18 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
+        role_config = next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
         tools = self.get_tools()
 
         for tool in tools:
             self.logger.info(f"{tool.__name__}: {tool.__doc__}")
 
-        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
+        tools = [
+            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
+        ]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
@@ -348,9 +360,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+                        available_roles="\n".join(
+                            [
+                                f"- {role.name}: {role.prompt}"
+                                for role in self.config.roles
+                            ]
+                        ),
                         recurring_tasks="\n".join(
-                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                            [
+                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                                for task in recurring_tasks
+                            ]
                         ),
                         reminders="\n".join(
                             [
