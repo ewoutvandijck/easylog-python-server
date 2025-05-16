@@ -142,7 +142,11 @@ class RETAgent(BaseAgent[RETAgentConfig]):
 
             data = []
 
-            for file in glob(os.path.join("./ret_data", glob_pattern)):
+            path = os.path.join(os.path.dirname(__file__), "./ret_data")
+
+            self.logger.info(f"Loading RET data from {os.path.join(path, glob_pattern)}")
+
+            for file in glob(os.path.join(path, glob_pattern)):
                 df = pd.read_excel(file)
                 data.append(df.to_dict(orient="records"))
 
