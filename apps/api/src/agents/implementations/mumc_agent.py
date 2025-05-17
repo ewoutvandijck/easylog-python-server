@@ -166,69 +166,29 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             horizontal_lines = None
 
-            # Optional, but recommended data validation.
+            # Process the raw data to validate format and extract necessary info
+            processed_data = []
             for raw_item_idx, raw_item in enumerate(data):
-                if x_key not in raw_item:
-                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
-                current_x_value = raw_item[x_key]
-
+                # Create a new item with only the required fields for the chart
+                processed_item = {
+                    x_key: raw_item[x_key],  # Keep the x_key value (e.g., "domein")
+                }
+                
+                # Preserve fullname field for tooltips
+                if "fullname" in raw_item:
+                    processed_item["fullname"] = raw_item["fullname"]
+                
+                # Process y-keys (the "score" values)
                 for y_key in y_keys:
-                    if y_key not in raw_item:
-                        # This case is handled by create_bar_chart for sparse data,
-                        # but for ZLM, we might want to enforce all y_keys are present.
-                        # For now, let create_bar_chart handle it if colorRole is null.
-                        # If colorRole is provided for a non-existent y_key, it's an issue.
-                        continue
-
-                    value_container = raw_item[y_key]
-                    if not (
-                        isinstance(value_container, dict)
-                        and "value" in value_container
-                        and "colorRole" in value_container  # LLM must provide colorRole
-                    ):
-                        raise ValueError(
-                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
-                            "for ZLM chart is not in the expected format: "
-                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
-                            f"Received: {value_container}"
-                        )
-
-                    val_from_container = value_container["value"]
-                    if not isinstance(val_from_container, (int, float)):
-                        raise ValueError(
-                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
-                        )
-
-                    val_float = float(val_from_container)
-                    if not (0.0 <= val_float <= 100.0):
-                        hint = ""
-                        # Check if the original value from LLM looked like it was on a 0-1 scale
-                        if (
-                            isinstance(val_from_container, (int, float))
-                            and 0 < float(val_from_container) <= 1.0
-                            and float(val_from_container) != 0.0
-                        ):
-                            hint = (
-                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
-                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
-                            )
-                        raise ValueError(
-                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"is outside the expected 0-100 range.{hint}"
-                        )
-
-                    role_from_data = value_container["colorRole"]
-                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
-                        raise ValueError(
-                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
-                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
-                        )
-
+                    if y_key in raw_item:
+                        processed_item[y_key] = raw_item[y_key]
+                
+                processed_data.append(processed_item)
+            
             return ChartWidget.create_bar_chart(
                 title=title,
                 description=description,
-                data=data,
+                data=processed_data,
                 x_key=x_key,
                 y_keys=y_keys,
                 y_labels=y_labels,
@@ -236,7 +196,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
                 horizontal_lines=horizontal_lines,
                 y_axis_domain_min=0,
-                y_axis_domain_max=100,
+                y_axis_domain_max=100
             )
 
         def tool_create_bar_chart(

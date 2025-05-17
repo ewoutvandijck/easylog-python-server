@@ -2,7 +2,7 @@
   "id": 3,
   "schema": [
     {
-      "name": "ccq-exw7",
+      "name": "cc-1",
       "type": "assistant",
       "label": "CCQ Vragenlijst",
       "agentConfig": {

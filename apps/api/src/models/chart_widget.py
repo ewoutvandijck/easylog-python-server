@@ -62,6 +62,10 @@ class ChartDataRow(BaseModel):
     y_values: dict[str, ChartDataPointValue] = Field(
         ..., description="A dictionary mapping y-series data_keys to their ChartDataPointValue."
     )
+    # Additional metadata for the data point, useful for tooltips
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Optional additional metadata for this data point, such as fullname for tooltips."
+    )
 
 
 class StyleConfig(BaseModel):
@@ -297,6 +301,12 @@ class ChartWidget(BaseModel):
 
             current_x_value = raw_item[x_key]
             current_y_values: dict[str, ChartDataPointValue] = {}
+            
+            # Create a metadata dictionary with any additional fields from the raw item
+            metadata = {}
+            for key, value in raw_item.items():
+                if key != x_key and key not in y_keys:
+                    metadata[key] = value
 
             for y_key in y_keys:
                 point_value_final: Any
@@ -346,7 +356,7 @@ class ChartWidget(BaseModel):
 
                 current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
 
-            processed_data_rows.append(ChartDataRow(x_value=current_x_value, y_values=current_y_values))
+            processed_data_rows.append(ChartDataRow(x_value=current_x_value, y_values=current_y_values, metadata=metadata))
 
         series_configs = []
         for i, y_key in enumerate(y_keys):
@@ -421,6 +431,12 @@ class ChartWidget(BaseModel):
 
             current_x_value = str(raw_item[x_key])  # Ensure x_value is string
             current_y_values: dict[str, ChartDataPointValue] = {}
+            
+            # Create a metadata dictionary with any additional fields from the raw item
+            metadata = {}
+            for key, value in raw_item.items():
+                if key != x_key and key not in y_keys:
+                    metadata[key] = value
 
             for y_key in y_keys:
                 point_value_final: Any
@@ -451,7 +467,7 @@ class ChartWidget(BaseModel):
 
                 current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
 
-            processed_data_rows.append(ChartDataRow(x_value=current_x_value, y_values=current_y_values))
+            processed_data_rows.append(ChartDataRow(x_value=current_x_value, y_values=current_y_values, metadata=metadata))
 
         series_configs = []
         for i, y_key in enumerate(y_keys):
