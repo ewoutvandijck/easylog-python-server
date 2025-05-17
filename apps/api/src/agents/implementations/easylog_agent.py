@@ -23,7 +23,6 @@ from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
-    AxisConfig,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -806,12 +805,29 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             self.logger.info(f"This is not the last thread, skipping super agent call for {self.thread_id}")
             return None
 
+        reminders = await self.get_metadata("reminders", [])
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+
+        reminders_content = (
+            "Reminders:\n"
+            + "\n".join([f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders])
+            if reminders
+            else "No reminders set."
+        )
+
+        recurring_tasks_content = (
+            "Recurring tasks:\n"
+            + "\n".join([f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks])
+            if recurring_tasks
+            else "No recurring tasks set."
+        )
+
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=[
                 {
                     "role": "developer",
-                    "content": "Your role is to summarize our conversation in a few sentences.",
+                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders and recurring tasks: {reminders_content}\n{recurring_tasks_content}",
                 },
                 *messages,
             ],
