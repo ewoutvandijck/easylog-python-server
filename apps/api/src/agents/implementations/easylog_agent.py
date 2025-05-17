@@ -14,10 +14,11 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
-from src.agents.base_agent import BaseAgent
+from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
+from src.lib.prisma import prisma
 from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
@@ -786,3 +787,34 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         )
 
         return response, tools
+
+    @staticmethod
+    def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
+        return SuperAgentConfig(
+            interval_seconds=86_400,  # 1 day
+            agent_config=EasyLogAgentConfig(),
+        )
+
+    async def on_super_agent_call(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+        last_thread = await prisma.threads.find_first(
+            order={"created_at": "desc"},
+        )
+
+        if last_thread is None or last_thread.id != self.thread_id:
+            self.logger.info(f"This is not the last thread, skipping super agent call for {self.thread_id}")
+            return None
+
+        response = await self.client.chat.completions.create(
+            model="openai/gpt-4.1",
+            messages=[
+                {
+                    "role": "developer",
+                    "content": "Your role is to summarize our conversation in a few sentences.",
+                },
+                *messages,
+            ],
+        )
+
+        return response, []
