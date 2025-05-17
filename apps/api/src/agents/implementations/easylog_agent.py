@@ -53,7 +53,7 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="anthropic/claude-3.7-sonnet:thinking",
+        default="openai/gpt-4.1",
         description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
@@ -709,7 +709,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_remove_reminder,
             # System tools
             BaseTools.tool_noop,
-            BaseTools.tool_call_super_agent,
+            BaseTools.tool_call_super_agent,  # Deze tool kan worden gebruikt om de super agent aan te roepen
         ]
 
     async def on_message(
