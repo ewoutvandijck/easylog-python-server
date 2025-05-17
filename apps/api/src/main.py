@@ -16,9 +16,11 @@ from src.api import health, knowledge, messages, threads
 from src.lib import graphiti as graphiti_lib
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
+from src.lib.scheduler import scheduler
 from src.lib.weaviate import weaviate_client
 from src.logger import logger
 from src.security.api_token import verify_api_key
+from src.services.super_agent.super_agent_service import SuperAgentService
 from src.settings import settings
 
 load_dotenv()
@@ -66,9 +68,15 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
     await prisma.connect()
 
+    scheduler.start()
+
+    await SuperAgentService.register_super_agents()
+
     yield
 
     await prisma.disconnect()
+
+    scheduler.shutdown()
 
     if graphiti_lib.graphiti_connection:
         await graphiti_lib.graphiti_connection.close()
