@@ -53,7 +53,7 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="openai/gpt-4.1",
+        default="anthropic/claude-3.7-sonnet:thinking",
         description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
@@ -709,7 +709,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_remove_reminder,
             # System tools
             BaseTools.tool_noop,
-            BaseTools.tool_call_super_agent,  # Deze tool kan worden gebruikt om de super agent aan te roepen
         ]
 
     async def on_message(
@@ -725,9 +724,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         tools = [
             tool
             for tool in tools
-            if re.match(role_config.tools_regex, tool.__name__) 
-            or tool.__name__ == BaseTools.tool_noop.__name__
-            or tool.__name__ == BaseTools.tool_call_super_agent.__name__
+            if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ == BaseTools.tool_noop.__name__
         ]
 
         # Prepare questionnaire format kwargs
@@ -792,7 +789,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=3600,  # 10 hours
+            interval_seconds=86_400,  # 1 day
             agent_config=EasyLogAgentConfig(),
         )
 
