@@ -280,7 +280,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         tools = [
             tool
             for tool in tools
-            if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ == BaseTools.tool_noop.__name__
+            if re.match(role_config.tools_regex, tool.__name__)
+            or tool.__name__ == BaseTools.tool_noop.__name__
+            or tool.__name__ == BaseTools.tool_call_super_agent.__name__
         ]
 
         questionnaire_format_kwargs: dict[str, str] = {}
