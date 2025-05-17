@@ -22,6 +22,7 @@ from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
+    AxisConfig,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -432,7 +433,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             Returns:
                 A ChartWidget object.
             """
-
             return ChartWidget.create_bar_chart(
                 title=title,
                 data=data,

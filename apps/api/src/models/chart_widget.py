@@ -360,7 +360,7 @@ class ChartWidget(BaseModel):
 
         # Configure Y-axis with optional domain settings
         y_axis_config = AxisConfig(
-            grid_lines=True, tick_line=True, domain_min=y_axis_domain_min, domain_max=y_axis_domain_max
+            tick_line=True, domain_min=y_axis_domain_min, domain_max=y_axis_domain_max
         )
 
         return cls(
@@ -370,7 +370,7 @@ class ChartWidget(BaseModel):
             data=processed_data_rows,
             series=series_configs,
             height=height,
-            x_axis=AxisConfig(label=x_key, grid_lines=True, tick_line=True),
+            x_axis=AxisConfig(label=x_key, tick_line=True),
             y_axis=y_axis_config,
             horizontal_lines=horizontal_lines,
             tooltip=TooltipConfig(show=True),
@@ -464,14 +464,12 @@ class ChartWidget(BaseModel):
             series_configs.append(SeriesConfig(label=y_labels[i], data_key=y_key, style=style))
 
         y_axis_config = AxisConfig(
-            grid_lines=True,  # Common default for line charts
             tick_line=True,
             domain_min=y_axis_domain_min,
             domain_max=y_axis_domain_max,
         )
         x_axis_config = AxisConfig(
             label=x_key,
-            grid_lines=False,  # Often false for x-axis on line charts
             tick_line=True,
         )
 
