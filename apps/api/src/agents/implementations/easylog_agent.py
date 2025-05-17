@@ -792,7 +792,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=60,  # 1 minute
+            interval_seconds=3600,  # 10 hours
             agent_config=EasyLogAgentConfig(),
         )
 
