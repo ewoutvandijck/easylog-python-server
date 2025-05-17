@@ -229,6 +229,32 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             await self.set_metadata("reminders", reminders)
             return f"Reminder deleted: {id}"
 
+        async def tool_store_memory(memory: str) -> str:
+            """Store a memory.
+
+            Args:
+                memory (str): The memory to store.
+            """
+
+            memories = await self.get_metadata("memories", [])
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
+            await self.set_metadata("memories", memories)
+
+            return f"Memory stored: {memory}"
+
+        async def tool_get_memory(id: str) -> str:
+            """Get a memory.
+
+            Args:
+                key (str): The key of the memory to get.
+            """
+            memories = await self.get_metadata("memories", [])
+            memory = next((m for m in memories if m["id"] == id), None)
+            if memory is None:
+                return "[not stored]"
+
+            return memory["memory"]
+
         return [
             tool_search_documents,
             tool_get_document_contents,
@@ -238,6 +264,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_ask_multiple_choice,
             tool_create_reminder,
             tool_delete_reminder,
+            tool_store_memory,
+            tool_get_memory,
             BaseTools.tool_noop,
         ]
 
@@ -276,7 +304,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     for reminder in await self.get_metadata("reminders", [])
                 ]
             ),
+            "memories": "\n".join(
+                [f"{memory['id']}: {memory['memory']}" for memory in await self.get_metadata("memories", [])]
+            ),
         }
+
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
         llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
