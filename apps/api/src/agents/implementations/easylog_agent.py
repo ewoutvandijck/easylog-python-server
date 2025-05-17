@@ -366,7 +366,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
                 horizontal_lines=horizontal_lines,
                 y_axis_domain_min=0,
-                y_axis_domain_max=100,
+                y_axis_domain_max=100
             )
 
         def tool_create_bar_chart(
