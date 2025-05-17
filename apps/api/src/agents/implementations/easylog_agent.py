@@ -709,6 +709,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_remove_reminder,
             # System tools
             BaseTools.tool_noop,
+            BaseTools.tool_call_super_agent,
         ]
 
     async def on_message(
