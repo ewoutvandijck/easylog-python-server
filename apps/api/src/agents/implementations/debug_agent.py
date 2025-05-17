@@ -10,8 +10,9 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
-from src.agents.base_agent import BaseAgent, CronConfig
+from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
+from src.lib.prisma import prisma
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
@@ -87,19 +88,6 @@ class DefaultKeyDict(dict):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
-    @staticmethod
-    def super_agent_config() -> CronConfig[DebugAgentConfig] | None:
-        return CronConfig(
-            interval_seconds=10,
-            message_input=[],
-            agent_config=DebugAgentConfig(),
-            headers={},
-        )
-
-    @staticmethod
-    async def should_run_super_agent() -> bool:
-        return True
-
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
@@ -308,3 +296,48 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         )
 
         return response, tools
+
+    @staticmethod
+    def super_agent_config() -> SuperAgentConfig[DebugAgentConfig] | None:
+        return SuperAgentConfig(
+            interval_seconds=10,
+            agent_config=DebugAgentConfig(
+                prompt="You are a helpful assistant. You goal is to ask the question '{questionaire.user_name.question}' to the user.",
+                roles=[
+                    RoleConfig(
+                        name="James",
+                        prompt="You are a helpful assistant. You goal is to ask the question '{questionaire.user_name.question}' to the user.",
+                        model="openai/gpt-4.1",
+                        questionaire=[
+                            QuestionaireQuestionConfig(
+                                question="What is your name?",
+                                name="user_name",
+                            )
+                        ],
+                    )
+                ],
+            ),
+        )
+
+    async def on_super_agent_call(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+        last_thread = await prisma.threads.find_first(
+            order={"created_at": "desc"},
+        )
+
+        if last_thread is None or last_thread.id != self.thread_id:
+            self.logger.info(f"This is not the last thread, skipping super agent call for {self.thread_id}")
+            return None
+
+        self.logger.info(
+            f"Running super agent call for {self.thread_id} with {len(messages)} messages and {len(self.config.roles)} roles"
+        )
+
+        response = await self.client.chat.completions.create(
+            model="openai/gpt-4.1",
+            messages=messages,
+            stream=False,
+        )
+
+        return response, []

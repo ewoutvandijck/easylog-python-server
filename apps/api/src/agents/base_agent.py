@@ -21,7 +21,7 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from PIL import Image
 from prisma import Json
 from prisma.models import documents, threads
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.collections.classes.types import Properties
 from weaviate.collections.collection import CollectionAsync
@@ -33,7 +33,6 @@ from src.lib.weaviate import weaviate_client
 from src.logger import logger
 from src.models.chart_widget import ChartWidget
 from src.models.image_widget import ImageWidget
-from src.models.message_create import MessageCreateInputContent
 from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
 from src.models.multiple_choice_widget import MultipleChoiceWidget
 from src.models.stream_tool_call import StreamToolCall
@@ -42,11 +41,10 @@ from src.utils.image_to_base64 import image_to_base64
 TConfig = TypeVar("TConfig", bound=BaseModel)
 
 
-class CronConfig(BaseModel, Generic[TConfig]):
-    interval_seconds: int
-    message_input: list[MessageCreateInputContent]
+class SuperAgentConfig(BaseModel, Generic[TConfig]):
     agent_config: TConfig
-    headers: dict
+    interval_seconds: int = Field(default=10)
+    headers: dict = Field(default_factory=dict)
 
 
 class BaseAgent(Generic[TConfig]):
@@ -90,21 +88,43 @@ class BaseAgent(Generic[TConfig]):
         raise NotImplementedError()
 
     @abstractmethod
+    async def on_super_agent_call(
+        self,
+        messages: Iterable[ChatCompletionMessageParam],
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+        raise NotImplementedError()
+
+    @abstractmethod
     def on_init(self) -> None:
         pass
 
     @staticmethod
-    def super_agent_config() -> CronConfig[TConfig] | None:
+    def super_agent_config() -> SuperAgentConfig[TConfig] | None:
         return None
-
-    @abstractmethod
-    async def should_run_super_agent(self) -> bool:
-        return False
 
     async def forward_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> AsyncGenerator[MessageContent, None]:
         result, tools = await self.on_message(messages)
+
+        async for chunk in (
+            self._handle_stream(result, tools)
+            if isinstance(result, AsyncStream)
+            else self._handle_completion(result, tools)
+        ):
+            yield chunk
+
+    async def run_super_agent(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> AsyncGenerator[MessageContent, None]:
+        self.logger.info(f"Running super agent for {self.thread_id}")
+
+        result = await self.on_super_agent_call(messages)
+
+        if result is None:
+            return
+
+        result, tools = result
 
         async for chunk in (
             self._handle_stream(result, tools)
