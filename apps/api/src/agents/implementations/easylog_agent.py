@@ -818,7 +818,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             messages=[
                 {
                     "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders and recurring tasks: {reminders_content}\n{recurring_tasks_content}",
+                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders and recurring tasks: {reminders_content}\n{recurring_tasks_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 },
                 *messages,
             ],
