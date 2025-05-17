@@ -283,7 +283,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            title = "Resultaten ziektelastmeter COPD" if language == "nl" else "Disease burden results %"
             description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
             # Custom color role map for ZLM charts
