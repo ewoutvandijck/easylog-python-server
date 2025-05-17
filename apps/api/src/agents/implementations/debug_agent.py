@@ -355,10 +355,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             messages=[
                 {
                     "role": "developer",
-                    "content": "Your role is to summarize our conversation in a few sentences. Only respond in emojis",
+                    "content": "Your role is to summarize our conversation in a few sentences, but only if we discussed cats. Otherwise, call the noop tool.",
                 },
                 *messages,
             ],
+            tools=[function_to_openai_tool(BaseTools.tool_noop)],
+            tool_choice="auto",
         )
 
         return response, []
