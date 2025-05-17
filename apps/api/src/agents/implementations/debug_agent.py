@@ -300,23 +300,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[DebugAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=10,
-            agent_config=DebugAgentConfig(
-                prompt="You are a helpful assistant. You goal is to ask the question '{questionaire.user_name.question}' to the user.",
-                roles=[
-                    RoleConfig(
-                        name="James",
-                        prompt="You are a helpful assistant. You goal is to ask the question '{questionaire.user_name.question}' to the user.",
-                        model="openai/gpt-4.1",
-                        questionaire=[
-                            QuestionaireQuestionConfig(
-                                question="What is your name?",
-                                name="user_name",
-                            )
-                        ],
-                    )
-                ],
-            ),
+            interval_seconds=86_400,  # 1 day
+            agent_config=DebugAgentConfig(),
         )
 
     async def on_super_agent_call(
@@ -330,14 +315,15 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             self.logger.info(f"This is not the last thread, skipping super agent call for {self.thread_id}")
             return None
 
-        self.logger.info(
-            f"Running super agent call for {self.thread_id} with {len(messages)} messages and {len(self.config.roles)} roles"
-        )
-
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
-            messages=messages,
-            stream=False,
+            messages=[
+                {
+                    "role": "developer",
+                    "content": "Your role is to summarize our conversation in a few sentences.",
+                },
+                *messages,
+            ],
         )
 
         return response, []
