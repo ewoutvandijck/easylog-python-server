@@ -26,6 +26,7 @@ from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.collections.classes.types import Properties
 from weaviate.collections.collection import CollectionAsync
 
+from src.agents.tools.base_tools import BaseTools
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
 from src.lib.supabase import create_supabase
@@ -108,9 +109,9 @@ class BaseAgent(Generic[TConfig]):
         result, tools = await self.on_message(messages)
 
         async for chunk in (
-            self._handle_stream(result, tools)
+            self._handle_stream(result, tools, messages)
             if isinstance(result, AsyncStream)
-            else self._handle_completion(result, tools)
+            else self._handle_completion(result, tools, messages)
         ):
             yield chunk
 
@@ -127,9 +128,9 @@ class BaseAgent(Generic[TConfig]):
         result, tools = result
 
         async for chunk in (
-            self._handle_stream(result, tools)
+            self._handle_stream(result, tools, messages)
             if isinstance(result, AsyncStream)
-            else self._handle_completion(result, tools)
+            else self._handle_completion(result, tools, messages)
         ):
             yield chunk
 
@@ -288,7 +289,10 @@ class BaseAgent(Generic[TConfig]):
             )
 
     async def _handle_stream(
-        self, stream: AsyncStream[ChatCompletionChunk], tools: list[Callable]
+        self,
+        stream: AsyncStream[ChatCompletionChunk],
+        tools: list[Callable],
+        messages: Iterable[ChatCompletionMessageParam],
     ) -> AsyncGenerator[MessageContent, None]:
         final_tool_calls: dict[int, StreamToolCall] = {}
 
@@ -335,6 +339,12 @@ class BaseAgent(Generic[TConfig]):
                 )
 
             for _, tool_call in final_tool_calls.items():
+                if tool_call.name == BaseTools.tool_call_super_agent.__name__:
+                    async for chunk in self.run_super_agent(messages):
+                        yield chunk
+
+                    continue
+
                 input_data = json.loads(tool_call.arguments)
 
                 yield ToolUseContent(
@@ -350,7 +360,7 @@ class BaseAgent(Generic[TConfig]):
             raise e
 
     async def _handle_completion(
-        self, completion: ChatCompletion, tools: list[Callable]
+        self, completion: ChatCompletion, tools: list[Callable], messages: Iterable[ChatCompletionMessageParam]
     ) -> AsyncGenerator[MessageContent, None]:
         if len(completion.choices or []) == 0:
             raise ValueError(
@@ -366,6 +376,12 @@ class BaseAgent(Generic[TConfig]):
             )
 
         for tool_call in choice.message.tool_calls or []:
+            if tool_call.function.name == BaseTools.tool_call_super_agent.__name__:
+                async for chunk in self.run_super_agent(messages):
+                    yield chunk
+
+                continue
+
             input_data = json.loads(tool_call.function.arguments)
 
             yield ToolUseContent(

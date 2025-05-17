@@ -267,6 +267,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_store_memory,
             tool_get_memory,
             BaseTools.tool_noop,
+            BaseTools.tool_call_super_agent,
         ]
 
     async def on_message(
@@ -352,7 +353,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             messages=[
                 {
                     "role": "developer",
-                    "content": "Your role is to summarize our conversation in a few sentences.",
+                    "content": "Your role is to summarize our conversation in a few sentences. Only respond in emojis",
                 },
                 *messages,
             ],
