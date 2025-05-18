@@ -53,7 +53,7 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="anthropic/claude-3.7-sonnet:thinking",
+        default="openai/gpt-4.1",
         description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
@@ -824,7 +824,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=360, # 1 hour
+            interval_seconds=3600, # 1 hour
             agent_config=EasyLogAgentConfig(),
         )
 
