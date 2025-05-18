@@ -84,7 +84,7 @@ class EasyLogAgentConfig(BaseModel):
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}."
+        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
     )
 
 
@@ -680,6 +680,33 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             await self.set_metadata("reminders", existing_reminders)
 
             return f"Reminder {id} removed"
+            
+        # Memory tools
+        async def tool_store_memory(memory: str) -> str:
+            """Store a memory.
+
+            Args:
+                memory (str): The memory to store.
+            """
+
+            memories = await self.get_metadata("memories", [])
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
+            await self.set_metadata("memories", memories)
+
+            return f"Memory stored: {memory}"
+
+        async def tool_get_memory(id: str) -> str:
+            """Get a memory.
+
+            Args:
+                id (str): The id of the memory to get.
+            """
+            memories = await self.get_metadata("memories", [])
+            memory = next((m for m in memories if m["id"] == id), None)
+            if memory is None:
+                return "[not stored]"
+
+            return memory["memory"]
 
         # Assemble and return the complete tool list
         return [
@@ -707,8 +734,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_add_reminder,
             tool_remove_recurring_task,
             tool_remove_reminder,
+            # Memory tools
+            tool_store_memory,
+            tool_get_memory,
             # System tools
             BaseTools.tool_noop,
+            BaseTools.tool_call_super_agent,
         ]
 
     async def on_message(
@@ -746,6 +777,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         # Gather reminders and recurring tasks
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
+        memories = await self.get_metadata("memories", [])
 
         # Prepare the main content for the LLM
         main_prompt_format_args = {
@@ -758,6 +790,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             ),
             "reminders": "\\n".join(
                 [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
+            ),
+            "memories": "\\n".join(
+                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
             ),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
@@ -798,6 +833,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
         reminders = await self.get_metadata("reminders", [])
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        memories = await self.get_metadata("memories", [])
 
         reminders_content = (
             "Reminders:\n"
@@ -812,13 +848,20 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if recurring_tasks
             else "No recurring tasks set."
         )
+        
+        memories_content = (
+            "Memories:\n"
+            + "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
+            if memories
+            else "No memories stored."
+        )
 
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=[
                 {
                     "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders and recurring tasks: {reminders_content}\n{recurring_tasks_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders, recurring tasks, and memories: {reminders_content}\n{recurring_tasks_content}\n{memories_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 },
                 *messages,
             ],
