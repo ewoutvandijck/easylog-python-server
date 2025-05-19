@@ -122,6 +122,25 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             role_config for role_config in self.config.roles if role_config.name == role
         )
 
+    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
+        """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
+
+        # First, replace all known placeholders
+        output_string = template_string
+        for key, value in data_dict.items():
+            placeholder = "{{" + key + "}}"
+            output_string = output_string.replace(placeholder, str(value))
+
+        # Then, find any remaining {{...}} placeholders that were not in data_dict
+        # and replace them with a [missing:key_name] indicator.
+        # This mimics the DefaultKeyDict behavior for unprovided keys.
+        def replace_missing_with_indicator(match: re.Match[str]) -> str:
+            var_name = match.group(1)  # Content inside {{...}}
+            return f"[missing:{var_name}]"
+
+        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
+        return output_string
+
     def get_tools(self) -> list[Callable]:
         # EasyLog-specific tools
         easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
@@ -737,6 +756,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_get_memory,
             # System tools
             BaseTools.tool_noop,
+            BaseTools.tool_call_super_agent,
         ]
 
     async def on_message(
@@ -773,8 +793,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Format the role prompt with questionnaire data
         try:
-            formatted_current_role_prompt = role_config.prompt.format_map(
-                DefaultKeyDict(questionnaire_format_kwargs)
+            formatted_current_role_prompt = self._substitute_double_curly_placeholders(
+                role_config.prompt, questionnaire_format_kwargs
             )
         except Exception as e:
             self.logger.warning(f"Error formatting role prompt: {e}")
@@ -789,39 +809,36 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\\n".join(
-                [f"- {role.name}: {role.prompt}" for role in self.config.roles]
+            "available_roles": "\n".join(
+                [f"- {role.name}" for role in self.config.roles]
             ),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "recurring_tasks": "\\n".join(
+            "recurring_tasks": "\n".join(
                 [
                     f"- {task['id']}: {task['cron_expression']} - {task['task']}"
                     for task in recurring_tasks
                 ]
             ),
-            "reminders": "\\n".join(
+            "reminders": "\n".join(
                 [
                     f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
                     for reminder in reminders
                 ]
             ),
-            "memories": "\\n".join(
+            "memories": "\n".join(
                 [f"- {memory['id']}: {memory['memory']}" for memory in memories]
             ),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
         try:
-            llm_content = self.config.prompt.format_map(
-                DefaultKeyDict(main_prompt_format_args)
-            )
+            llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
         except Exception as e:
             self.logger.warning(f"Error formatting system prompt: {e}")
-            # Fallback to a simple format
-            llm_content = (
-                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
-            )
+            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
 
+        self.logger.debug(f"llm_content: {llm_content}")
+        
         # Create the completion request
         response = await self.client.chat.completions.create(
             model=role_config.model,
