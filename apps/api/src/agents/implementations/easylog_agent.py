@@ -795,12 +795,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        try:
-            llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
-        except Exception as e:
-            self.logger.warning(f"Error formatting system prompt: {e}")
-            # Fallback to a simple format
-            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+        llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
 
         self.logger.debug(f"llm_content: {llm_content}")
 
