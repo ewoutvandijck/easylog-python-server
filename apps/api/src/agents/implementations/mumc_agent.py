@@ -31,11 +31,26 @@ class QuestionaireQuestionConfig(BaseModel):
 
 
 class RoleConfig(BaseModel):
-    name: str = Field(default="James")
-    prompt: str = Field(default="You are a helpful assistant.")
-    model: str = Field(default="openai/gpt-4.1")
-    tools_regex: str = Field(default=".*")
-    allowed_subjects: list[str] | None = Field(default=None)
+    name: str = Field(
+        default="EasyLogAssistant",
+        description="The display name of the role, used to identify and select this role in the system.",
+    )
+    prompt: str = Field(
+        default="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+        description="The system prompt or persona instructions for this role, defining its behavior and tone.",
+    )
+    model: str = Field(
+        default="openai/gpt-4.1",
+        description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
+    )
+    tools_regex: str = Field(
+        default=".*",
+        description="A regular expression specifying which tools this role is permitted to use. Use '.*' to allow all tools, or restrict as needed.",
+    )
+    allowed_subjects: list[str] | None = Field(
+        default=None,
+        description="A list of subject names from the knowledge base that this role is allowed to access. If None, all subjects are allowed.",
+    )
     questionaire: list[QuestionaireQuestionConfig] = Field(
         default_factory=list,
         description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
@@ -47,11 +62,11 @@ class MUMCAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="Coach",
-                prompt="You are a helpful friendly supporting care taker for COPD patients.",
+                prompt="Je bent een vriendelijke ondersteunende zorgverlener voor COPD patiënten.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=None,
-                questionaire=[],  # Added empty list for questionaire
+                questionaire=[],
             )
         ]
     )
