@@ -742,6 +742,25 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             BaseTools.tool_call_super_agent,
         ]
 
+    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
+        """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
+
+        # First, replace all known placeholders
+        output_string = template_string
+        for key, value in data_dict.items():
+            placeholder = "{{" + key + "}}"
+            output_string = output_string.replace(placeholder, str(value))
+
+        # Then, find any remaining {{...}} placeholders that were not in data_dict
+        # and replace them with a [missing:key_name] indicator.
+        # This mimics the DefaultKeyDict behavior for unprovided keys.
+        def replace_missing_with_indicator(match: re.Match[str]) -> str:
+            var_name = match.group(1)  # Content inside {{...}}
+            return f"[missing:{var_name}]"
+
+        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
+        return output_string
+
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
@@ -769,7 +788,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         # Format the role prompt with questionnaire data
         try:
-            formatted_current_role_prompt = role_config.prompt.format_map(DefaultKeyDict(questionnaire_format_kwargs))
+            formatted_current_role_prompt = self._substitute_double_curly_placeholders(
+                role_config.prompt, questionnaire_format_kwargs
+            )
         except Exception as e:
             self.logger.warning(f"Error formatting role prompt: {e}")
             formatted_current_role_prompt = role_config.prompt
@@ -795,7 +816,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
+        try:
+            llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
+        except Exception as e:
+            self.logger.warning(f"Error formatting system prompt: {e}")
+            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
 
         self.logger.debug(f"llm_content: {llm_content}")
 
