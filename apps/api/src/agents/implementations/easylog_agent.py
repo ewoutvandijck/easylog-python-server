@@ -1,4 +1,3 @@
-import io
 import json
 import re
 import uuid
@@ -6,12 +5,10 @@ from collections.abc import Callable, Iterable
 from datetime import datetime
 from typing import Any, Literal
 
-import httpx
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
@@ -601,50 +598,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 selected_choice=None,
             )
 
-        # Image tools
-        def tool_download_image(url: str) -> Image.Image:
-            """Download an image from a URL.
-
-            Args:
-                url (str): The URL of the image to download.
-
-            Returns:
-                Image.Image: The downloaded image.
-
-            Raises:
-                httpx.HTTPStatusError: If the download fails.
-                PIL.UnidentifiedImageError: If the content is not a valid image.
-                Exception: For other potential errors during download or processing.
-            """
-            try:
-                response = httpx.get(url, timeout=10)
-                response.raise_for_status()
-
-                image = Image.open(io.BytesIO(response.content))
-
-                ImageOps.exif_transpose(image, in_place=True)
-
-                if image.mode in ("RGBA", "LA", "P"):
-                    image = image.convert("RGB")
-
-                max_size = 768
-                if image.width > max_size or image.height > max_size:
-                    ratio = min(max_size / image.width, max_size / image.height)
-                    new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
-                    image = image.resize(new_size, Image.Resampling.LANCZOS)
-
-                return image
-
-            except httpx.HTTPStatusError:
-                raise
-            except Image.UnidentifiedImageError:
-                raise
-            except Exception:
-                raise
-
         # Schedule and reminder tools
         async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
             """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
@@ -774,8 +727,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
-            # Image tools
-            tool_download_image,
             # Schedule and reminder tools
             tool_set_recurring_task,
             tool_add_reminder,
@@ -786,6 +737,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_get_memory,
             # System tools
             BaseTools.tool_noop,
+            BaseTools.tool_call_super_agent,
         ]
 
     async def on_message(
