@@ -3,15 +3,24 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
+from typing import Any, Literal
 
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
-from src.agents.base_agent import BaseAgent
+from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
+from src.agents.tools.easylog_backend_tools import EasylogBackendTools
+from src.agents.tools.easylog_sql_tools import EasylogSqlTools
+from src.models.chart_widget import (
+    DEFAULT_COLOR_ROLE_MAP,
+    ChartWidget,
+    Line,
+)
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
+from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
@@ -32,11 +41,11 @@ class QuestionaireQuestionConfig(BaseModel):
 
 class RoleConfig(BaseModel):
     name: str = Field(
-        default="EasyLogAssistant",
+        default="MUMCAssistant",
         description="The display name of the role, used to identify and select this role in the system.",
     )
     prompt: str = Field(
-        default="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+        default="Je bent een vriendelijke MUMC assistent.",
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
@@ -61,9 +70,9 @@ class MUMCAgentConfig(BaseModel):
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
-                name="Coach",
-                prompt="Je bent een vriendelijke ondersteunende zorgverlener voor COPD patiënten.",
-                model="openai/gpt-4.1",
+                name="MUMCAssistant",
+                prompt="Je bent een vriendelijke MUMC assistent.",
+                model="anthropic/claude-3.7-sonnet:thinking",
                 tools_regex=".*",
                 allowed_subjects=None,
                 questionaire=[],
@@ -71,13 +80,36 @@ class MUMCAgentConfig(BaseModel):
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nYou can use the following recurring tasks: {recurring_tasks}.\nYou can use the following reminders: {reminders}.\nThe current time is: {current_time}."
+        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
     )
 
 
 class DefaultKeyDict(dict):
     def __missing__(self, key):
         return f"[missing:{key}]"
+
+
+class CarEntity(BaseModel):
+    brand: str | None = None
+    model: str | None = None
+    year: int | None = None
+    horsepower: int | None = None
+    color: str | None = None
+    price: int | None = None
+
+
+class PersonEntity(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    birth_date: str | None = None
+    gender: str | None = None
+
+
+class JobEntity(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
@@ -91,6 +123,28 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
     def get_tools(self) -> list[Callable]:
+        # EasyLog-specific tools
+        easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
+        easylog_backend_tools = EasylogBackendTools(
+            bearer_token=easylog_token,
+            base_url=settings.EASYLOG_API_URL,
+        )
+
+        if easylog_token:
+            self.logger.debug(f"credentials='{easylog_token}'")
+
+        easylog_sql_tools = EasylogSqlTools(
+            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
+            ssh_host=settings.EASYLOG_SSH_HOST,
+            ssh_username=settings.EASYLOG_SSH_USERNAME,
+            db_password=settings.EASYLOG_DB_PASSWORD,
+            db_user=settings.EASYLOG_DB_USER,
+            db_host=settings.EASYLOG_DB_HOST,
+            db_port=settings.EASYLOG_DB_PORT,
+            db_name=settings.EASYLOG_DB_NAME,
+        )
+
+        # Role management tool
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
 
@@ -108,6 +162,443 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             return f"Gewijzigd naar rol {role}"
 
+        # Document search tools
+        async def tool_search_documents(search_query: str) -> str:
+            """Search for documents in the knowledge database using a semantic search query.
+
+            This tool allows you to search through the knowledge database for relevant documents
+            based on a natural language query. The search is performed using semantic matching,
+            which means it will find documents that are conceptually related to your query,
+            even if they don't contain the exact words.
+
+            Args:
+                search_query (str): A natural language query describing what you're looking for.
+                                  For example: "information about metro systems" or "how to handle customer complaints"
+
+            Returns:
+                str: A formatted string containing the search results, where each result includes:
+                     - The document's path and summary
+            """
+
+            result = await self.search_documents(
+                search_query, subjects=(await self.get_current_role()).allowed_subjects
+            )
+
+            return "\n-".join(
+                [
+                    f"Path: {document.path} - Summary: {document.summary}"
+                    for document in result
+                ]
+            )
+
+        async def tool_get_document_contents(path: str) -> str:
+            """Retrieve the complete contents of a specific document from the knowledge database.
+
+            This tool allows you to access the full content of a document when you need detailed information
+            about a specific topic. The document contents are returned in JSON format, making it easy to
+            parse and work with the data programmatically.
+
+            Args:
+                path (str): The unique path or identifier of the document you want to retrieve.
+                          This is typically obtained from the search results of tool_search_documents.
+
+            Returns:
+                str: A JSON string containing the complete document contents, including all properties
+                     and metadata. The JSON is formatted with proper string serialization for all data types.
+            """
+            return json.dumps(await self.get_document(path), default=str)
+
+        # Questionnaire tools
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
+            """Answer a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+            """
+
+            await self.set_metadata(question_name, answer)
+
+            return f"Answer to {question_name} set to {answer}"
+
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Get the answer to a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to get the answer to.
+
+            Returns:
+                str: The answer to the question.
+            """
+            return await self.get_metadata(question_name, "[not answered]")
+
+        # Visualization tools
+        def tool_create_zlm_chart(
+            language: Literal["nl", "en"],
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            height: int = 400,
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
+            The chart visualizes scores as percentages, expecting values in the **0-100 range**.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: The data for the chart. Each dictionary in the list represents a
+                      point or group on the x-axis.
+                      - Each dictionary MUST contain the `x_key` field.
+                      - For each `y_key` specified in `y_keys`, the dictionary MUST
+                        contain a field with that `y_key` name.
+                      - The value associated with each `y_key` MUST be a dictionary
+                        with two keys:
+                        1.  `"value"`: A numerical percentage (float or integer).
+                            **IMPORTANT: This value MUST be between 0 and 100 (inclusive).**
+                            For example, 75 represents 75%. Do NOT use values like 0.75.
+                        2.  `"colorRole"`: A string that MUST be one of "success",
+                            "warning", or "neutral". This role will be mapped to specific
+                            ZLM colors. 0-40 = warning, 40-70 = neutral, 70-100 = success.
+                      - Example (single y-key):
+                        `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
+                              `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
+                        (if x_key="category", y_keys=["score"])
+                      - Example (multiple y-keys):
+                        `data=[{"month": "Jan", "metric_a": {"value": 85, "colorRole": "success"}, "metric_b": {"value": 45, "colorRole": "warning"}},`
+                              `{"month": "Feb", "metric_a": {"value": 90, "colorRole": "success"}, "metric_b": {"value": 50, "colorRole": "neutral"}}]`
+                        (if x_key="month", y_keys=["metric_a", "metric_b"])
+                x_key: The key in each data dictionary that represents the x-axis value
+                       (e.g., "category", "month").
+                y_keys: A list of keys in each data dictionary that represent the y-axis
+                        values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
+                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
+                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
+                          if provided.
+                height: Optional. The height of the chart in pixels. Defaults to 400.
+
+            Returns:
+                A ChartWidget object configured for ZLM display.
+
+            Raises:
+                ValueError: If data is missing required keys, values are not numbers,
+                            percentages are outside the 0-100 range, or colorRole is invalid.
+            """
+
+            title = (
+                "Resultaten ziektelastmeter COPD %"
+                if language == "nl"
+                else "Disease burden results %"
+            )
+            description = (
+                "Uw ziektelastmeter COPD resultaten."
+                if language == "nl"
+                else "Your COPD burden results."
+            )
+
+            # Custom color role map for ZLM charts
+            ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
+                # We only use a custom neutral color, the rest is re-used.
+                "success": DEFAULT_COLOR_ROLE_MAP["success"],
+                "neutral": "#ffdaaf",  # Pastel orange
+                "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
+            }
+
+            horizontal_lines = None
+
+            # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
+            for raw_item_idx, raw_item in enumerate(data):
+                if x_key not in raw_item:
+                    raise ValueError(
+                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
+                    )
+                current_x_value = raw_item[x_key]
+
+                for y_key in y_keys:
+                    if y_key not in raw_item:
+                        # This case is handled by create_bar_chart for sparse data,
+                        # but for ZLM, we might want to enforce all y_keys are present.
+                        # For now, let create_bar_chart handle it if colorRole is null.
+                        # If colorRole is provided for a non-existent y_key, it's an issue.
+                        continue
+
+                    value_container = raw_item[y_key]
+                    if not (
+                        isinstance(value_container, dict)
+                        and "value" in value_container
+                        and "colorRole" in value_container  # LLM must provide colorRole
+                    ):
+                        raise ValueError(
+                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
+                            "for ZLM chart is not in the expected format: "
+                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
+                            f"Received: {value_container}"
+                        )
+
+                    val_from_container = value_container["value"]
+                    if not isinstance(val_from_container, (int, float)):
+                        raise ValueError(
+                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
+                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
+                        )
+
+                    val_float = float(val_from_container)
+                    if not (0.0 <= val_float <= 100.0):
+                        hint = ""
+                        # Check if the original value from LLM looked like it was on a 0-1 scale
+                        if (
+                            isinstance(val_from_container, (int, float))
+                            and 0 < float(val_from_container) <= 1.0
+                            and float(val_from_container) != 0.0
+                        ):
+                            hint = (
+                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
+                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
+                            )
+                        raise ValueError(
+                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
+                            f"is outside the expected 0-100 range.{hint}"
+                        )
+
+                    role_from_data = value_container["colorRole"]
+                    if (
+                        role_from_data is not None
+                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
+                    ):
+                        raise ValueError(
+                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
+                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
+                        )
+
+            return ChartWidget.create_bar_chart(
+                title=title,
+                description=description,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                height=height,
+                custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
+                horizontal_lines=horizontal_lines,
+                y_axis_domain_min=0,
+                y_axis_domain_max=100,
+            )
+
+        def tool_create_bar_chart(
+            title: str,
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            custom_color_role_map: dict[str, str] | None = None,
+            custom_series_colors_palette: list[str] | None = None,
+            horizontal_lines: list[Line] | None = None,
+            description: str | None = None,
+            y_axis_domain_min: float | None = None,
+            y_axis_domain_max: float | None = None,
+            height: int = 400,
+        ) -> ChartWidget:
+            """
+            Creates a bar chart with customizable colors and optional horizontal lines.
+
+            You MUST provide data where each y_key's value is a dictionary:
+            {{"value": <actual_value>, "colorRole": <role_name_str> | null}}.
+            - If `colorRole` is a string (e.g., "high_sales", "low_stock"), it will be
+              used as a key to look up the color. The lookup order is:
+              1. `custom_color_role_map` (if provided)
+              2. The default chart color roles (e.g., "success", "warning", "neutral", "info", "primary", etc. Current default map: {DEFAULT_COLOR_ROLE_MAP.keys()})
+              If the role is not found in any map, a default series color is used for the bar.
+            - If `colorRole` is null, the chart widget will assign a default color for that
+              bar based on its series.
+
+            Args:
+                title (str): Chart title.
+                data (list[dict[str, Any]]): List of data objects.
+                    Example:
+                    [
+                        {{"month": "Jan", "sales": {{"value": 100, "colorRole": "neutral"}}, "returns": {{"value": 10, "colorRole": "warning"}}}},
+                        {{"month": "Feb", "sales": {{"value": 150, "colorRole": "success"}}, "returns": {{"value": 12, "colorRole": null}}}}
+                    ]
+                x_key (str): Key in data objects for the x-axis (e.g., 'month').
+                y_keys (list[str]): Keys for y-axis values (e.g., ['sales', 'returns']).
+                y_labels (list[str] | None): Optional labels for y-axis values. If None,
+                                            `y_keys` are used. Must match `y_keys` length.
+                custom_color_role_map (dict[str, str] | None): Optional. A dictionary to
+                                     define custom mappings from `colorRole` strings (provided in `data`)
+                                     to specific HEX color codes (e.g., '#RRGGBB').
+                                     Example: {{"high_sales": "#4CAF50", "low_sales": "#F44336"}}
+                custom_series_colors_palette (list[str] | None): Optional. A list of HEX color strings
+                                     to define the default colors for each series (y_key).
+                                     If not provided, a default palette is used.
+                                     Example: ["#FF0000", "#00FF00"] for two series.
+                horizontal_lines (list[Line] | None): Optional. A list of `Line` objects to
+                                     draw horizontal lines across the chart. Each `Line` object
+                                     defines the y-axis value, an optional label, and an optional color.
+                                     The `Line` model requires:
+                                     - `value` (float): The y-axis value where the line is drawn.
+                                     - `label` (str | None): Optional text label for the line.
+                                     - `color` (str | None): Optional HEX color (e.g., '#000000' for black).
+                                       Defaults to black if not specified.
+                                     Example:
+                                     `[Line(value=80, label="Target Sales", color="#FF0000"), Line(value=50)]`
+                description (str | None): Optional chart description.
+                height (int): Chart height in pixels. Defaults to 400.
+                y_axis_domain_min (float | None): Optional. Sets the minimum value for the Y-axis scale.
+                y_axis_domain_max (float | None): Optional. Sets the maximum value for the Y-axis scale.
+            Returns:
+                A ChartWidget object.
+            """
+            return ChartWidget.create_bar_chart(
+                title=title,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                description=description,
+                height=height,
+                horizontal_lines=horizontal_lines,
+                custom_color_role_map=custom_color_role_map,
+                custom_series_colors_palette=custom_series_colors_palette,
+                y_axis_domain_min=y_axis_domain_min,
+                y_axis_domain_max=y_axis_domain_max,
+            )
+
+        def tool_create_line_chart(
+            title: str,
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            custom_series_colors_palette: list[str] | None = None,
+            horizontal_lines: list[Line] | None = None,
+            description: str | None = None,
+            height: int = 400,
+            y_axis_domain_min: float | None = None,
+            y_axis_domain_max: float | None = None,
+        ) -> ChartWidget:
+            """
+            Creates a line chart with customizable line colors and optional horizontal lines.
+            Each line series will have a distinct color.
+
+            Data Structure for `data` argument:
+            Each item in the `data` list is a dictionary representing a point on the x-axis.
+            For each `y_key` you want to plot, its value in the dictionary MUST be the
+            direct numerical value for that data point (or null for missing data).
+
+            Line Colors:
+            The color of the lines themselves is determined by `custom_series_colors_palette`.
+            If `custom_series_colors_palette` is not provided, a default palette is used.
+            The Nth line (corresponding to the Nth key in `y_keys`) will use the Nth color from this palette.
+
+            Args:
+                title (str): Chart title.
+                data (list[dict[str, Any]]): List of data objects as described above.
+                    Example:
+                    [
+                        {{"date": "2024-01-01", "temp": 10, "humidity": 60}},
+                        {{"date": "2024-01-02", "temp": 12, "humidity": 65}},
+                        {{"date": "2024-01-03", "temp": 9, "humidity": null}} // null for missing humidity
+                    ]
+                **Important** Do not add colors in the data object for line charts.
+                x_key (str): Key in data objects for the x-axis (e.g., 'date').
+                y_keys (list[str]): Keys for y-axis values (e.g., ['temp', 'humidity']).
+                y_labels (list[str] | None): Optional labels for y-axis series. If None,
+                                            `y_keys` are used. Must match `y_keys` length.
+                custom_series_colors_palette (list[str] | None): Optional. A list of HEX color strings
+                                     to define the colors for each **line series**.
+                                     Example: ["#007bff", "#28a745"] for two lines.
+                horizontal_lines (list[Line] | None): Optional. List of `Line` objects for horizontal lines.
+                                     See `tool_create_bar_chart` for `Line` model details.
+                                     Example: `[Line(value=10, label="Threshold")]`
+                description (str | None): Optional chart description.
+                height (int): Chart height in pixels. Defaults to 400.
+                y_axis_domain_min (float | None): Optional. Sets the minimum value for the Y-axis scale.
+                y_axis_domain_max (float | None): Optional. Sets the maximum value for the Y-axis scale.
+            Returns:
+                A ChartWidget object configured as a line chart.
+            """
+            if y_labels is not None and len(y_keys) != len(y_labels):
+                raise ValueError(
+                    "If y_labels are provided for line chart, they must match the length of y_keys."
+                )
+
+            # Basic validation for data structure (can be enhanced)
+            for item in data:
+                if x_key not in item:
+                    raise ValueError(
+                        f"Line chart data item missing x_key '{x_key}': {item}"
+                    )
+                for y_key in y_keys:
+                    if y_key in item and not isinstance(
+                        item[y_key], (int, float, type(None))
+                    ):
+                        if isinstance(
+                            item[y_key], str
+                        ):  # Allow string if it's meant to be a number
+                            try:
+                                float(item[y_key])
+                            except ValueError:
+                                raise ValueError(
+                                    f"Line chart data for y_key '{y_key}' has non-numeric value '{item[y_key]}'. Must be number or null."
+                                )
+                        else:
+                            raise ValueError(
+                                f"Line chart data for y_key '{y_key}' has non-numeric value '{item[y_key]}'. Must be number or null."
+                            )
+
+            return ChartWidget.create_line_chart(
+                title=title,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                description=description,
+                height=height,
+                horizontal_lines=horizontal_lines,
+                custom_series_colors_palette=custom_series_colors_palette,
+                y_axis_domain_min=y_axis_domain_min,
+                y_axis_domain_max=y_axis_domain_max,
+            )
+
+        # Interaction tools
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> MultipleChoiceWidget:
+            """Asks the user a multiple-choice question with distinct labels and values.
+                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
+                This widget already presents the question and choices to the user.
+
+            Args:
+                question: The question to ask.
+                choices: A list of choice dictionaries, each with a 'label' (display text)
+                         and a 'value' (internal value). Example:
+                         [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
+
+            Returns:
+                A MultipleChoiceWidget object representing the question and the choices.
+
+            Raises:
+                ValueError: If a choice dictionary is missing 'label' or 'value'.
+            """
+            parsed_choices = []
+            for choice_dict in choices:
+                if "label" not in choice_dict or "value" not in choice_dict:
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
+
+            return MultipleChoiceWidget(
+                question=question,
+                choices=parsed_choices,
+                selected_choice=None,
+            )
+
+        # Schedule and reminder tools
         async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
             """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
 
@@ -156,23 +647,23 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             return f"Reminder added for {message} at {date}"
 
-        async def tool_remove_recurring_task(task_id: str) -> str:
+        async def tool_remove_recurring_task(id: str) -> str:
             """Remove a recurring task.
 
             Args:
-                task_id (str): The ID of the task to remove.
+                id (str): The ID of the task to remove.
             """
             existing_tasks: list[dict[str, str]] = await self.get_metadata(
                 "recurring_tasks", []
             )
 
-            existing_tasks = [task for task in existing_tasks if task["id"] != task_id]
+            existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
             await self.set_metadata("recurring_tasks", existing_tasks)
 
-            return f"Recurring task {task_id} removed"
+            return f"Recurring task {id} removed"
 
-        async def tool_remove_reminder(task_id: str) -> str:
+        async def tool_remove_reminder(id: str) -> str:
             """Remove a reminder.
 
             Args:
@@ -183,141 +674,81 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
             existing_reminders = [
-                reminder for reminder in existing_reminders if reminder["id"] != task_id
+                reminder for reminder in existing_reminders if reminder["id"] != id
             ]
 
             await self.set_metadata("reminders", existing_reminders)
 
-            return f"Reminder {task_id} removed"
+            return f"Reminder {id} removed"
 
-        async def tool_search_documents(search_query: str) -> str:
-            """Search for documents in the knowledge database using a semantic search query.
-
-            This tool allows you to search through the knowledge database for relevant documents
-            based on a natural language query. The search is performed using semantic matching,
-            which means it will find documents that are conceptually related to your query,
-            even if they don't contain the exact words.
+        # Memory tools
+        async def tool_store_memory(memory: str) -> str:
+            """Store a memory.
 
             Args:
-                search_query (str): A natural language query describing what you're looking for.
-                                  For example: "information about metro systems" or "how to handle customer complaints"
-
-            Returns:
-                str: A formatted string containing the search results, where each result includes:
-                     - The document's properties in JSON format
-                     - The relevance score indicating how well the document matches the query
+                memory (str): The memory to store.
             """
 
-            result = await self.search_documents(
-                search_query, subjects=(await self.get_current_role()).allowed_subjects
-            )
+            memories = await self.get_metadata("memories", [])
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
+            await self.set_metadata("memories", memories)
 
-            return "\n-".join(
-                [
-                    f"Path: {document.path} - Summary: {document.summary}"
-                    for document in result
-                ]
-            )
+            return f"Memory stored: {memory}"
 
-        async def tool_get_document_contents(path: str) -> str:
-            """Retrieve the complete contents of a specific document from the knowledge database.
-
-            This tool allows you to access the full content of a document when you need detailed information
-            about a specific topic. The document contents are returned in JSON format, making it easy to
-            parse and work with the data programmatically.
+        async def tool_get_memory(id: str) -> str:
+            """Get a memory.
 
             Args:
-                path (str): The unique path or identifier of the document you want to retrieve.
-                          This is typically obtained from the search results of tool_search_documents.
-
-            Returns:
-                str: A JSON string containing the complete document contents, including all properties
-                     and metadata. The JSON is formatted with proper string serialization for all data types.
+                id (str): The id of the memory to get.
             """
-            return json.dumps(await self.get_document(path), default=str)
+            memories = await self.get_metadata("memories", [])
+            memory = next((m for m in memories if m["id"] == id), None)
+            if memory is None:
+                return "[not stored]"
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
-            """Asks the user a multiple-choice question with distinct labels and values.
-                When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
-                This widget already presents the question and choices to the user.
+            return memory["memory"]
 
-            Args:
-                question: The question to ask.
-                choices: A list of choice dictionaries, each with a 'label' (display text)
-                         and a 'value' (internal value). Example:
-                         [{'label': 'Yes', 'value': '0'}, {'label': 'No', 'value': '1'}]
-
-            Returns:
-                A MultipleChoiceWidget object representing the question and the choices.
-
-            Raises:
-                ValueError: If a choice dictionary is missing 'label' or 'value'.
-            """
-            parsed_choices = []
-            for choice_dict in choices:
-                if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
-
-            return MultipleChoiceWidget(
-                question=question,
-                choices=parsed_choices,
-                selected_choice=None,
-            )
-
-        async def tool_answer_questionaire_question(
-            question_name: str, answer: str
-        ) -> str:
-            """Answer a question from the questionaire.
-
-            Args:
-                question_name (str): The name of the question to answer.
-                answer (str): The answer to the question.
-            """
-
-            await self.set_metadata(question_name, answer)
-
-            return f"Answer to {question_name} set to {answer}"
-
-        async def tool_get_questionaire_answer(question_name: str) -> str:
-            """Get the answer to a question from the questionaire.
-
-            Args:
-                question_name (str): The name of the question to get the answer to.
-
-            Returns:
-                str: The answer to the question.
-            """
-            return await self.get_metadata(question_name, "[not answered]")
-
+        # Assemble and return the complete tool list
         return [
+            # EasyLog-specific tools
+            *easylog_backend_tools.all_tools,
+            *easylog_sql_tools.all_tools,
+            # Role management
+            tool_set_current_role,
+            # Document tools
             tool_search_documents,
             tool_get_document_contents,
-            # *knowledge_graph_tools.all_tools,
-            tool_set_current_role,
-            tool_set_recurring_task,
-            tool_remove_recurring_task,
-            tool_add_reminder,
-            tool_remove_reminder,
-            tool_ask_multiple_choice,
-            tool_get_questionaire_answer,
+            # Questionnaire tools
             tool_answer_questionaire_question,
+            tool_get_questionaire_answer,
+            # Visualization tools
+            tool_create_bar_chart,
+            tool_create_zlm_chart,
+            tool_create_line_chart,
+            # Interaction tools
+            tool_ask_multiple_choice,
+            # Schedule and reminder tools
+            tool_set_recurring_task,
+            tool_add_reminder,
+            tool_remove_recurring_task,
+            tool_remove_reminder,
+            # Memory tools
+            tool_store_memory,
+            tool_get_memory,
+            # System tools
             BaseTools.tool_noop,
         ]
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
+        # Get the current role
         role_config = await self.get_current_role()
 
+        # Get the available tools
         tools = self.get_tools()
 
+        # Filter tools based on the role's regex pattern
         tools = [
             tool
             for tool in tools
@@ -325,9 +756,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             or tool.__name__ == BaseTools.tool_noop.__name__
         ]
 
-        recurring_tasks = await self.get_metadata("recurring_tasks", [])
-        reminders = await self.get_metadata("reminders", [])
-
+        # Prepare questionnaire format kwargs
         questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
@@ -342,9 +771,19 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
-        formatted_current_role_prompt = role_config.prompt.format_map(
-            DefaultKeyDict(questionnaire_format_kwargs)
-        )
+        # Format the role prompt with questionnaire data
+        try:
+            formatted_current_role_prompt = role_config.prompt.format_map(
+                DefaultKeyDict(questionnaire_format_kwargs)
+            )
+        except Exception as e:
+            self.logger.warning(f"Error formatting role prompt: {e}")
+            formatted_current_role_prompt = role_config.prompt
+
+        # Gather reminders and recurring tasks
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        reminders = await self.get_metadata("reminders", [])
+        memories = await self.get_metadata("memories", [])
 
         # Prepare the main content for the LLM
         main_prompt_format_args = {
@@ -353,6 +792,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             "available_roles": "\\n".join(
                 [f"- {role.name}: {role.prompt}" for role in self.config.roles]
             ),
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\\n".join(
                 [
                     f"- {task['id']}: {task['cron_expression']} - {task['task']}"
@@ -365,20 +805,30 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     for reminder in reminders
                 ]
             ),
-            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "memories": "\\n".join(
+                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
+            ),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        llm_content = self.config.prompt.format_map(
-            DefaultKeyDict(main_prompt_format_args)
-        )
+        try:
+            llm_content = self.config.prompt.format_map(
+                DefaultKeyDict(main_prompt_format_args)
+            )
+        except Exception as e:
+            self.logger.warning(f"Error formatting system prompt: {e}")
+            # Fallback to a simple format
+            llm_content = (
+                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            )
 
+        # Create the completion request
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": llm_content,  # Use the prepared llm_content
+                    "content": llm_content,
                 },
                 *messages,
             ],
@@ -388,3 +838,65 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
         return response, tools
+
+    @staticmethod
+    def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
+        return SuperAgentConfig(
+            interval_seconds=20_400,  # 5.6 hours  s
+            agent_config=MUMCAgentConfig(),
+        )
+
+    async def on_super_agent_call(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> (
+        tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None
+    ):
+        reminders = await self.get_metadata("reminders", [])
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        memories = await self.get_metadata("memories", [])
+
+        reminders_content = (
+            "Reminders:\n"
+            + "\n".join(
+                [
+                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                    for reminder in reminders
+                ]
+            )
+            if reminders
+            else "No reminders set."
+        )
+
+        recurring_tasks_content = (
+            "Recurring tasks:\n"
+            + "\n".join(
+                [
+                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                    for task in recurring_tasks
+                ]
+            )
+            if recurring_tasks
+            else "No recurring tasks set."
+        )
+
+        memories_content = (
+            "Memories:\n"
+            + "\n".join(
+                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
+            )
+            if memories
+            else "No memories stored."
+        )
+
+        response = await self.client.chat.completions.create(
+            model="openai/gpt-4.1",
+            messages=[
+                {
+                    "role": "developer",
+                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders, recurring tasks, and memories: {reminders_content}\n{recurring_tasks_content}\n{memories_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                },
+                *messages,
+            ],
+        )
+
+        return response, []
