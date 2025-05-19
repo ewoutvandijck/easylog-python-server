@@ -783,15 +783,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+            "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "recurring_tasks": "\\n".join(
+            "recurring_tasks": "\n".join(
                 [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
             ),
-            "reminders": "\\n".join(
+            "reminders": "\n".join(
                 [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
             ),
-            "memories": "\\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories]),
+            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories]),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 

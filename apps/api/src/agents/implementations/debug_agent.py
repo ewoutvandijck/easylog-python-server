@@ -64,7 +64,7 @@ class DebugAgentConfig(BaseModel):
         default_factory=lambda: [
             RoleConfig(
                 name="James",
-                prompt="You are a helpful assistant. You goal is to ask the question '{questionaire.user_name.question}' to the user.",
+                prompt="You are a helpful assistant. You goal is to ask the question '{questionaire_user_name_question}' to the user.",
                 model="openai/gpt-4.1",
                 tools_regex=".*",
                 allowed_subjects=None,
@@ -299,7 +299,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+            "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "reminders": "\n".join(
                 [
