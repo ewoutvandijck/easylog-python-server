@@ -712,7 +712,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         return [
             # EasyLog-specific tools
             *easylog_backend_tools.all_tools,
-            *easylog_sql_tools.all_tools,
             # Role management
             tool_set_current_role,
             # Document tools
@@ -722,9 +721,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_answer_questionaire_question,
             tool_get_questionaire_answer,
             # Visualization tools
-            tool_create_bar_chart,
             tool_create_zlm_chart,
-            tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
             # Schedule and reminder tools
