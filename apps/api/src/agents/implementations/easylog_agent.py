@@ -722,10 +722,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_answer_questionaire_question,
             tool_get_questionaire_answer,
             # Visualization tools
-            tool_create_bar_chart,
-            tool_create_zlm_chart,
-            tool_create_line_chart,
-            # Interaction tools
             tool_ask_multiple_choice,
             # Schedule and reminder tools
             tool_set_recurring_task,
