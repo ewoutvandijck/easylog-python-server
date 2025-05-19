@@ -56,7 +56,7 @@ class MUMCAgentConfig(BaseModel):
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}.\\nYou are currently acting as the role: {current_role}.\\nYour specific instructions for this role are: {current_role_prompt}.\\nYou can use the following recurring tasks: {recurring_tasks}.\\nYou can use the following reminders: {reminders}.\\nThe current time is: {current_time}."
+        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nYou can use the following recurring tasks: {recurring_tasks}.\nYou can use the following reminders: {reminders}.\nThe current time is: {current_time}."
     )
 
 
@@ -363,7 +363,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             messages=[
                 {
                     "role": "developer",
-                    "content": llm_content, # Use the prepared llm_content
+                    "content": llm_content,  # Use the prepared llm_content
                 },
                 *messages,
             ],
