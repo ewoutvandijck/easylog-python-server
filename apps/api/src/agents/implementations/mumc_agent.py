@@ -45,7 +45,7 @@ class QuestionaireQuestionConfig(BaseModel):
 
 class RoleConfig(BaseModel):
     name: str = Field(
-        default="EasyLogAssistant",
+        default="MUMCAssistant",
         description="The display name of the role, used to identify and select this role in the system.",
     )
     prompt: str = Field(
