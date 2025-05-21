@@ -546,7 +546,7 @@ Always provide clear reasoning before taking action, explaining which items requ
                 *messages,
             ],
             tools=[function_to_openai_tool(tool) for tool in tools],
-            tool_choice="required",
+            tool_choice="auto",
         )
 
         return response, tools
