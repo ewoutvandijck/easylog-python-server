@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
-from src.agents.base_agent import BaseAgent, SuperAgentConfig
+from src.agents.base_agent import BaseAgent
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -840,50 +840,3 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
         return response, tools
-
-    @staticmethod
-    def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
-        return SuperAgentConfig(
-            interval_seconds=3600,  # 1 hour
-            agent_config=MUMCAgentConfig(),
-        )
-
-    async def on_super_agent_call(
-        self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
-        reminders = await self.get_metadata("reminders", [])
-        recurring_tasks = await self.get_metadata("recurring_tasks", [])
-        memories = await self.get_metadata("memories", [])
-
-        reminders_content = (
-            "Reminders:\n"
-            + "\n".join([f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders])
-            if reminders
-            else "No reminders set."
-        )
-
-        recurring_tasks_content = (
-            "Recurring tasks:\n"
-            + "\n".join([f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks])
-            if recurring_tasks
-            else "No recurring tasks set."
-        )
-
-        memories_content = (
-            "Memories:\n" + "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
-            if memories
-            else "No memories stored."
-        )
-
-        response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",
-            messages=[
-                {
-                    "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders, recurring tasks, and memories: {reminders_content}\n{recurring_tasks_content}\n{memories_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                },
-                *messages,
-            ],
-        )
-
-        return response, []

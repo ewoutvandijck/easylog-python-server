@@ -54,7 +54,15 @@ class SuperAgentService:
         headers: dict,
         max_recursion_depth: int,
     ) -> None:
-        threads = await prisma.threads.find_many()
+        threads = await prisma.threads.find_many(
+            where={
+                "messages": {
+                    "some": {
+                        "agent_class": agent_class,
+                    },
+                },
+            },
+        )
 
         logger.info(f"Running super agent {agent_class} for {len(threads)} threads")
 

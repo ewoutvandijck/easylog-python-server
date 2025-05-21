@@ -844,43 +844,19 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=7200,  # 1 hour
+            interval_seconds=7200,  # 2 hours
             agent_config=EasyLogAgentConfig(),
         )
 
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
-        reminders = await self.get_metadata("reminders", [])
-        recurring_tasks = await self.get_metadata("recurring_tasks", [])
-        memories = await self.get_metadata("memories", [])
-
-        reminders_content = (
-            "Reminders:\n"
-            + "\n".join([f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders])
-            if reminders
-            else "No reminders set."
-        )
-
-        recurring_tasks_content = (
-            "Recurring tasks:\n"
-            + "\n".join([f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks])
-            if recurring_tasks
-            else "No recurring tasks set."
-        )
-
-        memories_content = (
-            "Memories:\n" + "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
-            if memories
-            else "No memories stored."
-        )
-
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=[
                 {
                     "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences. Here are the reminders, recurring tasks, and memories: {reminders_content}\n{recurring_tasks_content}\n{memories_content}. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    "content": f"Your role is to summarize our conversation in a few sentences and provide a list of reminders and recurring tasks for today. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Write in the same language as the conversation.",
                 },
                 *messages,
             ],
