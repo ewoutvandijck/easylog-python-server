@@ -538,7 +538,7 @@ Always provide clear reasoning before taking action, explaining which items requ
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
         response = await self.client.chat.completions.create(
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-4.1",
             messages=[
                 {
                     "role": "developer",
@@ -548,7 +548,6 @@ Always provide clear reasoning before taking action, explaining which items requ
             ],
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
-            reasoning_effort="medium",
         )
 
         return response, tools
