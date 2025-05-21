@@ -3,6 +3,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
+from typing import Any
 
 from onesignal.model.notification import Notification
 from openai import AsyncStream
@@ -89,6 +90,25 @@ class DefaultKeyDict(dict):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
+    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
+        """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
+
+        # First, replace all known placeholders
+        output_string = template_string
+        for key, value in data_dict.items():
+            placeholder = "{{" + key + "}}"
+            output_string = output_string.replace(placeholder, str(value))
+
+        # Then, find any remaining {{...}} placeholders that were not in data_dict
+        # and replace them with a [missing:key_name] indicator.
+        # This mimics the DefaultKeyDict behavior for unprovided keys.
+        def replace_missing_with_indicator(match: re.Match[str]) -> str:
+            var_name = match.group(1)  # Content inside {{...}}
+            return f"[missing:{var_name}]"
+
+        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
+        return output_string
+
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
@@ -387,7 +407,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
-        formatted_current_role_prompt = role_config.prompt.format_map(DefaultKeyDict(questionnaire_format_kwargs))
+        formatted_current_role_prompt = self._substitute_double_curly_placeholders(
+            role_config.prompt, questionnaire_format_kwargs
+        )
 
         # Prepare the main content for the LLM
         main_prompt_format_args = {
@@ -418,16 +440,16 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             ),
         }
 
-        main_prompt_format_args.update(questionnaire_format_kwargs)
+        formatted_prompt = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
 
-        llm_content = self.config.prompt.format_map(DefaultKeyDict(main_prompt_format_args))
+        self.logger.debug(f"formatted_prompt: {formatted_prompt}")
 
         response = await self.client.chat.completions.create(
             model=role_config.model,
             messages=[
                 {
                     "role": "developer",
-                    "content": llm_content,  # Use the prepared llm_content
+                    "content": formatted_prompt,
                 },
                 *messages,
             ],
