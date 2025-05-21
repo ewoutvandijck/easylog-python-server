@@ -487,16 +487,52 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
-        metadata = dict((await self._get_thread()).metadata) or {}
-
         tools = [
             BaseTools.tool_noop,
             self.get_tools()["tool_send_notification"],
         ]
 
         notifications = await self.get_metadata("notifications", [])
+        reminders = await self.get_metadata("reminders", [])
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
 
-        prompt = f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}. You sent the following notifications: {json.dumps(notifications)}. It's currently {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Not sent notifications in the past must be sent now."
+        prompt = f"""
+# Notification Management System
+
+## Core Responsibility
+You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
+
+## Current Time
+Current system time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## Previously Sent Notifications
+The following notifications have already been sent and MUST NOT be resent:
+{json.dumps(notifications, indent=2)}
+
+## Items to Evaluate
+Please evaluate these items for notification eligibility:
+
+1. Reminders:
+{json.dumps(reminders, indent=2)}
+
+2. Recurring Tasks:
+{json.dumps(recurring_tasks, indent=2)}
+
+## Decision Rules
+- A notification should be sent for any reminder that is currently due
+- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time
+- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
+- If an item appears in the previously sent notifications list, it MUST be skipped
+- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)
+
+## Required Action
+After analysis, you must take exactly ONE of these actions:
+- If any eligible notifications are found: invoke the send_notification tool with details
+- If no eligible notifications exist: invoke the noop tool
+
+## Output Format
+Always provide clear reasoning before taking action, explaining which items require notification and why.
+"""
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
