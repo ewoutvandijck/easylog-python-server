@@ -13,6 +13,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
+from onesignal.model.notification import Notification
 
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
@@ -124,7 +125,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         return next(role_config for role_config in self.config.roles if role_config.name == role)
 
-    def get_tools(self) -> list[Callable]:
+    def get_tools(self) -> dict[str, Callable]:
         # EasyLog-specific tools
         easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
         easylog_backend_tools = EasylogBackendTools(
@@ -708,8 +709,55 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             return memory["memory"]
 
+        async def tool_send_notification(title: str, contents: str) -> str:
+            """Send a notification.
+
+            Args:
+                title (str): The title of the notification.
+                contents (str): The text to send in the notification.
+            """
+            onesignal_id = self.request_headers.get("x-onesignal-external-user-id") or await self.get_metadata(
+                "onesignal_id", None
+            )
+
+            assistant_field_name = self.request_headers.get("x-assistant-field-name") or await self.get_metadata(
+                "assistant_field_name", None
+            )
+
+            self.logger.info(f"Sending notification to {onesignal_id}")
+
+            if onesignal_id is None:
+                return "No onesignal id found"
+
+            if assistant_field_name is None:
+                return "No assistant field name found"
+
+            notification = Notification(
+                target_channel="push",
+                channel_for_external_user_ids="push",
+                app_id=settings.ONESIGNAL_APP_ID,
+                include_external_user_ids=[onesignal_id],
+                contents={"en": contents},
+                headings={"en": title},
+                data={"type": "chat", "assistantFieldName": assistant_field_name},
+            )
+
+            self.logger.info(f"Notification: {notification}")
+
+            response = await self.one_signal.send_notification(notification)
+            self.logger.info(f"Notification response: {response}")
+
+            notifications = await self.get_metadata("notifications", [])
+            notifications.append(
+                {"id": response["id"], "title": title, "contents": contents, "sent_at": datetime.now().isoformat()}
+            )
+
+            await self.set_metadata("notifications", notifications)
+
+            return "Notification sent"
+
         # Assemble and return the complete tool list
-        return [
+        tools_list = [
             # EasyLog-specific tools
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -737,10 +785,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Memory tools
             tool_store_memory,
             tool_get_memory,
+            # Notification tool
+            tool_send_notification,
             # System tools
             BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
+        return {tool.__name__: tool for tool in tools_list}
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
@@ -771,10 +822,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         tools = self.get_tools()
 
         # Filter tools based on the role's regex pattern
-        tools = [
+        tools_values = [
             tool
-            for tool in tools
+            for tool in tools.values()
             if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ == BaseTools.tool_noop.__name__
+            or tool.__name__ == BaseTools.tool_call_super_agent.__name__
         ]
 
         # Prepare questionnaire format kwargs
@@ -799,6 +851,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
         memories = await self.get_metadata("memories", [])
+        notifications = await self.get_metadata("notifications", [])
 
         # Prepare the main content for the LLM
         main_prompt_format_args = {
@@ -808,13 +861,28 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
                 [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
-            ),
+            ) if recurring_tasks else "<no recurring tasks>",
             "reminders": "\n".join(
                 [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
-            ),
-            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories]),
+            ) if reminders else "<no reminders>",
+            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories]
+            ) if memories else "<no memories>",
+            "notifications": "\n".join(
+                [f"{notification.get('id')}: {notification.get('contents')} at {notification.get('sent_at')}" for notification in notifications]
+            ) if notifications else "<no notifications>",
+            "metadata": json.dumps((await self._get_thread()).metadata),
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
+
+        # Added from debug_agent: Store onesignal_id and assistant_field_name from headers
+        onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
+        assistant_field_name = self.request_headers.get("x-assistant-field-name")
+
+        if onesignal_id is not None:
+            await self.set_metadata("onesignal_id", onesignal_id)
+
+        if assistant_field_name is not None:
+            await self.set_metadata("assistant_field_name", assistant_field_name)
 
         try:
             llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
@@ -829,39 +897,88 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             model=role_config.model,
             messages=[
                 {
-                    "role": "developer",
+                    "role": "system",
                     "content": llm_content,
                 },
                 *messages,
             ],
             stream=True,
-            tools=[function_to_openai_tool(tool) for tool in tools],
+            tools=[function_to_openai_tool(tool) for tool in tools_values],
             tool_choice="auto",
         )
 
-        return response, tools
+        return response, list(tools_values)
 
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=7200,  # 2 hours
+            interval_seconds=360,  # 1 hour
             agent_config=EasyLogAgentConfig(),
         )
 
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
-        metadata = dict((await self._get_thread()).metadata) or {}
+        tools = [
+            BaseTools.tool_noop,
+            self.get_tools()["tool_send_notification"],
+        ]
 
-        response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",
-            messages=[
-                {
-                    "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences and provide a list of reminders and recurring tasks for today. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Write in the same language as the conversation. Here is the metadata for this conversation: {json.dumps(metadata)}",
-                },
-                *messages,
-            ],
+        notifications = await self.get_metadata("notifications", [])
+        reminders = await self.get_metadata("reminders", [])
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+
+        prompt = (
+            "# Notification Management System\\n\\n"
+            "## Core Responsibility\\n"
+            "You are the notification management system responsible for delivering timely alerts without duplication. "
+            "Your task is to analyze pending notifications and determine which ones need to be sent.\\n\\n"
+            "## Current Time\\n"
+            f"Current system time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
+            "## Previously Sent Notifications\\n"
+            "The following notifications have already been sent and MUST NOT be resent:\\n"
+            f"{json.dumps(notifications, indent=2)}\\n\\n"
+            "## Items to Evaluate\\n"
+            "Please evaluate these items for notification eligibility:\\n\\n"
+            "1. Reminders:\\n"
+            f"{json.dumps(reminders, indent=2)}\\n\\n"
+            "2. Recurring Tasks:\\n"
+            f"{json.dumps(recurring_tasks, indent=2)}\\n\\n"
+            "## Decision Rules\\n"
+            "- A notification should be sent for any reminder that is currently due\\n"
+            "- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time\\n"
+            "- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification\\n"
+            "- If an item appears in the previously sent notifications list, it MUST be skipped\\n"
+            "- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)\\n"
+            "- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.\\n\\n"
+            "## Required Action\\n"
+            "After analysis, you must take exactly ONE of these actions:\\n"
+            "- If any eligible notifications are found: invoke the send_notification tool with details\\n"
+            "- If no eligible notifications exist: invoke the noop tool\\n"
         )
 
-        return response, []
+        self.logger.info(f"Calling super agent with prompt: {prompt}")
+
+        response = await self.client.chat.completions.create(
+            model="openai/gpt-4.1", # Consider making this configurable or same as role_config.model
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                {
+                    "role": "user",
+                    "content": "Send my notifications",
+                },
+            ],
+            tools=[function_to_openai_tool(tool) for tool in tools],
+            tool_choice="auto",
+        )
+
+        self.logger.info(f"Super agent response: {response.choices[0].message}")
+        
+        # Added from debug_agent.py to handle the completion
+        async for _ in self._handle_completion(response, tools, messages):
+            pass
+
+        return response, tools
