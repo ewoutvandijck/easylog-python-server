@@ -489,6 +489,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
         metadata = dict((await self._get_thread()).metadata) or {}
 
+        tools = [
+            BaseTools.tool_noop,
+            self.get_tools()["tool_send_notification"],
+        ]
+
         response = await self.client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[
@@ -498,11 +503,8 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 },
                 *messages,
             ],
-            tools=[
-                function_to_openai_tool(BaseTools.tool_noop),
-                function_to_openai_tool(self.get_tools()["tool_send_notification"]),
-            ],
+            tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="required",
         )
 
-        return response, []
+        return response, tools
