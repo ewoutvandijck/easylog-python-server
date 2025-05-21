@@ -401,6 +401,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     for reminder in await self.get_metadata("reminders", [])
                 ]
             ),
+            "recurring_tasks": "\n".join(
+                [
+                    f"{task['id']}: {task['task']} at {task['cron_expression']}"
+                    for task in await self.get_metadata("recurring_tasks", [])
+                ]
+            ),
             "memories": "\n".join(
                 [f"{memory['id']}: {memory['memory']}" for memory in await self.get_metadata("memories", [])]
             ),
