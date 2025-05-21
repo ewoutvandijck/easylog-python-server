@@ -263,7 +263,9 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             Args:
                 contents (str): The text to send in the notification.
             """
-            onesignal_id = await self.get_metadata("onesignal_id", None)
+            onesignal_id = self.request_headers.get("x-onesignal-external-user-id") or await self.get_metadata(
+                "onesignal_id", None
+            )
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
