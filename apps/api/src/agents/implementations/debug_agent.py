@@ -496,7 +496,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         notifications = await self.get_metadata("notifications", [])
 
-        prompt = f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}. You sent the following notifications: {json.dumps(notifications)}"
+        prompt = f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}. You sent the following notifications: {json.dumps(notifications)}. It's currently {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Not sent notifications in the past must be sent now."
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
