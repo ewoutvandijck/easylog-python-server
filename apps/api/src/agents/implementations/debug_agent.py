@@ -267,10 +267,6 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
-            notifications = await self.one_signal.get_notifications()
-
-            self.logger.info(f"Notifications: {notifications}")
-
             notification = Notification(
                 app_id=settings.ONESIGNAL_APP_ID,
                 include_external_user_ids=[onesignal_id],
