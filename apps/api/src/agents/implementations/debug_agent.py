@@ -465,7 +465,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             model=role_config.model,
             messages=[
                 {
-                    "role": "developer",
+                    "role": "system",
                     "content": formatted_prompt,
                 },
                 *messages,
@@ -538,7 +538,7 @@ After analysis, you must take exactly ONE of these actions:
             model="openai/gpt-4.1",
             messages=[
                 {
-                    "role": "developer",
+                    "role": "system",
                     "content": prompt,
                 },
                 {
