@@ -267,17 +267,17 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
+            if onesignal_id is None:
+                return "No onesignal id found"
+
             notification = Notification(
+                target_channel="push",
                 app_id=settings.ONESIGNAL_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
             )
 
             self.logger.info(f"Notification: {notification}")
-
-            if onesignal_id is None:
-                return "No onesignal id found"
-
             # TODO: Uncomment this when we have a way to test it
             # await self.one_signal.send_notification(
             #     Notification(
