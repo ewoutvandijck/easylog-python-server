@@ -478,7 +478,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[DebugAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=86_400,  # 1 day
+            interval_seconds=60 * 60 * 2,  # 2 hours
             agent_config=DebugAgentConfig(),
         )
 
