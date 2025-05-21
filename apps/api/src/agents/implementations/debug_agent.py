@@ -552,4 +552,5 @@ After analysis, you must take exactly ONE of these actions:
 
         self.logger.info(f"Super agent response: {response.choices[0].message}")
 
-        return response, tools
+        async for _ in self._handle_completion(response, tools, messages):
+            pass
