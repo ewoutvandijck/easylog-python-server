@@ -494,12 +494,15 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             self.get_tools()["tool_send_notification"],
         ]
 
+        prompt = f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}"
+        self.logger.info(f"Calling super agent with prompt: {prompt}")
+
         response = await self.client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[
                 {
                     "role": "developer",
-                    "content": f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}",
+                    "content": prompt,
                 },
                 *messages,
             ],
