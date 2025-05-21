@@ -851,12 +851,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+        metadata = dict((await self._get_thread()).metadata) or {}
+
         response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=[
                 {
                     "role": "developer",
-                    "content": f"Your role is to summarize our conversation in a few sentences and provide a list of reminders and recurring tasks for today. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Write in the same language as the conversation.",
+                    "content": f"Your role is to summarize our conversation in a few sentences and provide a list of reminders and recurring tasks for today. It's now {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Write in the same language as the conversation. Here is the metadata for this conversation: {json.dumps(metadata)}",
                 },
                 *messages,
             ],
