@@ -530,14 +530,11 @@ Please evaluate these items for notification eligibility:
 After analysis, you must take exactly ONE of these actions:
 - If any eligible notifications are found: invoke the send_notification tool with details
 - If no eligible notifications exist: invoke the noop tool
-
-## Output Format
-Always provide clear reasoning before taking action, explaining which items require notification and why.
 """
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
-        await self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
             model="openai/gpt-4.1",
             messages=[
                 {
@@ -553,4 +550,6 @@ Always provide clear reasoning before taking action, explaining which items requ
             tool_choice="auto",
         )
 
-        # return response, tools
+        self.logger.info(f"Super agent response: {response.choices[0].message}")
+
+        return response, tools
