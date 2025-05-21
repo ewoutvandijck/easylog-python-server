@@ -360,12 +360,14 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             self.logger.info(f"Notification: {notification}")
 
             response = await self.one_signal.send_notification(notification)
+            self.logger.info(f"Notification response: {response}")
 
             notifications = await self.get_metadata("notifications", [])
-            notifications.append({"response": str(response), "sent_at": datetime.now().isoformat()})
-            await self.set_metadata("notifications", notifications)
+            notifications.append(
+                {"id": response["id"], "title": title, "contents": contents, "sent_at": datetime.now().isoformat()}
+            )
 
-            self.logger.info(f"Notification response: {response}")
+            await self.set_metadata("notifications", notifications)
 
             return "Notification sent"
 
