@@ -13,7 +13,6 @@ from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
-from src.lib.prisma import prisma
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -97,7 +96,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         return next(role_config for role_config in self.config.roles if role_config.name == role)
 
-    def get_tools(self) -> list[Callable]:
+    def get_tools(self) -> dict[str, Callable]:
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
 
@@ -208,28 +207,77 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 selected_choice=None,
             )
 
-        async def tool_create_reminder(reminder: str, date_time: str) -> str:
-            """Create a reminder.
+        async def tool_set_recurring_task(cron_expression: str, task: str) -> str:
+            """Set a schedule for a task. The tasks will be part of the system prompt, so you can use them to figure out what needs to be done today.
 
             Args:
-                reminder (str): The reminder to create.
-                date_time (str): The date and time to create the reminder in the format YYYY-MM-DD HH:MM:SS
+                cron_expression (str): The cron expression to set.
+                task (str): The task to set the schedule for.
             """
-            reminders = await self.get_metadata("reminders", [])
-            reminders.append({"id": str(uuid.uuid4())[0:8], "reminder": reminder, "date_time": date_time})
-            await self.set_metadata("reminders", reminders)
-            return f"Reminder created: {reminder}"
 
-        async def tool_delete_reminder(id: str) -> str:
-            """Delete a reminder.
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+
+            existing_tasks.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "cron_expression": cron_expression,
+                    "task": task,
+                }
+            )
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Schedule set for {task} with cron expression {cron_expression}"
+
+        async def tool_add_reminder(date: str, message: str) -> str:
+            """Add a reminder.
 
             Args:
-                id (str): The id of the reminder to delete.
+                date (str): The date and time of the reminder in ISO 8601 format.
+                message (str): The message to remind the user about.
             """
-            reminders = await self.get_metadata("reminders", [])
-            reminders = [reminder for reminder in reminders if reminder["id"] != id]
-            await self.set_metadata("reminders", reminders)
-            return f"Reminder deleted: {id}"
+
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+
+            existing_reminders.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "date": date,
+                    "message": message,
+                }
+            )
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder added for {message} at {date}"
+
+        async def tool_remove_recurring_task(id: str) -> str:
+            """Remove a recurring task.
+
+            Args:
+                id (str): The ID of the task to remove.
+            """
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+
+            existing_tasks = [task for task in existing_tasks if task["id"] != id]
+
+            await self.set_metadata("recurring_tasks", existing_tasks)
+
+            return f"Recurring task {id} removed"
+
+        async def tool_remove_reminder(id: str) -> str:
+            """Remove a reminder.
+
+            Args:
+                id (str): The ID of the reminder to remove.
+            """
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+
+            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+
+            await self.set_metadata("reminders", existing_reminders)
+
+            return f"Reminder {id} removed"
 
         async def tool_store_memory(memory: str) -> str:
             """Store a memory.
@@ -285,25 +333,31 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             response = await self.one_signal.send_notification(notification)
 
+            notifications = await self.get_metadata("notifications", [])
+            notifications.append({"response": response, "sent_at": datetime.now().isoformat()})
+            await self.set_metadata("notifications", notifications)
+
             self.logger.info(f"Notification response: {response}")
 
             return "Notification sent"
 
-        return [
-            tool_search_documents,
-            tool_get_document_contents,
-            tool_set_current_role,
-            tool_get_questionaire_answer,
-            tool_answer_questionaire_question,
-            tool_ask_multiple_choice,
-            tool_create_reminder,
-            tool_delete_reminder,
-            tool_store_memory,
-            tool_get_memory,
-            tool_send_notification,
-            BaseTools.tool_noop,
-            BaseTools.tool_call_super_agent,
-        ]
+        return {
+            "tool_search_documents": tool_search_documents,
+            "tool_get_document_contents": tool_get_document_contents,
+            "tool_set_current_role": tool_set_current_role,
+            "tool_get_questionaire_answer": tool_get_questionaire_answer,
+            "tool_answer_questionaire_question": tool_answer_questionaire_question,
+            "tool_ask_multiple_choice": tool_ask_multiple_choice,
+            "tool_set_recurring_task": tool_set_recurring_task,
+            "tool_add_reminder": tool_add_reminder,
+            "tool_remove_recurring_task": tool_remove_recurring_task,
+            "tool_remove_reminder": tool_remove_reminder,
+            "tool_store_memory": tool_store_memory,
+            "tool_get_memory": tool_get_memory,
+            "tool_send_notification": tool_send_notification,
+            "tool_noop": BaseTools.tool_noop,
+            "tool_call_super_agent": BaseTools.tool_call_super_agent,
+        }
 
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
@@ -315,7 +369,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         role_config = await self.get_current_role()
 
-        tools = self.get_tools()
+        tools = list(self.get_tools().values())
 
         tools = [
             tool
@@ -382,25 +436,22 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
-        last_thread = await prisma.threads.find_first(
-            order={"created_at": "desc"},
-        )
-
-        if last_thread is None or last_thread.id != self.thread_id:
-            self.logger.info(f"This is not the last thread, skipping super agent call for {self.thread_id}")
-            return None
+        metadata = dict((await self._get_thread()).metadata) or {}
 
         response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",
+            model="openai/gpt-4o-mini",
             messages=[
                 {
                     "role": "developer",
-                    "content": "Your role is to summarize our conversation in a few sentences, but only if we discussed cats. Otherwise, call the noop tool.",
+                    "content": f"Your core responsibility is to ensure users receive necessary notifications without duplication. Analyze conversations, recurring tasks, and reminders to identify pending notifications. Crucially, always cross-reference with the 'sent notifications' log. Only send a notification if it's due AND has not been previously sent. If it has already been sent, or no notification is currently warranted, invoke the noop tool. Here is the conversation metadata: {json.dumps(metadata)}",
                 },
                 *messages,
             ],
-            tools=[function_to_openai_tool(BaseTools.tool_noop)],
-            tool_choice="auto",
+            tools=[
+                function_to_openai_tool(BaseTools.tool_noop),
+                function_to_openai_tool(self.get_tools()["tool_send_notification"]),
+            ],
+            tool_choice="required",
         )
 
         return response, []
