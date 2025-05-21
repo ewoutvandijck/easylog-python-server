@@ -438,6 +438,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                     for notification in await self.get_metadata("notifications", [])
                 ]
             ),
+            "metadata": json.dumps((await self._get_thread()).metadata),
         }
 
         formatted_prompt = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
