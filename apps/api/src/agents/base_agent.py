@@ -53,6 +53,7 @@ class BaseAgent(Generic[TConfig]):
     """Base class for all agents."""
 
     _thread: threads | None = None
+    _metadata: dict | None = None
 
     def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
         self._raw_config = kwargs
@@ -137,15 +138,18 @@ class BaseAgent(Generic[TConfig]):
             yield chunk
 
     async def get_metadata(self, key: str, default: Any | None = None) -> Any:
-        metadata: dict = dict((await self._get_thread()).metadata) or {}
+        if self._metadata is None:
+            self._metadata = dict((await self._get_thread()).metadata) or {}
 
-        return metadata.get(key, default)
+        return self._metadata.get(key, default)
 
     async def set_metadata(self, key: str, value: Any) -> None:
-        metadata: dict = dict((await self._get_thread()).metadata) or {}
-        metadata[key] = value
+        if self._metadata is None:
+            self._metadata = dict((await self._get_thread()).metadata) or {}
 
-        await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(metadata)})
+        self._metadata[key] = value
+
+        await prisma.threads.update(where={"id": self.thread_id}, data={"metadata": Json(self._metadata)})
 
     async def get_document(self, document_path: str) -> dict:
         document = await prisma.documents.find_first_or_raise(where={"path": document_path})
