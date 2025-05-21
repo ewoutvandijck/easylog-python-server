@@ -423,6 +423,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             role_config.prompt, questionnaire_format_kwargs
         )
 
+        reminders = await self.get_metadata("reminders", [])
+        recurring_tasks = await self.get_metadata("recurring_tasks", [])
+        memories = await self.get_metadata("memories", [])
+        notifications = await self.get_metadata("notifications", [])
+
         # Prepare the main content for the LLM
         main_prompt_format_args = {
             "current_role": role_config.name,
@@ -430,26 +435,23 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "reminders": "\n".join(
-                [
-                    f"{reminder.get('id')}: {reminder.get('message')} at {reminder.get('date')}"
-                    for reminder in await self.get_metadata("reminders", [])
-                ]
-            ),
+                [f"{reminder.get('id')}: {reminder.get('message')} at {reminder.get('date')}" for reminder in reminders]
+            )
+            if reminders
+            else "<no reminders>",
             "recurring_tasks": "\n".join(
-                [
-                    f"{task.get('id')}: {task.get('task')} at {task.get('cron_expression')}"
-                    for task in await self.get_metadata("recurring_tasks", [])
-                ]
-            ),
-            "memories": "\n".join(
-                [f"{memory.get('id')}: {memory.get('memory')}" for memory in await self.get_metadata("memories", [])]
-            ),
+                [f"{task.get('id')}: {task.get('task')} at {task.get('cron_expression')}" for task in recurring_tasks]
+            )
+            if recurring_tasks
+            else "<no recurring tasks>",
+            "memories": "\n".join([f"{memory.get('id')}: {memory.get('memory')}" for memory in memories])
+            if memories
+            else "<no memories>",
             "notifications": "\n".join(
-                [
-                    f"{notification.get('response')} at {notification.get('sent_at')}"
-                    for notification in await self.get_metadata("notifications", [])
-                ]
-            ),
+                [f"{notification.get('response')} at {notification.get('sent_at')}" for notification in notifications]
+            )
+            if notifications
+            else "<no notifications>",
             "metadata": json.dumps((await self._get_thread()).metadata),
         }
 
