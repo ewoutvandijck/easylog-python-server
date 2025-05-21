@@ -419,7 +419,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "reminders": "\n".join(
                 [
-                    f"{reminder.get('id')}: {reminder.get('reminder')} at {reminder.get('date_time')}"
+                    f"{reminder.get('id')}: {reminder.get('message')} at {reminder.get('date')}"
                     for reminder in await self.get_metadata("reminders", [])
                 ]
             ),
