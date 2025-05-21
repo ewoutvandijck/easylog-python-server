@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
 
+from onesignal.model.notification import Notification
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -14,6 +15,7 @@ from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
 from src.lib.prisma import prisma
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
+from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
@@ -255,11 +257,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return memory["memory"]
 
-        async def tool_send_notification(text: str) -> str:
+        async def tool_send_notification(contents: str) -> str:
             """Send a notification.
 
             Args:
-                text (str): The text to send in the notification.
+                contents (str): The text to send in the notification.
             """
             onesignal_id = await self.get_metadata("onesignal_id", None)
 
@@ -268,6 +270,14 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             notifications = await self.one_signal.get_notifications()
 
             self.logger.info(f"Notifications: {notifications}")
+
+            notification = Notification(
+                app_id=settings.ONESIGNAL_APP_ID,
+                include_external_user_ids=[onesignal_id],
+                contents={"en": contents},
+            )
+
+            self.logger.info(f"Notification: {notification}")
 
             if onesignal_id is None:
                 return "No onesignal id found"
