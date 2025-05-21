@@ -335,10 +335,17 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 "onesignal_id", None
             )
 
+            assistant_field_name = self.request_headers.get("x-assistant-field-name") or await self.get_metadata(
+                "assistant_field_name", None
+            )
+
             self.logger.info(f"Sending notification to {onesignal_id}")
 
             if onesignal_id is None:
                 return "No onesignal id found"
+
+            if assistant_field_name is None:
+                return "No assistant field name found"
 
             notification = Notification(
                 target_channel="push",
@@ -347,6 +354,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},
+                data={"type": "chat", "assistantFieldName": assistant_field_name},
             )
 
             self.logger.info(f"Notification: {notification}")
@@ -383,9 +391,13 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
+        assistant_field_name = self.request_headers.get("x-assistant-field-name")
 
         if onesignal_id is not None:
             await self.set_metadata("onesignal_id", onesignal_id)
+
+        if assistant_field_name is not None:
+            await self.set_metadata("assistant_field_name", assistant_field_name)
 
         role_config = await self.get_current_role()
 
