@@ -547,6 +547,7 @@ Always provide clear reasoning before taking action, explaining which items requ
             ],
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
+            reasoning_effort="medium",
         )
 
         return response, tools
