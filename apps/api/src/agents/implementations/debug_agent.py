@@ -419,22 +419,22 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "reminders": "\n".join(
                 [
-                    f"{reminder['id']}: {reminder['reminder']} at {reminder['date_time']}"
+                    f"{reminder.get('id')}: {reminder.get('reminder')} at {reminder.get('date_time')}"
                     for reminder in await self.get_metadata("reminders", [])
                 ]
             ),
             "recurring_tasks": "\n".join(
                 [
-                    f"{task['id']}: {task['task']} at {task['cron_expression']}"
+                    f"{task.get('id')}: {task.get('task')} at {task.get('cron_expression')}"
                     for task in await self.get_metadata("recurring_tasks", [])
                 ]
             ),
             "memories": "\n".join(
-                [f"{memory['id']}: {memory['memory']}" for memory in await self.get_metadata("memories", [])]
+                [f"{memory.get('id')}: {memory.get('memory')}" for memory in await self.get_metadata("memories", [])]
             ),
             "notifications": "\n".join(
                 [
-                    f"{notification['response']} at {notification['sent_at']}"
+                    f"{notification.get('response')} at {notification.get('sent_at')}"
                     for notification in await self.get_metadata("notifications", [])
                 ]
             ),
