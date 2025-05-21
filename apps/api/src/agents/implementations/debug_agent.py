@@ -544,7 +544,10 @@ Always provide clear reasoning before taking action, explaining which items requ
                     "role": "developer",
                     "content": prompt,
                 },
-                *messages,
+                {
+                    "role": "user",
+                    "content": "Send my notifications",
+                },
             ],
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
