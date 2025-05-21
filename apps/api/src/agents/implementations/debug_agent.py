@@ -404,6 +404,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             "memories": "\n".join(
                 [f"{memory['id']}: {memory['memory']}" for memory in await self.get_metadata("memories", [])]
             ),
+            "notifications": "\n".join(
+                [
+                    f"{notification['response']} at {notification['sent_at']}"
+                    for notification in await self.get_metadata("notifications", [])
+                ]
+            ),
         }
 
         main_prompt_format_args.update(questionnaire_format_kwargs)
