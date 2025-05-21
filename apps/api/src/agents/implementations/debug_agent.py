@@ -2,7 +2,7 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from onesignal.model.notification import Notification
 from openai import AsyncStream
@@ -257,7 +257,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return memory["memory"]
 
-        async def tool_send_notification(contents: str) -> str:
+        async def tool_send_notification(title: str, contents: str) -> str:
             """Send a notification.
 
             Args:
@@ -272,16 +272,13 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             if onesignal_id is None:
                 return "No onesignal id found"
 
-            tomorrow_at_12_00 = datetime.now() + timedelta(days=1)
-            tomorrow_at_12_00 = tomorrow_at_12_00.replace(hour=12, minute=0, second=0, microsecond=0)
-
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
                 app_id=settings.ONESIGNAL_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
-                send_after=tomorrow_at_12_00,
+                headings={"en": title},
             )
 
             self.logger.info(f"Notification: {notification}")
