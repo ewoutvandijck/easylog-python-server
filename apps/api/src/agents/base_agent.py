@@ -351,7 +351,7 @@ class BaseAgent(Generic[TConfig]):
 
                     continue
 
-                input_data = json.loads(tool_call.arguments)
+                input_data = json.loads(tool_call.arguments or "{}")
 
                 yield ToolUseContent(
                     id=str(uuid.uuid4()),
@@ -388,7 +388,7 @@ class BaseAgent(Generic[TConfig]):
 
                 continue
 
-            input_data = json.loads(tool_call.function.arguments)
+            input_data = json.loads(tool_call.function.arguments or "{}")
 
             yield ToolUseContent(
                 id=str(uuid.uuid4()),
