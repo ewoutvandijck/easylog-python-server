@@ -524,6 +524,7 @@ Please evaluate these items for notification eligibility:
 - If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
 - If an item appears in the previously sent notifications list, it MUST be skipped
 - Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)
+- The date attribute of a reminder is the due date.
 
 ## Required Action
 After analysis, you must take exactly ONE of these actions:
