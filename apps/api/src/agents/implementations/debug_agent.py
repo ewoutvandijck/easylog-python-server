@@ -255,6 +255,34 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             return memory["memory"]
 
+        async def tool_send_notification(text: str) -> str:
+            """Send a notification.
+
+            Args:
+                text (str): The text to send in the notification.
+            """
+            onesignal_id = await self.get_metadata("onesignal_id", None)
+
+            self.logger.info(f"Sending notification to {onesignal_id}")
+
+            notifications = await self.one_signal.get_notifications()
+
+            self.logger.info(f"Notifications: {notifications}")
+
+            if onesignal_id is None:
+                return "No onesignal id found"
+
+            # TODO: Uncomment this when we have a way to test it
+            # await self.one_signal.send_notification(
+            #     Notification(
+            #         app_id=settings.ONESIGNAL_APP_ID,
+            #         include_external_user_ids=[onesignal_id],
+            #         contents={"en": text},
+            #     )
+            # )
+
+            return "Notification sent"
+
         return [
             tool_search_documents,
             tool_get_document_contents,
@@ -266,6 +294,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             tool_delete_reminder,
             tool_store_memory,
             tool_get_memory,
+            tool_send_notification,
             BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
@@ -273,6 +302,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_message(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
+        onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
+
+        if onesignal_id is not None:
+            await self.set_metadata("onesignal_id", onesignal_id)
+
         role_config = await self.get_current_role()
 
         tools = self.get_tools()

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     SUPABASE_ORIGIN_OVERRIDE: str | None = Field(default=None)
     OPENAI_API_KEY: str
+    ONESIGNAL_API_KEY: str = Field(default="")
+    ONESIGNAL_APP_ID: str = Field(default="")
 
 
 settings = Settings()  # type: ignore

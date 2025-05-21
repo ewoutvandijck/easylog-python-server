@@ -145,6 +145,7 @@ dependencies = [
     { name = "marvin" },
     { name = "matplotlib" },
     { name = "mistralai" },
+    { name = "onesignal-python-api" },
     { name = "openai" },
     { name = "openpyxl" },
     { name = "pandas" },
@@ -179,6 +180,7 @@ requires-dist = [
     { name = "marvin", specifier = ">=2.3.8" },
     { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "mistralai", specifier = ">=1.7.0" },
+    { name = "onesignal-python-api", specifier = ">=2.0.2" },
     { name = "openai", specifier = ">=1.65.1" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },
@@ -1759,6 +1761,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6d/fa/fbf4001037904031639e6bfbfc02badfc7e12f137a8afa254df6c4c8a670/oauthlib-3.2.2.tar.gz", hash = "sha256:9859c40929662bec5d64f34d01c99e093149682a3f38915dc0655d5a633dd918", size = 177352 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/80/cab10959dc1faead58dc8384a781dfbf93cb4d33d50988f7a69f1b7c9bbe/oauthlib-3.2.2-py3-none-any.whl", hash = "sha256:8139f29aac13e25d502680e9e19963e83f16838d48a0d71c287fe40e7067fbca", size = 151688 },
+]
+
+[[package]]
+name = "onesignal-python-api"
+version = "2.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/09/86cb3cc31af4849c3742c3d6d4d10ba582a0969eaf9d1d995eb774125376/onesignal_python_api-2.0.2.tar.gz", hash = "sha256:706f54b78a92a5339e6b81a3ae28c5316eb71247206b1776f295a15a5926f93b", size = 164560 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/0d/aa6a81efdf7f8e08db75a95341c3b2f9088099270d43e0e7e60a76c6c096/onesignal_python_api-2.0.2-py3-none-any.whl", hash = "sha256:1924670dd7182788932db23a95a6b955d278111e99f24ea2263b1dd1f7375ad1", size = 329328 },
 ]
 
 [[package]]

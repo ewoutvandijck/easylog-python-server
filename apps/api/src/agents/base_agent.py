@@ -37,6 +37,7 @@ from src.models.image_widget import ImageWidget
 from src.models.messages import MessageContent, TextContent, TextDeltaContent, ToolResultContent, ToolUseContent
 from src.models.multiple_choice_widget import MultipleChoiceWidget
 from src.models.stream_tool_call import StreamToolCall
+from src.services.one_signal.one_signal_service import OneSignalService
 from src.utils.image_to_base64 import image_to_base64
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
@@ -57,6 +58,7 @@ class BaseAgent(Generic[TConfig]):
         self._raw_config = kwargs
         self.thread_id = thread_id
         self.request_headers = request_headers
+        self.one_signal = OneSignalService()
 
         # Initialize the client
         self.client = openai_client
