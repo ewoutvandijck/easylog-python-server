@@ -53,8 +53,8 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="openai/gpt-4.1",
-        description="The model identifier to use for this role, e.g., 'openai/gpt-4.1' or any model from https://openrouter.ai/models.",
+        default="anthropic/claude-sonnet-4",
+        description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
         default=".*",
@@ -76,7 +76,7 @@ class MUMCAgentConfig(BaseModel):
             RoleConfig(
                 name="MUMCAssistant",
                 prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model="openai/gpt-4.1",
+                model="anthropic/claude-sonnet-4",
                 tools_regex=".*",
                 allowed_subjects=None,
                 questionaire=[],
@@ -1045,7 +1045,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
         response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",  # Consider making this configurable or same as role_config.model
+            model="anthropic/claude-sonnet-4",  # Consider making this configurable or same as role_config.model
             messages=[
                 {
                     "role": "system",
