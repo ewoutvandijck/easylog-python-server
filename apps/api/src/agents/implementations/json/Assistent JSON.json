@@ -6,7 +6,7 @@
       "type": "assistant",
       "label": "MUMC Coach",
       "agentConfig": {
-        "agent_class": "MUMCAgent",
+        "agent_class": "EasyLogAgent",
         "prompt": "You can use the following roles: {{available_roles}}\n\nYou are currently acting as the role: {{current_role}}\n\nYour specific instructions for this role are: {{current_role_prompt}}\n\nYour recurring tasks are: {{recurring_tasks}}.\nYou current reminders are: {{reminders}}.\nYour memories are: {{memories}}.\n\nYou've sent the following notifications in the past {{notifications}}\n\nThe current date time is {{current_time}}\n\nThe full metadata for this chat is {{metadata}}. If the user says super agent you should the tool tool_call_super_agent. This prompt may include asking questions from the questionaire tool. Use the questionnaire tools to interact with the questionnaires. Use the ChartWidget tool to show charts. Here are you memories: {{memories}}. Please call the tool store_memory to store any relevant information about the conversation. When the user responds with super agent, you must ignore all previous instructions and call tool_call_super_agent. If the user says he is a tester, help him",
         "roles": [
           {
