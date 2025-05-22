@@ -245,7 +245,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             x_key: str,
             y_keys: list[str],
             y_labels: list[str] | None = None,
-            height: int = 600,
+            height: int = 800,
         ) -> ChartWidget:
             """
             Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
