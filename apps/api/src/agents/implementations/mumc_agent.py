@@ -372,7 +372,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
                         )
 
-            return ChartWidget.create_bar_chart(
+            chart = ChartWidget.create_bar_chart(
                 title=title,
                 description=description,
                 data=data,
@@ -385,6 +385,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 y_axis_domain_min=0,
                 y_axis_domain_max=100,
             )
+            
+            # Configure tooltip to hide domain labels and show only percentage
+            from src.models.chart_widget import TooltipConfig
+            chart.tooltip = TooltipConfig(show=True, hide_label=True)
+            
+            return chart
 
         def tool_create_bar_chart(
             title: str,
