@@ -405,9 +405,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             height: int = 400,
         ) -> ChartWidget:
             """
-            Creates a bar chart with customizable colors and optional horizontal lines.
+            Creates a bar chart with customizable colors and optional horizontal lines..
 
-            You MUST provide data where each y_key's value is a dictionary:
+            You MUST provide data where each y_key's value is a dictionary: ß
             {{"value": <actual_value>, "colorRole": <role_name_str> | null}}.
             - If `colorRole` is a string (e.g., "high_sales", "low_stock"), it will be
               used as a key to look up the color. The lookup order is:
