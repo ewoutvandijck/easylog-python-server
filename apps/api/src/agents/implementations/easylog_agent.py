@@ -1072,10 +1072,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     "content": "Send my notifications",
                 },
             ],
+            stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
         )
-
-        self.logger.info(f"Super agent response: {response.choices[0].message}")
 
         return response, tools
