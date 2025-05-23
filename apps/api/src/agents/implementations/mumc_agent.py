@@ -1046,6 +1046,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             "After analysis, you must take exactly ONE of these actions:\\n"
             "- If any eligible notifications are found: invoke the send_notification tool with details\\n"
             "- If no eligible notifications exist: invoke the noop tool\\n"
+            "\\n\\n"
+            "## IMPORTANT: OUTPUT RULES\\n"
+            "- DO NOT provide any text explanation or analysis\\n"
+            "- DO NOT output any readable text to the user\\n"
+            "- ONLY call the appropriate tool (send_notification or noop)\\n"
+            "- This is a background system process - users should not see any output\\n"
         )
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
@@ -1067,9 +1073,5 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
         self.logger.info(f"Super agent response: {response.choices[0].message}")
-
-        # Added from debug_agent.py to handle the completion
-        async for _ in self._handle_completion(response, tools, messages):
-            pass
 
         return response, tools
