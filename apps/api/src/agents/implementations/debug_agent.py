@@ -492,7 +492,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         if onesignal_id is None:
             self.logger.info("No onesignal id found, skipping super agent call")
-            return None
+            return
 
         last_thread = await prisma.threads.query_first(
             """
@@ -506,11 +506,11 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
         if last_thread is None:
             self.logger.info("No last thread found, skipping super agent call")
-            return None
+            return
 
         if last_thread.id != self.thread_id:
             self.logger.info("Last thread id does not match current thread id, skipping super agent call")
-            return None
+            return
 
         tools = [
             BaseTools.tool_noop,
