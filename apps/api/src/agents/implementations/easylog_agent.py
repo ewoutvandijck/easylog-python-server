@@ -835,12 +835,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         tools = self.get_tools()
 
         # Filter tools based on the role's regex pattern
+        # Always include noop and super_agent tools regardless of regex
+        essential_tools = [BaseTools.tool_noop.__name__, BaseTools.tool_call_super_agent.__name__]
         tools_values = [
             tool
             for tool in tools.values()
-            if re.match(role_config.tools_regex, tool.__name__)
-            or tool.__name__ == BaseTools.tool_noop.__name__
-            or tool.__name__ == BaseTools.tool_call_super_agent.__name__
+            if re.match(role_config.tools_regex, tool.__name__) or tool.__name__ in essential_tools
         ]
 
         # Prepare questionnaire format kwargs
