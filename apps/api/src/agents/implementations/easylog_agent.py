@@ -217,33 +217,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             """
 
             await self.set_metadata(question_name, answer)
-            
-            # --- BEGIN UPDATE CURRENT QUESTION INDEX ---
-            role_config_for_tool = await self.get_current_role() # Get fresh role_config
-            if role_config_for_tool.name == "Ziektelastmeter" and role_config_for_tool.questionaire:
-                current_idx_str_tool = await self.get_metadata("current_question_idx", "0")
-                current_idx_tool = int(current_idx_str_tool)
-
-                # Find the index of the question that was just answered
-                answered_q_index = -1
-                for i, q_conf in enumerate(role_config_for_tool.questionaire):
-                    if q_conf.name == question_name:
-                        answered_q_index = i
-                        break
-                
-                # If the answered question is the current one, increment for next turn
-                if answered_q_index == current_idx_tool:
-                    next_idx_tool = current_idx_tool + 1
-                    if next_idx_tool < len(role_config_for_tool.questionaire):
-                         await self.set_metadata("current_question_idx", str(next_idx_tool))
-                         self.logger.info(f"Updated current_question_idx to {next_idx_tool} for question: {role_config_for_tool.questionaire[next_idx_tool].name}")
-                    else:
-                        # Last question answered, no specific next question in list.
-                        # Agent will proceed to UITSLAG role as per prompt.
-                        await self.set_metadata("current_question_idx", str(next_idx_tool)) # Store out of bounds to signify completion
-                        self.logger.info(f"All ZLM questions answered. current_question_idx set to {next_idx_tool}.")
-
-            # --- END UPDATE CURRENT QUESTION INDEX ---
 
             return f"Answer to {question_name} set to {answer}"
 
@@ -861,7 +834,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         # Get the available tools
         tools = self.get_tools()
 
-        # Filter tools based on the role\'s regex pattern
+        # Filter tools based on the role's regex pattern
         tools_values = [
             tool
             for tool in tools.values()
@@ -870,36 +843,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             or tool.__name__ == BaseTools.tool_call_super_agent.__name__
         ]
 
-        # --- BEGIN QUESTIONNAIRE LOGIC ---
+        # Prepare questionnaire format kwargs
         questionnaire_format_kwargs: dict[str, str] = {}
-        current_question_idx_str = await self.get_metadata("current_question_idx", "0")
-        current_question_idx = int(current_question_idx_str)
-
-        if role_config.name == "Ziektelastmeter" and role_config.questionaire:
-            if 0 <= current_question_idx < len(role_config.questionaire):
-                current_q_config = role_config.questionaire[current_question_idx]
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_name"] = current_q_config.name
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_question"] = current_q_config.question
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_instructions"] = current_q_config.instructions
-            else: # Handle out of bounds or empty questionnaire for current_question placeholders
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_name"] = "None"
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_question"] = "None"
-                questionnaire_format_kwargs["questionaire_CURRENT_QUESTION_instructions"] = "None"
-
-            if current_question_idx > 0 and (current_question_idx -1) < len(role_config.questionaire):
-                previous_q_config = role_config.questionaire[current_question_idx -1]
-                questionnaire_format_kwargs["questionaire_PREVIOUS_QUESTION_name"] = previous_q_config.name
-            else:
-                questionnaire_format_kwargs["questionaire_PREVIOUS_QUESTION_name"] = "None"
-
-        # Populate all questionnaire items for general prompt templating
-        for idx, q_item in enumerate(role_config.questionaire):
+        for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
-        # --- END QUESTIONNAIRE LOGIC ---
 
         # Format the role prompt with questionnaire data
         try:
