@@ -1014,7 +1014,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
         response = await self.client.chat.completions.create(
-            model="google/gemini-2.5-flash-preview-05-20",  # Consider making this configurable or same as role_config.model
+            model="openai/gpt-4.1",  # Consider making this configurable or same as role_config.model
             messages=[
                 {
                     "role": "system",
