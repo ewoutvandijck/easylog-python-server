@@ -484,7 +484,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             custom_series_colors_palette: list[str] | None = None,
             horizontal_lines: list[Line] | None = None,
             description: str | None = None,
-            height: int = 400,
+            height: int = 600,
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
         ) -> ChartWidget:

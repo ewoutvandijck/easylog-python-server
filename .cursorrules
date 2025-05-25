@@ -1,0 +1,103 @@
+# EasyLog Python Server - Agent Architecture Context
+
+## Project Overview
+This is the EasyLog Python server project that provides a flexible AI agent framework for building customized solutions for different clients. The system uses a modular architecture with agents, tools, roles, and workflows that can be configured per client requirements.
+
+## Key Architecture Components
+
+### Agent System
+- **BaseAgent**: Core agent class with generic configuration support
+- **Role-based Configuration**: Multiple roles per agent with specific permissions
+- **Tool Integration**: Modular tool system with regex-based filtering
+- **Super Agent**: Autonomous background system for scheduled tasks
+
+### Current Agent Implementations
+- **EasyLogAgent**: Production agent with comprehensive tools and 3-hour super agent interval
+- **MUMCAgent**: Medical/healthcare focused agent with COPD-specific features
+- **DebugAgent**: Development agent with 2-hour super agent interval and enhanced logging
+
+### Tool Categories
+- **EasyLog Backend Tools**: API access for companies, users, projects management
+- **EasyLog SQL Tools**: Database query and schema access via SSH tunnel
+- **Knowledge Graph Tools**: Document search and retrieval from knowledge base
+- **Visualization Tools**: Chart creation (bar, line, ZLM charts for healthcare)
+- **Communication Tools**: OneSignal notifications, multiple choice interactions
+- **System Tools**: Memory, reminders, recurring tasks, file operations
+
+### Client Solutions
+- **Healthcare**: HIPAA-compliant with ZLM charts for COPD monitoring
+- **E-commerce**: Order management, inventory tracking, sales analytics
+- **Financial**: Fraud detection, risk analysis, compliance monitoring
+- **Customer Service**: High-volume support with cost-effective models
+
+### OpenRouter Integration
+- **Models**: Uses OpenRouter.ai for access to 300+ AI models
+- **Primary Models**: 
+  - `anthropic/claude-sonnet-4` for premium/medical applications
+  - `openai/gpt-4.1` for standard business use
+  - `openai/gpt-4.1-mini` for cost-effective high-volume operations
+- **Configuration**: Environment-based API key management
+
+### Frontend Integration
+- **Flutter Chat App**: User-facing chat interface that connects to Python agents
+- **Widget Integration**: Agents generate widgets (charts, multiple choice) rendered in Flutter
+- **Real-time Communication**: Streaming responses for progressive message rendering
+- **Client Branding**: Customizable themes and layouts per client
+
+## Documentation Files
+Always reference these key documentation files when discussing architecture:
+- `instructions/client-agent-configuration.md` - Complete client configuration guide
+- `instructions/openrouter-configuration.md` - OpenRouter setup and Super Agent documentation
+
+## Important Context
+- This environment builds different solutions for different clients
+- Security and compliance are critical (HIPAA, GDPR, SOX support)
+- Multi-tenant architecture with client-specific configurations
+- Performance optimization through appropriate model selection
+- Monitoring and analytics for usage tracking and billing
+
+## Development Context
+**IMPORTANT**: The user is not a full developer but uses AI assistance to build and maintain this system. 
+
+### Deployment Architecture
+- **Local Development**: Code is developed locally and committed to the server
+- **Production Server**: Accessible via `ssh easylog-python`
+- **Server Access Rules**: 
+  - **NEVER make changes to the server without explicit approval**
+  - **Can monitor logs**: Use `ssh easylog-python "docker logs easylog-python-server.api -f"` for live monitoring
+  - **Read-only monitoring**: Check server status, logs, and performance
+  - **Changes require approval**: Always ask before executing any server modifications
+
+Therefore:
+
+### AI Assistant Guidelines
+- **Be Comprehensive**: Provide complete, working code examples rather than snippets
+- **Explain Reasoning**: Always explain why specific approaches are chosen
+- **Be Proactive**: Suggest best practices, potential issues, and optimizations
+- **Implementation Ready**: Generate code that can be used immediately without requiring additional development knowledge
+- **Educational**: Explain technical concepts in accessible terms
+- **Safety First**: Always consider security, compliance, and error handling
+- **Test-Ready**: Provide examples that can be tested and validated
+
+### Communication Style
+- Focus on practical, working solutions
+- Provide step-by-step implementation guides
+- Explain technical trade-offs in business terms
+- Suggest testing approaches and validation methods
+- Always consider the broader impact on client solutions
+
+## Technical Guidelines
+- Agents inherit from BaseAgent[TConfig] with type-safe configuration
+- Tools use async/await patterns and proper error handling
+- Super agents run autonomously on configurable intervals
+- All client data access uses proper authentication and authorization
+- Role-based access control with regex filtering for tool permissions
+
+When discussing any agent modifications, tool implementations, or client configurations, always consider:
+1. Security and compliance requirements
+2. Client-specific customization needs
+3. Performance and cost implications
+4. Integration with Flutter frontend
+5. Super agent automation possibilities
+6. Implementation complexity and maintainability
+7. Testing and validation requirements 
