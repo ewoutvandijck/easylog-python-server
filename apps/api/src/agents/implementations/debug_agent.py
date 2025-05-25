@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
+from src.lib.prisma import prisma
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
@@ -487,6 +488,30 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+        onesignal_id = await self.get_metadata("onesignal_id")
+
+        if onesignal_id is None:
+            self.logger.info("No onesignal id found, skipping super agent call")
+            return None
+
+        last_thread = await prisma.threads.query_first(
+            """
+        SELECT * FROM threads
+        WHERE metadata->>'onesignal_id' = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+            onesignal_id,
+        )
+
+        if last_thread is None:
+            self.logger.info("No last thread found, skipping super agent call")
+            return None
+
+        if last_thread.id != self.thread_id:
+            self.logger.info("Last thread id does not match current thread id, skipping super agent call")
+            return None
+
         tools = [
             BaseTools.tool_noop,
             self.get_tools()["tool_send_notification"],
