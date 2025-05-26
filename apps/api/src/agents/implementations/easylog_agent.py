@@ -285,7 +285,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 height: Optional. The height of the chart in pixels. Defaults to 400.
 
             Returns:
-                A ChartWidget object configured for ZLM display.
+                A ChartWidget object configured for ZLM display!
 
             Raises:
                 ValueError: If data is missing required keys, values are not numbers,
