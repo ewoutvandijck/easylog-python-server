@@ -286,7 +286,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
 
             title = "      Uw ziektelastmeter resultaten" if language == "nl" else "Disease burden results %"
-            description = "" if language == "nl" else "Your COPD results."
+            description = " " if language == "nl" else "Your COPD results."
 
             # Custom color role map for ZLM charts
             ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
