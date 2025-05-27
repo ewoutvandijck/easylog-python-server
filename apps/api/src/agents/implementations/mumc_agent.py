@@ -285,7 +285,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = "Uw ziektelastmeter resultaten" if language == "nl" else "Disease burden results %"
+            title = "      Uw ziektelastmeter resultaten" if language == "nl" else "Disease burden results %"
             description = "" if language == "nl" else "Your COPD results."
 
             # Custom color role map for ZLM charts
@@ -935,7 +935,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=800,  # 1 hour
+            interval_seconds=7200,  # 2 hours
             agent_config=MUMCAgentConfig(),
         )
 
