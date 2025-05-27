@@ -976,40 +976,41 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         reminders = await self.get_metadata("reminders", [])
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
 
-        prompt = (
-            "# Notification Management System\\n\\n"
-            "## Core Responsibility\\n"
-            "You are the notification management system responsible for delivering timely alerts without duplication. "
-            "Your task is to analyze pending notifications and determine which ones need to be sent.\\n\\n"
-            "## Current Time\\n"
-            f"Current system time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
-            "## Previously Sent Notifications\\n"
-            "The following notifications have already been sent and MUST NOT be resent:\\n"
-            f"{json.dumps(notifications, indent=2)}\\n\\n"
-            "## Items to Evaluate\\n"
-            "Please evaluate these items for notification eligibility:\\n\\n"
-            "1. Reminders:\\n"
-            f"{json.dumps(reminders, indent=2)}\\n\\n"
-            "2. Recurring Tasks:\\n"
-            f"{json.dumps(recurring_tasks, indent=2)}\\n\\n"
-            "## Decision Rules\\n"
-            "- A notification should be sent for any reminder that is currently due\\n"
-            "- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time\\n"
-            "- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification\\n"
-            "- If an item appears in the previously sent notifications list, it MUST be skipped\\n"
-            "- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)\\n"
-            "- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.\\n\\n"
-            "## Required Action\\n"
-            "After analysis, you must take exactly ONE of these actions:\\n"
-            "- If any eligible notifications are found: invoke the send_notification tool with details\\n"
-            "- If no eligible notifications exist: invoke the noop tool\\n"
-            "\\n\\n"
-            "## IMPORTANT: OUTPUT RULES\\n"
-            "- DO NOT provide any text explanation or analysis\\n"
-            "- DO NOT output any readable text to the user\\n"
-            "- ONLY call the appropriate tool (send_notification or noop)\\n"
-            "- This is a background system process - users should not see any output\\n"
-        )
+        prompt = f"""
+# Notification Management System
+
+## Core Responsibility
+You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
+
+## Current Time
+Current system time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## Previously Sent Notifications
+The following notifications have already been sent and MUST NOT be resent:
+{json.dumps(notifications, indent=2)}
+
+## Items to Evaluate
+Please evaluate these items for notification eligibility:
+
+1. Reminders:
+{json.dumps(reminders, indent=2)}
+
+2. Recurring Tasks:
+{json.dumps(recurring_tasks, indent=2)}
+
+## Decision Rules
+- A notification should be sent for any reminder that is currently due
+- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time
+- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
+- If an item appears in the previously sent notifications list, it MUST be skipped
+- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)
+- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.
+
+## Required Action
+After analysis, you must take exactly ONE of these actions:
+- If any eligible notifications are found: invoke the send_notification tool with details
+- If no eligible notifications exist: invoke the noop tool
+"""
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
@@ -1025,9 +1026,11 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "content": "Send my notifications",
                 },
             ],
-            stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
         )
 
-        return response, tools
+        self.logger.info(f"Super agent response: {response.choices[0].message}")
+
+        async for _ in self._handle_completion(response, tools, messages):
+            pass
