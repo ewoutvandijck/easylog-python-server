@@ -24,6 +24,7 @@ from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
+    TooltipConfig,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -284,7 +285,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = "Uw ziektelastmeter resultaten." if language == "nl" else "Disease burden results %"
+            title = "Uw ziektelastmeter resultaten" if language == "nl" else "Disease burden results %"
             description = "" if language == "nl" else "Your COPD results."
 
             # Custom color role map for ZLM charts
@@ -371,9 +372,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
             # Configure tooltip to hide domain labels and show only percentage
-            from src.models.chart_widget import TooltipConfig
-
-            chart.tooltip = TooltipConfig(show=True, hide_label=True)
+            chart.tooltip = TooltipConfig(show=True, custom_content="Score: {value}")
 
             return chart
 
