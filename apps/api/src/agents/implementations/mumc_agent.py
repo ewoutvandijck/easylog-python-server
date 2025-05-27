@@ -949,7 +949,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             self.logger.info("No onesignal id found, skipping super agent call")
             return
 
-        last_thread = prisma.threads.query_first(
+        last_thread = await prisma.threads.query_first(
             """
         SELECT * FROM threads
         WHERE metadata->>'onesignal_id' = $1
