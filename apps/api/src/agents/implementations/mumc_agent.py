@@ -222,6 +222,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             Returns:
                 str: A message indicating the answers have been set.
+
+            Example:
+                tool_answer_questionaire_questions(
+                    {
+                        "question_1": "answer_1",
+                        "question_2": "answer_2",
+                        "question_3": "answer_3"
+                    }
+                )
+                -> "Answers to ['question_1', 'question_2', 'question_3'] set as new version(s) at 2024-06-01T12:00:00+02:00"
             """
             _answers: dict[str, str] = {}
             if isinstance(answers, str):
