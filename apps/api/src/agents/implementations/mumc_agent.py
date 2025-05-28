@@ -213,17 +213,30 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
-            """Answer a question from the questionaire.
+        async def tool_answer_questionaire_questions(answers: dict[str, str]) -> str:
+            """Answer a set of questions from the questionaire.
 
             Args:
-                question_name (str): The name of the question to answer.
-                answer (str): The answer to the question.
+                answers (dict[str, str]): A dictionary of question names and answers.
+
+            Returns:
+                str: A message indicating the answers have been set.
+
+            Example:
+                tool_answer_questionaire_questions(
+                    {
+                        "question_1": "answer_1",
+                        "question_2": "answer_2",
+                        "question_3": "answer_3"
+                    }
+                )
+                -> "Answers to ['question_1', 'question_2', 'question_3'] set to ['answer_1', 'answer_2', 'answer_3']"
             """
 
-            await self.set_metadata(question_name, answer)
+            for question_name, answer in answers.items():
+                await self.set_metadata(question_name, answer)
 
-            return f"Answer to {question_name} set to {answer}"
+            return f"Answers to {answers.keys()} set to {answers.values()}"
 
         async def tool_get_questionaire_answer(question_name: str) -> str:
             """Get the answer to a question from the questionaire.
@@ -783,7 +796,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_search_documents,
             tool_get_document_contents,
             # Questionnaire tools
-            tool_answer_questionaire_question,
+            tool_answer_questionaire_questions,
             tool_get_questionaire_answer,
             # Visualization tools
             tool_create_bar_chart,
