@@ -216,11 +216,15 @@ class ChartWidget(BaseModel):
             "old": DEFAULT_COLOR_ROLE_MAP["muted"],
         }
 
+        # Define Literal constants for dictionary keys derived from ZLMDataRow field names
+        # This helps ensure consistency if ZLMDataRow fields are refactored.
+        # MyPy will check direct attribute access (zlm_row.y_current).
+        # These constants make the string key usage more explicit and robust.
+        y_current_key = "y_current"
+        y_old_key = "y_old"
+
         processed_data_rows: list[ChartDataRow] = []
         series_configs: list[SeriesConfig] = []
-
-        SERIES_KEY_CURRENT = "current_value"
-        SERIES_KEY_OLD = "old_value"
 
         # Convert dictionaries to ZLMDataRow objects if needed
         zlm_data_rows: list[ZLMDataRow] = []
@@ -257,13 +261,13 @@ class ChartWidget(BaseModel):
             current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
 
             y_values_map: dict[str, ChartDataPointValue] = {
-                SERIES_KEY_CURRENT: ChartDataPointValue(value=current_y, color=current_color_hex)
+                y_current_key: ChartDataPointValue(value=current_y, color=current_color_hex)
             }
 
             if zlm_row.y_old is not None:
                 has_old_values = True
                 old_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]
-                y_values_map[SERIES_KEY_OLD] = ChartDataPointValue(value=zlm_row.y_old, color=old_color_hex)
+                y_values_map[y_old_key] = ChartDataPointValue(value=zlm_row.y_old, color=old_color_hex)
 
             processed_data_rows.append(ChartDataRow(x_value=zlm_row.x_value, y_values=y_values_map))
 
@@ -277,7 +281,7 @@ class ChartWidget(BaseModel):
         series_configs.append(
             SeriesConfig(
                 label=label_for_current_series,
-                data_key=SERIES_KEY_CURRENT,
+                data_key=y_current_key,
                 style=StyleConfig(color=current_series_legend_color),
             )
         )
@@ -287,7 +291,7 @@ class ChartWidget(BaseModel):
             series_configs.append(
                 SeriesConfig(
                     label=label_for_old_series,
-                    data_key=SERIES_KEY_OLD,
+                    data_key=y_old_key,
                     style=StyleConfig(color=ZLM_CUSTOM_COLOR_ROLE_MAP["old"]),  # Muted color for legend
                 )
             )
