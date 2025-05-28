@@ -215,13 +215,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Questionnaire tools
         async def tool_answer_questionaire_questions(answers: str | dict[str, str]) -> str:
-            """Answer a set of questions from the questionnaire, supporting versioning/history.
+            """
+            Answer a set of questions from the questionnaire, supporting versioning/history.
 
             Args:
                 answers (dict[str, str]): A dictionary of question names and answers.
 
             Returns:
                 str: A message indicating the answers have been set.
+
+            Raises:
+                ValueError: If any question name in the input is not found in the current role's questionnaire config.
 
             Example:
                 tool_answer_questionaire_questions(
@@ -232,6 +236,10 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     }
                 )
                 -> "Answers to ['question_1', 'question_2', 'question_3'] set as new version(s) at 2024-06-01T12:00:00+02:00"
+
+            Notes:
+                - Only questions defined in the current role's questionnaire config are allowed.
+                - If any question is not allowed, a ValueError is raised listing the allowed questions.
             """
             _answers: dict[str, str] = {}
             if isinstance(answers, str):
@@ -244,7 +252,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             all_answers = await self.get_metadata("questionaire", {})
             if not isinstance(all_answers, dict):
                 all_answers = {}
+
+            # Only allow questions that exist in the current role's questionnaire config
+            role_config = await self.get_current_role()
+            allowed_questions = {q.name for q in role_config.questionaire}
+
             for question_name, answer in _answers.items():
+                if question_name not in allowed_questions:
+                    raise ValueError(
+                        f"Question {question_name} not found in the current role's questionnaire config, allowed questions: {', '.join(allowed_questions)}"
+                    )
+
                 prev = all_answers.get(question_name, [])
                 if not isinstance(prev, list):
                     prev = []
@@ -252,7 +270,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 prev.append(entry)
                 all_answers[question_name] = prev
             await self.set_metadata("questionaire", all_answers)
-            return f"Answers to {_answers.keys()} set as new version(s) at {now}"
+            return f"Answers to {list(_answers.keys())} set as new version(s) at {now}"
 
         async def tool_get_questionaire_answer(question_name: str, all_versions: bool = False) -> str:
             """Get the answer(s) to a question from the questionnaire.
