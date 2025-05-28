@@ -215,46 +215,60 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Questionnaire tools
         async def tool_answer_questionaire_questions(answers: str | dict[str, str]) -> str:
-            """Answer a set of questions from the questionaire.
+            """Answer a set of questions from the questionnaire, supporting versioning/history.
 
             Args:
                 answers (dict[str, str]): A dictionary of question names and answers.
 
             Returns:
                 str: A message indicating the answers have been set.
-
-            Example:
-                tool_answer_questionaire_questions(
-                    {
-                        "question_1": "answer_1",
-                        "question_2": "answer_2",
-                        "question_3": "answer_3"
-                    }
-                )
-                -> "Answers to ['question_1', 'question_2', 'question_3'] set to ['answer_1', 'answer_2', 'answer_3']"
             """
-
             _answers: dict[str, str] = {}
             if isinstance(answers, str):
                 _answers = json.loads(answers)
             else:
                 _answers = answers
 
+            now = datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
+            # Load all questionnaire answers from metadata
+            all_answers = await self.get_metadata("questionaire", {})
+            if not isinstance(all_answers, dict):
+                all_answers = {}
             for question_name, answer in _answers.items():
-                await self.set_metadata(question_name, answer)
+                prev = all_answers.get(question_name, [])
+                if not isinstance(prev, list):
+                    prev = []
+                entry = {"answer": answer, "timestamp": now}
+                prev.append(entry)
+                all_answers[question_name] = prev
+            await self.set_metadata("questionaire", all_answers)
+            return f"Answers to {_answers.keys()} set as new version(s) at {now}"
 
-            return f"Answers to {_answers.keys()} set to {_answers.values()}"
-
-        async def tool_get_questionaire_answer(question_name: str) -> str:
-            """Get the answer to a question from the questionaire.
+        async def tool_get_questionaire_answer(question_name: str, all_versions: bool = False) -> str:
+            """Get the answer(s) to a question from the questionnaire.
 
             Args:
                 question_name (str): The name of the question to get the answer to.
+                version (str | None): Optional timestamp to fetch a specific version.
+                all_versions (bool): If True, return all versions as JSON.
 
             Returns:
-                str: The answer to the question.
+                str: The answer(s) to the question.
             """
-            return await self.get_metadata(question_name, "[not answered]")
+            all_answers = await self.get_metadata("questionaire", {})
+            if not isinstance(all_answers, dict):
+                all_answers = {}
+            answers = all_answers.get(question_name, [])
+            if not isinstance(answers, list):
+                # Backward compatibility: single answer
+                if answers == "[not answered]":
+                    return "[not answered]"
+                return answers
+            if all_versions:
+                return json.dumps(answers, default=str)
+            if answers:
+                return answers[-1]["answer"]
+            return "[not answered]"
 
         # Visualization tools
         def tool_create_zlm_chart(
@@ -868,12 +882,22 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Prepare questionnaire format kwargs
         questionnaire_format_kwargs: dict[str, str] = {}
+        all_questionnaire_answers = await self.get_metadata("questionaire", {})
+        if not isinstance(all_questionnaire_answers, dict):
+            all_questionnaire_answers = {}
         for q_item in role_config.questionaire:
-            answer = await self.get_metadata(q_item.name, "[not answered]")
+            answers = all_questionnaire_answers.get(q_item.name, [])
+            # Format all answers as a string (e.g., "2024-06-01: X, 2024-07-01: Y")
+            all_answers_str = (
+                ", ".join(f"{entry.get('timestamp', '')}: {entry.get('answer', '')}" for entry in answers)
+                if isinstance(answers, list) and answers
+                else "[not answered]"
+            )
+
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = all_answers_str
 
         # Format the role prompt with questionnaire data
         try:
@@ -962,7 +986,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            cron_expression="* * * * *",  # every hour at 0 minutes past
+            cron_expression="0 * * * *",  # every hour at 0 minutes past
             agent_config=MUMCAgentConfig(),
         )
 
