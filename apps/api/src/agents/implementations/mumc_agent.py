@@ -59,6 +59,10 @@ class RoleConfig(BaseModel):
         default="anthropic/claude-sonnet-4",
         description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
     )
+    backup_model: str = Field(
+        default="openai/gpt-4.1",
+        description="The model identifiers to use for this role if the primary model is not available.",
+    )
     tools_regex: str = Field(
         default=".*",
         description="A regular expression specifying which tools this role is permitted to use. Use '.*' to allow all tools, or restrict as needed.",
@@ -545,7 +549,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -572,7 +576,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            )
+            ), True
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
@@ -800,7 +804,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Notification tool
             tool_send_notification,
             # System tools
-            BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
         return {tool.__name__: tool for tool in tools_list}
@@ -825,7 +828,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         return output_string
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionMessageParam], retry_count: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         # Get the current role
         role_config = await self.get_current_role()
@@ -917,7 +920,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Create the completion request
         response = await self.client.chat.completions.create(
-            model=role_config.model,
+            model=role_config.model if retry_count == 0 else role_config.backup_model,
             messages=[
                 {
                     "role": "system",
@@ -928,6 +931,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools_values],
             tool_choice="auto",
+            extra_body={
+                "models": [role_config.backup_model],
+            },
         )
 
         return response, list(tools_values)
@@ -935,7 +941,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=900,  # 15 minutes
+            interval_seconds=7200,  # 2 hours
             agent_config=MUMCAgentConfig(),
         )
 
@@ -945,9 +951,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         onesignal_id = await self.get_metadata("onesignal_id")
 
         if onesignal_id is None:
-            self.logger.info(
-                "No onesignal id found, skipping super agent call"
-            )
+            self.logger.info("No onesignal id found, skipping super agent call")
             return
 
         last_thread = await prisma.threads.query_first(
@@ -961,16 +965,11 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
         if last_thread is None:
-            self.logger.info(
-                "No last thread found, skipping super agent call"
-            )
+            self.logger.info("No last thread found, skipping super agent call")
             return
 
         if last_thread.id != self.thread_id:
-            self.logger.info(
-                "Last thread id does not match current thread id, "
-                "skipping super agent call"
-            )
+            self.logger.info("Last thread id does not match current thread id, skipping super agent call")
             return
 
         tools = [
@@ -986,9 +985,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 # Notification Management System
 
 ## Core Responsibility
-You are the notification management system responsible for delivering timely alerts
-without duplication. Your task is to analyze pending notifications and determine
-which ones need to be sent.
+You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
 
 ## Current Time
 Current system time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -1008,27 +1005,22 @@ Please evaluate these items for notification eligibility:
 
 ## Decision Rules
 - A notification should be sent for any reminder that is currently due
-- For recurring tasks, evaluate the cron expression to determine if it should
-  be triggered at the current time
-- If a cron expression indicates the task is due now and hasn't already been
-  sent today, send a notification
+- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time
+- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
 - If an item appears in the previously sent notifications list, it MUST be skipped
-- Parse cron expressions carefully to determine exact scheduling
-  (minute, hour, day of month, month, day of week)
-- The date attribute of the reminders in the reminders list is the due date.
-  If that date is before the current date, the reminder is due.
+- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)
+- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.
 
 ## Required Action
 After analysis, you must take exactly ONE of these actions:
-- If any eligible notifications are found: invoke the send_notification tool
-  with details
+- If any eligible notifications are found: invoke the send_notification tool with details
 - If no eligible notifications exist: invoke the noop tool
 """
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
         response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",  # Consider making this configurable
+            model="openai/gpt-4.1",  # Consider making this configurable or same as role_config.model
             messages=[
                 {
                     "role": "system",
@@ -1043,4 +1035,7 @@ After analysis, you must take exactly ONE of these actions:
             tool_choice="auto",
         )
 
-        return response, tools
+        self.logger.info(f"Super agent response: {response.choices[0].message}")
+
+        async for _ in self._handle_completion(response, tools, messages):
+            pass
