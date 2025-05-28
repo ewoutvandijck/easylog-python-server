@@ -955,7 +955,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            cron_expression="* * * * *",
+            cron_expression="0 * * * *",  # every hour at 0 minutes past
             agent_config=MUMCAgentConfig(),
         )
 
