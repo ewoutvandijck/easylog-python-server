@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator, Iterable
 
 from apscheduler.triggers.cron import CronTrigger
@@ -6,6 +7,7 @@ from prisma import Base64, Json
 from prisma.enums import message_content_type, message_role, widget_type
 
 from src.agents.agent_loader import AgentLoader
+from src.agents.base_agent import BaseAgent
 from src.lib.prisma import prisma
 from src.lib.scheduler import scheduler
 from src.logger import logger
@@ -21,6 +23,7 @@ from src.models.messages import (
 )
 from src.services.messages.message_service import MessageService
 from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
+from src.services.messages.utils.generated_message_to_openai_param import generated_message_to_openai_param
 
 
 class AgentNotFoundError(Exception):
@@ -197,3 +200,88 @@ class SuperAgentService:
                     },
                 }
             )
+
+    @classmethod
+    async def call_agent(
+        cls,
+        agent: BaseAgent,
+        thread_history: Iterable[ChatCompletionMessageParam],
+        initial_generated_messages: list[MessageResponse],
+        max_recursion_depth: int = 5,
+        current_depth: int = 0,
+    ) -> AsyncGenerator[tuple[MessageContent, list[MessageResponse]], None]:
+        """Call the agent with the thread history and return the response.
+
+        Args:
+            agent (BaseAgent): The agent to call.
+            thread_history (list[Message]): The thread history.
+            initial_generated_messages (list[MessageResponse]): Initial generated messages.
+            max_recursion_depth (int): Maximum depth for recursive calls.
+            current_depth (int): Current recursion depth.
+
+        Returns:
+            AsyncGenerator[tuple[MessageContent, list[MessageResponse]], None]:
+                A generator of message chunks and the current state of generated messages.
+        """
+
+        if current_depth >= max_recursion_depth:
+            logger.warning(f"Maximum recursion depth ({max_recursion_depth}) reached, stopping recursion")
+            return
+
+        generated_messages: list[MessageResponse] = []
+
+        is_cancelled: bool = False
+
+        async for content_chunk, should_stop in agent.run_super_agent(thread_history):
+            logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
+
+            if should_stop:
+                is_cancelled = True
+
+            last_message = generated_messages[-1] if len(generated_messages) > 0 else None
+
+            if isinstance(content_chunk, ToolResultContent):
+                generated_messages.append(
+                    MessageResponse(
+                        id=str(uuid.uuid4()),
+                        role="tool",
+                        tool_use_id=content_chunk.tool_use_id,
+                        content=[],
+                    )
+                )
+            elif not last_message or last_message.role == "tool":
+                generated_messages.append(
+                    MessageResponse(
+                        id=str(uuid.uuid4()),
+                        role="assistant",
+                        content=[],
+                    )
+                )
+
+            if not isinstance(content_chunk, TextDeltaContent):
+                generated_messages[-1].content.append(content_chunk)
+
+            # First yield the current chunk before potential recursive calls
+            yield content_chunk, [*initial_generated_messages, *generated_messages]
+
+        if is_cancelled:
+            logger.warning("Agent call was cancelled, stopping recursion")
+            return
+
+        if any(generated_message.role == "tool" for generated_message in generated_messages):
+            new_thread_history = [
+                *thread_history,
+                *[generated_message_to_openai_param(message) for message in generated_messages],
+            ]
+
+            new_initial_generated_messages = [*initial_generated_messages, *generated_messages]
+
+            # Recursively call the agent if we have a tool call
+            async for nested_chunk, nested_messages in cls.call_agent(
+                agent,
+                new_thread_history,
+                new_initial_generated_messages,
+                max_recursion_depth,
+                current_depth + 1,
+            ):
+                yield nested_chunk, nested_messages
