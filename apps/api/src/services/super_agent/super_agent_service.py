@@ -21,7 +21,6 @@ from src.models.messages import (
     ToolResultContent,
     ToolUseContent,
 )
-from src.services.messages.message_service import MessageService
 from src.services.messages.utils.db_message_to_openai_param import db_message_to_openai_param
 from src.services.messages.utils.generated_message_to_openai_param import generated_message_to_openai_param
 
@@ -142,7 +141,7 @@ class SuperAgentService:
         yielded_messages: set[str] = set()
 
         try:
-            async for content_chunk, messages in MessageService.call_agent(
+            async for content_chunk, messages in SuperAgentService.call_agent(
                 agent, thread_history, generated_messages, max_recursion_depth
             ):
                 generated_messages = messages
