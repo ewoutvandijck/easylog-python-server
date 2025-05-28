@@ -941,7 +941,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=7200,  # 2 hours
+            interval_seconds=900,  # 15 minutes
             agent_config=MUMCAgentConfig(),
         )
 
