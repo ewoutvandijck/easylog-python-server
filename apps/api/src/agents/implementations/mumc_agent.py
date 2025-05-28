@@ -729,30 +729,22 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Memory tools
         async def tool_store_memory(memory: str) -> str:
-            """Store a memory.
-
-            Args:
-                memory (str): The memory to store.
-            """
-
+            """Store a memory with a timestamp."""
             memories = await self.get_metadata("memories", [])
-            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
+            if not isinstance(memories, list):
+                memories = []
+            now = datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory, "timestamp": now})
             await self.set_metadata("memories", memories)
-
-            return f"Memory stored: {memory}"
+            return f"Memory stored: {memory} at {now}"
 
         async def tool_get_memory(id: str) -> str:
-            """Get a memory.
-
-            Args:
-                id (str): The id of the memory to get.
-            """
+            """Get a memory by id, including its timestamp."""
             memories = await self.get_metadata("memories", [])
             memory = next((m for m in memories if m["id"] == id), None)
             if memory is None:
                 return "[not stored]"
-
-            return memory["memory"]
+            return f"{memory['memory']} (stored at {memory['timestamp']})"
 
         async def tool_send_notification(title: str, contents: str) -> str:
             """Send a notification.
@@ -930,7 +922,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
             if reminders
             else "<no reminders>",
-            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
+            "memories": "\n".join(
+                [f"- {memory['id']}: {memory['memory']} (stored at {memory['timestamp']})" for memory in memories]
+            )
             if memories
             else "<no memories>",
             "notifications": "\n".join(
