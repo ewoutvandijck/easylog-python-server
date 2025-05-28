@@ -336,7 +336,7 @@ class RETAgent(BaseAgent[RETAgentConfig]):
         ]
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionMessageParam], _: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         tools = self.get_tools()
 

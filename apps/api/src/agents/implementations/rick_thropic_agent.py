@@ -3,7 +3,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from openai import AsyncStream
@@ -12,6 +12,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -25,7 +26,6 @@ from src.models.chart_widget import (
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
-from typing_extensions import Literal
 
 
 class RoleConfig(BaseModel):
@@ -146,9 +146,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
+                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -168,9 +166,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks.append(
                 {
@@ -192,9 +188,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
             existing_reminders.append(
                 {
@@ -214,9 +208,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -230,21 +222,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
-            existing_reminders = [
-                reminder for reminder in existing_reminders if reminder["id"] != id
-            ]
+            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
 
             await self.set_metadata("reminders", existing_reminders)
 
             return f"Reminder {id} removed"
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -264,12 +250,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
+                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
+                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
 
             return MultipleChoiceWidget(
                 question=question,
@@ -329,16 +311,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = (
-                "Resultaten ziektelastmeter COPD %"
-                if language == "nl"
-                else "Disease burden results %"
-            )
-            description = (
-                "Uw ziektelastmeter COPD resultaten."
-                if language == "nl"
-                else "Your COPD burden results."
-            )
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
             # Custom color role map for ZLM charts
             ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
@@ -360,9 +334,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
-                    raise ValueError(
-                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
-                    )
+                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
                 current_x_value = raw_item[x_key]
 
                 for y_key in y_keys:
@@ -412,10 +384,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         )
 
                     role_from_data = value_container["colorRole"]
-                    if (
-                        role_from_data is not None
-                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
-                    ):
+                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
                         raise ValueError(
                             f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
                             f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
@@ -570,23 +539,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError(
-                    "If y_labels are provided for line chart, they must match the length of y_keys."
-                )
+                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(
-                        f"Line chart data item missing x_key '{x_key}': {item}"
-                    )
+                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(
-                        item[y_key], (int, float, type(None))
-                    ):
-                        if isinstance(
-                            item[y_key], str
-                        ):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
+                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -629,24 +590,20 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         ]
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionMessageParam], _: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         tools = self.get_tools()
 
         for tool in tools:
             self.logger.info(f"{tool.__name__}: {tool.__doc__}")
 
-        tools = [
-            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
-        ]
+        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
@@ -659,17 +616,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
+                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                         recurring_tasks="\n".join(
-                            [
-                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
-                                for task in recurring_tasks
-                            ]
+                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
                         ),
                         reminders="\n".join(
                             [

@@ -365,7 +365,12 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
 
             notifications = await self.get_metadata("notifications", [])
             notifications.append(
-                {"id": response["id"], "title": title, "contents": contents, "sent_at": datetime.now().isoformat()}
+                {
+                    "id": response["id"],
+                    "title": title,
+                    "contents": contents,
+                    "sent_at": datetime.now().isoformat(),
+                }
             )
 
             await self.set_metadata("notifications", notifications)
@@ -391,7 +396,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
         }
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionMessageParam], _: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
         assistant_field_name = self.request_headers.get("x-assistant-field-name")
