@@ -819,6 +819,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # System tools
             BaseTools.tool_call_super_agent,
         ]
+
         return {tool.__name__: tool for tool in tools_list}
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
@@ -954,7 +955,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[MUMCAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=900,  # 15 minutes
+            cron_expression="* * * * *",
             agent_config=MUMCAgentConfig(),
         )
 

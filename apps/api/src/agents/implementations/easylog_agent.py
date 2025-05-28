@@ -936,7 +936,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[EasyLogAgentConfig] | None:
         return SuperAgentConfig(
-            interval_seconds=1800,  # 30 minutes
+            cron_expression="30 * * * *",  # every hour at 30 minutes past
             agent_config=EasyLogAgentConfig(),
         )
 

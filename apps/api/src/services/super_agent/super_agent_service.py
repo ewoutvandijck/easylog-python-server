@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, Iterable
 
+from apscheduler.triggers.cron import CronTrigger
 from openai.types.chat import ChatCompletionMessageParam
 from prisma import Base64, Json
 from prisma.enums import message_content_type, message_role, widget_type
@@ -35,14 +36,14 @@ class SuperAgentService:
             if config is None:
                 continue
 
+            trigger = CronTrigger.from_crontab(config.cron_expression)
             scheduler.add_job(
                 func=SuperAgentService.run_super_agent_job,
-                trigger="interval",
-                seconds=config.interval_seconds,
+                trigger=trigger,
                 args=[agent.__name__, config.agent_config.model_dump(), config.headers, 15],
             )
 
-            logger.info(f"Registered super agent {agent.__name__} with interval {config.interval_seconds}")
+            logger.info(f"Registered super agent {agent.__name__} with cron expression {config.cron_expression}")
 
     @staticmethod
     async def run_super_agent_job(

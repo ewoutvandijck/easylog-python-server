@@ -45,7 +45,7 @@ TConfig = TypeVar("TConfig", bound=BaseModel)
 
 class SuperAgentConfig(BaseModel, Generic[TConfig]):
     agent_config: TConfig
-    interval_seconds: int = Field(default=10)
+    cron_expression: str = Field(default="* * * * *")
     headers: dict = Field(default_factory=dict)
 
 
