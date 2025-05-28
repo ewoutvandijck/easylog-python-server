@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import weaviate
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from graphiti_core import Graphiti
@@ -130,6 +131,15 @@ async def log_requests(request: Request, call_next: Callable[[Request], Awaitabl
         f"Method: {request.method} Path: {request.url.path} Status: {response.status_code} Duration: {duration:.2f}s"
     )
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    logger.debug(f"422 Validation Error: {exc.errors()} | Path: {request.url.path} | Body: {await request.body()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
 
 
 app.include_router(health.router)
