@@ -296,6 +296,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 chart_widget = tool_create_zlm_chart(language="nl", data=data)
                 ```
             """
+            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
 
             title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
             description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
