@@ -364,9 +364,9 @@ class BaseAgent(Generic[TConfig]):
                     self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
                     continue
 
-                if index not in final_tool_calls and tool_call.function.name is not None:
+                if index not in final_tool_calls and tool_call.function.name is not None and tool_call.id is not None:
                     final_tool_calls[index] = StreamToolCall(
-                        tool_call_id=str(uuid.uuid4()),
+                        tool_call_id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=tool_call.function.arguments,
                     )
