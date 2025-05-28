@@ -134,13 +134,16 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
         <img src={content.image_url} alt="tool result" className="rounded-lg" />
       ) : content.type === 'tool_result' &&
         content.widget_type === 'multiple_choice' ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4">
+          <p>
+            {multipleChoiceSchema.parse(JSON.parse(content.output)).question}
+          </p>
           {multipleChoiceSchema
             .parse(JSON.parse(content.output))
             .choices.map((choice) => (
               <button
                 key={choice.value}
-                className="rounded-lg px-4 py-2 bg-secondary"
+                className="rounded-lg px-4 py-2 bg-white hover:bg-gray-100"
                 onClick={() => {
                   sendMessage(threadId!, {
                     agent_config: {
@@ -150,7 +153,7 @@ const ChatBubble = ({ content, role }: ChatBubbleProps) => {
                     },
                     content: [
                       {
-                        text: choice.value,
+                        text: choice.label + ' (' + choice.value + ')',
                         type: 'text'
                       }
                     ]

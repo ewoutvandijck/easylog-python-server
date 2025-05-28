@@ -20,6 +20,12 @@ def db_message_to_openai_param(message: messages) -> ChatCompletionMessageParam:
         raise ValueError("Message contents are required")
 
     if message.role == message_role.user:
+        if all(content.type == message_content_type.text for content in message.contents):
+            return ChatCompletionUserMessageParam(
+                role=message.role.value,
+                content="".join(content.text for content in message.contents if content.text is not None),
+            )
+
         return ChatCompletionUserMessageParam(
             role=message.role.value,
             content=[

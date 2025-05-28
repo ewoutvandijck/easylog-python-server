@@ -59,6 +59,10 @@ class RoleConfig(BaseModel):
         default="anthropic/claude-sonnet-4",
         description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
     )
+    backup_model: str = Field(
+        default="openai/gpt-4.1",
+        description="The model identifiers to use for this role if the primary model is not available.",
+    )
     tools_regex: str = Field(
         default=".*",
         description="A regular expression specifying which tools this role is permitted to use. Use '.*' to allow all tools, or restrict as needed.",
@@ -545,7 +549,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -572,7 +576,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            )
+            ), True
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
@@ -800,7 +804,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Notification tool
             tool_send_notification,
             # System tools
-            BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
         return {tool.__name__: tool for tool in tools_list}
@@ -825,7 +828,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         return output_string
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionMessageParam], retry_count: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         # Get the current role
         role_config = await self.get_current_role()
@@ -917,7 +920,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Create the completion request
         response = await self.client.chat.completions.create(
-            model=role_config.model,
+            model=role_config.model if retry_count == 0 else role_config.backup_model,
             messages=[
                 {
                     "role": "system",
@@ -928,6 +931,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools_values],
             tool_choice="auto",
+            extra_body={
+                "models": [role_config.backup_model],
+            },
         )
 
         return response, list(tools_values)

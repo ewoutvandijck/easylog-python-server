@@ -7,7 +7,6 @@ from prisma.enums import message_content_type, message_role, widget_type
 
 from src.agents.agent_loader import AgentLoader
 from src.agents.base_agent import BaseAgent
-from src.agents.tools.base_tools import BaseTools
 from src.lib.prisma import prisma
 from src.logger import logger
 from src.models.message_create import (
@@ -216,8 +215,13 @@ class MessageService:
 
         generated_messages: list[MessageResponse] = []
 
-        async for content_chunk in agent.forward_message(thread_history):
+        is_cancelled: bool = False
+
+        async for content_chunk, should_stop in agent.forward_message(thread_history):
             logger.info(f"Received chunk: {content_chunk.model_dump_json()[:2000]}")
+
+            if should_stop:
+                is_cancelled = True
 
             last_message = generated_messages[-1] if len(generated_messages) > 0 else None
 
@@ -245,10 +249,9 @@ class MessageService:
             # First yield the current chunk before potential recursive calls
             yield content_chunk, [*initial_generated_messages, *generated_messages]
 
-        for message in generated_messages:
-            for content in message.content:
-                if isinstance(content, ToolUseContent) and content.name == BaseTools.tool_noop.__name__:
-                    return
+        if is_cancelled:
+            logger.warning("Agent call was cancelled, stopping recursion")
+            return
 
         if any(generated_message.role == "tool" for generated_message in generated_messages):
             new_thread_history = [

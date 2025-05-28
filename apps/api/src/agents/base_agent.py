@@ -88,6 +88,7 @@ class BaseAgent(Generic[TConfig]):
     async def on_message(
         self,
         messages: Iterable[ChatCompletionMessageParam],
+        retry_count: int = 0,
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         raise NotImplementedError()
 
@@ -107,20 +108,20 @@ class BaseAgent(Generic[TConfig]):
         return None
 
     async def forward_message(
-        self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncGenerator[MessageContent, None]:
-        result, tools = await self.on_message(messages)
+        self, messages: Iterable[ChatCompletionMessageParam], retry_count: int = 0
+    ) -> AsyncGenerator[tuple[MessageContent, bool], None]:
+        result, tools = await self.on_message(messages, retry_count)
 
-        async for chunk in (
-            self._handle_stream(result, tools, messages)
+        async for chunk, should_stop in (
+            self._handle_stream(result, tools, messages, retry_count)
             if isinstance(result, AsyncStream)
-            else self._handle_completion(result, tools, messages)
+            else self._handle_completion(result, tools, messages, retry_count)
         ):
-            yield chunk
+            yield chunk, should_stop
 
     async def run_super_agent(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncGenerator[MessageContent, None]:
+    ) -> AsyncGenerator[tuple[MessageContent, bool], None]:
         self.logger.info(f"Running super agent for {self.thread_id}")
 
         result = await self.on_super_agent_call(messages)
@@ -130,12 +131,12 @@ class BaseAgent(Generic[TConfig]):
 
         result, tools = result
 
-        async for chunk in (
+        async for chunk, should_stop in (
             self._handle_stream(result, tools, messages)
             if isinstance(result, AsyncStream)
             else self._handle_completion(result, tools, messages)
         ):
-            yield chunk
+            yield chunk, should_stop
 
     async def get_metadata(self, key: str, default: Any | None = None) -> Any:
         if self._metadata is None:
@@ -212,14 +213,28 @@ class BaseAgent(Generic[TConfig]):
 
     async def _handle_tool_call(
         self, name: str, tool_call_id: str, arguments: dict[str, Any], tools: list[Callable]
-    ) -> ToolResultContent:
+    ) -> tuple[ToolResultContent, bool]:
         try:
             tool = next(tool for tool in tools if tool.__name__ == name)
         except StopIteration as e:
             raise ValueError(f"Tool {name} not found") from e
 
         try:
-            result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
+            tool_call_result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
+
+            if (
+                isinstance(tool_call_result, tuple)
+                and len(tool_call_result) == 2
+                and isinstance(tool_call_result[1], bool)
+            ):
+                result = tool_call_result[0]
+                should_stop = tool_call_result[1]
+            else:
+                result = tool_call_result
+                should_stop = False
+
+            if should_stop:
+                self.logger.debug(f"Tool {name} returned should_stop=True, cancelling agent call")
 
             if isinstance(result, ImageWidget) and result.mode == "image_url" or isinstance(result, Image.Image):
                 supabase = await create_supabase()
@@ -240,58 +255,79 @@ class BaseAgent(Generic[TConfig]):
 
                 url = await supabase.storage.from_("user-uploads").get_public_url(result.path)
 
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=url,
-                    widget_type="image_url",
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=url,
+                        widget_type="image_url",
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
             elif isinstance(result, ImageWidget) and result.mode == "image":
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=image_to_base64(Image.open(io.BytesIO(result.data))),
-                    widget_type="image",
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=image_to_base64(Image.open(io.BytesIO(result.data))),
+                        widget_type="image",
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
             elif isinstance(result, ChartWidget):
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=result.model_dump_json(),
-                    widget_type="chart",
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=result.model_dump_json(),
+                        widget_type="chart",
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
             elif isinstance(result, MultipleChoiceWidget):
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=result.model_dump_json(),
-                    widget_type="multiple_choice",
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=result.model_dump_json(),
+                        widget_type="multiple_choice",
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
             elif isinstance(result, str):
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=result,
-                    widget_type="text",
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=result,
+                        widget_type="text",
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
             else:
-                return ToolResultContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call_id,
-                    output=str(result),
-                    is_error=False,
+                return (
+                    ToolResultContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call_id,
+                        output=str(result),
+                        is_error=False,
+                    ),
+                    should_stop,
                 )
         except Exception as e:
-            return ToolResultContent(
-                id=str(uuid.uuid4()),
-                tool_use_id=tool_call_id,
-                output=f"Error: {e}",
-                is_error=True,
+            return (
+                ToolResultContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call_id,
+                    output=f"Error: {e}",
+                    is_error=True,
+                ),
+                False,
             )
 
     async def _handle_stream(
@@ -299,75 +335,91 @@ class BaseAgent(Generic[TConfig]):
         stream: AsyncStream[ChatCompletionChunk],
         tools: list[Callable],
         messages: Iterable[ChatCompletionMessageParam],
-    ) -> AsyncGenerator[MessageContent, None]:
+        retry_count: int = 0,
+    ) -> AsyncGenerator[tuple[MessageContent, bool], None]:
         final_tool_calls: dict[int, StreamToolCall] = {}
-
-        text_content: str | None = ""
+        text_content: str | None = None
         text_id = str(uuid.uuid4())
-        try:
-            async for event in stream:
-                if event.choices[0].delta.content is not None:
-                    text_content = (
-                        event.choices[0].delta.content
-                        if text_content is None
-                        else text_content + event.choices[0].delta.content
-                    )
 
-                    yield TextDeltaContent(
-                        id=text_id,
-                        delta=event.choices[0].delta.content,
-                    )
-
-                for tool_call in event.choices[0].delta.tool_calls or []:
-                    index = tool_call.index
-
-                    if tool_call.function is None or tool_call.function.arguments is None:
-                        self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
-                        continue
-
-                    if (
-                        index not in final_tool_calls
-                        and tool_call.function.name is not None
-                        and tool_call.id is not None
-                    ):
-                        final_tool_calls[index] = StreamToolCall(
-                            tool_call_id=tool_call.id,
-                            name=tool_call.function.name,
-                            arguments=tool_call.function.arguments,
-                        )
-                    else:
-                        final_tool_calls[index].arguments += tool_call.function.arguments
-
-            if text_content is not None:
-                yield TextContent(
-                    id=text_id,
-                    text=text_content,
+        async for event in stream:
+            if event.choices[0].delta.content is not None:
+                text_content = (
+                    event.choices[0].delta.content
+                    if text_content is None
+                    else text_content + event.choices[0].delta.content
                 )
 
-            for _, tool_call in final_tool_calls.items():
-                if tool_call.name == BaseTools.tool_call_super_agent.__name__:
-                    async for chunk in self.run_super_agent(messages):
-                        yield chunk
+                yield (
+                    TextDeltaContent(
+                        id=text_id,
+                        delta=event.choices[0].delta.content,
+                    ),
+                    False,
+                )
 
+            for tool_call in event.choices[0].delta.tool_calls or []:
+                index = tool_call.index
+
+                if tool_call.function is None or tool_call.function.arguments is None:
+                    self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
                     continue
 
-                input_data = json.loads(tool_call.arguments or "{}")
+                if index not in final_tool_calls and tool_call.function.name is not None:
+                    final_tool_calls[index] = StreamToolCall(
+                        tool_call_id=str(uuid.uuid4()),
+                        name=tool_call.function.name,
+                        arguments=tool_call.function.arguments,
+                    )
+                else:
+                    final_tool_calls[index].arguments += tool_call.function.arguments
 
-                yield ToolUseContent(
+        if text_content is not None:
+            yield (
+                TextContent(
+                    id=text_id,
+                    text=text_content,
+                ),
+                False,
+            )
+
+        for _, tool_call in final_tool_calls.items():
+            if tool_call.name == BaseTools.tool_call_super_agent.__name__:
+                async for chunk, should_stop in self.run_super_agent(messages):
+                    yield chunk, should_stop
+
+                continue
+
+            input_data = json.loads(tool_call.arguments or "{}")
+
+            yield (
+                ToolUseContent(
                     id=str(uuid.uuid4()),
                     tool_use_id=tool_call.tool_call_id,
                     name=tool_call.name,
                     input=input_data,
-                )
+                ),
+                False,
+            )
 
-                yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
-        except Exception as e:
-            self.logger.error(f"Error handling tool call: {e}")
-            raise e
+            yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
+
+        did_produce_content = len(final_tool_calls.items()) > 0 or (text_content and text_content.strip() != "")
+
+        if not did_produce_content and retry_count < 3:
+            self.logger.warning(f"No content produced, retrying {retry_count + 1} times")
+
+            async for chunk in self.forward_message(messages, retry_count + 1):
+                yield chunk
+        elif not did_produce_content:
+            raise ValueError("The agent did not produce any content after 3 retries.")
 
     async def _handle_completion(
-        self, completion: ChatCompletion, tools: list[Callable], messages: Iterable[ChatCompletionMessageParam]
-    ) -> AsyncGenerator[MessageContent, None]:
+        self,
+        completion: ChatCompletion,
+        tools: list[Callable],
+        messages: Iterable[ChatCompletionMessageParam],
+        retry_count: int = 0,
+    ) -> AsyncGenerator[tuple[MessageContent, bool], None]:
         if len(completion.choices or []) == 0:
             raise ValueError(
                 "No choices found in completion, this usually means the messages weren't forwarded correctly"
@@ -376,9 +428,12 @@ class BaseAgent(Generic[TConfig]):
         choice = completion.choices[0]
 
         if choice.message.content is not None:
-            yield TextContent(
-                id=str(uuid.uuid4()),
-                text=choice.message.content,
+            yield (
+                TextContent(
+                    id=str(uuid.uuid4()),
+                    text=choice.message.content,
+                ),
+                False,
             )
 
         for tool_call in choice.message.tool_calls or []:
@@ -390,11 +445,26 @@ class BaseAgent(Generic[TConfig]):
 
             input_data = json.loads(tool_call.function.arguments or "{}")
 
-            yield ToolUseContent(
-                id=str(uuid.uuid4()),
-                tool_use_id=tool_call.id,
-                name=tool_call.function.name,
-                input=input_data,
+            yield (
+                ToolUseContent(
+                    id=str(uuid.uuid4()),
+                    tool_use_id=tool_call.id,
+                    name=tool_call.function.name,
+                    input=input_data,
+                ),
+                False,
             )
 
             yield await self._handle_tool_call(tool_call.function.name, tool_call.id, input_data, tools)
+
+        did_produce_content = len(choice.message.tool_calls or []) > 0 or (
+            choice.message.content and choice.message.content.strip() != ""
+        )
+
+        if not did_produce_content and retry_count < 3:
+            self.logger.warning(f"No content produced, retrying {retry_count + 1} times")
+
+            async for chunk, should_stop in self.forward_message(messages, retry_count + 1):
+                yield chunk, should_stop
+        elif not did_produce_content:
+            raise ValueError("The agent did not produce any content after 3 retries.")
