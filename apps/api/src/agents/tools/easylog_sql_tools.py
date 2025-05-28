@@ -39,4 +39,9 @@ class EasylogSqlTools(BaseTools):
 
         with self.db.cursor() as cursor:
             cursor.execute(query)
-            return cursor.fetchall()
+            # Check if the query is a write operation
+            if query.strip().lower().startswith(("insert", "update", "delete", "create", "drop", "alter")):
+                self.db.commit()
+                return f"Query executed successfully. {cursor.rowcount} rows affected."
+            else:
+                return cursor.fetchall()
