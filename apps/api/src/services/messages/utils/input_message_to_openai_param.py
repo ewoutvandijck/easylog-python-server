@@ -20,7 +20,9 @@ def input_content_to_openai_param(
     return {
         "role": "user",
         "name": "User",
-        "content": [
+        "content": "".join(content.text for content in content if isinstance(content, MessageCreateInputTextContent))
+        if all(isinstance(content, MessageCreateInputTextContent) for content in content)
+        else [
             text_param(content)
             if isinstance(content, MessageCreateInputTextContent)
             else image_param(content)
