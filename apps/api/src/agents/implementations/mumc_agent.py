@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 import httpx
+import pytz
 from onesignal.model.notification import Notification
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
@@ -213,7 +214,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_questions(answers: dict[str, str]) -> str:
+        async def tool_answer_questionaire_questions(answers: str | dict[str, str]) -> str:
             """Answer a set of questions from the questionaire.
 
             Args:
@@ -233,10 +234,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 -> "Answers to ['question_1', 'question_2', 'question_3'] set to ['answer_1', 'answer_2', 'answer_3']"
             """
 
-            for question_name, answer in answers.items():
+            _answers: dict[str, str] = {}
+            if isinstance(answers, str):
+                _answers = json.loads(answers)
+            else:
+                _answers = answers
+
+            for question_name, answer in _answers.items():
                 await self.set_metadata(question_name, answer)
 
-            return f"Answers to {answers.keys()} set to {answers.values()}"
+            return f"Answers to {_answers.keys()} set to {_answers.values()}"
 
         async def tool_get_questionaire_answer(question_name: str) -> str:
             """Get the answer to a question from the questionaire.
@@ -777,7 +784,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "id": response["id"],
                     "title": title,
                     "contents": contents,
-                    "sent_at": datetime.now().isoformat(),
+                    "sent_at": datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat(),
                 }
             )
 
@@ -888,7 +895,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
             "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
-            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "current_time": datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
                 [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
             )
@@ -1002,7 +1009,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
 
 ## Current Time
-Current system time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+Current system time: {datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Previously Sent Notifications
 The following notifications have already been sent and MUST NOT be resent:
