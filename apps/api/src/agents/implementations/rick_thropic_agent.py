@@ -18,10 +18,10 @@ from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.models.chart_widget import (
-    COLOR_BLACK,
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
+    ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -261,147 +261,55 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
-            data: list[dict[str, Any]],
-            x_key: str,
-            y_keys: list[str],
-            y_labels: list[str] | None = None,
-            height: int = 400,
+            data: list[ZLMDataRow],
         ) -> ChartWidget:
             """
-            Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
-            The chart visualizes scores as percentages, expecting values in the **0-100 range**.
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using a predefined ZLM color scheme.
+            The chart visualizes scores, expecting values in the 0-10 range. Where 0 is bad and 10 is the best
+            The y-axis label is derived from the `y_label` field of the first data item.
 
             Args:
                 language: The language for chart title and description ('nl' or 'en').
-                data: The data for the chart. Each dictionary in the list represents a
-                      point or group on the x-axis.
-                      - Each dictionary MUST contain the `x_key` field.
-                      - For each `y_key` specified in `y_keys`, the dictionary MUST
-                        contain a field with that `y_key` name.
-                      - The value associated with each `y_key` MUST be a dictionary
-                        with two keys:
-                        1.  `"value"`: A numerical percentage (float or integer).
-                            **IMPORTANT: This value MUST be between 0 and 100 (inclusive).**
-                            For example, 75 represents 75%. Do NOT use values like 0.75.
-                        2.  `"colorRole"`: A string that MUST be one of "success",
-                            "warning", or "neutral". This role will be mapped to specific
-                            ZLM colors. 0-40 = warning, 40-70 = neutral, 70-100 = success.
-                      - Example (single y-key):
-                        `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
-                              `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
-                        (if x_key="category", y_keys=["score"])
-                      - Example (multiple y-keys):
-                        `data=[{"month": "Jan", "metric_a": {"value": 85, "colorRole": "success"}, "metric_b": {"value": 45, "colorRole": "warning"}},`
-                              `{"month": "Feb", "metric_a": {"value": 90, "colorRole": "success"}, "metric_b": {"value": 50, "colorRole": "neutral"}}]`
-                        (if x_key="month", y_keys=["metric_a", "metric_b"])
-                x_key: The key in each data dictionary that represents the x-axis value
-                       (e.g., "category", "month").
-                y_keys: A list of keys in each data dictionary that represent the y-axis
-                        values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
-                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
-                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
-                          if provided.
-                height: Optional. The height of the chart in pixels. Defaults to 400.
+                data: A list of `ZLMDataRow` objects for the chart. Each item represents a
+                      category on the x-axis and its corresponding scores.
+                      - `x_value` (str): The name of the category (e.g., "Algemeen").
+                      - `y_current` (float): The current score (0-10).
+                      - `y_old` (float | None): Optional. The previous score the patient had (0-10).
+                      - `y_label` (str): The label for the y-axis, typically including units
+                                         (e.g., "Score (0-10)"). This is used for the overall
+                                         Y-axis label of the chart.
 
             Returns:
-                A ChartWidget object configured for ZLM display.
+                A ChartWidget object configured as a balloon chart.
 
             Raises:
-                ValueError: If data is missing required keys, values are not numbers,
-                            percentages are outside the 0-100 range, or colorRole is invalid.
+                ValueError: If the `data` list is empty.
+
+            Example:
+                ```python
+                # Assuming ZLMDataRow is imported from src.models.chart_widget
+                data = [
+                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-10)"),
+                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-10)"),
+                    ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
+                ]
+                chart_widget = tool_create_zlm_chart(language="nl", data=data)
+                ```
             """
+            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
 
             title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
             description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
-            # Custom color role map for ZLM charts
-            ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
-                # We only use a custom neutral color, the rest is re-used.
-                "success": DEFAULT_COLOR_ROLE_MAP["success"],
-                "neutral": "#ffdaaf",  # Pastel orange
-                "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
-            }
+            # Check that data list is at least 1 or more,.
+            if len(data) < 1:
+                raise ValueError("Data list must be at least 1 or more.")
 
-            # Add a target line that should always be the exact same. Be su
-            target_line = Line(
-                label="Target",
-                value=50,
-                color=COLOR_BLACK,
-            )
-
-            horizontal_lines = [target_line]
-
-            # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
-            for raw_item_idx, raw_item in enumerate(data):
-                if x_key not in raw_item:
-                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
-                current_x_value = raw_item[x_key]
-
-                for y_key in y_keys:
-                    if y_key not in raw_item:
-                        # This case is handled by create_bar_chart for sparse data,
-                        # but for ZLM, we might want to enforce all y_keys are present.
-                        # For now, let create_bar_chart handle it if colorRole is null.
-                        # If colorRole is provided for a non-existent y_key, it's an issue.
-                        continue
-
-                    value_container = raw_item[y_key]
-                    if not (
-                        isinstance(value_container, dict)
-                        and "value" in value_container
-                        and "colorRole" in value_container  # LLM must provide colorRole
-                    ):
-                        raise ValueError(
-                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
-                            "for ZLM chart is not in the expected format: "
-                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
-                            f"Received: {value_container}"
-                        )
-
-                    val_from_container = value_container["value"]
-                    if not isinstance(val_from_container, (int, float)):
-                        raise ValueError(
-                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
-                        )
-
-                    val_float = float(val_from_container)
-                    if not (0.0 <= val_float <= 100.0):
-                        hint = ""
-                        # Check if the original value from LLM looked like it was on a 0-1 scale
-                        if (
-                            isinstance(val_from_container, (int, float))
-                            and 0 < float(val_from_container) <= 1.0
-                            and float(val_from_container) != 0.0
-                        ):
-                            hint = (
-                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
-                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
-                            )
-                        raise ValueError(
-                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"is outside the expected 0-100 range.{hint}"
-                        )
-
-                    role_from_data = value_container["colorRole"]
-                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
-                        raise ValueError(
-                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
-                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
-                        )
-
-            return ChartWidget.create_bar_chart(
+            # Convert dictionaries to ZLMDataRow objects if needed
+            return ChartWidget.create_balloon_chart(
                 title=title,
                 description=description,
                 data=data,
-                x_key=x_key,
-                y_keys=y_keys,
-                y_labels=y_labels,
-                height=height,
-                custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
-                horizontal_lines=horizontal_lines,
-                y_axis_domain_min=0,
-                y_axis_domain_max=100,
             )
 
         def tool_create_bar_chart(

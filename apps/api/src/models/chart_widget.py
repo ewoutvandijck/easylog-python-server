@@ -29,6 +29,19 @@ DEFAULT_FALLBACK_COLOR = "#343a40"  # Dark Gray
 COLOR_BLACK = "#000000"
 
 
+class ZLMDataRow(BaseModel):
+    """
+    Represents one row of data in the chart, typically corresponding to an x-axis category.
+    It holds the x-value and a dictionary of all its y-values, where each y-value
+    is a ChartDataPointValue (containing the actual value and its color).
+    """
+
+    x_value: str = Field(..., description="The value for the x-axis category for this row.")
+    y_old: float | None = Field(default=None, description="The old value for this row.")
+    y_current: float = Field(..., description="The current value for this row.")
+    y_label: str = Field(..., description="The label for the y-axis.")
+
+
 class ChartDataPointValue(BaseModel):
     """Represents the structured value for a data point in a y-series, including its color."""
 
@@ -139,7 +152,7 @@ class ChartWidget(BaseModel):
     """
 
     # Basic configuration
-    type: Literal["bar", "line", "pie", "donut"] = Field(..., description="The type of chart to render")
+    type: Literal["bar", "line", "pie", "donut", "balloon"] = Field(..., description="The type of chart to render")
     title: str = Field(..., description="Chart title")
     description: str | None = Field(default=None, description="Optional chart description")
 
@@ -174,6 +187,130 @@ class ChartWidget(BaseModel):
     width: int | None = Field(default=None, description="Optional fixed width in pixels")
     height: int | None = Field(default=400, ge=100, le=2000, description="Chart height in pixels")
     margin: MarginConfig | None = Field(default_factory=MarginConfig, description="Chart margins")
+
+    @classmethod
+    def create_balloon_chart(
+        cls,
+        title: str,
+        data: list[ZLMDataRow] | list[dict[str, Any]],
+        description: str | None = None,
+    ) -> "ChartWidget":
+        """
+        Create a balloon chart for ZLM data.
+        Colors are based on ZLM score ranges (0-10):
+        - 8-10: success
+        - 6-7.99: neutral
+        - <6: warning
+        - Old values: muted
+
+        Args:
+            data: Can be either a list of ZLMDataRow objects or a list of dictionaries
+                  with keys: x_value, y_current, y_old (optional), y_label.
+                  Dictionaries are automatically converted to ZLMDataRow objects.
+        """
+        # Custom color role map for ZLM charts
+        ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
+            "success": DEFAULT_COLOR_ROLE_MAP["success"],
+            "neutral": "#ffdaaf",  # Pastel orange
+            "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
+            "old": DEFAULT_COLOR_ROLE_MAP["muted"],
+        }
+
+        # Define Literal constants for dictionary keys derived from ZLMDataRow field names
+        # This helps ensure consistency if ZLMDataRow fields are refactored.
+        # MyPy will check direct attribute access (zlm_row.y_current).
+        # These constants make the string key usage more explicit and robust.
+        y_current_key = "y_current"
+        y_old_key = "y_old"
+
+        processed_data_rows: list[ChartDataRow] = []
+        series_configs: list[SeriesConfig] = []
+
+        # Convert dictionaries to ZLMDataRow objects if needed
+        zlm_data_rows: list[ZLMDataRow] = []
+        if data and isinstance(data[0], dict):
+            # Handle dictionary input from LLM - convert to ZLMDataRow objects
+            dict_data = cast(list[dict[str, Any]], data)
+            for item in dict_data:
+                zlm_data_rows.append(
+                    ZLMDataRow(
+                        x_value=item["x_value"],
+                        y_current=item["y_current"],
+                        y_old=item.get("y_old"),
+                        y_label=item["y_label"],
+                    )
+                )
+        else:
+            # Data is already ZLMDataRow objects
+            zlm_data_rows = cast(list[ZLMDataRow], data)
+
+        y_axis_label_from_data = zlm_data_rows[0].y_label if zlm_data_rows else "Score"
+
+        has_old_values = False
+
+        for zlm_row in zlm_data_rows:
+            current_y = zlm_row.y_current
+            current_color_role: str
+            if 8 <= current_y <= 10:
+                current_color_role = "success"
+            elif 6 <= current_y < 8:
+                current_color_role = "neutral"
+            else:  # current_y < 6
+                current_color_role = "warning"
+
+            current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
+
+            y_values_map: dict[str, ChartDataPointValue] = {
+                y_current_key: ChartDataPointValue(value=current_y, color=current_color_hex)
+            }
+
+            if zlm_row.y_old is not None:
+                has_old_values = True
+                old_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]
+                y_values_map[y_old_key] = ChartDataPointValue(value=zlm_row.y_old, color=old_color_hex)
+
+            processed_data_rows.append(ChartDataRow(x_value=zlm_row.x_value, y_values=y_values_map))
+
+        # Configure series
+        label_for_current_series = y_axis_label_from_data.split("(")[0].strip()
+
+        # Use a color from the default palette for the legend item of the current series
+        current_series_legend_color = (
+            DEFAULT_SERIES_COLORS_PALETTE[0] if DEFAULT_SERIES_COLORS_PALETTE else DEFAULT_FALLBACK_COLOR
+        )
+        series_configs.append(
+            SeriesConfig(
+                label=label_for_current_series,
+                data_key=y_current_key,
+                style=StyleConfig(color=current_series_legend_color),
+            )
+        )
+
+        if has_old_values:
+            label_for_old_series = f"Previous {label_for_current_series}"
+            series_configs.append(
+                SeriesConfig(
+                    label=label_for_old_series,
+                    data_key=y_old_key,
+                    style=StyleConfig(color=ZLM_CUSTOM_COLOR_ROLE_MAP["old"]),  # Muted color for legend
+                )
+            )
+
+        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=10, tick_line=True, show=True)
+        x_axis_config = AxisConfig(tick_line=True, show=True)  # Basic X-axis
+
+        return cls(
+            type="balloon",
+            title=title,
+            description=description,
+            data=processed_data_rows,
+            series=series_configs,
+            x_axis=x_axis_config,
+            y_axis=y_axis_config,
+            legend=True,
+            height=400,
+            tooltip=TooltipConfig(show=True),
+        )
 
     # # Helper factory methods for common chart types
     # @classmethod
@@ -359,9 +496,7 @@ class ChartWidget(BaseModel):
             series_configs.append(SeriesConfig(label=y_labels[i], data_key=y_key, style=style))
 
         # Configure Y-axis with optional domain settings
-        y_axis_config = AxisConfig(
-            tick_line=True, domain_min=y_axis_domain_min, domain_max=y_axis_domain_max
-        )
+        y_axis_config = AxisConfig(tick_line=True, domain_min=y_axis_domain_min, domain_max=y_axis_domain_max)
 
         return cls(
             type="bar",
