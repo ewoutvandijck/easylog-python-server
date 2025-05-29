@@ -869,6 +869,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Notification tool
             tool_send_notification,
             # System tools
+            BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
 
