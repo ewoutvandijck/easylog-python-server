@@ -611,7 +611,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -638,7 +638,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            )
+            ), True
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
