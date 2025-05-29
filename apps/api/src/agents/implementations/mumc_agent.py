@@ -272,16 +272,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             await self.set_metadata("questionaire", all_answers)
             return f"Answers to {list(_answers.keys())} set as new version(s) at {now}"
 
-        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
-            """Answer a single question from the questionaire.
-
-            Args:
-                question_name (str): The name of the question to answer.
-                answer (str): The answer to the question.
-            """
-            # Use the multi-answer function with a single answer
-            return await tool_answer_questionaire_questions({question_name: answer})
-
         async def tool_get_questionaire_answer(question_name: str, all_versions: bool = False) -> str:
             """Get the answer(s) to a question from the questionnaire.
 
@@ -621,7 +611,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -648,7 +638,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            )
+            ), True
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
@@ -848,7 +838,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_get_document_contents,
             # Questionnaire tools
             tool_answer_questionaire_questions,
-            tool_answer_questionaire_question,
             tool_get_questionaire_answer,
             # Visualization tools
             tool_create_bar_chart,
@@ -869,7 +858,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Notification tool
             tool_send_notification,
             # System tools
-            BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
 
