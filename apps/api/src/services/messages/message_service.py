@@ -150,6 +150,8 @@ class MessageService:
             for content in message.content:
                 if isinstance(content, ToolUseContent):
                     logger.info(f"Tool use content: {content.input}")
+                elif isinstance(content, ToolResultContent):
+                    logger.info(f"Tool result content: {content.output}")
 
             await prisma.messages.create(
                 data={
