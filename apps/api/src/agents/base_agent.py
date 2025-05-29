@@ -222,6 +222,8 @@ class BaseAgent(Generic[TConfig]):
         try:
             tool_call_result = await tool(**arguments) if asyncio.iscoroutinefunction(tool) else tool(**arguments)
 
+            logger.debug(f"Tool call result: {tool_call_result}")
+
             if (
                 isinstance(tool_call_result, tuple)
                 and len(tool_call_result) == 2
