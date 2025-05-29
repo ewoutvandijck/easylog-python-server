@@ -214,6 +214,43 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
+        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
+            """Answer a single question from the questionnaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+
+            Returns:
+                str: A message indicating the answer has been set.
+
+            Raises:
+                ValueError: If the question name is not found in the current role's questionnaire config.
+            """
+            now = datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
+            # Load all questionnaire answers from metadata
+            all_answers = await self.get_metadata("questionaire", {})
+            if not isinstance(all_answers, dict):
+                all_answers = {}
+
+            # Only allow questions that exist in the current role's questionnaire config
+            role_config = await self.get_current_role()
+            allowed_questions = {q.name for q in role_config.questionaire}
+
+            if question_name not in allowed_questions:
+                raise ValueError(
+                    f"Question {question_name} not found in the current role's questionnaire config, allowed questions: {', '.join(allowed_questions)}"
+                )
+
+            prev = all_answers.get(question_name, [])
+            if not isinstance(prev, list):
+                prev = []
+            entry = {"answer": answer, "timestamp": now}
+            prev.append(entry)
+            all_answers[question_name] = prev
+            await self.set_metadata("questionaire", all_answers)
+            return f"Answer to {question_name} set as new version at {now}"
+
         async def tool_answer_questionaire_questions(answers: str | dict[str, str]) -> str:
             """
             Answer a set of questions from the questionnaire, supporting versioning/history.
@@ -837,6 +874,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_search_documents,
             tool_get_document_contents,
             # Questionnaire tools
+            tool_answer_questionaire_question,
             tool_answer_questionaire_questions,
             tool_get_questionaire_answer,
             # Visualization tools
