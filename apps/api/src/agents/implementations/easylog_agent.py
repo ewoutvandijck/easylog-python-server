@@ -495,126 +495,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 description=description,
                 data=converted_data,
             )
-        
-        def _calculate_zlm_balloon_height(self, domain_name: str, score: float, all_data: list) -> float:
-            """
-            Calculate balloon height using original ZLM COPD domain-specific scoring logic.
-            
-            Args:
-                domain_name: Name of the domain (e.g., "Longklachten", "Vermoeidheid")
-                score: The score for this domain (0-6)
-                all_data: All domain data (needed for cross-domain checks like kortademig in rust)
-                
-            Returns:
-                Balloon height as percentage (0-100%)
-            """
-            if score is None:
-                return 0.0
-                
-            # Helper function to find score for a specific domain
-            def find_domain_score(name: str) -> float:
-                for item in all_data:
-                    if isinstance(item, dict) and item.get("x_value") == name:
-                        return float(item.get("y_current", 0))
-                    elif hasattr(item, 'x_value') and item.x_value == name:
-                        return float(item.y_current)
-                return 0.0
-            
-            # Domain-specific scoring logic based on original ZLM COPD documentation
-            if domain_name == "Longklachten":
-                # Complex logic: Score + kortademig in rust check
-                # Look for the actual kortademig score (G12 in our system, mapped as individual longklacht component)
-                # For now, use a simple threshold since we have the averaged score
-                
-                if score < 1:
-                    # Green: 80-100%, linearly scaled
-                    return round(100 - (score * 20), 1)
-                elif 1 <= score <= 2:
-                    # Orange: 60-80%, linearly scaled  
-                    return round(80 - ((score - 1) * 20), 1)
-                else:  # score > 2
-                    # Red: 0-40%, linearly scaled
-                    return round(40 - ((score - 2) / 4 * 40), 1)
-                    
-            elif domain_name == "Longaanvallen":
-                # Discrete scoring based on number of exacerbations
-                if score == 0:
-                    return 100.0  # Green (0 courses)
-                elif score == 1:
-                    return 50.0   # Orange (1 course)
-                else:  # score >= 2
-                    return 0.0    # Red (2+ courses)
-                    
-            elif domain_name in ["Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
-                # Single question domains with specific cutoffs
-                if score == 0:
-                    return 100.0  # Green
-                elif score == 1:
-                    return 80.0   # Orange
-                elif score == 2:
-                    return 60.0   # Orange
-                else:  # score > 2
-                    # Red: 0-40%, linearly scaled from score 2-6
-                    return round(40 - ((score - 2) / 4 * 40), 1)
-                    
-            elif domain_name in ["Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
-                # Multi-question domains (averages)
-                if score < 1:
-                    # Green: 80-100%, linearly scaled
-                    return round(100 - (score * 20), 1)
-                elif 1 <= score <= 2:
-                    # Orange: 60-80%, linearly scaled
-                    return round(80 - ((score - 1) * 20), 1)
-                else:  # score > 2
-                    # Red: 0-40%, linearly scaled
-                    return round(40 - ((score - 2) / 4 * 40), 1)
-                    
-            elif domain_name == "Gewicht (BMI)":
-                # BMI has its own complex logic based on ranges
-                # Since we get the converted 0-6 score, apply standard logic
-                if score <= 1:
-                    return round(100 - (score * 20), 1)  # Green range
-                elif score <= 3:
-                    return round(80 - ((score - 1) * 10), 1)  # Orange range  
-                else:
-                    return round(40 - ((score - 3) / 3 * 40), 1)  # Red range
-                    
-            elif domain_name == "Bewegen":
-                # Movement scoring based on days of exercise (G18 conversion)
-                # Original: 0 dagen=score 6, 1-2 dagen=score 4, 3-4 dagen=score 2, 5+ dagen=score 0
-                if score == 0:
-                    return 100.0  # Green (5+ days, best)
-                elif score == 2:
-                    return 70.0   # Orange (3-4 days)
-                elif score == 4:
-                    return 30.0   # Orange (1-2 days)
-                else:  # score == 6
-                    return 0.0    # Red (0 days, worst)
-                    
-            elif domain_name == "Alcohol":
-                # Alcohol scoring based on glasses per week (G19 conversion)
-                # Original: 0 glazen=score 0, 1-7=score 2, 8-14=score 4, 15+=score 6
-                if score == 0:
-                    return 100.0  # Green (0 glasses, best)
-                elif score == 2:
-                    return 70.0   # Orange (1-7 glasses)
-                elif score == 4:
-                    return 30.0   # Orange (8-14 glasses)
-                else:  # score == 6
-                    return 0.0    # Red (15+ glasses, worst)
-                    
-            elif domain_name == "Roken":
-                # Smoking scoring based on smoking status (G20 conversion)
-                # Original: 'nooit'=score 0, 'vroeger'=score 1, 'ja'=score 6
-                if score == 0:
-                    return 100.0  # Green (never smoked, best)
-                elif score == 1:
-                    return 50.0   # Orange (former smoker)
-                else:  # score == 6
-                    return 0.0    # Red (current smoker, worst)
-            
-            # Default fallback: simple linear conversion for unknown domains
-            return round(100 - (score * 100 / 6), 1)
 
         def tool_create_bar_chart(
             title: str,
@@ -1045,6 +925,126 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             BaseTools.tool_call_super_agent,
         ]
         return {tool.__name__: tool for tool in tools_list}
+
+    def _calculate_zlm_balloon_height(self, domain_name: str, score: float, all_data: list) -> float:
+        """
+        Calculate balloon height using original ZLM COPD domain-specific scoring logic.
+        
+        Args:
+            domain_name: Name of the domain (e.g., "Longklachten", "Vermoeidheid")
+            score: The score for this domain (0-6)
+            all_data: All domain data (needed for cross-domain checks like kortademig in rust)
+            
+        Returns:
+            Balloon height as percentage (0-100%)
+        """
+        if score is None:
+            return 0.0
+            
+        # Helper function to find score for a specific domain
+        def find_domain_score(name: str) -> float:
+            for item in all_data:
+                if isinstance(item, dict) and item.get("x_value") == name:
+                    return float(item.get("y_current", 0))
+                elif hasattr(item, 'x_value') and item.x_value == name:
+                    return float(item.y_current)
+            return 0.0
+        
+        # Domain-specific scoring logic based on original ZLM COPD documentation
+        if domain_name == "Longklachten":
+            # Complex logic: Score + kortademig in rust check
+            # Look for the actual kortademig score (G12 in our system, mapped as individual longklacht component)
+            # For now, use a simple threshold since we have the averaged score
+            
+            if score < 1:
+                # Green: 80-100%, linearly scaled
+                return round(100 - (score * 20), 1)
+            elif 1 <= score <= 2:
+                # Orange: 60-80%, linearly scaled  
+                return round(80 - ((score - 1) * 20), 1)
+            else:  # score > 2
+                # Red: 0-40%, linearly scaled
+                return round(40 - ((score - 2) / 4 * 40), 1)
+                
+        elif domain_name == "Longaanvallen":
+            # Discrete scoring based on number of exacerbations
+            if score == 0:
+                return 100.0  # Green (0 courses)
+            elif score == 1:
+                return 50.0   # Orange (1 course)
+            else:  # score >= 2
+                return 0.0    # Red (2+ courses)
+                
+        elif domain_name in ["Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
+            # Single question domains with specific cutoffs
+            if score == 0:
+                return 100.0  # Green
+            elif score == 1:
+                return 80.0   # Orange
+            elif score == 2:
+                return 60.0   # Orange
+            else:  # score > 2
+                # Red: 0-40%, linearly scaled from score 2-6
+                return round(40 - ((score - 2) / 4 * 40), 1)
+                
+        elif domain_name in ["Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
+            # Multi-question domains (averages)
+            if score < 1:
+                # Green: 80-100%, linearly scaled
+                return round(100 - (score * 20), 1)
+            elif 1 <= score <= 2:
+                # Orange: 60-80%, linearly scaled
+                return round(80 - ((score - 1) * 20), 1)
+            else:  # score > 2
+                # Red: 0-40%, linearly scaled
+                return round(40 - ((score - 2) / 4 * 40), 1)
+                
+        elif domain_name == "Gewicht (BMI)":
+            # BMI has its own complex logic based on ranges
+            # Since we get the converted 0-6 score, apply standard logic
+            if score <= 1:
+                return round(100 - (score * 20), 1)  # Green range
+            elif score <= 3:
+                return round(80 - ((score - 1) * 10), 1)  # Orange range  
+            else:
+                return round(40 - ((score - 3) / 3 * 40), 1)  # Red range
+                
+        elif domain_name == "Bewegen":
+            # Movement scoring based on days of exercise (G18 conversion)
+            # Original: 0 dagen=score 6, 1-2 dagen=score 4, 3-4 dagen=score 2, 5+ dagen=score 0
+            if score == 0:
+                return 100.0  # Green (5+ days, best)
+            elif score == 2:
+                return 70.0   # Orange (3-4 days)
+            elif score == 4:
+                return 30.0   # Orange (1-2 days)
+            else:  # score == 6
+                return 0.0    # Red (0 days, worst)
+                
+        elif domain_name == "Alcohol":
+            # Alcohol scoring based on glasses per week (G19 conversion)
+            # Original: 0 glazen=score 0, 1-7=score 2, 8-14=score 4, 15+=score 6
+            if score == 0:
+                return 100.0  # Green (0 glasses, best)
+            elif score == 2:
+                return 70.0   # Orange (1-7 glasses)
+            elif score == 4:
+                return 30.0   # Orange (8-14 glasses)
+            else:  # score == 6
+                return 0.0    # Red (15+ glasses, worst)
+                
+        elif domain_name == "Roken":
+            # Smoking scoring based on smoking status (G20 conversion)
+            # Original: 'nooit'=score 0, 'vroeger'=score 1, 'ja'=score 6
+            if score == 0:
+                return 100.0  # Green (never smoked, best)
+            elif score == 1:
+                return 50.0   # Orange (former smoker)
+            else:  # score == 6
+                return 0.0    # Red (current smoker, worst)
+        
+        # Default fallback: simple linear conversion for unknown domains
+        return round(100 - (score * 100 / 6), 1)
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
