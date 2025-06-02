@@ -432,22 +432,24 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Validate score ranges for ZLM COPD (0-6 scale)
             if isinstance(data[0], dict):
                 for item in data:
-                    current_score = item.get("y_current", 0)
-                    old_score = item.get("y_old")
-                    
-                    if not (0 <= current_score <= 6):
-                        raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {item}")
-                    
-                    if old_score is not None and not (0 <= old_score <= 6):
-                        raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {item}")
+                    if isinstance(item, dict):
+                        current_score = item.get("y_current", 0)
+                        old_score = item.get("y_old")
+                        
+                        if not (0 <= current_score <= 6):
+                            raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {item}")
+                        
+                        if old_score is not None and not (0 <= old_score <= 6):
+                            raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {item}")
             else:
                 # ZLMDataRow objects
                 for item in data:
-                    if not (0 <= item.y_current <= 6):
-                        raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6")
-                    
-                    if item.y_old is not None and not (0 <= item.y_old <= 6):
-                        raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6")
+                    if hasattr(item, 'y_current'):
+                        if not (0 <= item.y_current <= 6):
+                            raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6")
+                        
+                        if item.y_old is not None and not (0 <= item.y_old <= 6):
+                            raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6")
 
             # Convert dictionaries to ZLMDataRow objects if needed and use the create_balloon_chart method
             return ChartWidget.create_balloon_chart(
