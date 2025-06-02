@@ -253,19 +253,19 @@ class ChartWidget(BaseModel):
             current_y = zlm_row.y_current
             current_color_role: str
             
-            # Convert balloon height percentage (0-100%) back to score interpretation for color mapping
-            # Higher balloon height = lower score = better health
-            # We need to map balloon heights to color roles correctly:
-            # 80-100% height (scores 0-1): Green (good health)
-            # 60-80% height (scores 1-2.5): Orange (moderate) 
-            # 0-60% height (scores >2.5): Red (poor health)
-            balloon_height_percentage = ((6 - current_y) / 6) * 100  # Convert 0-6 score to 0-100% height
+            # current_y is already a balloon height percentage (0-100%) from _calculate_zlm_balloon_height
+            # Higher percentage = better health (lower ZLM score)
+            # Map balloon height percentages to color roles:
+            # 80-100% height: Green (good health, low burden)
+            # 60-80% height: Orange (moderate burden) 
+            # 0-60% height: Red (poor health, high burden)
+            balloon_height_percentage = current_y  # Already a percentage from _calculate_zlm_balloon_height
             
-            if balloon_height_percentage >= 80:  # High balloon = low score = good health
+            if balloon_height_percentage >= 80:  # High balloon = good health
                 current_color_role = "success"  # Green - low burden
-            elif balloon_height_percentage >= 60:  # Medium balloon = medium score = moderate
+            elif balloon_height_percentage >= 60:  # Medium balloon = moderate
                 current_color_role = "neutral"   # Orange - moderate burden
-            else:  # Low balloon = high score = poor health
+            else:  # Low balloon = poor health
                 current_color_role = "warning"   # Red - high burden
 
             current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
@@ -306,8 +306,8 @@ class ChartWidget(BaseModel):
                 )
             )
 
-        # Y-axis configured for ZLM COPD 0-6 scale
-        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=6, tick_line=True, show=True)
+        # Y-axis configured for percentage scale (0-100%) since _calculate_zlm_balloon_height returns percentages
+        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=100, tick_line=True, show=True)
         x_axis_config = AxisConfig(tick_line=True, show=True)  # Basic X-axis
 
         return cls(
