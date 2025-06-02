@@ -253,15 +253,19 @@ class ChartWidget(BaseModel):
             current_y = zlm_row.y_current
             current_color_role: str
             
-            # ZLM COPD color mapping based on score ranges
-            # Green: typically scores 0-1 (low burden, good health)
-            # Orange: typically scores 1-2 (moderate burden) 
-            # Red: typically scores >2 (high burden, poor health)
-            if current_y < 1:
+            # Convert balloon height percentage (0-100%) back to score interpretation for color mapping
+            # Higher balloon height = lower score = better health
+            # We need to map balloon heights to color roles correctly:
+            # 80-100% height (scores 0-1): Green (good health)
+            # 60-80% height (scores 1-2.5): Orange (moderate) 
+            # 0-60% height (scores >2.5): Red (poor health)
+            balloon_height_percentage = ((6 - current_y) / 6) * 100  # Convert 0-6 score to 0-100% height
+            
+            if balloon_height_percentage >= 80:  # High balloon = low score = good health
                 current_color_role = "success"  # Green - low burden
-            elif 1 <= current_y <= 2:
+            elif balloon_height_percentage >= 60:  # Medium balloon = medium score = moderate
                 current_color_role = "neutral"   # Orange - moderate burden
-            else:  # current_y > 2
+            else:  # Low balloon = high score = poor health
                 current_color_role = "warning"   # Red - high burden
 
             current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
