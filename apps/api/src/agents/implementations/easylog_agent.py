@@ -96,29 +96,6 @@ class DefaultKeyDict(dict):
         return f"[missing:{key}]"
 
 
-class CarEntity(BaseModel):
-    brand: str | None = None
-    model: str | None = None
-    year: int | None = None
-    horsepower: int | None = None
-    color: str | None = None
-    price: int | None = None
-
-
-class PersonEntity(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: str | None = None
-    gender: str | None = None
-
-
-class JobEntity(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-
-
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -136,7 +113,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         )
 
         if easylog_token:
-            self.logger.debug(f"credentials='{easylog_token}'")
+            pass  # Token available for EasyLog tools
 
         easylog_sql_tools = EasylogSqlTools(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
@@ -298,7 +275,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             horizontal_lines = None
 
-            # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
+            # Data validation for ZLM charts
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
                     raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
@@ -306,10 +283,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
                 for y_key in y_keys:
                     if y_key not in raw_item:
-                        # This case is handled by create_bar_chart for sparse data,
-                        # but for ZLM, we might want to enforce all y_keys are present.
-                        # For now, let create_bar_chart handle it if colorRole is null.
-                        # If colorRole is provided for a non-existent y_key, it's an issue.
+                        # Skip missing keys - handled by chart widget
                         continue
 
                     value_container = raw_item[y_key]
@@ -334,27 +308,19 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
                     val_float = float(val_from_container)
                     if not (0.0 <= val_float <= 100.0):
+                        # Check for common 0-1 scale mistake
                         hint = ""
-                        # Check if the original value from LLM looked like it was on a 0-1 scale
-                        if (
-                            isinstance(val_from_container, (int, float))
-                            and 0 < float(val_from_container) <= 1.0
-                            and float(val_from_container) != 0.0
-                        ):
-                            hint = (
-                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
-                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
-                            )
+                        if 0 < val_from_container <= 1.0:
+                            hint = f" (Value {val_from_container} looks like 0-1 scale; use 0-100 range)"
                         raise ValueError(
-                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"is outside the expected 0-100 range.{hint}"
+                            f"ZLM chart value {val_from_container} for '{y_key}' is outside 0-100 range{hint}"
                         )
 
                     role_from_data = value_container["colorRole"]
                     if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
                         raise ValueError(
-                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
-                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
+                            f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
+                            f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
                         )
 
             chart = ChartWidget.create_bar_chart(
@@ -416,9 +382,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 ```
             """
             title = "Dit zijn uw resultaten"
-            description = None  # No description/subtitle as requested
+            description = None
             
-            # Check that data list is not empty
+            # Validate input data
             if not data or len(data) == 0:
                 raise ValueError("Data list must contain at least one item.")
 
@@ -447,16 +413,16 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     domain_name = str(item["x_value"])
                     
                     if not isinstance(current_score, (int, float)):
-                        raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
+                        raise ValueError(f"Current score must be numeric for item {i}")
                     
                     if not (0 <= current_score <= 6):
-                        raise ValueError(f"ZLM score {current_score} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
                     
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
-                            raise ValueError(f"Old score must be numeric, got {type(old_score)} for item {i}")
+                            raise ValueError(f"Old score must be numeric for item {i}")
                         if not (0 <= old_score <= 6):
-                            raise ValueError(f"ZLM old score {old_score} is outside valid range 0-6 for item {i}")
+                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
                     
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(domain_name, current_score, data)
@@ -472,10 +438,10 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 elif hasattr(item, 'y_current'):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
-                        raise ValueError(f"ZLM score {item.y_current} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
                     
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
-                        raise ValueError(f"ZLM old score {item.y_old} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
                     
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, data)
@@ -488,7 +454,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         y_label="Percentage (0-100%)"
                     ))
                 else:
-                    raise ValueError(f"Invalid data item at index {i}: must be dict with required keys or ZLMDataRow object")
+                    raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
 
             return ChartWidget.create_balloon_chart(
                 title=title,
@@ -951,7 +917,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return 0.0
         
         # Domain-specific scoring logic based on original ZLM COPD documentation
-        if domain_name == "Longklachten":
+        if domain_name in ["Long klachten", "Longklachten"]:
             # Complex logic: Score + kortademig in rust check
             # Look for the actual kortademig score (G12 in our system, mapped as individual longklacht component)
             # For now, use a simple threshold since we have the averaged score
@@ -966,7 +932,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 # Red: 0-40%, linearly scaled
                 return round(40 - ((score - 2) / 4 * 40), 1)
                 
-        elif domain_name == "Longaanvallen":
+        elif domain_name in ["Long aanvallen", "Longaanvallen"]:
             # Discrete scoring based on number of exacerbations
             if score == 0:
                 return 100.0  # Green (0 courses)
@@ -975,7 +941,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             else:  # score >= 2
                 return 0.0    # Red (2+ courses)
                 
-        elif domain_name in ["Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
+        elif domain_name in ["Vermoed heid", "Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
             # Single question domains with specific cutoffs
             if score == 0:
                 return 100.0  # Green
@@ -987,7 +953,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 # Red: 0-40%, linearly scaled from score 2-6
                 return round(40 - ((score - 2) / 4 * 40), 1)
                 
-        elif domain_name in ["Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
+        elif domain_name in ["Lich. Beperking", "Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
             # Multi-question domains (averages)
             if score < 1:
                 # Green: 80-100%, linearly scaled
@@ -1012,35 +978,46 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         elif domain_name == "Bewegen":
             # Movement scoring based on days of exercise (G18 conversion)
             # Original: 0 dagen=score 6, 1-2 dagen=score 4, 3-4 dagen=score 2, 5+ dagen=score 0
-            if score == 0:
+            # Handle intermediate values by using ranges
+            if score <= 0.5:
                 return 100.0  # Green (5+ days, best)
-            elif score == 2:
+            elif score <= 1.5:
+                return 85.0   # Green-Orange transition
+            elif score <= 2.5:
                 return 70.0   # Orange (3-4 days)
-            elif score == 4:
+            elif score <= 3.5:
+                return 50.0   # Orange-Red transition
+            elif score <= 4.5:
                 return 30.0   # Orange (1-2 days)
-            else:  # score == 6
+            else:  # score > 4.5
                 return 0.0    # Red (0 days, worst)
                 
         elif domain_name == "Alcohol":
             # Alcohol scoring based on glasses per week (G19 conversion)
             # Original: 0 glazen=score 0, 1-7=score 2, 8-14=score 4, 15+=score 6
-            if score == 0:
+            # Handle intermediate values by using ranges
+            if score <= 0.5:
                 return 100.0  # Green (0 glasses, best)
-            elif score == 2:
+            elif score <= 1.5:
+                return 85.0   # Green-Orange transition
+            elif score <= 2.5:
                 return 70.0   # Orange (1-7 glasses)
-            elif score == 4:
+            elif score <= 3.5:
+                return 50.0   # Orange-Red transition
+            elif score <= 4.5:
                 return 30.0   # Orange (8-14 glasses)
-            else:  # score == 6
+            else:  # score > 4.5
                 return 0.0    # Red (15+ glasses, worst)
                 
         elif domain_name == "Roken":
             # Smoking scoring based on smoking status (G20 conversion)
             # Original: 'nooit'=score 0, 'vroeger'=score 1, 'ja'=score 6
-            if score == 0:
+            # Handle intermediate values by using ranges
+            if score <= 0.5:
                 return 100.0  # Green (never smoked, best)
-            elif score == 1:
+            elif score <= 3.5:
                 return 50.0   # Orange (former smoker)
-            else:  # score == 6
+            else:  # score > 3.5
                 return 0.0    # Red (current smoker, worst)
         
         # Default fallback: simple linear conversion for unknown domains
@@ -1138,7 +1115,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        # Added from debug_agent: Store onesignal_id and assistant_field_name from headers
+        # Store session metadata from headers
         onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
         assistant_field_name = self.request_headers.get("x-assistant-field-name")
 
@@ -1153,8 +1130,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         except Exception as e:
             self.logger.warning(f"Error formatting system prompt: {e}")
             llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
-
-        self.logger.debug(f"llm_content: {llm_content}")
 
         # Create the completion request
         response = await self.client.chat.completions.create(
