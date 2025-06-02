@@ -24,6 +24,7 @@ from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
+    ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -376,6 +377,84 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             chart.tooltip = TooltipConfig(show=True, hide_label=True)
 
             return chart
+
+        def tool_create_zlm_balloon_chart(
+            language: Literal["nl", "en"],
+            data: list[ZLMDataRow] | list[dict[str, Any]],
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
+            The chart visualizes scores, expecting values in the **0-6 range** as per ZLM COPD guidelines.
+            Balloon heights and colors are calculated according to official ZLM algorithms.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: A list of `ZLMDataRow` objects or dictionaries for the chart. Each item represents a
+                      category on the x-axis and its corresponding scores.
+                      - If using dictionaries, each should contain:
+                        - `x_value` (str): The name of the category (e.g., "Longklachten").
+                        - `y_current` (float): The current score (0-6).
+                        - `y_old` (float | None): Optional. The previous score the patient had (0-6).
+                        - `y_label` (str): The label for the y-axis, typically "Score (0-6)".
+                      - If using ZLMDataRow objects, they have the same structure as above.
+
+            Returns:
+                A ChartWidget object configured as a balloon chart with ZLM-compliant scoring.
+
+            Raises:
+                ValueError: If the `data` list is empty or scores are outside 0-6 range.
+
+            Note:
+                This implementation follows the official ZLM COPD scoring guidelines:
+                - Scores 0-6 are mapped to balloon heights using official ZLM algorithms
+                - Green: 80-100% (scores typically 0-1)
+                - Orange: 60-80% (scores typically 1-2) 
+                - Red: 0-40% (scores typically >2)
+                
+            Example:
+                ```python
+                # Using dictionaries
+                data = [
+                    {"x_value": "Longklachten", "y_current": 2.5, "y_old": 3.0, "y_label": "Score (0-6)"},
+                    {"x_value": "Vermoeidheid", "y_current": 1.2, "y_old": 1.8, "y_label": "Score (0-6)"},
+                    {"x_value": "Medicijnen", "y_current": 0.5, "y_label": "Score (0-6)"},  # No old value
+                ]
+                chart_widget = tool_create_zlm_balloon_chart(language="nl", data=data)
+                ```
+            """
+            title = "Resultaten ziektelastmeter COPD" if language == "nl" else "Disease burden results"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+
+            # Check that data list is at least 1 or more
+            if len(data) < 1:
+                raise ValueError("Data list must be at least 1 or more.")
+
+            # Validate score ranges for ZLM COPD (0-6 scale)
+            if isinstance(data[0], dict):
+                for item in data:
+                    current_score = item.get("y_current", 0)
+                    old_score = item.get("y_old")
+                    
+                    if not (0 <= current_score <= 6):
+                        raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {item}")
+                    
+                    if old_score is not None and not (0 <= old_score <= 6):
+                        raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {item}")
+            else:
+                # ZLMDataRow objects
+                for item in data:
+                    if not (0 <= item.y_current <= 6):
+                        raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6")
+                    
+                    if item.y_old is not None and not (0 <= item.y_old <= 6):
+                        raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6")
+
+            # Convert dictionaries to ZLMDataRow objects if needed and use the create_balloon_chart method
+            return ChartWidget.create_balloon_chart(
+                title=title,
+                description=description,
+                data=data,
+            )
 
         def tool_create_bar_chart(
             title: str,
@@ -785,6 +864,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Visualization tools
             tool_create_bar_chart,
             tool_create_zlm_chart,
+            tool_create_zlm_balloon_chart,
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,

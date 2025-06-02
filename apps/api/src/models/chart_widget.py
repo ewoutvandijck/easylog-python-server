@@ -196,24 +196,25 @@ class ChartWidget(BaseModel):
         description: str | None = None,
     ) -> "ChartWidget":
         """
-        Create a balloon chart for ZLM data.
-        Colors are based on ZLM score ranges (0-10):
-        - 8-10: success
-        - 6-7.99: neutral
-        - <6: warning
-        - Old values: muted
+        Create a balloon chart for ZLM COPD data.
+        Colors are based on ZLM COPD score ranges (0-6):
+        - Green (80-100%): scores typically 0-1 (low burden)
+        - Orange (60-80%): scores typically 1-2 (moderate burden)  
+        - Red (0-40%): scores typically >2 (high burden)
+        - Old values: muted gray
 
         Args:
             data: Can be either a list of ZLMDataRow objects or a list of dictionaries
                   with keys: x_value, y_current, y_old (optional), y_label.
                   Dictionaries are automatically converted to ZLMDataRow objects.
+                  Scores must be in the 0-6 range as per ZLM COPD guidelines.
         """
-        # Custom color role map for ZLM charts
+        # ZLM COPD official color role map
         ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
-            "success": DEFAULT_COLOR_ROLE_MAP["success"],
-            "neutral": "#ffdaaf",  # Pastel orange
-            "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
-            "old": DEFAULT_COLOR_ROLE_MAP["muted"],
+            "success": "#538135",  # Green - RGB(83, 129, 53) - Low burden  
+            "neutral": "#F3C82B",  # Yellow/Orange - RGB(243, 200, 43) - Moderate burden
+            "warning": "#D44040",  # Red - RGB(212, 64, 64) - High burden
+            "old": "#9D9D9D",  # Gray - RGB(157, 157, 157) - Previous scores
         }
 
         # Define Literal constants for dictionary keys derived from ZLMDataRow field names
@@ -251,12 +252,17 @@ class ChartWidget(BaseModel):
         for zlm_row in zlm_data_rows:
             current_y = zlm_row.y_current
             current_color_role: str
-            if 8 <= current_y <= 10:
-                current_color_role = "success"
-            elif 6 <= current_y < 8:
-                current_color_role = "neutral"
-            else:  # current_y < 6
-                current_color_role = "warning"
+            
+            # ZLM COPD color mapping based on score ranges
+            # Green: typically scores 0-1 (low burden, good health)
+            # Orange: typically scores 1-2 (moderate burden) 
+            # Red: typically scores >2 (high burden, poor health)
+            if current_y < 1:
+                current_color_role = "success"  # Green - low burden
+            elif 1 <= current_y <= 2:
+                current_color_role = "neutral"   # Orange - moderate burden
+            else:  # current_y > 2
+                current_color_role = "warning"   # Red - high burden
 
             current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
 
@@ -296,7 +302,8 @@ class ChartWidget(BaseModel):
                 )
             )
 
-        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=10, tick_line=True, show=True)
+        # Y-axis configured for ZLM COPD 0-6 scale
+        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=6, tick_line=True, show=True)
         x_axis_config = AxisConfig(tick_line=True, show=True)  # Basic X-axis
 
         return cls(
