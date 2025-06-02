@@ -307,6 +307,22 @@ De hoogte van de ballon en de bijbehorende kleur representeren de ernst van de z
 | 5                | 5                | Rood      |
 | 6                | 0                | Rood      |
 
+De volgende vragen gaan over uw leefstijl
+
+G12 In de afgelopen week, hoeveel dagen heeft u 30 minuten of meer matig intensieve lichaamsbeweging gehad?
+
+Bijv. stevig doorwandelen of harder fietsen.
+Het mogen ook minimaal 3x10 minuten zijn. □ 0 dagen
+□ 1-2 dagen
+□ 3-4 dagen
+□ 5 dagen of meer
+G13 Hoeveel glazen alcohol dronk u in de afgelopen week? … glazen per week
+G14 Rookt u of heeft u gerookt? □ Ja. Hoeveel (shag)sigaretten heeft u in de afgelopen week gemiddeld per dag gerookt? ****\_\_\_****
+□ Vroeger. Gestopt met roken sinds: **_(maand) / _**(jaar)
+□ Nooit
+G15 Wat is uw gewicht? ………… kg
+G16 Wat is uw lengte? ………… cm
+
 ## Gebruik van de Scores
 
 1. Na het invullen van de vragenlijst worden de scores per domein berekend.

@@ -1,0 +1,25 @@
+{
+  "id": 2,
+  "schema": [
+    {
+      "name": "prestatie-e2",
+      "type": "assistant",
+      "label": "ERTMS PRESTATIE COACH",
+      "agentConfig": {
+        "roles": [
+          {
+            "name": "PRESTATIE",
+            "model": "anthropic\/claude-sonnet-4",
+            "prompt": "Je bent een vriendelijke slimme assistent. Help de user met de uitvoering van de Operationele ERTMS PRESTATIES zoals beschreven in het document [ERTMS_prestaties.pdf]. Geef een kort verslag van dit document, gebruik de tools tool_search_documents en tool_get_document_contents,",
+            "tools_regex": ".*",
+            "allowed_subjects": ["PRESTATIES"]
+          }
+        ],
+        "prompt": "You can use the following roles: {{available_roles}} # #You are currently acting as the role: {{current_role}} # #Your specific instructions for this role are: {{current_role_prompt}} # #Your recurring tasks are: {{recurring_tasks}}. #You current reminders are: {{reminders}}. #Your memories are: {{memories}}. # #You've sent the following notifications in the past {{notifications}} This prompt may include asking questions from the questionaire tool. Use the questionnaire tools to interact with the questionnaires. Use the ChartWidget tool to show charts. Here are you memories: {{memories}}. Please call the tool store_memory to store any relevant information about the conversation. gebruik de tools tool_search_documents en tool_get_document_contents voor pdf documenten",
+        "agent_class": "EasyLogAgent"
+      }
+    }
+  ],
+  "mustSpecify": true,
+  "defaultAction": "specify"
+}
