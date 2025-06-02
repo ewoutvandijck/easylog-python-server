@@ -385,7 +385,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             """
             Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
             The chart visualizes scores, expecting values in the **0-6 range** as per ZLM COPD guidelines.
-            Balloon heights and colors are calculated according to official ZLM algorithms.
+            Scores are converted to balloon heights (0-100%) where lower score = higher balloon = better health.
 
             Args:
                 language: The language for chart title and description ('nl' or 'en').
@@ -399,25 +399,18 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                       - If using ZLMDataRow objects, they have the same structure as above.
 
             Returns:
-                A ChartWidget object configured as a balloon chart with ZLM-compliant scoring.
-
-            Raises:
-                ValueError: If the `data` list is empty or scores are outside 0-6 range.
+                A ChartWidget object configured as a balloon chart with proper score-to-height mapping.
 
             Note:
-                This implementation follows the official ZLM COPD scoring guidelines:
-                - Scores 0-6 are mapped to balloon heights using official ZLM algorithms
-                - Green: 80-100% (scores typically 0-1)
-                - Orange: 60-80% (scores typically 1-2) 
-                - Red: 0-40% (scores typically >2)
+                Scores are inversely mapped to balloon heights:
+                - Score 0 = 100% height (green, best health)
+                - Score 6 = 0% height (red, worst health)
                 
             Example:
                 ```python
-                # Using dictionaries
                 data = [
                     {"x_value": "Longklachten", "y_current": 2.5, "y_old": 3.0, "y_label": "Score (0-6)"},
                     {"x_value": "Vermoeidheid", "y_current": 1.2, "y_old": 1.8, "y_label": "Score (0-6)"},
-                    {"x_value": "Medicijnen", "y_current": 0.5, "y_label": "Score (0-6)"},  # No old value
                 ]
                 chart_widget = tool_create_zlm_balloon_chart(language="nl", data=data)
                 ```
@@ -425,12 +418,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             title = "Dit zijn uw resultaten"
             description = None  # No description/subtitle as requested
 
-            # Check that data list is at least 1 or more
+            # Check that data list is not empty
             if not data or len(data) == 0:
                 raise ValueError("Data list must contain at least one item.")
 
-            # Validate data structure and convert if needed
-            validated_data = []
+            # Convert scores (0-6) to balloon heights (0-100%) and prepare for balloon chart
+            converted_data = []
             
             for i, item in enumerate(data):
                 if isinstance(item, dict):
@@ -449,39 +442,52 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
                     
                     if not (0 <= current_score <= 6):
-                        raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM score {current_score} is outside valid range 0-6 for item {i}")
                     
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric, got {type(old_score)} for item {i}")
                         if not (0 <= old_score <= 6):
-                            raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {i}")
+                            raise ValueError(f"ZLM old score {old_score} is outside valid range 0-6 for item {i}")
                     
-                    # Convert to validated dict
-                    validated_data.append({
-                        "x_value": str(item["x_value"]),
-                        "y_current": float(current_score),
-                        "y_old": float(old_score) if old_score is not None else None,
-                        "y_label": str(item["y_label"])
-                    })
+                    # Convert to ZLMDataRow with proper mapping: score 0-6 to height 100-0%
+                    # Score 0 = 100% height (good), Score 6 = 0% height (bad)
+                    current_height = round(100 - (current_score * 100 / 6), 1)
+                    old_height = round(100 - (old_score * 100 / 6), 1) if old_score is not None else None
+                    
+                    converted_data.append(ZLMDataRow(
+                        x_value=str(item["x_value"]),
+                        y_current=current_height,
+                        y_old=old_height,
+                        y_label="Percentage (0-100%)"
+                    ))
                     
                 elif hasattr(item, 'y_current'):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
-                        raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM score {item.y_current} is outside valid range 0-6 for item {i}")
                     
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
-                        raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6 for item {i}")
+                        raise ValueError(f"ZLM old score {item.y_old} is outside valid range 0-6 for item {i}")
                     
-                    validated_data.append(item)
+                    # Convert scores to heights
+                    current_height = round(100 - (item.y_current * 100 / 6), 1)
+                    old_height = round(100 - (item.y_old * 100 / 6), 1) if item.y_old is not None else None
+                    
+                    converted_data.append(ZLMDataRow(
+                        x_value=item.x_value,
+                        y_current=current_height,
+                        y_old=old_height,
+                        y_label="Percentage (0-100%)"
+                    ))
                 else:
                     raise ValueError(f"Invalid data item at index {i}: must be dict with required keys or ZLMDataRow object")
 
-            # Use the create_balloon_chart method with validated data
+            # Use the create_balloon_chart method with converted data
             return ChartWidget.create_balloon_chart(
                 title=title,
                 description=description,
-                data=validated_data,
+                data=converted_data,
             )
 
         def tool_create_bar_chart(
