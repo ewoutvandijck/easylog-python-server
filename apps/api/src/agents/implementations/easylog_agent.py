@@ -419,63 +419,33 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             title = "Dit zijn uw resultaten"
             description = None  # No description/subtitle as requested
             
-            # Handle JSON string input
-            if isinstance(data, str):
-                try:
-                    import json
-                    data = json.loads(data)
-                    self.logger.info(f"DEBUG: Successfully parsed JSON string to list with {len(data)} items")
-                except json.JSONDecodeError as e:
-                    raise ValueError(f"Invalid JSON string provided: {e}")
-                except Exception as e:
-                    raise ValueError(f"Error parsing JSON string: {e}")
-
             # Check that data list is not empty
             if not data or len(data) == 0:
                 raise ValueError("Data list must contain at least one item.")
 
-            # DEBUG: Log the input data
-            self.logger.info(f"DEBUG: balloon chart input data type: {type(data)}")
-            self.logger.info(f"DEBUG: balloon chart input data length: {len(data) if hasattr(data, '__len__') else 'N/A'}")
+            # Handle JSON string input by parsing it first
+            if isinstance(data, str):
+                try:
+                    import json
+                    data = json.loads(data)
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON string provided: {e}")
             
             # Convert scores (0-6) to balloon heights (0-100%) and prepare for balloon chart
             converted_data = []
             
             for i, item in enumerate(data):
-                self.logger.info(f"DEBUG: Processing item {i}: {item} (type: {type(item)})")
-                
                 if isinstance(item, dict):
                     # Validate required keys
                     required_keys = ["x_value", "y_current", "y_label"]
-                    self.logger.info(f"DEBUG: Item {i} is dict, checking keys: {list(item.keys())}")
-                    
                     for key in required_keys:
                         if key not in item:
-                            self.logger.error(f"DEBUG: Missing key '{key}' in item {i}: {item}")
                             raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
                     
                     # Validate score ranges
                     current_score = item["y_current"]
                     old_score = item.get("y_old")
                     
-                    self.logger.info(f"DEBUG: Item {i} scores - current: {current_score} (type: {type(current_score)}), old: {old_score}")
-                    
-                    # Convert string values to float if needed
-                    if isinstance(current_score, str):
-                        try:
-                            current_score = float(current_score)
-                            self.logger.info(f"DEBUG: Converted current_score from string to float: {current_score}")
-                        except ValueError:
-                            raise ValueError(f"Cannot convert current score '{current_score}' to number for item {i}")
-                    
-                    if old_score is not None and isinstance(old_score, str):
-                        try:
-                            old_score = float(old_score)
-                            self.logger.info(f"DEBUG: Converted old_score from string to float: {old_score}")
-                        except ValueError:
-                            raise ValueError(f"Cannot convert old score '{old_score}' to number for item {i}")
-                    
-                    # Ensure scores are numeric
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
                     
@@ -493,8 +463,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     current_height = round(100 - (current_score * 100 / 6), 1)
                     old_height = round(100 - (old_score * 100 / 6), 1) if old_score is not None else None
                     
-                    self.logger.info(f"DEBUG: Item {i} converted heights - current: {current_height}, old: {old_height}")
-                    
                     converted_data.append(ZLMDataRow(
                         x_value=str(item["x_value"]),
                         y_current=current_height,
@@ -503,7 +471,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     ))
                     
                 elif hasattr(item, 'y_current'):
-                    self.logger.info(f"DEBUG: Item {i} is ZLMDataRow object")
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
                         raise ValueError(f"ZLM score {item.y_current} is outside valid range 0-6 for item {i}")
@@ -522,12 +489,8 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         y_label="Percentage (0-100%)"
                     ))
                 else:
-                    self.logger.error(f"DEBUG: Item {i} is neither dict nor ZLMDataRow: {item} (type: {type(item)})")
                     raise ValueError(f"Invalid data item at index {i}: must be dict with required keys or ZLMDataRow object")
 
-            self.logger.info(f"DEBUG: Final converted_data: {converted_data}")
-            
-            # Use the create_balloon_chart method with converted data
             return ChartWidget.create_balloon_chart(
                 title=title,
                 description=description,
