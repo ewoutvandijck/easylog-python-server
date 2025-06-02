@@ -437,6 +437,19 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     current_score = item["y_current"]
                     old_score = item.get("y_old")
                     
+                    # Convert string values to float if needed
+                    if isinstance(current_score, str):
+                        try:
+                            current_score = float(current_score)
+                        except ValueError:
+                            raise ValueError(f"Cannot convert current score '{current_score}' to number for item {i}")
+                    
+                    if old_score is not None and isinstance(old_score, str):
+                        try:
+                            old_score = float(old_score)
+                        except ValueError:
+                            raise ValueError(f"Cannot convert old score '{old_score}' to number for item {i}")
+                    
                     # Ensure scores are numeric
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
