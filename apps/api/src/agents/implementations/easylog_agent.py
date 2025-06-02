@@ -428,10 +428,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     current_height = self._calculate_zlm_balloon_height(domain_name, current_score, data)
                     old_height = self._calculate_zlm_balloon_height(domain_name, old_score, data) if old_score is not None else None
                     
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    
                     converted_data.append(ZLMDataRow(
                         x_value=domain_name,
-                        y_current=current_height,
-                        y_old=old_height,
+                        y_current=flutter_y_current,
+                        y_old=flutter_y_old,
                         y_label="Percentage (0-100%)"
                     ))
                     
@@ -447,10 +451,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, data)
                     old_height = self._calculate_zlm_balloon_height(item.x_value, item.y_old, data) if item.y_old is not None else None
                     
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    
                     converted_data.append(ZLMDataRow(
                         x_value=item.x_value,
-                        y_current=current_height,
-                        y_old=old_height,
+                        y_current=flutter_y_current,
+                        y_old=flutter_y_old,
                         y_label="Percentage (0-100%)"
                     ))
                 else:
@@ -894,12 +902,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
     def _calculate_zlm_balloon_height(self, domain_name: str, score: float, all_data: list) -> float:
         """
-        Calculate balloon height using original ZLM COPD domain-specific scoring logic.
+        Calculate balloon height using official ZLM COPD scoring guide.
+        Based on zlm_copd_scoring.md documentation.
         
         Args:
-            domain_name: Name of the domain (e.g., "Longklachten", "Vermoeidheid")
+            domain_name: Name of the domain (e.g., "Long klachten", "Vermoeidheid")
             score: The score for this domain (0-6)
-            all_data: All domain data (needed for cross-domain checks like kortademig in rust)
+            all_data: All domain data (needed for cross-domain checks)
             
         Returns:
             Balloon height as percentage (0-100%)
@@ -907,33 +916,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         if score is None:
             return 0.0
             
-        # Helper function to find score for a specific domain
-        def find_domain_score(name: str) -> float:
-            for item in all_data:
-                if isinstance(item, dict) and item.get("x_value") == name:
-                    return float(item.get("y_current", 0))
-                elif hasattr(item, 'x_value') and item.x_value == name:
-                    return float(item.y_current)
-            return 0.0
-        
-        # Domain-specific scoring logic based on original ZLM COPD documentation
-        if domain_name in ["Long klachten", "Longklachten"]:
-            # Complex logic: Score + kortademig in rust check
-            # Look for the actual kortademig score (G12 in our system, mapped as individual longklacht component)
-            # For now, use a simple threshold since we have the averaged score
-            
-            if score < 1:
-                # Green: 80-100%, linearly scaled
-                return round(100 - (score * 20), 1)
-            elif 1 <= score <= 2:
-                # Orange: 60-80%, linearly scaled  
-                return round(80 - ((score - 1) * 20), 1)
-            else:  # score > 2
-                # Red: 0-40%, linearly scaled
-                return round(40 - ((score - 2) / 4 * 40), 1)
-                
-        elif domain_name in ["Long aanvallen", "Longaanvallen"]:
-            # Discrete scoring based on number of exacerbations
+        # Domain-specific scoring logic from official ZLM COPD documentation
+        if domain_name in ["Long aanvallen", "Longaanvallen"]:
+            # G17: Discrete scoring for exacerbations
             if score == 0:
                 return 100.0  # Green (0 courses)
             elif score == 1:
@@ -941,87 +926,56 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             else:  # score >= 2
                 return 0.0    # Red (2+ courses)
                 
-        elif domain_name in ["Vermoed heid", "Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
-            # Single question domains with specific cutoffs
-            if score == 0:
-                return 100.0  # Green
-            elif score == 1:
-                return 80.0   # Orange
-            elif score == 2:
-                return 60.0   # Orange
-            else:  # score > 2
-                # Red: 0-40%, linearly scaled from score 2-6
-                return round(40 - ((score - 2) / 4 * 40), 1)
-                
-        elif domain_name in ["Lich. Beperking", "Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
-            # Multi-question domains (averages)
-            if score < 1:
-                # Green: 80-100%, linearly scaled
-                return round(100 - (score * 20), 1)
-            elif 1 <= score <= 2:
-                # Orange: 60-80%, linearly scaled
-                return round(80 - ((score - 1) * 20), 1)
-            else:  # score > 2
-                # Red: 0-40%, linearly scaled
-                return round(40 - ((score - 2) / 4 * 40), 1)
-                
-        elif domain_name == "Gewicht (BMI)":
-            # BMI has its own complex logic based on ranges
-            # Since we get the converted 0-6 score, apply standard logic
-            if score <= 1:
-                return round(100 - (score * 20), 1)  # Green range
-            elif score <= 3:
-                return round(80 - ((score - 1) * 10), 1)  # Orange range  
-            else:
-                return round(40 - ((score - 3) / 3 * 40), 1)  # Red range
-                
         elif domain_name == "Bewegen":
-            # Movement scoring based on days of exercise (G18 conversion)
-            # Original: 0 dagen=score 6, 1-2 dagen=score 4, 3-4 dagen=score 2, 5+ dagen=score 0
-            # Handle intermediate values by using ranges
-            if score <= 0.5:
-                return 100.0  # Green (5+ days, best)
-            elif score <= 1.5:
-                return 85.0   # Green-Orange transition
-            elif score <= 2.5:
-                return 70.0   # Orange (3-4 days)
-            elif score <= 3.5:
-                return 50.0   # Orange-Red transition
-            elif score <= 4.5:
-                return 30.0   # Orange (1-2 days)
-            else:  # score > 4.5
-                return 0.0    # Red (0 days, worst)
+            # G18: Exercise days per week - official mapping
+            if score == 3:  # 5+ dagen
+                return 100.0  # Green
+            elif score == 2:  # 3-4 dagen
+                return 60.0   # Orange
+            elif score == 1:  # 1-2 dagen
+                return 40.0   # Orange
+            else:  # score == 0 (0 dagen)
+                return 0.0    # Red
                 
         elif domain_name == "Alcohol":
-            # Alcohol scoring based on glasses per week (G19 conversion)
-            # Original: 0 glazen=score 0, 1-7=score 2, 8-14=score 4, 15+=score 6
-            # Handle intermediate values by using ranges
-            if score <= 0.5:
-                return 100.0  # Green (0 glasses, best)
-            elif score <= 1.5:
-                return 85.0   # Green-Orange transition
-            elif score <= 2.5:
-                return 70.0   # Orange (1-7 glasses)
-            elif score <= 3.5:
-                return 50.0   # Orange-Red transition
-            elif score <= 4.5:
-                return 30.0   # Orange (8-14 glasses)
-            else:  # score > 4.5
-                return 0.0    # Red (15+ glasses, worst)
+            # G19: Alcohol glasses per week - official mapping
+            if score == 0:  # 0 glazen
+                return 100.0  # Green
+            elif score == 1:  # 1-7 glazen
+                return 60.0   # Orange
+            elif score == 2:  # 8-14 glazen
+                return 40.0   # Orange
+            else:  # score >= 3 (14+ glazen)
+                return 0.0    # Red
                 
         elif domain_name == "Roken":
-            # Smoking scoring based on smoking status (G20 conversion)
-            # Original: 'nooit'=score 0, 'vroeger'=score 1, 'ja'=score 6
-            # Handle intermediate values by using ranges
-            if score <= 0.5:
-                return 100.0  # Green (never smoked, best)
-            elif score <= 3.5:
-                return 50.0   # Orange (former smoker)
-            else:  # score > 3.5
-                return 0.0    # Red (current smoker, worst)
+            # G20: Smoking status - official mapping
+            if score == 0:  # Nooit
+                return 100.0  # Green
+            elif score == 1:  # Vroeger
+                return 90.0   # Light Green (can vary 80-100% based on quit time)
+            else:  # score >= 2 (Ja)
+                return 0.0    # Red
         
-        # Default fallback: simple linear conversion for unknown domains
-        return round(100 - (score * 100 / 6), 1)
+        # General scoring for all other domains using official Score to Balloon Height Mapping
+        # Based on the table in zlm_copd_scoring.md
+        if score <= 0.25:
+            return 100.0 - (score * 20)  # 100% at 0, 95% at 0.25
+        elif score <= 1.0:
+            return 100.0 - (score * 20)  # 80% at 1.0
+        elif score <= 2.0:
+            return 100.0 - (score * 20)  # 60% at 2.0
+        elif score <= 2.25:
+            # Sharp drop from 60% to 35% between score 2.0 and 2.25
+            return 60.0 - ((score - 2.0) * 100)  # 35% at 2.25
+        elif score <= 3.0:
+            return 35.0 - ((score - 2.25) * 20)  # 20% at 3.0
+        elif score <= 4.0:
+            return 20.0 - ((score - 3.0) * 10)   # 10% at 4.0
+        elif score <= 5.0:
+            return 10.0 - ((score - 4.0) * 5)    # 5% at 5.0
+        else:  # score >= 6.0
+            return 0.0  # 0% at 6.0
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""

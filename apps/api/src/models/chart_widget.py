@@ -254,32 +254,43 @@ class ChartWidget(BaseModel):
             current_color_role: str
             
             # current_y is already a balloon height percentage (0-100%) from _calculate_zlm_balloon_height
-            # Higher percentage = better health (lower ZLM score)
-            # Map balloon height percentages to color roles:
-            # 80-100% height: Green (good health, low burden)
-            # 60-80% height: Orange (moderate burden) 
-            # 0-60% height: Red (poor health, high burden)
+            # Map balloon height percentages to official ZLM COPD colors based on scoring guide
+            # Higher percentage = better health (green), lower percentage = worse health (red)
             balloon_height_percentage = current_y  # Already a percentage from _calculate_zlm_balloon_height
             
-            if balloon_height_percentage >= 80:  # High balloon = good health
-                current_color_role = "success"  # Green - low burden
-            elif balloon_height_percentage >= 60:  # Medium balloon = moderate
-                current_color_role = "neutral"   # Orange - moderate burden
-            else:  # Low balloon = poor health
-                current_color_role = "warning"   # Red - high burden
+            # Official ZLM COPD color mapping based on balloon height
+            if balloon_height_percentage >= 80.0:
+                current_color_role = "#538135"  # Official ZLM Green
+            elif balloon_height_percentage >= 60.0:
+                current_color_role = "#F3C82B"  # Official ZLM Yellow/Orange
+            elif balloon_height_percentage >= 35.0:
+                current_color_role = "#ED7D31"  # Official ZLM Orange
+            else:  # balloon_height_percentage < 35.0
+                current_color_role = "#D44040"  # Official ZLM Red
 
-            current_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP[current_color_role]
+            processed_data_rows.append(
+                ChartDataRow(
+                    x_value=zlm_row.x_value,
+                    y_values={
+                        y_current_key: ChartDataPointValue(
+                            value=current_y,
+                            color=current_color_role,
+                        )
+                    },
+                )
+            )
 
-            y_values_map: dict[str, ChartDataPointValue] = {
-                y_current_key: ChartDataPointValue(value=current_y, color=current_color_hex)
-            }
-
+            # Add old data point if available
             if zlm_row.y_old is not None:
-                has_old_values = True
-                old_color_hex = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]
-                y_values_map[y_old_key] = ChartDataPointValue(value=zlm_row.y_old, color=old_color_hex)
-
-            processed_data_rows.append(ChartDataRow(x_value=zlm_row.x_value, y_values=y_values_map))
+                old_y = zlm_row.y_old
+                old_color_role = "#9D9D9D"  # Official ZLM Gray for previous scores
+                
+                # Find the existing row and add the old value
+                existing_row = processed_data_rows[-1]  # Just added row
+                existing_row.y_values[y_old_key] = ChartDataPointValue(
+                    value=old_y,
+                    color=old_color_role,
+                )
 
         # Configure series
         label_for_current_series = y_axis_label_from_data.split("(")[0].strip()
