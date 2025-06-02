@@ -436,7 +436,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         x_value=domain_name,
                         y_current=flutter_y_current,
                         y_old=flutter_y_old,
-                        y_label="Percentage (0-100%)"
+                        y_label="Score (0-6)",
+                        tooltip_score=current_score,  # Store original 0-6 score for tooltip
+                        tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
                     ))
                     
                 elif hasattr(item, 'y_current'):
@@ -459,7 +461,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         x_value=item.x_value,
                         y_current=flutter_y_current,
                         y_old=flutter_y_old,
-                        y_label="Percentage (0-100%)"
+                        y_label="Score (0-6)",
+                        tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
+                        tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
                     ))
                 else:
                     raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
@@ -927,35 +931,51 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 return 0.0    # Red (2+ courses)
                 
         elif domain_name == "Bewegen":
-            # G18: Exercise days per week - official mapping
-            if score == 3:  # 5+ dagen
-                return 100.0  # Green
-            elif score == 2:  # 3-4 dagen
+            # G18: Exercise days per week - CORRECTED mapping
+            # According to ZLMuitslag: G18 naar 0-6 schaal: 3→0, 2→2, 1→4, 0→6
+            # So: score 0 = good (5+ days), score 6 = bad (0 days)
+            if score <= 0.5:  # Score 0 = G18=3 (5+ dagen)
+                return 100.0  # Green (best health)
+            elif score <= 1.5:  # Between 0-2
+                return 80.0   # Green-Orange transition
+            elif score <= 2.5:  # Score 2 = G18=2 (3-4 dagen)
                 return 60.0   # Orange
-            elif score == 1:  # 1-2 dagen
+            elif score <= 3.5:  # Between 2-4
+                return 50.0   # Orange-Red transition
+            elif score <= 4.5:  # Score 4 = G18=1 (1-2 dagen)
                 return 40.0   # Orange
-            else:  # score == 0 (0 dagen)
-                return 0.0    # Red
+            else:  # Score 6 = G18=0 (0 dagen, worst)
+                return 0.0    # Red (worst health)
                 
         elif domain_name == "Alcohol":
-            # G19: Alcohol glasses per week - official mapping
-            if score == 0:  # 0 glazen
-                return 100.0  # Green
-            elif score == 1:  # 1-7 glazen
+            # G19: Alcohol glasses per week - CORRECTED mapping  
+            # According to ZLMuitslag: G19 naar 0-6 schaal: 0→0, 1→2, 2→4, 3→6
+            # So: score 0 = good (0 glazen), score 6 = bad (15+ glazen)
+            if score <= 0.5:  # Score 0 = G19=0 (0 glazen)
+                return 100.0  # Green (best health)
+            elif score <= 1.5:  # Between 0-2
+                return 80.0   # Green-Orange transition
+            elif score <= 2.5:  # Score 2 = G19=1 (1-7 glazen)
                 return 60.0   # Orange
-            elif score == 2:  # 8-14 glazen
+            elif score <= 3.5:  # Between 2-4
+                return 50.0   # Orange-Red transition  
+            elif score <= 4.5:  # Score 4 = G19=2 (8-14 glazen)
                 return 40.0   # Orange
-            else:  # score >= 3 (14+ glazen)
-                return 0.0    # Red
+            else:  # Score 6 = G19=3 (15+ glazen, worst)
+                return 0.0    # Red (worst health)
                 
         elif domain_name == "Roken":
-            # G20: Smoking status - official mapping
-            if score == 0:  # Nooit
-                return 100.0  # Green
-            elif score == 1:  # Vroeger
-                return 90.0   # Light Green (can vary 80-100% based on quit time)
-            else:  # score >= 2 (Ja)
-                return 0.0    # Red
+            # G20: Smoking status - CORRECTED mapping
+            # According to ZLMuitslag: G20 naar 0-6 schaal: 'nooit'→0, 'vroeger'→1, 'ja'→6
+            # So: score 0 = good (nooit), score 6 = bad (ja)
+            if score <= 0.5:  # Score 0 = G20='nooit' (never smoked)
+                return 100.0  # Green (best health)
+            elif score <= 1.5:  # Score 1 = G20='vroeger' (former smoker)
+                return 90.0   # Light Green (good, former smoker)
+            elif score <= 3.5:  # Between 1-6
+                return 45.0   # Orange-Red transition
+            else:  # Score 6 = G20='ja' (current smoker, worst)
+                return 0.0    # Red (worst health)
         
         # General scoring for all other domains using official Score to Balloon Height Mapping
         # Based on the table in zlm_copd_scoring.md
