@@ -422,40 +422,66 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 chart_widget = tool_create_zlm_balloon_chart(language="nl", data=data)
                 ```
             """
-            title = "Resultaten ziektelastmeter COPD" if language == "nl" else "Disease burden results"
-            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+            title = "Dit zijn uw resultaten"
+            description = None  # No description/subtitle as requested
 
             # Check that data list is at least 1 or more
-            if len(data) < 1:
-                raise ValueError("Data list must be at least 1 or more.")
+            if not data or len(data) == 0:
+                raise ValueError("Data list must contain at least one item.")
 
-            # Validate score ranges for ZLM COPD (0-6 scale)
-            if isinstance(data[0], dict):
-                for item in data:
-                    if isinstance(item, dict):
-                        current_score = item.get("y_current", 0)
-                        old_score = item.get("y_old")
-                        
-                        if not (0 <= current_score <= 6):
-                            raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {item}")
-                        
-                        if old_score is not None and not (0 <= old_score <= 6):
-                            raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {item}")
-            else:
-                # ZLMDataRow objects
-                for item in data:
-                    if hasattr(item, 'y_current'):
-                        if not (0 <= item.y_current <= 6):
-                            raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6")
-                        
-                        if item.y_old is not None and not (0 <= item.y_old <= 6):
-                            raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6")
+            # Validate data structure and convert if needed
+            validated_data = []
+            
+            for i, item in enumerate(data):
+                if isinstance(item, dict):
+                    # Validate required keys
+                    required_keys = ["x_value", "y_current", "y_label"]
+                    for key in required_keys:
+                        if key not in item:
+                            raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
+                    
+                    # Validate score ranges
+                    current_score = item["y_current"]
+                    old_score = item.get("y_old")
+                    
+                    # Ensure scores are numeric
+                    if not isinstance(current_score, (int, float)):
+                        raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
+                    
+                    if not (0 <= current_score <= 6):
+                        raise ValueError(f"ZLM COPD current score {current_score} is outside valid range 0-6 for item {i}")
+                    
+                    if old_score is not None:
+                        if not isinstance(old_score, (int, float)):
+                            raise ValueError(f"Old score must be numeric, got {type(old_score)} for item {i}")
+                        if not (0 <= old_score <= 6):
+                            raise ValueError(f"ZLM COPD old score {old_score} is outside valid range 0-6 for item {i}")
+                    
+                    # Convert to validated dict
+                    validated_data.append({
+                        "x_value": str(item["x_value"]),
+                        "y_current": float(current_score),
+                        "y_old": float(old_score) if old_score is not None else None,
+                        "y_label": str(item["y_label"])
+                    })
+                    
+                elif hasattr(item, 'y_current'):
+                    # ZLMDataRow object validation
+                    if not (0 <= item.y_current <= 6):
+                        raise ValueError(f"ZLM COPD current score {item.y_current} is outside valid range 0-6 for item {i}")
+                    
+                    if item.y_old is not None and not (0 <= item.y_old <= 6):
+                        raise ValueError(f"ZLM COPD old score {item.y_old} is outside valid range 0-6 for item {i}")
+                    
+                    validated_data.append(item)
+                else:
+                    raise ValueError(f"Invalid data item at index {i}: must be dict with required keys or ZLMDataRow object")
 
-            # Convert dictionaries to ZLMDataRow objects if needed and use the create_balloon_chart method
+            # Use the create_balloon_chart method with validated data
             return ChartWidget.create_balloon_chart(
                 title=title,
                 description=description,
-                data=data,
+                data=validated_data,
             )
 
         def tool_create_bar_chart(

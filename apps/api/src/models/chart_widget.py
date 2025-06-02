@@ -209,12 +209,12 @@ class ChartWidget(BaseModel):
                   Dictionaries are automatically converted to ZLMDataRow objects.
                   Scores must be in the 0-6 range as per ZLM COPD guidelines.
         """
-        # ZLM COPD official color role map
+        # ZLM COPD official color role map - Pastel version
         ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
-            "success": "#538135",  # Green - RGB(83, 129, 53) - Low burden  
-            "neutral": "#F3C82B",  # Yellow/Orange - RGB(243, 200, 43) - Moderate burden
-            "warning": "#D44040",  # Red - RGB(212, 64, 64) - High burden
-            "old": "#9D9D9D",  # Gray - RGB(157, 157, 157) - Previous scores
+            "success": "#a8e6a3",  # Pastel Green - RGB(168, 230, 163) - Low burden, good health
+            "neutral": "#ffd6a5",  # Pastel Orange - RGB(255, 214, 165) - Moderate burden
+            "warning": "#ffb3ba",  # Pastel Red/Pink - RGB(255, 179, 186) - High burden, poor health
+            "old": "#d0d0d0",      # Light Gray - RGB(208, 208, 208) - Previous scores
         }
 
         # Define Literal constants for dictionary keys derived from ZLMDataRow field names
