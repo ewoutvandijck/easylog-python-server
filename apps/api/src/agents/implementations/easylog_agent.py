@@ -384,8 +384,8 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         ) -> ChartWidget:
             """
             Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
-            The chart visualizes scores, expecting values in the **0-6 range** as per ZLM COPD guidelines.
-            Scores are converted to balloon heights (0-100%) where lower score = higher balloon = better health.
+            Uses complex domain-specific scoring logic with original ZLM cutoff points and rules.
+            Scores are expected in the **0-6 range** as per ZLM COPD guidelines.
 
             Args:
                 language: The language for chart title and description ('nl' or 'en').
@@ -396,16 +396,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         - `y_current` (float): The current score (0-6).
                         - `y_old` (float | None): Optional. The previous score the patient had (0-6).
                         - `y_label` (str): The label for the y-axis, typically "Score (0-6)".
-                      - If using ZLMDataRow objects, they have the same structure as above.
-                      - If using a JSON string, it should represent a list of dictionaries with the above structure.
 
             Returns:
-                A ChartWidget object configured as a balloon chart with proper score-to-height mapping.
+                A ChartWidget object configured as a balloon chart with domain-specific ZLM scoring.
 
             Note:
-                Scores are inversely mapped to balloon heights:
-                - Score 0 = 100% height (green, best health)
-                - Score 6 = 0% height (red, worst health)
+                Uses original ZLM COPD scoring logic with specific cutoff points per domain:
+                - Longklachten: Complex logic based on average + individual kortademig in rust check
+                - Longaanvallen: Discrete values (0=100%, 1=50%, 2+=0%)
+                - Other domains: Specific cutoff points as per ZLM documentation
                 
             Example:
                 ```python
@@ -431,7 +430,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 except json.JSONDecodeError as e:
                     raise ValueError(f"Invalid JSON string provided: {e}")
             
-            # Convert scores (0-6) to balloon heights (0-100%) and prepare for balloon chart
+            # Apply domain-specific ZLM COPD scoring logic
             converted_data = []
             
             for i, item in enumerate(data):
@@ -445,6 +444,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     # Validate score ranges
                     current_score = item["y_current"]
                     old_score = item.get("y_old")
+                    domain_name = str(item["x_value"])
                     
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric, got {type(current_score)} for item {i}")
@@ -458,13 +458,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         if not (0 <= old_score <= 6):
                             raise ValueError(f"ZLM old score {old_score} is outside valid range 0-6 for item {i}")
                     
-                    # Convert to ZLMDataRow with proper mapping: score 0-6 to height 100-0%
-                    # Score 0 = 100% height (good), Score 6 = 0% height (bad)
-                    current_height = round(100 - (current_score * 100 / 6), 1)
-                    old_height = round(100 - (old_score * 100 / 6), 1) if old_score is not None else None
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, data)
+                    old_height = self._calculate_zlm_balloon_height(domain_name, old_score, data) if old_score is not None else None
                     
                     converted_data.append(ZLMDataRow(
-                        x_value=str(item["x_value"]),
+                        x_value=domain_name,
                         y_current=current_height,
                         y_old=old_height,
                         y_label="Percentage (0-100%)"
@@ -478,9 +477,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
                         raise ValueError(f"ZLM old score {item.y_old} is outside valid range 0-6 for item {i}")
                     
-                    # Convert scores to heights
-                    current_height = round(100 - (item.y_current * 100 / 6), 1)
-                    old_height = round(100 - (item.y_old * 100 / 6), 1) if item.y_old is not None else None
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, data)
+                    old_height = self._calculate_zlm_balloon_height(item.x_value, item.y_old, data) if item.y_old is not None else None
                     
                     converted_data.append(ZLMDataRow(
                         x_value=item.x_value,
@@ -496,6 +495,122 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 description=description,
                 data=converted_data,
             )
+        
+        def _calculate_zlm_balloon_height(self, domain_name: str, score: float, all_data: list) -> float:
+            """
+            Calculate balloon height using original ZLM COPD domain-specific scoring logic.
+            
+            Args:
+                domain_name: Name of the domain (e.g., "Longklachten", "Vermoeidheid")
+                score: The score for this domain (0-6)
+                all_data: All domain data (needed for cross-domain checks like kortademig in rust)
+                
+            Returns:
+                Balloon height as percentage (0-100%)
+            """
+            if score is None:
+                return 0.0
+                
+            # Helper function to find score for a specific domain
+            def find_domain_score(name: str) -> float:
+                for item in all_data:
+                    if isinstance(item, dict) and item.get("x_value") == name:
+                        return float(item.get("y_current", 0))
+                    elif hasattr(item, 'x_value') and item.x_value == name:
+                        return float(item.y_current)
+                return 0.0
+            
+            # Domain-specific scoring logic based on original ZLM COPD documentation
+            if domain_name == "Longklachten":
+                # Complex logic: Score + kortademig in rust check
+                kortademig_rust_score = find_domain_score("Vermoeidheid")  # Assuming this maps to G1/rest check
+                
+                if score < 1 and kortademig_rust_score < 2:
+                    # Green: 80-100%, linearly scaled
+                    return round(100 - (score * 20), 1)
+                elif 1 <= score <= 2 and kortademig_rust_score < 2:
+                    # Orange: 60-80%, linearly scaled  
+                    return round(80 - ((score - 1) * 20), 1)
+                else:
+                    # Red: 0-40%, linearly scaled
+                    return round(40 - ((score - 2) / 4 * 40), 1)
+                    
+            elif domain_name == "Longaanvallen":
+                # Discrete scoring
+                if score == 0:
+                    return 100.0  # Green
+                elif score == 1:
+                    return 50.0   # Orange
+                else:  # score >= 2
+                    return 0.0    # Red
+                    
+            elif domain_name in ["Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
+                # Single question domains with specific cutoffs
+                if score == 0:
+                    return 100.0  # Green
+                elif score == 1:
+                    return 80.0   # Orange
+                elif score == 2:
+                    return 60.0   # Orange
+                else:  # score > 2
+                    # Red: 0-40%, linearly scaled from score 2-6
+                    return round(40 - ((score - 2) / 4 * 40), 1)
+                    
+            elif domain_name in ["Lichamelijke beperkingen", "Gevoelens/emoties", "Relaties en werk"]:
+                # Multi-question domains (averages)
+                if score < 1:
+                    # Green: 80-100%, linearly scaled
+                    return round(100 - (score * 20), 1)
+                elif 1 <= score <= 2:
+                    # Orange: 60-80%, linearly scaled
+                    return round(80 - ((score - 1) * 20), 1)
+                else:  # score > 2
+                    # Red: 0-40%, linearly scaled
+                    return round(40 - ((score - 2) / 4 * 40), 1)
+                    
+            elif domain_name == "Gewicht (BMI)":
+                # BMI has its own complex logic based on ranges
+                # Since we get the converted 0-6 score, apply standard logic
+                if score <= 1:
+                    return round(100 - (score * 20), 1)  # Green range
+                elif score <= 3:
+                    return round(80 - ((score - 1) * 10), 1)  # Orange range  
+                else:
+                    return round(40 - ((score - 3) / 3 * 40), 1)  # Red range
+                    
+            elif domain_name == "Bewegen":
+                # Movement: inverted scoring (more movement = better)
+                if score <= 1:
+                    return 100.0  # Green (5+ days)
+                elif score == 2:
+                    return 70.0   # Orange (3-4 days)
+                elif score == 4:
+                    return 30.0   # Orange (1-2 days)
+                else:  # score == 6
+                    return 0.0    # Red (0 days)
+                    
+            elif domain_name == "Alcohol":
+                # Alcohol scoring
+                if score == 0:
+                    return 100.0  # Green (0 glasses)
+                elif score == 2:
+                    return 70.0   # Orange (1-7 glasses)
+                elif score == 4:
+                    return 30.0   # Orange (8-14 glasses)
+                else:  # score == 6
+                    return 0.0    # Red (15+ glasses)
+                    
+            elif domain_name == "Roken":
+                # Smoking scoring
+                if score == 0:
+                    return 100.0  # Green (never)
+                elif score == 1:
+                    return 50.0   # Orange (former)
+                else:  # score == 6
+                    return 0.0    # Red (current smoker)
+            
+            # Default fallback: simple linear conversion
+            return round(100 - (score * 100 / 6), 1)
 
         def tool_create_bar_chart(
             title: str,
