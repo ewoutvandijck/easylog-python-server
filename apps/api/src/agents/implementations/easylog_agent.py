@@ -523,26 +523,27 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Domain-specific scoring logic based on original ZLM COPD documentation
             if domain_name == "Longklachten":
                 # Complex logic: Score + kortademig in rust check
-                kortademig_rust_score = find_domain_score("Vermoeidheid")  # Assuming this maps to G1/rest check
+                # Look for the actual kortademig score (G12 in our system, mapped as individual longklacht component)
+                # For now, use a simple threshold since we have the averaged score
                 
-                if score < 1 and kortademig_rust_score < 2:
+                if score < 1:
                     # Green: 80-100%, linearly scaled
                     return round(100 - (score * 20), 1)
-                elif 1 <= score <= 2 and kortademig_rust_score < 2:
+                elif 1 <= score <= 2:
                     # Orange: 60-80%, linearly scaled  
                     return round(80 - ((score - 1) * 20), 1)
-                else:
+                else:  # score > 2
                     # Red: 0-40%, linearly scaled
                     return round(40 - ((score - 2) / 4 * 40), 1)
                     
             elif domain_name == "Longaanvallen":
-                # Discrete scoring
+                # Discrete scoring based on number of exacerbations
                 if score == 0:
-                    return 100.0  # Green
+                    return 100.0  # Green (0 courses)
                 elif score == 1:
-                    return 50.0   # Orange
+                    return 50.0   # Orange (1 course)
                 else:  # score >= 2
-                    return 0.0    # Red
+                    return 0.0    # Red (2+ courses)
                     
             elif domain_name in ["Vermoeidheid", "Nachtrust", "Medicijnen", "Seksualiteit"]:
                 # Single question domains with specific cutoffs
@@ -579,37 +580,40 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     return round(40 - ((score - 3) / 3 * 40), 1)  # Red range
                     
             elif domain_name == "Bewegen":
-                # Movement: inverted scoring (more movement = better)
-                if score <= 1:
-                    return 100.0  # Green (5+ days)
+                # Movement scoring based on days of exercise (G18 conversion)
+                # Original: 0 dagen=score 6, 1-2 dagen=score 4, 3-4 dagen=score 2, 5+ dagen=score 0
+                if score == 0:
+                    return 100.0  # Green (5+ days, best)
                 elif score == 2:
                     return 70.0   # Orange (3-4 days)
                 elif score == 4:
                     return 30.0   # Orange (1-2 days)
                 else:  # score == 6
-                    return 0.0    # Red (0 days)
+                    return 0.0    # Red (0 days, worst)
                     
             elif domain_name == "Alcohol":
-                # Alcohol scoring
+                # Alcohol scoring based on glasses per week (G19 conversion)
+                # Original: 0 glazen=score 0, 1-7=score 2, 8-14=score 4, 15+=score 6
                 if score == 0:
-                    return 100.0  # Green (0 glasses)
+                    return 100.0  # Green (0 glasses, best)
                 elif score == 2:
                     return 70.0   # Orange (1-7 glasses)
                 elif score == 4:
                     return 30.0   # Orange (8-14 glasses)
                 else:  # score == 6
-                    return 0.0    # Red (15+ glasses)
+                    return 0.0    # Red (15+ glasses, worst)
                     
             elif domain_name == "Roken":
-                # Smoking scoring
+                # Smoking scoring based on smoking status (G20 conversion)
+                # Original: 'nooit'=score 0, 'vroeger'=score 1, 'ja'=score 6
                 if score == 0:
-                    return 100.0  # Green (never)
+                    return 100.0  # Green (never smoked, best)
                 elif score == 1:
-                    return 50.0   # Orange (former)
+                    return 50.0   # Orange (former smoker)
                 else:  # score == 6
-                    return 0.0    # Red (current smoker)
+                    return 0.0    # Red (current smoker, worst)
             
-            # Default fallback: simple linear conversion
+            # Default fallback: simple linear conversion for unknown domains
             return round(100 - (score * 100 / 6), 1)
 
         def tool_create_bar_chart(
