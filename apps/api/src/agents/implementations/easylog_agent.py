@@ -380,7 +380,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
         def tool_create_zlm_balloon_chart(
             language: Literal["nl", "en"],
-            data: list[ZLMDataRow] | list[dict[str, Any]],
+            data: list[ZLMDataRow] | list[dict[str, Any]] | str,
         ) -> ChartWidget:
             """
             Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
@@ -389,14 +389,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             Args:
                 language: The language for chart title and description ('nl' or 'en').
-                data: A list of `ZLMDataRow` objects or dictionaries for the chart. Each item represents a
-                      category on the x-axis and its corresponding scores.
+                data: A list of `ZLMDataRow` objects, dictionaries, or a JSON string representing the chart data.
+                      Each item represents a category on the x-axis and its corresponding scores.
                       - If using dictionaries, each should contain:
                         - `x_value` (str): The name of the category (e.g., "Longklachten").
                         - `y_current` (float): The current score (0-6).
                         - `y_old` (float | None): Optional. The previous score the patient had (0-6).
                         - `y_label` (str): The label for the y-axis, typically "Score (0-6)".
                       - If using ZLMDataRow objects, they have the same structure as above.
+                      - If using a JSON string, it should represent a list of dictionaries with the above structure.
 
             Returns:
                 A ChartWidget object configured as a balloon chart with proper score-to-height mapping.
@@ -417,6 +418,17 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             """
             title = "Dit zijn uw resultaten"
             description = None  # No description/subtitle as requested
+            
+            # Handle JSON string input
+            if isinstance(data, str):
+                try:
+                    import json
+                    data = json.loads(data)
+                    self.logger.info(f"DEBUG: Successfully parsed JSON string to list with {len(data)} items")
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON string provided: {e}")
+                except Exception as e:
+                    raise ValueError(f"Error parsing JSON string: {e}")
 
             # Check that data list is not empty
             if not data or len(data) == 0:
@@ -424,7 +436,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             # DEBUG: Log the input data
             self.logger.info(f"DEBUG: balloon chart input data type: {type(data)}")
-            self.logger.info(f"DEBUG: balloon chart input data: {data}")
             self.logger.info(f"DEBUG: balloon chart input data length: {len(data) if hasattr(data, '__len__') else 'N/A'}")
             
             # Convert scores (0-6) to balloon heights (0-100%) and prepare for balloon chart
