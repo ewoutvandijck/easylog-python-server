@@ -253,20 +253,21 @@ class ChartWidget(BaseModel):
             current_y = zlm_row.y_current
             current_color_role: str
             
-            # current_y is already a balloon height percentage (0-100%) from _calculate_zlm_balloon_height
-            # Map balloon height percentages to official ZLM COPD colors based on scoring guide
-            # Higher percentage = better health (green), lower percentage = worse health (red)
-            balloon_height_percentage = current_y  # Already a percentage from _calculate_zlm_balloon_height
+            # current_y is now a Flutter Y-value (0-10 scale) from tool_create_zlm_balloon_chart
+            # Convert back to percentage for color mapping logic
+            # Higher Y-value = better health (green), lower Y-value = worse health (red)
+            flutter_y_value = current_y  # 0-10 scale value
             
-            # Official ZLM COPD color mapping based on balloon height
-            if balloon_height_percentage >= 80.0:
-                current_color_role = "#538135"  # Official ZLM Green
-            elif balloon_height_percentage >= 60.0:
-                current_color_role = "#F3C82B"  # Official ZLM Yellow/Orange
-            elif balloon_height_percentage >= 35.0:
-                current_color_role = "#ED7D31"  # Official ZLM Orange
-            else:  # balloon_height_percentage < 35.0
-                current_color_role = "#D44040"  # Official ZLM Red
+            # Official ZLM COPD color mapping based on Flutter Y-values (0-10 scale)
+            # Map to original balloon height logic: 8-10 = Green, 6-8 = Orange, 3.5-6 = Orange, 0-3.5 = Red
+            if flutter_y_value >= 8.0:  # Equivalent to 80%+ balloon height
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["success"]  # Pastel Green
+            elif flutter_y_value >= 6.0:  # Equivalent to 60%+ balloon height  
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
+            elif flutter_y_value >= 3.5:  # Equivalent to 35%+ balloon height
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
+            else:  # flutter_y_value < 3.5 (equivalent to <35% balloon height)
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]  # Pastel Red/Pink
 
             processed_data_rows.append(
                 ChartDataRow(
@@ -283,7 +284,7 @@ class ChartWidget(BaseModel):
             # Add old data point if available
             if zlm_row.y_old is not None:
                 old_y = zlm_row.y_old
-                old_color_role = "#9D9D9D"  # Official ZLM Gray for previous scores
+                old_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]  # Pastel Gray for previous scores
                 
                 # Find the existing row and add the old value
                 existing_row = processed_data_rows[-1]  # Just added row
@@ -317,8 +318,8 @@ class ChartWidget(BaseModel):
                 )
             )
 
-        # Y-axis configured for percentage scale (0-100%) since _calculate_zlm_balloon_height returns percentages
-        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=100, tick_line=True, show=True)
+        # Y-axis configured for Flutter scale (0-10) since tool_create_zlm_balloon_chart now divides by 10
+        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=10, tick_line=True, show=True)
         x_axis_config = AxisConfig(tick_line=True, show=True)  # Basic X-axis
 
         return cls(
