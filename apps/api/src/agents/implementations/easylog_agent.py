@@ -426,9 +426,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                             raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
+<<<<<<< Updated upstream
                     current_height = self._calculate_zlm_balloon_height(domain_name, current_score, data)
                     old_height = (
                         self._calculate_zlm_balloon_height(domain_name, old_score, data)
+=======
+                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, parsed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(domain_name, old_score, parsed_data)
+>>>>>>> Stashed changes
                         if old_score is not None
                         else None
                     )
@@ -457,9 +463,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
+<<<<<<< Updated upstream
                     current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, data)
                     old_height = (
                         self._calculate_zlm_balloon_height(item.x_value, item.y_old, data)
+=======
+                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, parsed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, parsed_data)
+>>>>>>> Stashed changes
                         if item.y_old is not None
                         else None
                     )
@@ -943,6 +955,131 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             else:  # score >= 2
                 return 0.0  # Red (2+ courses)
 
+<<<<<<< Updated upstream
+=======
+        elif domain_name in ["Longklachten", "Long klachten"]:
+            # CRITICAL: Longklachten requires G12 check (kortademig in rust)
+            # Official rule: Score < 1 AND G12 < 2 = Green, Score ≥1-≤2 AND G12 < 2 = Orange, Score > 2 OR G12 ≥ 2 = Red
+
+            # Try to find G12 value in all_data
+            g12_value = None
+            try:
+                if isinstance(all_data, list) and len(all_data) > 0:
+                    for item in all_data:
+                        if isinstance(item, dict):
+                            # Look for G12 related domain
+                            x_val = str(item.get("x_value", "")).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                # Found potential G12 item, extract its y_current score
+                                if "y_current" in item:
+                                    g12_value = float(item["y_current"])
+                                    break
+                        elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                            # ZLMDataRow object
+                            x_val = str(item.x_value).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                g12_value = float(item.y_current)
+                                break
+            except (ValueError, TypeError, AttributeError):
+                # If we can't extract G12, fall back to general scoring
+                pass
+
+            # Apply official Longklachten scoring with G12 check
+            if g12_value is not None:
+                # Official logic with G12 check
+                if score < 1.0 and g12_value < 2.0:
+                    # Groen: BallonHoogte(%) = 100 - (Score * 20)
+                    height = 100.0 - (score * 20.0)
+                    return max(0.0, min(100.0, height))
+                elif score >= 1.0 and score <= 2.0 and g12_value < 2.0:
+                    # Oranje: BallonHoogte(%) = 80 - ((Score - 1) * 20)
+                    height = 80.0 - ((score - 1.0) * 20.0)
+                    return max(0.0, min(100.0, height))
+                else:  # score > 2.0 OR g12_value >= 2.0
+                    # Rood: BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+                    height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+                    return max(0.0, min(100.0, height))
+            else:
+                # Fallback: Use general scoring if G12 not found
+                # This should not happen in production but provides safety
+                pass  # Fall through to general scoring
+
+        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI"]:
+            # CRITICAL: BMI scoring uses direct BMI ranges, not 0-6 scale conversion
+            # Official ranges from ccq-copd-questionnaire.md:
+            # ≥21 en <25: Groen (100%)
+            # ≥25 en <35: Oranje (20-80%), lineair geschaald
+            # ≥18.5 en <21: Oranje (70-<100%), lineair geschaald
+            # ≥35: Rood (0%)
+            # <18.5: Rood (0%)
+
+            # Try to extract BMI value or calculate from weight/height
+            bmi_value = None
+
+            # Method 1: BMI might be passed directly as the score
+            if score is not None and 10.0 <= score <= 60.0:  # Reasonable BMI range
+                bmi_value = score
+
+            # Method 2: Try to find weight and height in all_data to calculate BMI
+            if bmi_value is None:
+                try:
+                    weight_kg = None
+                    height_cm = None
+
+                    if isinstance(all_data, list):
+                        for item in all_data:
+                            if isinstance(item, dict):
+                                x_val = str(item.get("x_value", "")).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    if "y_current" in item:
+                                        weight_kg = float(item["y_current"])
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    if "y_current" in item:
+                                        height_cm = float(item["y_current"])
+                            elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                                x_val = str(item.x_value).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    weight_kg = float(item.y_current)
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    height_cm = float(item.y_current)
+
+                    # Calculate BMI if both weight and height found
+                    if weight_kg is not None and height_cm is not None and height_cm > 0:
+                        height_m = height_cm / 100.0
+                        bmi_value = weight_kg / (height_m * height_m)
+
+                except (ValueError, TypeError, AttributeError, ZeroDivisionError):
+                    pass
+
+            # Apply official BMI scoring
+            if bmi_value is not None:
+                if bmi_value >= 21.0 and bmi_value < 25.0:
+                    # Groen (100%)
+                    return 100.0
+                elif bmi_value >= 25.0 and bmi_value < 35.0:
+                    # Oranje (20-80%), lineair geschaald
+                    # Linear scaling: BMI 25 → 80%, BMI 35 → 20%
+                    height = 80.0 - ((bmi_value - 25.0) / 10.0 * 60.0)
+                    return max(20.0, min(80.0, height))
+                elif bmi_value >= 18.5 and bmi_value < 21.0:
+                    # Oranje (70-<100%), lineair geschaald
+                    # Linear scaling: BMI 18.5 → 70%, BMI 21 → 100%
+                    height = 70.0 + ((bmi_value - 18.5) / 2.5 * 30.0)
+                    return max(70.0, min(100.0, height))
+                elif bmi_value >= 35.0:
+                    # Rood (0%) - Ernstig overgewicht
+                    return 0.0
+                elif bmi_value < 18.5:
+                    # Rood (0%) - Ondergewicht
+                    return 0.0
+                else:
+                    # Edge case fallback
+                    return 50.0
+            else:
+                # Fallback: if BMI cannot be determined, use general scoring
+                pass  # Fall through to general scoring
+
+>>>>>>> Stashed changes
         elif domain_name == "Bewegen":
             # G18: Exercise days per week - CORRECTED mapping
             # According to ZLMuitslag: G18 naar 0-6 schaal: 3→0, 2→2, 1→4, 0→6
@@ -1010,6 +1147,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         else:  # score >= 6.0
             return 0.0  # 0% at 6.0
 
+<<<<<<< Updated upstream
+=======
+        # Voor Rode ballonnen (scores > 2):
+        # BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+        else:  # score > 2.0
+            height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+
+>>>>>>> Stashed changes
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
 
