@@ -343,77 +343,85 @@ class BaseAgent(Generic[TConfig]):
         text_content: str | None = None
         text_id = str(uuid.uuid4())
 
-        async for event in stream:
-            if event.choices[0].delta.content is not None:
-                text_content = (
-                    event.choices[0].delta.content
-                    if text_content is None
-                    else text_content + event.choices[0].delta.content
-                )
+        try:
+            async for event in stream:
+                if event.choices[0].delta.content is not None:
+                    text_content = (
+                        event.choices[0].delta.content
+                        if text_content is None
+                        else text_content + event.choices[0].delta.content
+                    )
 
+                    yield (
+                        TextDeltaContent(
+                            id=text_id,
+                            delta=event.choices[0].delta.content,
+                        ),
+                        False,
+                    )
+
+                for tool_call in event.choices[0].delta.tool_calls or []:
+                    index = tool_call.index
+
+                    if tool_call.function is None or tool_call.function.arguments is None:
+                        self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
+                        continue
+
+                    if (
+                        index not in final_tool_calls
+                        and tool_call.function.name is not None
+                        and tool_call.id is not None
+                    ):
+                        final_tool_calls[index] = StreamToolCall(
+                            tool_call_id=tool_call.id,
+                            name=tool_call.function.name,
+                            arguments=tool_call.function.arguments,
+                        )
+                    else:
+                        final_tool_calls[index].arguments += tool_call.function.arguments
+
+            if text_content is not None:
                 yield (
-                    TextDeltaContent(
+                    TextContent(
                         id=text_id,
-                        delta=event.choices[0].delta.content,
+                        text=text_content,
                     ),
                     False,
                 )
 
-            for tool_call in event.choices[0].delta.tool_calls or []:
-                index = tool_call.index
+            for _, tool_call in final_tool_calls.items():
+                if tool_call.name == BaseTools.tool_call_super_agent.__name__:
+                    async for chunk, should_stop in self.run_super_agent(messages):
+                        yield chunk, should_stop
 
-                if tool_call.function is None or tool_call.function.arguments is None:
-                    self.logger.warning(f"Skipping tool call {tool_call} because it is invalid")
                     continue
 
-                if index not in final_tool_calls and tool_call.function.name is not None and tool_call.id is not None:
-                    final_tool_calls[index] = StreamToolCall(
-                        tool_call_id=tool_call.id,
-                        name=tool_call.function.name,
-                        arguments=tool_call.function.arguments,
-                    )
-                else:
-                    final_tool_calls[index].arguments += tool_call.function.arguments
+                input_data = json.loads(tool_call.arguments or "{}")
 
-        if text_content is not None:
-            yield (
-                TextContent(
-                    id=text_id,
-                    text=text_content,
-                ),
-                False,
-            )
+                yield (
+                    ToolUseContent(
+                        id=str(uuid.uuid4()),
+                        tool_use_id=tool_call.tool_call_id,
+                        name=tool_call.name,
+                        input=input_data,
+                    ),
+                    False,
+                )
 
-        for _, tool_call in final_tool_calls.items():
-            if tool_call.name == BaseTools.tool_call_super_agent.__name__:
-                async for chunk, should_stop in self.run_super_agent(messages):
-                    yield chunk, should_stop
+                yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
 
-                continue
+            did_produce_content = len(final_tool_calls.items()) > 0 or (text_content and text_content.strip() != "")
 
-            input_data = json.loads(tool_call.arguments or "{}")
+            if not did_produce_content and retry_count < 3:
+                self.logger.warning(f"No content produced, retrying {retry_count + 1} times")
 
-            yield (
-                ToolUseContent(
-                    id=str(uuid.uuid4()),
-                    tool_use_id=tool_call.tool_call_id,
-                    name=tool_call.name,
-                    input=input_data,
-                ),
-                False,
-            )
-
-            yield await self._handle_tool_call(tool_call.name, tool_call.tool_call_id, input_data, tools)
-
-        did_produce_content = len(final_tool_calls.items()) > 0 or (text_content and text_content.strip() != "")
-
-        if not did_produce_content and retry_count < 3:
-            self.logger.warning(f"No content produced, retrying {retry_count + 1} times")
-
-            async for chunk in self.forward_message(messages, retry_count + 1):
-                yield chunk
-        elif not did_produce_content:
-            raise ValueError("The agent did not produce any content after 3 retries.")
+                async for chunk in self.forward_message(messages, retry_count + 1):
+                    yield chunk
+            elif not did_produce_content:
+                raise ValueError("The agent did not produce any content after 3 retries.")
+        except Exception as e:
+            self.logger.error(f"Error in _handle_stream: {e}")
+            raise e
 
     async def _handle_completion(
         self,
