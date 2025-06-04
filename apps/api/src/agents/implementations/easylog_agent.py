@@ -409,24 +409,25 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if not data or len(data) == 0:
                 raise ValueError("Data list must contain at least one item.")
 
-            # Handle JSON string input by parsing it first
-            parsed_data: list[dict[str, Any]] | list[ZLMDataRow]
+            # Handle JSON string input by parsing it first and ensure proper typing
+            processed_data: list[ZLMDataRow] | list[dict[str, Any]]
             if isinstance(data, str):
                 try:
                     import json
 
                     parsed_data = json.loads(data)
                     if not isinstance(parsed_data, list):
-                        raise ValueError("JSON string must parse to a list")
+                        raise ValueError("JSON string must represent a list")
+                    processed_data = parsed_data
                 except json.JSONDecodeError as e:
                     raise ValueError(f"Invalid JSON string provided: {e}")
             else:
-                parsed_data = data
+                processed_data = data
 
             # Apply domain-specific ZLM COPD scoring logic
             converted_data = []
 
-            for i, item in enumerate(parsed_data):
+            for i, item in enumerate(processed_data):
                 if isinstance(item, dict):
                     # Validate required keys
                     required_keys = ["x_value", "y_current", "y_label"]
@@ -459,11 +460,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(
-                        domain_name, current_score, parsed_data
+                        domain_name, current_score, processed_data
                     )
                     old_height = (
                         self._calculate_zlm_balloon_height(
-                            domain_name, old_score, parsed_data
+                            domain_name, old_score, processed_data
                         )
                         if old_score is not None
                         else None
@@ -486,7 +487,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         )
                     )
 
-                elif hasattr(item, "y_current") and hasattr(item, "x_value"):
+                elif hasattr(item, "y_current"):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
                         raise ValueError(
@@ -500,11 +501,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(
-                        item.x_value, item.y_current, parsed_data
+                        item.x_value, item.y_current, processed_data
                     )
                     old_height = (
                         self._calculate_zlm_balloon_height(
-                            item.x_value, item.y_old, parsed_data
+                            item.x_value, item.y_old, processed_data
                         )
                         if item.y_old is not None
                         else None
@@ -528,7 +529,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     )
                 else:
                     raise ValueError(
-                        f"Invalid data item at index {i}: expected dict with required keys or ZLMDataRow object"
+                        f"Invalid data item at index {i}: expected dict or ZLMDataRow"
                     )
 
             return ChartWidget.create_balloon_chart(
@@ -997,7 +998,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         self,
         domain_name: str,
         score: float,
-        all_data: list[dict[str, Any]] | list[ZLMDataRow],
+        all_data: list[ZLMDataRow] | list[dict[str, Any]],
     ) -> float:
         """
         Calculate balloon height using official ZLM COPD scoring guide.
