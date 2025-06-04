@@ -26,6 +26,7 @@ from src.models.chart_widget import (
     ChartWidget,
     Line,
     TooltipConfig,
+    ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -49,7 +50,7 @@ class QuestionaireQuestionConfig(BaseModel):
 
 class RoleConfig(BaseModel):
     name: str = Field(
-        default="MUMCAssistant",
+        default="EasyLogAssistant",
         description="The display name of the role, used to identify and select this role in the system.",
     )
     prompt: str = Field(
@@ -59,10 +60,6 @@ class RoleConfig(BaseModel):
     model: str = Field(
         default="anthropic/claude-sonnet-4",
         description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
-    )
-    backup_model: str = Field(
-        default="openai/gpt-4.1",
-        description="The model identifiers to use for this role if the primary model is not available.",
     )
     tools_regex: str = Field(
         default=".*",
@@ -84,7 +81,7 @@ class MUMCAgentConfig(BaseModel):
             RoleConfig(
                 name="MUMCAssistant",
                 prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model="anthropic/claude-sonnet-4",
+                model=r"anthropic\/claude-sonnet-4",
                 tools_regex=".*",
                 allowed_subjects=None,
                 questionaire=[],
@@ -94,34 +91,6 @@ class MUMCAgentConfig(BaseModel):
     prompt: str = Field(
         default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
     )
-
-
-class DefaultKeyDict(dict):
-    def __missing__(self, key):
-        return f"[missing:{key}]"
-
-
-class CarEntity(BaseModel):
-    brand: str | None = None
-    model: str | None = None
-    year: int | None = None
-    horsepower: int | None = None
-    color: str | None = None
-    price: int | None = None
-
-
-class PersonEntity(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: str | None = None
-    gender: str | None = None
-
-
-class JobEntity(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
 
 
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
@@ -141,7 +110,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         )
 
         if easylog_token:
-            self.logger.debug(f"credentials='{easylog_token}'")
+            pass  # Token available for EasyLog tools
 
         easylog_sql_tools = EasylogSqlTools(
             ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
@@ -214,89 +183,28 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_questions(answers: str | dict[str, str]) -> str:
-            """
-            Answer a set of questions from the questionnaire, supporting versioning/history.
+        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
+            """Answer a question from the questionaire.
 
             Args:
-                answers (dict[str, str]): A dictionary of question names and answers.
-
-            Returns:
-                str: A message indicating the answers have been set.
-
-            Raises:
-                ValueError: If any question name in the input is not found in the current role's questionnaire config.
-
-            Example:
-                tool_answer_questionaire_questions(
-                    {
-                        "question_1": "answer_1",
-                        "question_2": "answer_2",
-                        "question_3": "answer_3"
-                    }
-                )
-                -> "Answers to ['question_1', 'question_2', 'question_3'] set as new version(s) at 2024-06-01T12:00:00+02:00"
-
-            Notes:
-                - Only questions defined in the current role's questionnaire config are allowed.
-                - If any question is not allowed, a ValueError is raised listing the allowed questions.
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
             """
-            _answers: dict[str, str] = {}
-            if isinstance(answers, str):
-                _answers = json.loads(answers)
-            else:
-                _answers = answers
 
-            now = datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
-            # Load all questionnaire answers from metadata
-            all_answers = await self.get_metadata("questionaire", {})
-            if not isinstance(all_answers, dict):
-                all_answers = {}
+            await self.set_metadata(question_name, answer)
 
-            # Only allow questions that exist in the current role's questionnaire config
-            role_config = await self.get_current_role()
-            allowed_questions = {q.name for q in role_config.questionaire}
+            return f"Answer to {question_name} set to {answer}"
 
-            for question_name, answer in _answers.items():
-                if question_name not in allowed_questions:
-                    raise ValueError(
-                        f"Question {question_name} not found in the current role's questionnaire config, allowed questions: {', '.join(allowed_questions)}"
-                    )
-
-                prev = all_answers.get(question_name, [])
-                if not isinstance(prev, list):
-                    prev = []
-                entry = {"answer": answer, "timestamp": now}
-                prev.append(entry)
-                all_answers[question_name] = prev
-            await self.set_metadata("questionaire", all_answers)
-            return f"Answers to {list(_answers.keys())} set as new version(s) at {now}"
-
-        async def tool_get_questionaire_answer(question_name: str, all_versions: bool = False) -> str:
-            """Get the answer(s) to a question from the questionnaire.
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Get the answer to a question from the questionaire.
 
             Args:
                 question_name (str): The name of the question to get the answer to.
-                version (str | None): Optional timestamp to fetch a specific version.
-                all_versions (bool): If True, return all versions as JSON.
 
             Returns:
-                str: The answer(s) to the question.
+                str: The answer to the question.
             """
-            all_answers = await self.get_metadata("questionaire", {})
-            if not isinstance(all_answers, dict):
-                all_answers = {}
-            answers = all_answers.get(question_name, [])
-            if not isinstance(answers, list):
-                # Backward compatibility: single answer
-                if answers == "[not answered]":
-                    return "[not answered]"
-                return answers
-            if all_versions:
-                return json.dumps(answers, default=str)
-            if answers:
-                return answers[-1]["answer"]
-            return "[not answered]"
+            return await self.get_metadata(question_name, "[not answered]")
 
         # Visualization tools
         def tool_create_zlm_chart(
@@ -344,15 +252,15 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 height: Optional. The height of the chart in pixels. Defaults to 400.
 
             Returns:
-                A ChartWidget object configured for ZLM display.
+                A ChartWidget object configured for ZLM display!
 
             Raises:
                 ValueError: If data is missing required keys, values are not numbers,
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = "      Uw ziektelastmeter resultaten" if language == "nl" else "Disease burden results %"
-            description = " " if language == "nl" else "Your COPD results."
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
             # Custom color role map for ZLM charts
             ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
@@ -364,7 +272,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             horizontal_lines = None
 
-            # Optional, but recommended data validation. @Ewout do not mind this too much, configurability is above.
+            # Data validation for ZLM charts
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
                     raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
@@ -372,10 +280,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
                 for y_key in y_keys:
                     if y_key not in raw_item:
-                        # This case is handled by create_bar_chart for sparse data,
-                        # but for ZLM, we might want to enforce all y_keys are present.
-                        # For now, let create_bar_chart handle it if colorRole is null.
-                        # If colorRole is provided for a non-existent y_key, it's an issue.
+                        # Skip missing keys - handled by chart widget
                         continue
 
                     value_container = raw_item[y_key]
@@ -400,27 +305,19 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
                     val_float = float(val_from_container)
                     if not (0.0 <= val_float <= 100.0):
+                        # Check for common 0-1 scale mistake
                         hint = ""
-                        # Check if the original value from LLM looked like it was on a 0-1 scale
-                        if (
-                            isinstance(val_from_container, (int, float))
-                            and 0 < float(val_from_container) <= 1.0
-                            and float(val_from_container) != 0.0
-                        ):
-                            hint = (
-                                f" The value {val_from_container} looks like it might be on a 0-1 scale; "
-                                "please ensure values are in the 0-100 range (e.g., 0.75 should be 75)."
-                            )
+                        if 0 < val_from_container <= 1.0:
+                            hint = f" (Value {val_from_container} looks like 0-1 scale; use 0-100 range)"
                         raise ValueError(
-                            f"ZLM chart 'value' {val_from_container} for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"is outside the expected 0-100 range.{hint}"
+                            f"ZLM chart value {val_from_container} for '{y_key}' is outside 0-100 range{hint}"
                         )
 
                     role_from_data = value_container["colorRole"]
                     if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
                         raise ValueError(
-                            f"Invalid 'colorRole' ('{role_from_data}') provided for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}). "
-                            f"For ZLM chart, must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null."
+                            f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
+                            f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
                         )
 
             chart = ChartWidget.create_bar_chart(
@@ -438,9 +335,159 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
             # Configure tooltip to hide domain labels and show only percentage
-            chart.tooltip = TooltipConfig(show=True, custom_content="Score: {value}")
+
+            chart.tooltip = TooltipConfig(show=True, hide_label=True)
 
             return chart
+
+        def tool_create_zlm_balloon_chart(
+            language: Literal["nl", "en"],
+            data: list[ZLMDataRow] | list[dict[str, Any]] | str,
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
+            Uses complex domain-specific scoring logic with original ZLM cutoff points and rules.
+            Scores are expected in the **0-6 range** as per ZLM COPD guidelines.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: A list of `ZLMDataRow` objects, dictionaries, or a JSON string representing the chart data.
+                      Each item represents a category on the x-axis and its corresponding scores.
+                      - If using dictionaries, each should contain:
+                        - `x_value` (str): The name of the category (e.g., "Longklachten").
+                        - `y_current` (float): The current score (0-6).
+                        - `y_old` (float | None): Optional. The previous score the patient had (0-6).
+                        - `y_label` (str): The label for the y-axis, typically "Score (0-6)".
+
+            Returns:
+                A ChartWidget object configured as a balloon chart with domain-specific ZLM scoring.
+
+            Note:
+                Uses original ZLM COPD scoring logic with specific cutoff points per domain:
+                - Longklachten: Complex logic based on average + individual kortademig in rust check
+                - Longaanvallen: Discrete values (0=100%, 1=50%, 2+=0%)
+                - Other domains: Specific cutoff points as per ZLM documentation
+
+            Example:
+                ```python
+                data = [
+                    {"x_value": "Longklachten", "y_current": 2.5, "y_old": 3.0, "y_label": "Score (0-6)"},
+                    {"x_value": "Vermoeidheid", "y_current": 1.2, "y_old": 1.8, "y_label": "Score (0-6)"},
+                ]
+                chart_widget = tool_create_zlm_balloon_chart(language="nl", data=data)
+                ```
+            """
+            title = "Dit zijn uw resultaten"
+            description = None
+
+            # Validate input data
+            if not data or len(data) == 0:
+                raise ValueError("Data list must contain at least one item.")
+
+            # Handle JSON string input by parsing it first and ensure proper typing
+            processed_data: list[ZLMDataRow] | list[dict[str, Any]]
+            if isinstance(data, str):
+                try:
+                    import json
+
+                    parsed_data = json.loads(data)
+                    if not isinstance(parsed_data, list):
+                        raise ValueError("JSON string must represent a list")
+                    processed_data = parsed_data
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON string provided: {e}")
+            else:
+                processed_data = data
+
+            # Apply domain-specific ZLM COPD scoring logic
+            converted_data = []
+
+            for i, item in enumerate(processed_data):
+                if isinstance(item, dict):
+                    # Validate required keys
+                    required_keys = ["x_value", "y_current", "y_label"]
+                    for key in required_keys:
+                        if key not in item:
+                            raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
+
+                    # Validate score ranges
+                    current_score = item["y_current"]
+                    old_score = item.get("y_old")
+                    domain_name = str(item["x_value"])
+
+                    if not isinstance(current_score, (int, float)):
+                        raise ValueError(f"Current score must be numeric for item {i}")
+
+                    if not (0 <= current_score <= 6):
+                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
+
+                    if old_score is not None:
+                        if not isinstance(old_score, (int, float)):
+                            raise ValueError(f"Old score must be numeric for item {i}")
+                        if not (0 <= old_score <= 6):
+                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
+
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, processed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(domain_name, old_score, processed_data)
+                        if old_score is not None
+                        else None
+                    )
+
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=domain_name,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=current_score,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
+                        )
+                    )
+
+                elif hasattr(item, "y_current"):
+                    # ZLMDataRow object validation
+                    if not (0 <= item.y_current <= 6):
+                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
+
+                    if item.y_old is not None and not (0 <= item.y_old <= 6):
+                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
+
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, processed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, processed_data)
+                        if item.y_old is not None
+                        else None
+                    )
+
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=item.x_value,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
+                        )
+                    )
+                else:
+                    raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
+
+            return ChartWidget.create_balloon_chart(
+                title=title,
+                description=description,
+                data=converted_data,
+            )
 
         def tool_create_bar_chart(
             title: str,
@@ -457,9 +504,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             height: int = 400,
         ) -> ChartWidget:
             """
-            Creates a bar chart with customizable colors and optional horizontal lines.
+            Creates a bar chart with customizable colors and optional horizontal lines..
 
-            You MUST provide data where each y_key's value is a dictionary:
+            You MUST provide data where each y_key's value is a dictionary: ß
             {{"value": <actual_value>, "colorRole": <role_name_str> | null}}.
             - If `colorRole` is a string (e.g., "high_sales", "low_stock"), it will be
               used as a key to look up the color. The lookup order is:
@@ -530,7 +577,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             custom_series_colors_palette: list[str] | None = None,
             horizontal_lines: list[Line] | None = None,
             description: str | None = None,
-            height: int = 400,
+            height: int = 600,
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
         ) -> ChartWidget:
@@ -611,9 +658,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        async def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> tuple[MultipleChoiceWidget, bool]:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -640,7 +685,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            ), True
+            )
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
@@ -759,22 +804,30 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Memory tools
         async def tool_store_memory(memory: str) -> str:
-            """Store a memory with a timestamp."""
+            """Store a memory.
+
+            Args:
+                memory (str): The memory to store.
+            """
+
             memories = await self.get_metadata("memories", [])
-            if not isinstance(memories, list):
-                memories = []
-            now = datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
-            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory, "timestamp": now})
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
             await self.set_metadata("memories", memories)
-            return f"Memory stored: {memory} at {now}"
+
+            return f"Memory stored: {memory}"
 
         async def tool_get_memory(id: str) -> str:
-            """Get a memory by id, including its timestamp."""
+            """Get a memory.
+
+            Args:
+                id (str): The id of the memory to get.
+            """
             memories = await self.get_metadata("memories", [])
             memory = next((m for m in memories if m["id"] == id), None)
             if memory is None:
                 return "[not stored]"
-            return f"{memory['memory']} (stored at {memory['timestamp']})"
+
+            return memory["memory"]
 
         async def tool_send_notification(title: str, contents: str) -> str:
             """Send a notification.
@@ -820,7 +873,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "id": response["id"],
                     "title": title,
                     "contents": contents,
-                    "sent_at": datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat(),
+                    "sent_at": datetime.now().isoformat(),
                 }
             )
 
@@ -839,11 +892,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_search_documents,
             tool_get_document_contents,
             # Questionnaire tools
-            tool_answer_questionaire_questions,
+            tool_answer_questionaire_question,
             tool_get_questionaire_answer,
             # Visualization tools
             tool_create_bar_chart,
             tool_create_zlm_chart,
+            tool_create_zlm_balloon_chart,
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
@@ -860,10 +914,238 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Notification tool
             tool_send_notification,
             # System tools
+            BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
         ]
-
         return {tool.__name__: tool for tool in tools_list}
+
+    def _calculate_zlm_balloon_height(
+        self,
+        domain_name: str,
+        score: float,
+        all_data: list[ZLMDataRow] | list[dict[str, Any]],
+    ) -> float:
+        """
+        Calculate balloon height using official ZLM COPD scoring guide.
+        Based on ccq-copd-questionnaire.md documentation.
+
+        Args:
+            domain_name: Name of the domain (e.g., "Long klachten", "Vermoeidheid")
+            score: The score for this domain (0-6)
+            all_data: All domain data (needed for cross-domain checks)
+
+        Returns:
+            Balloon height as percentage (0-100%)
+        """
+        if score is None:
+            return 0.0
+
+        # Domain-specific scoring logic from official ZLM COPD documentation
+        if domain_name in ["Long aanvallen", "Longaanvallen"]:
+            # G17: Discrete scoring for exacerbations
+            if score == 0:
+                return 100.0  # Green (0 courses)
+            elif score == 1:
+                return 50.0  # Orange (1 course)
+            else:  # score >= 2
+                return 0.0  # Red (2+ courses)
+
+        elif domain_name in ["Longklachten", "Long klachten"]:
+            # CRITICAL: Longklachten requires G12 check (kortademig in rust)
+            # Official rule: Score < 1 AND G12 < 2 = Green, Score ≥1-≤2 AND G12 < 2 = Orange, Score > 2 OR G12 ≥ 2 = Red
+
+            # Try to find G12 value in all_data
+            g12_value = None
+            try:
+                if isinstance(all_data, list) and len(all_data) > 0:
+                    for item in all_data:
+                        if isinstance(item, dict):
+                            # Look for G12 related domain
+                            x_val = str(item.get("x_value", "")).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                # Found potential G12 item, extract its y_current score
+                                if "y_current" in item:
+                                    g12_value = float(item["y_current"])
+                                    break
+                        elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                            # ZLMDataRow object
+                            x_val = str(item.x_value).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                g12_value = float(item.y_current)
+                                break
+            except (ValueError, TypeError, AttributeError):
+                # If we can't extract G12, fall back to general scoring
+                pass
+
+            # Apply official Longklachten scoring with G12 check
+            if g12_value is not None:
+                # Official logic with G12 check
+                if score < 1.0 and g12_value < 2.0:
+                    # Groen: BallonHoogte(%) = 100 - (Score * 20)
+                    height = 100.0 - (score * 20.0)
+                    return max(0.0, min(100.0, height))
+                elif score >= 1.0 and score <= 2.0 and g12_value < 2.0:
+                    # Oranje: BallonHoogte(%) = 80 - ((Score - 1) * 20)
+                    height = 80.0 - ((score - 1.0) * 20.0)
+                    return max(0.0, min(100.0, height))
+                else:  # score > 2.0 OR g12_value >= 2.0
+                    # Rood: BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+                    height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+                    return max(0.0, min(100.0, height))
+            else:
+                # Fallback: Use general scoring if G12 not found
+                # This should not happen in production but provides safety
+                pass  # Fall through to general scoring
+
+        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI"]:
+            # CRITICAL: BMI scoring uses direct BMI ranges, not 0-6 scale conversion
+            # Official ranges from ccq-copd-questionnaire.md:
+            # ≥21 en <25: Groen (100%)
+            # ≥25 en <35: Oranje (20-80%), lineair geschaald
+            # ≥18.5 en <21: Oranje (70-<100%), lineair geschaald
+            # ≥35: Rood (0%)
+            # <18.5: Rood (0%)
+
+            # Try to extract BMI value or calculate from weight/height
+            bmi_value = None
+
+            # Method 1: BMI might be passed directly as the score
+            if score is not None and 10.0 <= score <= 60.0:  # Reasonable BMI range
+                bmi_value = score
+
+            # Method 2: Try to find weight and height in all_data to calculate BMI
+            if bmi_value is None:
+                try:
+                    weight_kg = None
+                    height_cm = None
+
+                    if isinstance(all_data, list):
+                        for item in all_data:
+                            if isinstance(item, dict):
+                                x_val = str(item.get("x_value", "")).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    if "y_current" in item:
+                                        weight_kg = float(item["y_current"])
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    if "y_current" in item:
+                                        height_cm = float(item["y_current"])
+                            elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                                x_val = str(item.x_value).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    weight_kg = float(item.y_current)
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    height_cm = float(item.y_current)
+
+                    # Calculate BMI if both weight and height found
+                    if weight_kg is not None and height_cm is not None and height_cm > 0:
+                        height_m = height_cm / 100.0
+                        bmi_value = weight_kg / (height_m * height_m)
+
+                except (ValueError, TypeError, AttributeError, ZeroDivisionError):
+                    pass
+
+            # Apply official BMI scoring
+            if bmi_value is not None:
+                if bmi_value >= 21.0 and bmi_value < 25.0:
+                    # Groen (100%)
+                    return 100.0
+                elif bmi_value >= 25.0 and bmi_value < 35.0:
+                    # Oranje (20-80%), lineair geschaald
+                    # Linear scaling: BMI 25 → 80%, BMI 35 → 20%
+                    height = 80.0 - ((bmi_value - 25.0) / 10.0 * 60.0)
+                    return max(20.0, min(80.0, height))
+                elif bmi_value >= 18.5 and bmi_value < 21.0:
+                    # Oranje (70-<100%), lineair geschaald
+                    # Linear scaling: BMI 18.5 → 70%, BMI 21 → 100%
+                    height = 70.0 + ((bmi_value - 18.5) / 2.5 * 30.0)
+                    return max(70.0, min(100.0, height))
+                elif bmi_value >= 35.0:
+                    # Rood (0%) - Ernstig overgewicht
+                    return 0.0
+                elif bmi_value < 18.5:
+                    # Rood (0%) - Ondergewicht
+                    return 0.0
+                else:
+                    # Edge case fallback
+                    return 50.0
+            else:
+                # Fallback: if BMI cannot be determined, use general scoring
+                pass  # Fall through to general scoring
+
+        elif domain_name == "Bewegen":
+            # G18: Exercise days per week - OFFICIAL DIRECT MAPPING
+            # Official ranges from ccq-copd-questionnaire.md:
+            # 5 dagen of meer: Groen (100%)
+            # 3-4 dagen: Oranje (60%)
+            # 1-2 dagen: Oranje (40%)
+            # 0 dagen: Rood (0%)
+
+            # Score represents G18 answer value (0-3 scale in questionnaire)
+            # G18 mapping: 0=0 dagen, 1=1-2 dagen, 2=3-4 dagen, 3=5+ dagen
+            if score >= 2.5:  # Roughly G18=3 (5+ dagen)
+                return 100.0  # Green
+            elif score >= 1.5:  # Roughly G18=2 (3-4 dagen)
+                return 60.0  # Orange
+            elif score >= 0.5:  # Roughly G18=1 (1-2 dagen)
+                return 40.0  # Orange
+            else:  # G18=0 (0 dagen)
+                return 0.0  # Red
+
+        elif domain_name == "Alcohol":
+            # G19: Alcohol glasses per week - OFFICIAL DIRECT MAPPING
+            # Official ranges from ccq-copd-questionnaire.md:
+            # 0 glazen: Groen (100%)
+            # 1-7 glazen: Oranje (60%)
+            # 8-14 glazen: Oranje (40%)
+            # 14+ glazen: Rood (0%)
+
+            # Score represents G19 answer value (0-3 scale in questionnaire)
+            # G19 mapping: 0=0 glazen, 1=1-7 glazen, 2=8-14 glazen, 3=15+ glazen
+            if score <= 0.5:  # G19=0 (0 glazen)
+                return 100.0  # Green
+            elif score <= 1.5:  # G19=1 (1-7 glazen)
+                return 60.0  # Orange
+            elif score <= 2.5:  # G19=2 (8-14 glazen)
+                return 40.0  # Orange
+            else:  # G19=3 (15+ glazen)
+                return 0.0  # Red
+
+        elif domain_name == "Roken":
+            # G20: Smoking status - OFFICIAL DIRECT MAPPING
+            # Official ranges from ccq-copd-questionnaire.md:
+            # Nooit gerookt: Groen (100%)
+            # Vroeger gerookt: Groen (100%) (Note: limited granularity in G20)
+            # Ja (rookt): Rood (0%)
+
+            # Score represents G20 answer mapping
+            # G20 mapping: 'nooit'→0, 'vroeger'→1, 'ja'→6 (from ZLMuitslag conversion)
+            if score <= 0.5:  # G20='nooit' (never smoked)
+                return 100.0  # Green
+            elif score <= 1.5:  # G20='vroeger' (former smoker)
+                return 100.0  # Green (official says 100% for former smokers)
+            else:  # G20='ja' (current smoker)
+                return 0.0  # Red
+
+        # OFFICIAL GENERAL SCORING - Based on ccq-copd-questionnaire.md lineaire schaling
+        # These formulas replace the previous complex scoring logic
+
+        # Voor Groene ballonnen (scores < 1):
+        # BallonHoogte(%) = 100 - (Score * 20)
+        if score < 1.0:
+            height = 100.0 - (score * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+
+        # Voor Oranje ballonnen (scores 1-2):
+        # BallonHoogte(%) = 80 - ((Score - 1) * 20)
+        elif score <= 2.0:
+            height = 80.0 - ((score - 1.0) * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+
+        # Voor Rode ballonnen (scores > 2):
+        # BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+        else:  # score > 2.0
+            height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
@@ -885,7 +1167,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         return output_string
 
     async def on_message(
-        self, messages: Iterable[ChatCompletionMessageParam], retry_count: int = 0
+        self, messages: Iterable[ChatCompletionMessageParam], _: int = 0
     ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]]:
         # Get the current role
         role_config = await self.get_current_role()
@@ -904,22 +1186,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Prepare questionnaire format kwargs
         questionnaire_format_kwargs: dict[str, str] = {}
-        all_questionnaire_answers = await self.get_metadata("questionaire", {})
-        if not isinstance(all_questionnaire_answers, dict):
-            all_questionnaire_answers = {}
         for q_item in role_config.questionaire:
-            answers = all_questionnaire_answers.get(q_item.name, [])
-            # Format all answers as a string (e.g., "2024-06-01: X, 2024-07-01: Y")
-            all_answers_str = (
-                ", ".join(f"{entry.get('timestamp', '')}: {entry.get('answer', '')}" for entry in answers)
-                if isinstance(answers, list) and answers
-                else "[not answered]"
-            )
-
+            answer = await self.get_metadata(q_item.name, "[not answered]")
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = all_answers_str
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
         # Format the role prompt with questionnaire data
         try:
@@ -941,7 +1213,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
             "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
-            "current_time": datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S"),
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
                 [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
             )
@@ -952,9 +1224,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
             if reminders
             else "<no reminders>",
-            "memories": "\n".join(
-                [f"- {memory['id']}: {memory['memory']} (stored at {memory['timestamp']})" for memory in memories]
-            )
+            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
             if memories
             else "<no memories>",
             "notifications": "\n".join(
@@ -969,7 +1239,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         }
         main_prompt_format_args.update(questionnaire_format_kwargs)
 
-        # Added from debug_agent: Store onesignal_id and assistant_field_name from headers
+        # Store session metadata from headers
         onesignal_id = self.request_headers.get("x-onesignal-external-user-id")
         assistant_field_name = self.request_headers.get("x-assistant-field-name")
 
@@ -985,11 +1255,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             self.logger.warning(f"Error formatting system prompt: {e}")
             llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
 
-        self.logger.debug(f"llm_content: {llm_content}")
-
         # Create the completion request
         response = await self.client.chat.completions.create(
-            model=role_config.model if retry_count == 0 else role_config.backup_model,
+            model=role_config.model,
             messages=[
                 {
                     "role": "system",
@@ -1000,9 +1268,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools_values],
             tool_choice="auto",
-            extra_body={
-                "models": [role_config.backup_model],
-            },
         )
 
         return response, list(tools_values)

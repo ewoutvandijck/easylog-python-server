@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 import httpx
+import pytz
 from onesignal.model.notification import Notification
 from openai import AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion
@@ -14,6 +15,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
@@ -101,9 +103,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        return next(role_config for role_config in self.config.roles if role_config.name == role)
 
     def get_tools(self) -> dict[str, Callable]:
         # EasyLog-specific tools
@@ -167,12 +167,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 search_query, subjects=(await self.get_current_role()).allowed_subjects
             )
 
-            return "\n-".join(
-                [
-                    f"Path: {document.path} - Summary: {document.summary}"
-                    for document in result
-                ]
-            )
+            return "\n-".join([f"Path: {document.path} - Summary: {document.summary}" for document in result])
 
         async def tool_get_document_contents(path: str) -> str:
             """Retrieve the complete contents of a specific document from the knowledge database.
@@ -192,9 +187,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_question(
-            question_name: str, answer: str
-        ) -> str:
+        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
             """Answer a question from the questionaire.
 
             Args:
@@ -270,16 +263,8 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = (
-                "Resultaten ziektelastmeter COPD %"
-                if language == "nl"
-                else "Disease burden results %"
-            )
-            description = (
-                "Uw ziektelastmeter COPD resultaten."
-                if language == "nl"
-                else "Your COPD burden results."
-            )
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
             # Custom color role map for ZLM charts
             ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
@@ -294,9 +279,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Data validation for ZLM charts
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
-                    raise ValueError(
-                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
-                    )
+                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
                 current_x_value = raw_item[x_key]
 
                 for y_key in y_keys:
@@ -335,10 +318,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         )
 
                     role_from_data = value_container["colorRole"]
-                    if (
-                        role_from_data is not None
-                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
-                    ):
+                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
                         raise ValueError(
                             f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
                             f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
@@ -433,9 +413,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     required_keys = ["x_value", "y_current", "y_label"]
                     for key in required_keys:
                         if key not in item:
-                            raise ValueError(
-                                f"Missing required key '{key}' in data item {i}: {item}"
-                            )
+                            raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
 
                     # Validate score ranges
                     current_score = item["y_current"]
@@ -446,35 +424,25 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         raise ValueError(f"Current score must be numeric for item {i}")
 
                     if not (0 <= current_score <= 6):
-                        raise ValueError(
-                            f"ZLM score {current_score} outside range 0-6 for item {i}"
-                        )
+                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
 
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric for item {i}")
                         if not (0 <= old_score <= 6):
-                            raise ValueError(
-                                f"ZLM old score {old_score} outside range 0-6 for item {i}"
-                            )
+                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
-                    current_height = self._calculate_zlm_balloon_height(
-                        domain_name, current_score, processed_data
-                    )
+                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, processed_data)
                     old_height = (
-                        self._calculate_zlm_balloon_height(
-                            domain_name, old_score, processed_data
-                        )
+                        self._calculate_zlm_balloon_height(domain_name, old_score, processed_data)
                         if old_score is not None
                         else None
                     )
 
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
-                    flutter_y_old = (
-                        old_height / 10.0 if old_height is not None else None
-                    )
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
 
                     converted_data.append(
                         ZLMDataRow(
@@ -490,32 +458,22 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 elif hasattr(item, "y_current"):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
-                        raise ValueError(
-                            f"ZLM score {item.y_current} outside range 0-6 for item {i}"
-                        )
+                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
 
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
-                        raise ValueError(
-                            f"ZLM old score {item.y_old} outside range 0-6 for item {i}"
-                        )
+                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
-                    current_height = self._calculate_zlm_balloon_height(
-                        item.x_value, item.y_current, processed_data
-                    )
+                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, processed_data)
                     old_height = (
-                        self._calculate_zlm_balloon_height(
-                            item.x_value, item.y_old, processed_data
-                        )
+                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, processed_data)
                         if item.y_old is not None
                         else None
                     )
 
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
-                    flutter_y_old = (
-                        old_height / 10.0 if old_height is not None else None
-                    )
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
 
                     converted_data.append(
                         ZLMDataRow(
@@ -528,9 +486,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         )
                     )
                 else:
-                    raise ValueError(
-                        f"Invalid data item at index {i}: expected dict or ZLMDataRow"
-                    )
+                    raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
 
             return ChartWidget.create_balloon_chart(
                 title=title,
@@ -672,23 +628,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError(
-                    "If y_labels are provided for line chart, they must match the length of y_keys."
-                )
+                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(
-                        f"Line chart data item missing x_key '{x_key}': {item}"
-                    )
+                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(
-                        item[y_key], (int, float, type(None))
-                    ):
-                        if isinstance(
-                            item[y_key], str
-                        ):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
+                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -715,9 +663,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -737,12 +683,8 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
+                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
+                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
 
             return MultipleChoiceWidget(
                 question=question,
@@ -780,9 +722,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
+                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -803,9 +743,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks.append(
                 {
@@ -827,9 +765,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
             existing_reminders.append(
                 {
@@ -849,9 +785,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -865,13 +799,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
-            existing_reminders = [
-                reminder for reminder in existing_reminders if reminder["id"] != id
-            ]
+            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
 
             await self.set_metadata("reminders", existing_reminders)
 
@@ -911,13 +841,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 title (str): The title of the notification.
                 contents (str): The text to send in the notification.
             """
-            onesignal_id = self.request_headers.get(
-                "x-onesignal-external-user-id"
-            ) or await self.get_metadata("onesignal_id", None)
+            onesignal_id = self.request_headers.get("x-onesignal-external-user-id") or await self.get_metadata(
+                "onesignal_id", None
+            )
 
-            assistant_field_name = self.request_headers.get(
-                "x-assistant-field-name"
-            ) or await self.get_metadata("assistant_field_name", None)
+            assistant_field_name = self.request_headers.get("x-assistant-field-name") or await self.get_metadata(
+                "assistant_field_name", None
+            )
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
@@ -1037,10 +967,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         if isinstance(item, dict):
                             # Look for G12 related domain
                             x_val = str(item.get("x_value", "")).lower()
-                            if any(
-                                keyword in x_val
-                                for keyword in ["kortademig", "rust", "g12"]
-                            ):
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
                                 # Found potential G12 item, extract its y_current score
                                 if "y_current" in item:
                                     g12_value = float(item["y_current"])
@@ -1048,10 +975,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         elif hasattr(item, "x_value") and hasattr(item, "y_current"):
                             # ZLMDataRow object
                             x_val = str(item.x_value).lower()
-                            if any(
-                                keyword in x_val
-                                for keyword in ["kortademig", "rust", "g12"]
-                            ):
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
                                 g12_value = float(item.y_current)
                                 break
             except (ValueError, TypeError, AttributeError):
@@ -1104,39 +1028,21 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         for item in all_data:
                             if isinstance(item, dict):
                                 x_val = str(item.get("x_value", "")).lower()
-                                if any(
-                                    keyword in x_val
-                                    for keyword in ["gewicht", "weight", "g21"]
-                                ):
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
                                     if "y_current" in item:
                                         weight_kg = float(item["y_current"])
-                                elif any(
-                                    keyword in x_val
-                                    for keyword in ["lengte", "height", "g22"]
-                                ):
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
                                     if "y_current" in item:
                                         height_cm = float(item["y_current"])
-                            elif hasattr(item, "x_value") and hasattr(
-                                item, "y_current"
-                            ):
+                            elif hasattr(item, "x_value") and hasattr(item, "y_current"):
                                 x_val = str(item.x_value).lower()
-                                if any(
-                                    keyword in x_val
-                                    for keyword in ["gewicht", "weight", "g21"]
-                                ):
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
                                     weight_kg = float(item.y_current)
-                                elif any(
-                                    keyword in x_val
-                                    for keyword in ["lengte", "height", "g22"]
-                                ):
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
                                     height_cm = float(item.y_current)
 
                     # Calculate BMI if both weight and height found
-                    if (
-                        weight_kg is not None
-                        and height_cm is not None
-                        and height_cm > 0
-                    ):
+                    if weight_kg is not None and height_cm is not None and height_cm > 0:
                         height_m = height_cm / 100.0
                         bmi_value = weight_kg / (height_m * height_m)
 
@@ -1246,9 +1152,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
             return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
-    def _substitute_double_curly_placeholders(
-        self, template_string: str, data_dict: dict[str, Any]
-    ) -> str:
+    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
 
         # First, replace all known placeholders
@@ -1264,9 +1168,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             var_name = match.group(1)  # Content inside {{...}}
             return f"[missing:{var_name}]"
 
-        output_string = re.sub(
-            r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string
-        )
+        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
         return output_string
 
     async def on_message(
@@ -1291,15 +1193,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
-                q_item.question
-            )
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
-                q_item.instructions
-            )
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
-                q_item.name
-            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
         # Format the role prompt with questionnaire data
@@ -1321,29 +1217,19 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\n".join(
-                [f"- {role.name}" for role in self.config.roles]
-            ),
+            "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
-                [
-                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
-                    for task in recurring_tasks
-                ]
+                [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
             )
             if recurring_tasks
             else "<no recurring tasks>",
             "reminders": "\n".join(
-                [
-                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
-                    for reminder in reminders
-                ]
+                [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
             )
             if reminders
             else "<no reminders>",
-            "memories": "\n".join(
-                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
-            )
+            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
             if memories
             else "<no memories>",
             "notifications": "\n".join(
@@ -1369,14 +1255,10 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             await self.set_metadata("assistant_field_name", assistant_field_name)
 
         try:
-            llm_content = self._substitute_double_curly_placeholders(
-                self.config.prompt, main_prompt_format_args
-            )
+            llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
         except Exception as e:
             self.logger.warning(f"Error formatting system prompt: {e}")
-            llm_content = (
-                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
-            )
+            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
 
         # Create the completion request
         response = await self.client.chat.completions.create(
@@ -1404,9 +1286,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> (
-        tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None
-    ):
+    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
         onesignal_id = await self.get_metadata("onesignal_id")
 
         if onesignal_id is None:
@@ -1428,9 +1308,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return
 
         if last_thread.id != self.thread_id:
-            self.logger.info(
-                "Last thread id does not match current thread id, skipping super agent call"
-            )
+            self.logger.info("Last thread id does not match current thread id, skipping super agent call")
             return
 
         tools = [
@@ -1442,40 +1320,41 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         reminders = await self.get_metadata("reminders", [])
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
 
-        prompt = (
-            "# Notification Management System\\n\\n"
-            "## Core Responsibility\\n"
-            "You are the notification management system responsible for delivering timely alerts without duplication. "
-            "Your task is to analyze pending notifications and determine which ones need to be sent.\\n\\n"
-            "## Current Time\\n"
-            f"Current system time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
-            "## Previously Sent Notifications\\n"
-            "The following notifications have already been sent and MUST NOT be resent:\\n"
-            f"{json.dumps(notifications, indent=2)}\\n\\n"
-            "## Items to Evaluate\\n"
-            "Please evaluate these items for notification eligibility:\\n\\n"
-            "1. Reminders:\\n"
-            f"{json.dumps(reminders, indent=2)}\\n\\n"
-            "2. Recurring Tasks:\\n"
-            f"{json.dumps(recurring_tasks, indent=2)}\\n\\n"
-            "## Decision Rules\\n"
-            "- A notification should be sent for any reminder that is currently due\\n"
-            "- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time\\n"
-            "- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification\\n"
-            "- If an item appears in the previously sent notifications list, it MUST be skipped\\n"
-            "- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)\\n"
-            "- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.\\n\\n"
-            "## Required Action\\n"
-            "After analysis, you must take exactly ONE of these actions:\\n"
-            "- If any eligible notifications are found: invoke the send_notification tool with details\\n"
-            "- If no eligible notifications exist: invoke the noop tool\\n"
-            "\\n\\n"
-            "## IMPORTANT: OUTPUT RULES\\n"
-            "- DO NOT provide any text explanation or analysis\\n"
-            "- DO NOT output any readable text to the user\\n"
-            "- ONLY call the appropriate tool (send_notification or noop)\\n"
-            "- This is a background system process - users should not see any output\\n"
-        )
+        prompt = f"""
+# Notification Management System
+
+## Core Responsibility
+You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
+
+## Current Time
+Current system time: {datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S")}
+
+## Previously Sent Notifications
+The following notifications have already been sent and MUST NOT be resent:
+{json.dumps(notifications, indent=2)}
+
+## Items to Evaluate
+Please evaluate these items for notification eligibility:
+
+1. Reminders:
+{json.dumps(reminders, indent=2)}
+
+2. Recurring Tasks:
+{json.dumps(recurring_tasks, indent=2)}
+
+## Decision Rules
+- A notification should be sent for any reminder that is currently due
+- For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time
+- If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
+- If an item appears in the previously sent notifications list, it MUST be skipped
+- Parse cron expressions carefully to determine exact scheduling (minute, hour, day of month, month, day of week)
+- The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.
+
+## Required Action
+After analysis, you must take exactly ONE of these actions:
+- If any eligible notifications are found: invoke the send_notification tool with details
+- If no eligible notifications exist: invoke the noop tool
+"""
 
         self.logger.info(f"Calling super agent with prompt: {prompt}")
 
@@ -1491,9 +1370,11 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     "content": "Send my notifications",
                 },
             ],
-            stream=True,
             tools=[function_to_openai_tool(tool) for tool in tools],
             tool_choice="auto",
         )
 
-        return response, tools
+        self.logger.info(f"Super agent response: {response.choices[0].message}")
+
+        async for _ in self._handle_completion(response, tools, messages):
+            pass
