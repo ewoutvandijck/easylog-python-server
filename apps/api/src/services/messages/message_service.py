@@ -84,7 +84,12 @@ class MessageService:
                     where={
                         "thread_id": thread_id,
                     },
-                    include={"contents": True},
+                    include={
+                        "contents": {
+                            "order_by": [{"created_at": "asc"}, {"type": "asc"}],
+                        }
+                    },
+                    order={"created_at": "asc"},
                 )
                 if message.contents is not None
             ),

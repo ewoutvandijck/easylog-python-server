@@ -371,7 +371,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 - Longklachten: Complex logic based on average + individual kortademig in rust check
                 - Longaanvallen: Discrete values (0=100%, 1=50%, 2+=0%)
                 - Other domains: Specific cutoff points as per ZLM documentation
-                
+
             Example:
                 ```python
                 data = [
@@ -383,7 +383,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             """
             title = "Dit zijn uw resultaten"
             description = None
-            
+
             # Validate input data
             if not data or len(data) == 0:
                 raise ValueError("Data list must contain at least one item.")
@@ -392,13 +392,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if isinstance(data, str):
                 try:
                     import json
+
                     data = json.loads(data)
                 except json.JSONDecodeError as e:
                     raise ValueError(f"Invalid JSON string provided: {e}")
-            
+
             # Apply domain-specific ZLM COPD scoring logic
             converted_data = []
-            
+
             for i, item in enumerate(data):
                 if isinstance(item, dict):
                     # Validate required keys
@@ -406,65 +407,77 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     for key in required_keys:
                         if key not in item:
                             raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
-                    
+
                     # Validate score ranges
                     current_score = item["y_current"]
                     old_score = item.get("y_old")
                     domain_name = str(item["x_value"])
-                    
+
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric for item {i}")
-                    
+
                     if not (0 <= current_score <= 6):
                         raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
-                    
+
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric for item {i}")
                         if not (0 <= old_score <= 6):
                             raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
-                    
+
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(domain_name, current_score, data)
-                    old_height = self._calculate_zlm_balloon_height(domain_name, old_score, data) if old_score is not None else None
-                    
+                    old_height = (
+                        self._calculate_zlm_balloon_height(domain_name, old_score, data)
+                        if old_score is not None
+                        else None
+                    )
+
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
                     flutter_y_old = old_height / 10.0 if old_height is not None else None
-                    
-                    converted_data.append(ZLMDataRow(
-                        x_value=domain_name,
-                        y_current=flutter_y_current,
-                        y_old=flutter_y_old,
-                        y_label="Score (0-6)",
-                        tooltip_score=current_score,  # Store original 0-6 score for tooltip
-                        tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
-                    ))
-                    
-                elif hasattr(item, 'y_current'):
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=domain_name,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=current_score,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
+                        )
+                    )
+
+                elif hasattr(item, "y_current"):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
                         raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
-                    
+
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
                         raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
-                    
+
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, data)
-                    old_height = self._calculate_zlm_balloon_height(item.x_value, item.y_old, data) if item.y_old is not None else None
-                    
+                    old_height = (
+                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, data)
+                        if item.y_old is not None
+                        else None
+                    )
+
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
                     flutter_y_old = old_height / 10.0 if old_height is not None else None
-                    
-                    converted_data.append(ZLMDataRow(
-                        x_value=item.x_value,
-                        y_current=flutter_y_current,
-                        y_old=flutter_y_old,
-                        y_label="Score (0-6)",
-                        tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
-                        tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
-                    ))
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=item.x_value,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
+                        )
+                    )
                 else:
                     raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
 
@@ -908,28 +921,28 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         """
         Calculate balloon height using official ZLM COPD scoring guide.
         Based on zlm_copd_scoring.md documentation.
-        
+
         Args:
             domain_name: Name of the domain (e.g., "Long klachten", "Vermoeidheid")
             score: The score for this domain (0-6)
             all_data: All domain data (needed for cross-domain checks)
-            
+
         Returns:
             Balloon height as percentage (0-100%)
         """
         if score is None:
             return 0.0
-            
+
         # Domain-specific scoring logic from official ZLM COPD documentation
         if domain_name in ["Long aanvallen", "Longaanvallen"]:
             # G17: Discrete scoring for exacerbations
             if score == 0:
                 return 100.0  # Green (0 courses)
             elif score == 1:
-                return 50.0   # Orange (1 course)
+                return 50.0  # Orange (1 course)
             else:  # score >= 2
-                return 0.0    # Red (2+ courses)
-                
+                return 0.0  # Red (2+ courses)
+
         elif domain_name == "Bewegen":
             # G18: Exercise days per week - CORRECTED mapping
             # According to ZLMuitslag: G18 naar 0-6 schaal: 3→0, 2→2, 1→4, 0→6
@@ -937,33 +950,33 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if score <= 0.5:  # Score 0 = G18=3 (5+ dagen)
                 return 100.0  # Green (best health)
             elif score <= 1.5:  # Between 0-2
-                return 80.0   # Green-Orange transition
+                return 80.0  # Green-Orange transition
             elif score <= 2.5:  # Score 2 = G18=2 (3-4 dagen)
-                return 60.0   # Orange
+                return 60.0  # Orange
             elif score <= 3.5:  # Between 2-4
-                return 50.0   # Orange-Red transition
+                return 50.0  # Orange-Red transition
             elif score <= 4.5:  # Score 4 = G18=1 (1-2 dagen)
-                return 40.0   # Orange
+                return 40.0  # Orange
             else:  # Score 6 = G18=0 (0 dagen, worst)
-                return 0.0    # Red (worst health)
-                
+                return 0.0  # Red (worst health)
+
         elif domain_name == "Alcohol":
-            # G19: Alcohol glasses per week - CORRECTED mapping  
+            # G19: Alcohol glasses per week - CORRECTED mapping
             # According to ZLMuitslag: G19 naar 0-6 schaal: 0→0, 1→2, 2→4, 3→6
             # So: score 0 = good (0 glazen), score 6 = bad (15+ glazen)
             if score <= 0.5:  # Score 0 = G19=0 (0 glazen)
                 return 100.0  # Green (best health)
             elif score <= 1.5:  # Between 0-2
-                return 80.0   # Green-Orange transition
+                return 80.0  # Green-Orange transition
             elif score <= 2.5:  # Score 2 = G19=1 (1-7 glazen)
-                return 60.0   # Orange
+                return 60.0  # Orange
             elif score <= 3.5:  # Between 2-4
-                return 50.0   # Orange-Red transition  
+                return 50.0  # Orange-Red transition
             elif score <= 4.5:  # Score 4 = G19=2 (8-14 glazen)
-                return 40.0   # Orange
+                return 40.0  # Orange
             else:  # Score 6 = G19=3 (15+ glazen, worst)
-                return 0.0    # Red (worst health)
-                
+                return 0.0  # Red (worst health)
+
         elif domain_name == "Roken":
             # G20: Smoking status - CORRECTED mapping
             # According to ZLMuitslag: G20 naar 0-6 schaal: 'nooit'→0, 'vroeger'→1, 'ja'→6
@@ -971,12 +984,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if score <= 0.5:  # Score 0 = G20='nooit' (never smoked)
                 return 100.0  # Green (best health)
             elif score <= 1.5:  # Score 1 = G20='vroeger' (former smoker)
-                return 90.0   # Light Green (good, former smoker)
+                return 90.0  # Light Green (good, former smoker)
             elif score <= 3.5:  # Between 1-6
-                return 45.0   # Orange-Red transition
+                return 45.0  # Orange-Red transition
             else:  # Score 6 = G20='ja' (current smoker, worst)
-                return 0.0    # Red (worst health)
-        
+                return 0.0  # Red (worst health)
+
         # General scoring for all other domains using official Score to Balloon Height Mapping
         # Based on the table in zlm_copd_scoring.md
         if score <= 0.25:
@@ -991,9 +1004,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         elif score <= 3.0:
             return 35.0 - ((score - 2.25) * 20)  # 20% at 3.0
         elif score <= 4.0:
-            return 20.0 - ((score - 3.0) * 10)   # 10% at 4.0
+            return 20.0 - ((score - 3.0) * 10)  # 10% at 4.0
         elif score <= 5.0:
-            return 10.0 - ((score - 4.0) * 5)    # 5% at 5.0
+            return 10.0 - ((score - 4.0) * 5)  # 5% at 5.0
         else:  # score >= 6.0
             return 0.0  # 0% at 6.0
 
