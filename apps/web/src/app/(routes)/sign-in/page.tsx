@@ -1,9 +1,9 @@
-import SignInWithGoogle from '@/app/_auth/components/SignInWithGoogle';
+import SignInWithEasylog from '@/app/_auth/components/SignInWithEasylog';
 
 const SignInPage = async () => {
   return (
     <main className="container mx-auto flex min-h-dvh items-center justify-center">
-      <SignInWithGoogle />
+      <SignInWithEasylog />
     </main>
   );
 };

@@ -1,8 +1,6 @@
 import {
   boolean,
   integer,
-  jsonb,
-  pgEnum,
   pgTable,
   text,
   timestamp,

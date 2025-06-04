@@ -1,10 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
-import { passkey } from 'better-auth/plugins/passkey';
-import { eq } from 'drizzle-orm';
+import { genericOAuth } from 'better-auth/plugins';
 
-import slugify from '@/app/_ui/utils/slugify';
 import db from '@/database/client';
 import * as schema from '@/database/schema';
 import serverConfig from '@/server.config';
@@ -12,7 +10,21 @@ import serverConfig from '@/server.config';
 const authServerClient = betterAuth({
   baseURL: serverConfig.appUrl.toString(),
   secret: serverConfig.betterAuthSecret,
-  plugins: [nextCookies(), passkey()],
+  plugins: [
+    nextCookies(),
+    genericOAuth({
+      config: [
+        {
+          providerId: 'easylog',
+          clientId: '99a0db85-5cd0-4f60-b65e-03483b72d14a',
+          discoveryUrl:
+            'https://staging2.easylog.nu/.well-known/openid-configuration',
+          pkce: true,
+          clientSecret: ''
+        }
+      ]
+    })
+  ],
   advanced: {
     database: {
       generateId: () => crypto.randomUUID()
@@ -22,16 +34,7 @@ const authServerClient = betterAuth({
     provider: 'pg',
     usePlural: true,
     schema
-  }),
-  emailAndPassword: {
-    enabled: true
-  },
-  socialProviders: {
-    google: {
-      clientId: serverConfig.googleOauthClientId,
-      clientSecret: serverConfig.googleOauthClientSecret
-    }
-  }
+  })
 });
 
 export default authServerClient;
