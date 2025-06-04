@@ -1,7 +1,16 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+
+import serverEnv from '@/server.env';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  rewrites: async () => {
+    return [
+      {
+        source: '/s3/:path*',
+        destination: `${serverEnv.S3_ENDPOINT}/:path*`
+      }
+    ];
+  }
 };
 
 export default nextConfig;

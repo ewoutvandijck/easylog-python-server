@@ -1,0 +1,281 @@
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/typography";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --font-sans: var(--font-sans), var(--default-font-family);
+  --font-display: var(--font-display), var(--font-sans), var(--default-font-family);
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.75rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.25rem;
+  --text-6xl: 2.5rem;
+  --text-7xl: 2.75rem;
+  --text-8xl: 3.25rem;
+
+  --leading-4: 1rem;
+  --leading-5: 1.375rem;
+  --leading-6: 1.5rem;
+  --leading-7: 1.75rem;
+  --leading-8: 2rem;
+  --leading-9: 2.25rem;
+  --leading-10: 2.5rem;
+  --leading-11: 2.75rem;
+  --leading-12: 3rem;
+  --leading-13: 3.25rem;
+  --leading-14: 3.5rem;
+  --leading-15: 3.75rem;
+  --leading-16: 4rem;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+  --radius-full: 9999px;
+  --radius-none: 0px;
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  --aspect-square: 1 / 1;
+  --aspect-housing: 16 / 10;
+
+  --color-background-primary: var(--color-white);
+  --color-background-muted: var(--color-stone-50);
+
+  --color-fill-primary: var(--color-white);
+  --color-fill-primary-hover: color-mix(in oklch, var(--color-stone-50) 97%, black);
+  --color-fill-primary-active: color-mix(in oklch, var(--color-stone-50) 95%, black);
+  --color-fill-primary-selected: color-mix(in oklch, var(--color-stone-50) 95%, black);
+
+  --color-fill-muted: var(--color-stone-100);
+  --color-fill-muted-hover: color-mix(in oklch, var(--color-stone-100) 97%, black);
+  --color-fill-muted-active: color-mix(in oklch, var(--color-stone-100) 95%, black);
+  --color-fill-muted-selected: color-mix(in oklch, var(--color-stone-100) 99%, black);
+
+  --color-fill-brand: var(--color-blue-600);
+  --color-fill-brand-hover: color-mix(in oklch, var(--color-blue-600) 97%, black);
+  --color-fill-brand-active: color-mix(in oklch, var(--color-blue-600) 95%, black);
+  --color-fill-brand-selected: color-mix(in oklch, var(--color-blue-600) 95%, black);
+
+  --color-fill-danger: var(--color-red-600);
+  --color-fill-danger-hover: color-mix(in oklch, var(--color-red-600) 97%, black);
+  --color-fill-danger-active: color-mix(in oklch, var(--color-red-600) 95%, black);
+  --color-fill-danger-selected: color-mix(in oklch, var(--color-red-600) 95%, black);
+
+  --color-fill-success: var(--color-green-600);
+  --color-fill-success-hover: color-mix(in oklch, var(--color-green-600) 97%, black);
+  --color-fill-success-active: color-mix(in oklch, var(--color-green-600) 95%, black);
+  --color-fill-success-selected: color-mix(in oklch, var(--color-green-600) 95%, black);
+
+  --color-fill-warning: var(--color-yellow-600);
+  --color-fill-warning-hover: color-mix(in oklch, var(--color-yellow-600) 97%, black);
+  --color-fill-warning-active: color-mix(in oklch, var(--color-yellow-600) 95%, black);
+  --color-fill-warning-selected: color-mix(in oklch, var(--color-yellow-600) 95%, black);
+
+  --color-text-primary: var(--color-stone-950);
+  --color-text-primary-hover: color-mix(in oklch, var(--color-stone-950) 97%, white);
+  --color-text-primary-active: color-mix(in oklch, var(--color-stone-950) 95%, white);
+  --color-text-primary-on-fill: var(--color-white);
+
+  --color-text-muted: var(--color-stone-500);
+  --color-text-muted-hover: color-mix(in oklch, var(--color-stone-500) 97%, black);
+  --color-text-muted-active: color-mix(in oklch, var(--color-stone-500) 95%, black);
+  --color-text-muted-on-fill: var(--color-stone-800);
+
+  --color-text-brand: var(--color-blue-700);
+  --color-text-brand-hover: color-mix(in oklch, var(--color-blue-700) 97%, black);
+  --color-text-brand-active: color-mix(in oklch, var(--color-blue-700) 95%, black);
+  --color-text-brand-on-fill: var(--color-blue-50);
+
+  --color-text-success: var(--color-green-700);
+  --color-text-success-hover: color-mix(in oklch, var(--color-green-700) 97%, black);
+  --color-text-success-active: color-mix(in oklch, var(--color-green-700) 95%, black);
+  --color-text-success-on-fill: var(--color-green-50);
+
+  --color-text-danger: var(--color-red-700);
+  --color-text-danger-hover: color-mix(in oklch, var(--color-red-700) 97%, black);
+  --color-text-danger-active: color-mix(in oklch, var(--color-red-700) 95%, black);
+  --color-text-danger-on-fill: var(--color-red-50);
+
+  --color-text-warning: var(--color-yellow-700);
+  --color-text-warning-hover: color-mix(in oklch, var(--color-yellow-700) 97%, black);
+  --color-text-warning-active: color-mix(in oklch, var(--color-yellow-700) 95%, black);
+  --color-text-warning-on-fill: var(--color-yellow-50);
+
+  --color-border-primary: var(--color-stone-200);
+  --color-border-primary-hover: color-mix(in oklch, var(--color-stone-200) 97%, black);
+  --color-border-primary-active: color-mix(in oklch, var(--color-stone-200) 95%, black);
+  --color-border-primary-selected: color-mix(in oklch, var(--color-stone-200) 95%, black);
+
+  --color-border-muted: var(--color-stone-100);
+  --color-border-muted-hover: color-mix(in oklch, var(--color-stone-100) 97%, black);
+  --color-border-muted-active: color-mix(in oklch, var(--color-stone-100) 95%, black);
+  --color-border-muted-selected: color-mix(in oklch, var(--color-stone-100) 95%, black);
+
+  --color-border-brand: color-mix(in oklch, var(--color-blue-600) 95%, black);
+  --color-border-brand-hover: color-mix(in oklch, var(--color-blue-600) 90%, black);
+  --color-border-brand-active: color-mix(in oklch, var(--color-blue-600) 85%, black);
+  --color-border-brand-selected: color-mix(in oklch, var(--color-blue-600) 85%, black);
+
+  --color-border-danger: color-mix(in oklch, var(--color-red-600) 95%, black);
+  --color-border-danger-hover: color-mix(in oklch, var(--color-red-600) 90%, black);
+  --color-border-danger-active: color-mix(in oklch, var(--color-red-600) 85%, black);
+  --color-border-danger-selected: color-mix(in oklch, var(--color-red-600) 85%, black);
+
+  --color-surface-primary: var(--color-white);
+  --color-surface-primary-hover: color-mix(in oklch, var(--color-white) 97%, black);
+  --color-surface-primary-active: color-mix(in oklch, var(--color-white) 95%, black);
+  --color-surface-primary-selected: color-mix(in oklch, var(--color-white) 95%, black);
+
+  --color-surface-muted: var(--color-stone-50);
+  --color-surface-muted-hover: color-mix(in oklch, var(--color-stone-100) 97%, black);
+  --color-surface-muted-active: color-mix(in oklch, var(--color-stone-100) 95%, black);
+  --color-surface-muted-selected: color-mix(in oklch, var(--color-stone-100) 95%, black);
+
+  --color-surface-success: var(--color-green-100);
+  --color-surface-success-hover: color-mix(in oklch, var(--color-green-100) 97%, black);
+  --color-surface-success-active: color-mix(in oklch, var(--color-green-100) 95%, black);
+  --color-surface-success-selected: color-mix(in oklch, var(--color-green-100) 95%, black);
+
+  --color-surface-warning: var(--color-yellow-100);
+  --color-surface-warning-hover: color-mix(in oklch, var(--color-yellow-100) 97%, black);
+  --color-surface-warning-active: color-mix(in oklch, var(--color-yellow-100) 95%, black);
+  --color-surface-warning-selected: color-mix(in oklch, var(--color-yellow-100) 95%, black);
+
+  --color-surface-danger: var(--color-red-100);
+  --color-surface-danger-hover: color-mix(in oklch, var(--color-red-100) 97%, black);
+  --color-surface-danger-active: color-mix(in oklch, var(--color-red-100) 95%, black);
+  --color-surface-danger-selected: color-mix(in oklch, var(--color-red-100) 95%, black);
+}
+
+@layer base {
+  *[data-theme='dark'] {
+    --color-background-primary: var(--color-stone-900);
+    --color-background-muted: color-mix(in oklch, var(--color-stone-900) 97%, white);
+
+    --color-fill-primary: var(--color-stone-900);
+    --color-fill-primary-hover: color-mix(in oklch, var(--color-stone-800) 97%, white);
+    --color-fill-primary-active: color-mix(in oklch, var(--color-stone-800) 95%, white);
+    --color-fill-primary-selected: color-mix(in oklch, var(--color-stone-800) 93%, white);
+
+    --color-fill-muted: var(--color-stone-800);
+    --color-fill-muted-hover: color-mix(in oklch, var(--color-stone-800) 97%, white);
+    --color-fill-muted-active: color-mix(in oklch, var(--color-stone-800) 95%, white);
+    --color-fill-muted-selected: color-mix(in oklch, var(--color-stone-800) 99%, white);
+
+    --color-fill-brand: var(--color-blue-600);
+    --color-fill-brand-hover: color-mix(in oklch, var(--color-blue-600) 97%, white);
+    --color-fill-brand-active: color-mix(in oklch, var(--color-blue-600) 95%, white);
+    --color-fill-brand-selected: color-mix(in oklch, var(--color-blue-600) 95%, white);
+
+    --color-fill-danger: var(--color-red-400);
+    --color-fill-danger-hover: color-mix(in oklch, var(--color-red-400) 97%, white);
+    --color-fill-danger-active: color-mix(in oklch, var(--color-red-400) 95%, white);
+    --color-fill-danger-selected: color-mix(in oklch, var(--color-red-400) 95%, white);
+
+    --color-fill-success: var(--color-green-400);
+    --color-fill-success-hover: color-mix(in oklch, var(--color-green-400) 97%, white);
+    --color-fill-success-active: color-mix(in oklch, var(--color-green-400) 95%, white);
+    --color-fill-success-selected: color-mix(in oklch, var(--color-green-400) 95%, white);
+
+    --color-fill-warning: var(--color-yellow-400);
+    --color-fill-warning-hover: color-mix(in oklch, var(--color-yellow-400) 97%, white);
+    --color-fill-warning-active: color-mix(in oklch, var(--color-yellow-400) 95%, white);
+    --color-fill-warning-selected: color-mix(in oklch, var(--color-yellow-400) 95%, white);
+
+    --color-text-primary: var(--color-stone-100);
+    --color-text-primary-hover: color-mix(in oklch, var(--color-stone-100) 97%, white);
+    --color-text-primary-active: color-mix(in oklch, var(--color-stone-100) 95%, white);
+    --color-text-primary-on-fill: var(--color-stone-900);
+
+    --color-text-muted: var(--color-stone-400);
+    --color-text-muted-hover: color-mix(in oklch, var(--color-stone-400) 97%, white);
+    --color-text-muted-active: color-mix(in oklch, var(--color-stone-400) 95%, white);
+    --color-text-muted-on-fill: var(--color-stone-600);
+
+    --color-text-brand: var(--color-blue-500);
+    --color-text-brand-hover: color-mix(in oklch, var(--color-blue-500) 97%, white);
+    --color-text-brand-active: color-mix(in oklch, var(--color-blue-500) 95%, white);
+    --color-text-brand-on-fill: var(--color-blue-50);
+
+    --color-text-success: var(--color-green-400);
+    --color-text-success-hover: color-mix(in oklch, var(--color-green-400) 97%, white);
+    --color-text-success-active: color-mix(in oklch, var(--color-green-400) 95%, white);
+    --color-text-success-on-fill: var(--color-green-900);
+
+    --color-text-danger: var(--color-red-400);
+    --color-text-danger-hover: color-mix(in oklch, var(--color-red-400) 97%, white);
+    --color-text-danger-active: color-mix(in oklch, var(--color-red-400) 95%, white);
+    --color-text-danger-on-fill: var(--color-red-900);
+
+    --color-text-warning: var(--color-yellow-400);
+    --color-text-warning-hover: color-mix(in oklch, var(--color-yellow-400) 97%, white);
+    --color-text-warning-active: color-mix(in oklch, var(--color-yellow-400) 95%, white);
+    --color-text-warning-on-fill: var(--color-yellow-900);
+
+    --color-border-primary: var(--color-stone-700);
+    --color-border-primary-hover: color-mix(in oklch, var(--color-stone-700) 97%, white);
+    --color-border-primary-active: color-mix(in oklch, var(--color-stone-700) 95%, white);
+    --color-border-primary-selected: color-mix(in oklch, var(--color-stone-700) 95%, white);
+
+    --color-border-muted: var(--color-stone-800);
+    --color-border-muted-hover: color-mix(in oklch, var(--color-stone-800) 97%, white);
+    --color-border-muted-active: color-mix(in oklch, var(--color-stone-800) 95%, white);
+    --color-border-muted-selected: color-mix(in oklch, var(--color-stone-800) 95%, white);
+
+    --color-border-brand: color-mix(in oklch, var(--color-blue-600) 95%, white);
+    --color-border-brand-hover: color-mix(in oklch, var(--color-blue-600) 90%, white);
+    --color-border-brand-active: color-mix(in oklch, var(--color-blue-600) 85%, white);
+    --color-border-brand-selected: color-mix(in oklch, var(--color-blue-600) 85%, white);
+
+    --color-border-danger: var(--color-red-400);
+    --color-border-danger-hover: color-mix(in oklch, var(--color-red-400) 97%, white);
+    --color-border-danger-active: color-mix(in oklch, var(--color-red-400) 95%, white);
+    --color-border-danger-selected: color-mix(in oklch, var(--color-red-400) 95%, white);
+
+    --color-surface-primary: var(--color-stone-900);
+    --color-surface-primary-hover: color-mix(in oklch, var(--color-stone-900) 97%, white);
+    --color-surface-primary-active: color-mix(in oklch, var(--color-stone-900) 95%, white);
+    --color-surface-primary-selected: color-mix(in oklch, var(--color-stone-900) 95%, white);
+
+    --color-surface-muted: var(--color-stone-800);
+    --color-surface-muted-hover: color-mix(in oklch, var(--color-stone-800) 97%, white);
+    --color-surface-muted-active: color-mix(in oklch, var(--color-stone-800) 95%, white);
+    --color-surface-muted-selected: color-mix(in oklch, var(--color-stone-800) 95%, white);
+
+    --color-surface-success: var(--color-green-800);
+    --color-surface-success-hover: color-mix(in oklch, var(--color-green-800) 97%, white);
+    --color-surface-success-active: color-mix(in oklch, var(--color-green-800) 95%, white);
+    --color-surface-success-selected: color-mix(in oklch, var(--color-green-800) 95%, white);
+
+    --color-surface-warning: var(--color-yellow-800);
+    --color-surface-warning-hover: color-mix(in oklch, var(--color-yellow-800) 97%, white);
+    --color-surface-warning-active: color-mix(in oklch, var(--color-yellow-800) 95%, white);
+    --color-surface-warning-selected: color-mix(in oklch, var(--color-yellow-800) 95%, white);
+
+    --color-surface-danger: var(--color-red-800);
+    --color-surface-danger-hover: color-mix(in oklch, var(--color-red-800) 97%, white);
+    --color-surface-danger-active: color-mix(in oklch, var(--color-red-800) 95%, white);
+    --color-surface-danger-selected: color-mix(in oklch, var(--color-red-800) 95%, white);
+  }
+}
+
+@utility container {
+  padding-inline: 1.5rem;
+  margin-inline: auto;
+}

@@ -26,17 +26,8 @@
       "@/*": [
         "./src/*"
       ],
-      "@/components/*": [
-        "./src/components/*"
-      ],
-      "@/lib/*": [
-        "./src/lib/*"
-      ],
-      "@/hooks/*": [
-        "./src/hooks/*"
-      ],
-      "@/utils/*": [
-        "./src/utils/*"
+      "@/public/*": [
+        "./public/*"
       ]
     }
   },
@@ -44,9 +35,12 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "trigger.config.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/generated-client",
+    "**/generated-client/**/*"
   ]
 }
