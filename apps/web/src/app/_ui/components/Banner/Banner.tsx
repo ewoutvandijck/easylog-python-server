@@ -6,6 +6,7 @@ const bannerStyles = tv({
   variants: {
     colorRole: {
       primary: 'bg-surface-primary text-text-primary',
+      info: 'bg-surface-info text-text-info',
       muted: 'bg-surface-muted text-text-primary',
       success: 'bg-surface-success text-text-success',
       warning: 'text-text-warning-on-fill bg-surface-warning'

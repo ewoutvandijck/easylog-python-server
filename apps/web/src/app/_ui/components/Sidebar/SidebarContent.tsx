@@ -1,20 +1,23 @@
-'use client';
-
 import { VariantProps, tv } from 'tailwind-variants';
 
 export const sidebarContentStyles = tv({
-  base: 'flex h-full w-full flex-col justify-between gap-1'
+  base: 'flex min-h-0 flex-1 flex-col overflow-auto'
 });
 
 export interface SidebarContentProps
-  extends VariantProps<typeof sidebarContentStyles>,
-    React.HTMLAttributes<HTMLDivElement> {}
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof sidebarContentStyles> {}
 
 const SidebarContent = ({
+  className,
   children,
-  className
-}: React.PropsWithChildren<SidebarContentProps>) => {
-  return <div className={sidebarContentStyles({ className })}>{children}</div>;
+  ...props
+}: SidebarContentProps) => {
+  return (
+    <div className={sidebarContentStyles({ className })} {...props}>
+      {children}
+    </div>
+  );
 };
 
 export default SidebarContent;

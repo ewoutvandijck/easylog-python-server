@@ -15,9 +15,6 @@ const getCurrentUser = cache(async (headers: Headers) => {
   const user = await db.query.users.findFirst({
     where: {
       id: session.user.id
-    },
-    with: {
-      organizations: true
     }
   });
 

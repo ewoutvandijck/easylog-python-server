@@ -4,8 +4,6 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { VariantProps, tv } from 'tailwind-variants';
 
-import getSupabaseImageLoader from '@/lib/supabase/imageLoader';
-
 import EmptyAvatar from './images/empty-avatar.png';
 import Typography from '../Typography/Typography';
 
@@ -63,7 +61,6 @@ const Avatar = ({
   src: _src,
   fallback,
   fallbackType = 'image',
-  bucket,
   url,
   className,
   ...props
@@ -84,7 +81,7 @@ const Avatar = ({
         ? fallback.slice(0, 2).toUpperCase()
         : fallback;
 
-  const src = url ? `/api/favicon/${new URL(url).hostname}` : _src;
+  const src = url ? `/api/v1/favicon/${new URL(url).hostname}` : _src;
 
   const hasImage = src && !hasError;
 
@@ -104,7 +101,6 @@ const Avatar = ({
           alt={fallback ?? 'Avatar'}
           width={64}
           height={64}
-          loader={_src ? getSupabaseImageLoader(bucket) : () => src}
           onLoad={() => {
             setIsLoaded(true);
             setHasError(false);

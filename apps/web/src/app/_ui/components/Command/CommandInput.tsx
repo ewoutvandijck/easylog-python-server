@@ -6,10 +6,10 @@ import Icon from '../Icon/Icon';
 
 export const commandInputStyles = tv({
   slots: {
-    wrapper: 'flex items-center border-b border-b-border-muted px-3',
+    wrapper: 'border-b-border-muted flex items-center border-b px-3',
     icon: 'mr-2 size-4 shrink-0 opacity-50',
     input:
-      'outline-hidden flex h-10 w-full rounded-md bg-transparent py-3 text-sm placeholder:text-text-muted disabled:cursor-not-allowed disabled:opacity-50'
+      'outline-hidden placeholder:text-text-muted flex h-10 w-full rounded-md bg-transparent py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50'
   }
 });
 

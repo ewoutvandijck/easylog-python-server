@@ -7,8 +7,8 @@ import inter from '@/lib/fonts/inter';
 import SharedProviders from '../_shared/providers/SharedProviders';
 
 export const metadata: Metadata = {
-  title: 'Call James AI',
-  description: 'Call James AI'
+  title: 'Apperto',
+  description: 'Apperto AI Chat'
 };
 
 const RootLayout = ({ children }: React.PropsWithChildren) => {

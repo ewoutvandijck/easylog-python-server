@@ -78,7 +78,7 @@ const DataTable = <TData, TValue>({
     data;
 
     return (
-      <div className="border-border-muted shrink-0 overflow-scroll rounded-lg border">
+      <div className="shrink-0 overflow-scroll rounded-lg border border-border-primary">
         <Table className="border-0">
           <TableHeader className="border-0">
             {table.getHeaderGroups().map((headerGroup) => (

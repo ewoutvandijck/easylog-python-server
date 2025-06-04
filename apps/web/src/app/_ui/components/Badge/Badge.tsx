@@ -11,7 +11,8 @@ export const badgeStyles = tv({
       warning: 'bg-fill-warning/10 text-text-warning border-transparent'
     },
     size: {
-      sm: 'h-6 px-2',
+      xs: 'h-6 px-1.5',
+      sm: 'h-7 px-2',
       md: 'h-8 px-2.5'
     }
   },

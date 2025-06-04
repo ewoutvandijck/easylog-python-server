@@ -1,18 +1,18 @@
-import { type VariantProps, tv } from 'tailwind-variants';
+import { VariantProps, tv } from 'tailwind-variants';
 
 export const sidebarHeaderStyles = tv({
-  base: 'flex flex-col gap-1 px-1'
+  base: 'flex flex-col gap-0.5'
 });
 
 export interface SidebarHeaderProps
-  extends VariantProps<typeof sidebarHeaderStyles>,
-    React.HTMLAttributes<HTMLDivElement> {}
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof sidebarHeaderStyles> {}
 
 const SidebarHeader = ({
-  children,
   className,
+  children,
   ...props
-}: React.PropsWithChildren<SidebarHeaderProps>) => {
+}: SidebarHeaderProps) => {
   return (
     <div className={sidebarHeaderStyles({ className })} {...props}>
       {children}

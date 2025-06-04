@@ -1,31 +1,38 @@
 import { cookies } from 'next/headers';
 
-import SidebarProviderInner from './SidebarProviderInner';
+import SidebarProviderInner, {
+  SidebarProviderInnerProps
+} from './SidebarProviderInner';
+import PersistentPanelsProvider from '../Panels/PersistentPanelsProvider';
 
-export interface SidebarProviderProps {
-  cookieName: string;
+export interface SidebarProviderProps extends SidebarProviderInnerProps {
+  cookieName?: string;
+  defaultLayout?: [number, number];
+  className?: string;
 }
 
 const SidebarProvider = async ({
-  cookieName,
-  children
+  children,
+  cookieName = 'sidebar.layout',
+  defaultLayout = [30, 70],
+  className,
+  ...props
 }: React.PropsWithChildren<SidebarProviderProps>) => {
-  const initialWidth = (await cookies()).get(`${cookieName}.width`)?.value;
+  const cookie = (await cookies()).get(cookieName);
 
-  const initialIsCollapsed = (await cookies()).get(
-    `${cookieName}.is-collapsed`
-  )?.value;
+  const layout = !cookie
+    ? defaultLayout
+    : (JSON.parse(cookie.value) as [number, number]);
 
   return (
-    <SidebarProviderInner
+    <PersistentPanelsProvider
+      direction="horizontal"
+      defaultLayout={layout}
       cookieName={cookieName}
-      initialWidth={initialWidth ? Number(initialWidth) : 250}
-      initialIsCollapsed={
-        initialIsCollapsed ? initialIsCollapsed === 'true' : false
-      }
+      className={className}
     >
-      {children}
-    </SidebarProviderInner>
+      <SidebarProviderInner {...props}>{children}</SidebarProviderInner>
+    </PersistentPanelsProvider>
   );
 };
 

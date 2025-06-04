@@ -5,7 +5,7 @@ import CollapsibleContent, {
 } from '../Collapsible/CollapsibleContent';
 
 export const sidebarCollapsibleContentStyles = tv({
-  base: 'my-1 flex flex-col gap-0.5'
+  base: 'my-0.5 flex flex-col gap-0.5'
 });
 
 export interface SidebarCollapsibleContentProps

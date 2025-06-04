@@ -3,22 +3,27 @@
 import { CollapsibleTriggerProps } from '@radix-ui/react-collapsible';
 import { IconChevronRight } from '@tabler/icons-react';
 
-import SidebarButton from './SidebarButton';
-import ButtonContent from '../Button/ButtonContent';
+import SidebarMenuButton from './SidebarMenuButton';
+import SidebarMenuButtonContent from './SidebarMenuButtonContent';
 import CollapsibleTrigger from '../Collapsible/CollapsilbeTrigger';
+import { ContentWrapperProps } from '../ContentWrapper/ContentWrapper';
 import Icon from '../Icon/Icon';
 
 export interface SidebarCollapsibleTriggerProps
-  extends CollapsibleTriggerProps {}
+  extends CollapsibleTriggerProps {
+  contentRight?: ContentWrapperProps['contentRight'];
+}
 
 const SidebarCollapsibleTrigger = ({
+  contentRight,
   children
 }: React.PropsWithChildren<SidebarCollapsibleTriggerProps>) => {
   return (
     <CollapsibleTrigger asChild>
-      <SidebarButton className="text-text-primary-on-fill/75 group w-full grow text-xs">
-        <ButtonContent
-          contentRight={
+      <SidebarMenuButton className="group w-full grow text-xs text-text-muted">
+        <SidebarMenuButtonContent
+          contentRight={contentRight}
+          contentLeft={
             <Icon
               icon={IconChevronRight}
               className="w-5 transition-transform group-data-[state=open]:rotate-90"
@@ -27,8 +32,8 @@ const SidebarCollapsibleTrigger = ({
           align="start"
         >
           {children}
-        </ButtonContent>
-      </SidebarButton>
+        </SidebarMenuButtonContent>
+      </SidebarMenuButton>
     </CollapsibleTrigger>
   );
 };

@@ -1,6 +1,6 @@
 import weaviate, { WeaviateClient } from 'weaviate-client';
 
-import serverConfig from '@/server.config';
+// import serverConfig from '@/server.config';
 
 let client: WeaviateClient | null = null;
 
@@ -9,7 +9,7 @@ const getWeaviateClient = async () => {
 
   client = await weaviate.connectToLocal({
     headers: {
-      'X-OpenAI-Api-Key': serverConfig.openaiApiKey
+      'X-OpenAI-Api-Key': 'serverConfig.openaiApiKey'
     }
   });
 
