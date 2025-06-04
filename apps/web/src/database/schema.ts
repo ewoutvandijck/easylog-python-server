@@ -9,8 +9,6 @@ import {
   uuid
 } from 'drizzle-orm/pg-core';
 
-export const documentTypeEnum = pgEnum('document_type_enum', ['pdf']);
-
 export const timestamps = {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { mode: 'date' })
@@ -89,37 +87,5 @@ export const passkeys = pgTable('passkeys', {
   deviceType: text('device_type').notNull(),
   backedUp: boolean('backed_up').notNull(),
   transports: text('transports').notNull(),
-  ...timestamps
-});
-
-export const organizations = pgTable('organizations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  ...timestamps
-});
-
-export const organizationMembers = pgTable('organization_members', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .references(() => users.id)
-    .notNull(),
-  organizationId: uuid('organization_id')
-    .references(() => organizations.id, { onDelete: 'cascade' })
-    .notNull(),
-  ...timestamps
-});
-
-export const documents = pgTable('documents', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  vectorDocumentId: uuid('vector_document_id').unique().notNull(),
-  organizationId: uuid('organization_id')
-    .references(() => organizations.id, { onDelete: 'cascade' })
-    .notNull(),
-  path: text('path').notNull(),
-  type: documentTypeEnum('type').notNull(),
-  summary: text('summary').notNull(),
-  tags: text('tags').array(),
-  content: jsonb('content').notNull(),
   ...timestamps
 });

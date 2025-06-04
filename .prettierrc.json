@@ -4,5 +4,15 @@
   "tabWidth": 2,
   "useTabs": false,
   "printWidth": 80,
-  "plugins": ["prettier-plugin-jsdoc"]
+  "plugins": ["prettier-plugin-jsdoc", "prettier-plugin-tailwindcss"],
+  "tailwindStylesheet": "apps/web/src/app/globals.css",
+  "tailwindFunctions": ["tv"],
+  "overrides": [
+    {
+      "files": ["*.css"],
+      "options": {
+        "printWidth": 120
+      }
+    }
+  ]
 }
