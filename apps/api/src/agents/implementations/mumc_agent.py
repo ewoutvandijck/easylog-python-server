@@ -1073,23 +1073,26 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 pass  # Fall through to general scoring
 
         elif domain_name == "Bewegen":
-            # G18: Exercise days per week - OFFICIAL DIRECT MAPPING
-            # Official ranges from ccq-copd-questionnaire.md:
-            # 5 dagen of meer: Groen (100%)
-            # 3-4 dagen: Oranje (60%)
-            # 1-2 dagen: Oranje (40%)
-            # 0 dagen: Rood (0%)
-
-            # Score represents G18 answer value (0-3 scale in questionnaire)
-            # G18 mapping: 0=0 dagen, 1=1-2 dagen, 2=3-4 dagen, 3=5+ dagen
-            if score >= 2.5:  # Roughly G18=3 (5+ dagen)
-                return 100.0  # Green
-            elif score >= 1.5:  # Roughly G18=2 (3-4 dagen)
-                return 60.0  # Orange
-            elif score >= 0.5:  # Roughly G18=1 (1-2 dagen)
-                return 40.0  # Orange
-            else:  # G18=0 (0 dagen)
-                return 0.0  # Red
+            # G18: Exercise days per week - OFFICIAL INVERTED SCORING
+            # CRITICAL: G18 gets inverted in ZLMuitslag role conversion:
+            # G18=0 dagen → ZLM Score=6, G18=1-2 dagen → ZLM Score=4,
+            # G18=3-4 dagen → ZLM Score=2, G18=5+ dagen → ZLM Score=0
+            # After inversion, LOWER ZLM score = MORE exercise days = HIGHER balloon
+            
+            # Official balloon heights based on exercise frequency:
+            # 5+ dagen (score=0): Groen (100%)
+            # 3-4 dagen (score=2): Oranje (60%)
+            # 1-2 dagen (score=4): Oranje (40%)
+            # 0 dagen (score=6): Rood (0%)
+            
+            if score <= 0.5:  # Score 0 = 5+ dagen beweging (na inversie)
+                return 100.0  # Green - beweegt voldoende
+            elif score <= 2.5:  # Score 2 = 3-4 dagen beweging (na inversie)
+                return 60.0   # Orange - stap in goede richting
+            elif score <= 4.5:  # Score 4 = 1-2 dagen beweging (na inversie)
+                return 40.0   # Orange - beweegt, maar nog niet genoeg
+            else:  # Score 6 = 0 dagen beweging (na inversie)
+                return 0.0    # Red - beweegt onvoldoende
 
         elif domain_name == "Alcohol":
             # G19: Alcohol glasses per week - OFFICIAL DIRECT MAPPING
