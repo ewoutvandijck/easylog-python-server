@@ -1255,6 +1255,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             self.logger.warning(f"Error formatting system prompt: {e}")
             llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
 
+        self.logger.debug(llm_content)
+
         # Create the completion request
         response = await self.client.chat.completions.create(
             model=role_config.model,
