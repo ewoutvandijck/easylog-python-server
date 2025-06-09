@@ -663,7 +663,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -690,7 +690,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 question=question,
                 choices=parsed_choices,
                 selected_choice=None,
-            )
+            ), True
 
         # Image tools
         def tool_download_image(url: str) -> Image.Image:
@@ -948,18 +948,18 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         # Domain-specific scoring logic from official ZLM COPD documentation
         if domain_name in ["Long aanvallen", "Longaanvallen"]:
             # G17: Discrete scoring for exacerbations
-            # FIXED: Handle all scores correctly - higher scores = more courses = 
+            # FIXED: Handle all scores correctly - higher scores = more courses =
             # worse = lower balloon
             if score <= 0.5:  # Score 0 = 0 courses
                 return 100.0  # Green (0 courses)
-            elif score <= 1.5:  # Score 1 = 1 course  
+            elif score <= 1.5:  # Score 1 = 1 course
                 return 50.0  # Orange (1 course)
             else:  # Score >= 2 = 2+ courses (includes 2, 3, 4, 5, 6)
                 return 0.0  # Red (2+ courses) - All high scores are bad
 
         elif domain_name in ["Longklachten", "Long klachten"]:
             # CRITICAL: Longklachten requires G12 check (kortademig in rust)
-            # Official rule: Score < 1 AND G12 < 2 = Green, 
+            # Official rule: Score < 1 AND G12 < 2 = Green,
             # Score ≥1-≤2 AND G12 < 2 = Orange, Score > 2 OR G12 ≥ 2 = Red
 
             # Try to find G12 value in all_data
@@ -970,8 +970,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         if isinstance(item, dict):
                             # Look for G12 related domain
                             x_val = str(item.get("x_value", "")).lower()
-                            if any(keyword in x_val for keyword in 
-                                   ["kortademig", "rust", "g12"]):
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
                                 # Found potential G12 item, extract its y_current score
                                 if "y_current" in item:
                                     g12_value = float(item["y_current"])
@@ -979,8 +978,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         elif hasattr(item, "x_value") and hasattr(item, "y_current"):
                             # ZLMDataRow object
                             x_val = str(item.x_value).lower()
-                            if any(keyword in x_val for keyword in 
-                                   ["kortademig", "rust", "g12"]):
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
                                 g12_value = float(item.y_current)
                                 break
             except (ValueError, TypeError, AttributeError):
@@ -1033,21 +1031,17 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                         for item in all_data:
                             if isinstance(item, dict):
                                 x_val = str(item.get("x_value", "")).lower()
-                                if any(keyword in x_val for keyword in 
-                                       ["gewicht", "weight", "g21"]):
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
                                     if "y_current" in item:
                                         weight_kg = float(item["y_current"])
-                                elif any(keyword in x_val for keyword in 
-                                         ["lengte", "height", "g22"]):
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
                                     if "y_current" in item:
                                         height_cm = float(item["y_current"])
                             elif hasattr(item, "x_value") and hasattr(item, "y_current"):
                                 x_val = str(item.x_value).lower()
-                                if any(keyword in x_val for keyword in 
-                                       ["gewicht", "weight", "g21"]):
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
                                     weight_kg = float(item.y_current)
-                                elif any(keyword in x_val for keyword in 
-                                         ["lengte", "height", "g22"]):
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
                                     height_cm = float(item.y_current)
 
                     # Calculate BMI if both weight and height found
@@ -1091,7 +1085,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Original G18: 0=0 dagen, 1=1-2 dagen, 2=3-4 dagen, 3=5+ dagen
             # But ZLM scores can be 0-6, where 6 = worst (0 dagen)
             # CRITICAL FIX: Handle score 6 correctly as RED (0 dagen beweging)
-            
+
             if score >= 5.0:  # Scores 5-6 = zeer slecht (0 dagen beweging)
                 return 0.0  # Red - No exercise is worst possible
             elif score >= 3.5:  # Scores 4-5 = slecht (1-2 dagen?)
