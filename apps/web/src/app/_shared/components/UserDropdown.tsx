@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 import Button from '@/app/_ui/components/Button/Button';
 import ButtonContent from '@/app/_ui/components/Button/ButtonContent';
@@ -9,12 +10,15 @@ import DropdownMenuContent from '@/app/_ui/components/DropdownMenu/DropdownMenuC
 import DropdownMenuItem from '@/app/_ui/components/DropdownMenu/DropdownMenuItem';
 import DropdownMenuTrigger from '@/app/_ui/components/DropdownMenu/DropdownMenuTrigger';
 import type { User } from '@/database/schema';
+import authBrowserClient from '@/lib/better-auth/browser';
 
 export interface UserDropdownProps {
   user: User;
 }
 
 const UserDropdown = ({ user }: UserDropdownProps) => {
+  const router = useRouter();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,8 +34,19 @@ const UserDropdown = ({ user }: UserDropdownProps) => {
           </ButtonContent>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem>hello</DropdownMenuItem>
+      <DropdownMenuContent
+        align="end"
+        onClick={() => {
+          void authBrowserClient.signOut({
+            fetchOptions: {
+              onSuccess: () => {
+                router.push('/sign-in');
+              }
+            }
+          });
+        }}
+      >
+        <DropdownMenuItem>Uitloggen</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

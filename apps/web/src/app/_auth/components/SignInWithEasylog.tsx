@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { useEffect } from 'react';
 
 import Button from '@/app/_ui/components/Button/Button';
 import ButtonContent from '@/app/_ui/components/Button/ButtonContent';
@@ -16,10 +15,6 @@ const SignInWithEasylog = () => {
         callbackURL: '/chat'
       })
   });
-
-  useEffect(() => {
-    signInWithEasylog();
-  }, [signInWithEasylog]);
 
   return (
     <Button
