@@ -2,6 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef } from 'react';
 
 import ChatMessageAssistant from './ChatMessageAssistant';
 import ChatMessageAssistantMarkdownContent from './ChatMessageAssistantMarkdownContent';
@@ -10,24 +11,37 @@ import ChatMessageUserTextContent from './ChatMessageUserTextContent';
 import useChatContext from '../hooks/useChatContext';
 
 const ChatHistory = () => {
-  const { chat } = useChatContext();
+  /** TODO: pin scroll to bottom when new message is submitted */
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { status } = useChat({
-    chat
-  });
+  const { chat } = useChatContext();
+  const { status } = useChat({ chat });
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    if (status !== 'submitted') return;
+
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth'
+    });
+  }, [status]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 md:p-10">
+    <div
+      className="relative flex-1 overflow-y-auto p-3 md:p-10"
+      ref={scrollRef}
+    >
       <div className="mx-auto max-w-2xl">
         <AnimatePresence>
           {chat.messages.map((message) =>
             message.role === 'user' ? (
               <ChatMessageUser key={message.id}>
                 {message.parts.map(
-                  (part) =>
+                  (part, i) =>
                     part.type === 'text' && (
                       <ChatMessageUserTextContent
-                        key={part.text}
+                        key={`${message.id}-${i}`}
                         text={part.text}
                       />
                     )
@@ -36,10 +50,10 @@ const ChatHistory = () => {
             ) : message.role === 'assistant' ? (
               <ChatMessageAssistant key={message.id}>
                 {message.parts.map(
-                  (part) =>
+                  (part, i) =>
                     part.type === 'text' && (
                       <ChatMessageAssistantMarkdownContent
-                        key={part.text}
+                        key={`${message.id}-${i}`}
                         text={part.text}
                       />
                     )
@@ -53,7 +67,6 @@ const ChatHistory = () => {
               className="bg-fill-brand animate-scale-in size-3 rounded-full"
               initial={{ opacity: 0, scale: 0 }}
               animate={{ opacity: 1, scale: 1 }}
-              // exit={{ opacity: 0, scale: 0 }}
               transition={{ duration: 0.2 }}
             />
           )}
