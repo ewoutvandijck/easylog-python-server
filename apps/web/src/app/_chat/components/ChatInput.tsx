@@ -57,7 +57,7 @@ const ChatInput = () => {
 
   return (
     <motion.div
-      className="sticky bottom-6 left-0 right-0 px-6"
+      className="sticky bottom-3 left-0 right-0 px-3 md:bottom-5 md:px-5"
       initial={{ opacity: 0, y: '50%', filter: 'blur(5px)' }}
       animate={{
         opacity: 1,
