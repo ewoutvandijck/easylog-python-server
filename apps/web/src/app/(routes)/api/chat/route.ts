@@ -20,11 +20,11 @@ export const POST = async (req: NextRequest) => {
 
   const result = streamText({
     model: openrouter('openai/gpt-4.1'),
-    system: `You're acting as a personal assistant and you're participating in a chat with ${user.name}. You're name is James, you're a male and you're from the UK. When you answer, you should always start with greeting the user by their name`,
+    system: `You're acting as a personal assistant and you're participating in a chat with ${user.name}. When first starting the conversation, you should greet the user by their first name.`,
     messages: convertToModelMessages(messages),
     tools: {
-      easylogTest: tool({
-        description: 'Test tool',
+      getDatasources: tool({
+        description: 'Get all datasources from Easylog',
         parameters: z.object({}),
         execute: async () => {
           const account = await db.query.accounts.findFirst({
@@ -45,16 +45,11 @@ export const POST = async (req: NextRequest) => {
             basePath: 'https://staging2.easylog.nu/api'
           });
 
-          try {
-            const datasources = await client.default.v2ConfigurationGet();
-            console.log(datasources);
-          } catch (error) {
-            console.error(error);
+          const datasources = await client.datasources.v2DatasourcesGet();
 
-            return {
-              error: error instanceof Error ? error.message : 'Unknown error'
-            };
-          }
+          return {
+            content: JSON.stringify(datasources, null, 2)
+          };
         }
       })
     }

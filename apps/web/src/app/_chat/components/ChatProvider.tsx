@@ -19,7 +19,8 @@ const ChatProvider = ({
 }: React.PropsWithChildren<ChatProviderProps>) => {
   const [chat] = useState(
     new Chat({
-      messages: []
+      messages: [],
+      maxSteps: 5
     })
   );
 
