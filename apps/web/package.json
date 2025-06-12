@@ -8,7 +8,8 @@
     "trigger:dev": "pnpm dlx trigger.dev@v4-beta dev",
     "lint": "next lint",
     "start": "next start",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "generate:easylog": "docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i /local/src/lib/easylog/api-docs.yaml -g typescript-fetch -o /local/src/lib/easylog/generated-client --additional-properties modelPropertyNaming=camelCase,operationIdNaming=original,supportsES6=true,useSingleRequestParameter=true"
   },
   "dependencies": {
     "@ai-sdk/openai": "2.0.0-alpha.12",
