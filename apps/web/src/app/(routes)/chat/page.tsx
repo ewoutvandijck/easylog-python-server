@@ -2,7 +2,9 @@ import { headers } from 'next/headers';
 import { forbidden } from 'next/navigation';
 
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
-import Typography from '@/app/_ui/components/Typography/Typography';
+import ChatHistory from '@/app/_chat/components/ChatHistory';
+import ChatInput from '@/app/_chat/components/ChatInput';
+import Header from '@/app/_shared/components/Header';
 
 const ChatPage = async () => {
   const user = await getCurrentUser(await headers());
@@ -12,12 +14,11 @@ const ChatPage = async () => {
   }
 
   return (
-    <div className="p-10">
-      <Typography variant="labelMd">{user.name}</Typography>
-      <Typography variant="bodySm" colorRole="muted">
-        {user.email}
-      </Typography>
-    </div>
+    <main className="flex h-svh flex-col">
+      <Header user={user} />
+      <ChatHistory />
+      <ChatInput />
+    </main>
   );
 };
 

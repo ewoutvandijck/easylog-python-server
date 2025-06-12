@@ -24,6 +24,8 @@ export const users = pgTable('users', {
   ...timestamps
 });
 
+export type User = typeof users.$inferSelect;
+
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id')

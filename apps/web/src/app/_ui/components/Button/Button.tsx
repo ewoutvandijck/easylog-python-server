@@ -16,8 +16,7 @@ export const buttonStyles = tv({
         'text-text-danger-on-fill ring-border-danger-selected hover:border-border-danger-hover hover:bg-fill-danger-hover active:bg-fill-danger-active data-[state=open]:border-border-danger-selected data-[state=open]:bg-fill-danger-selected data-[state=open]:hover:border-border-danger-hover data-[state=open]:hover:bg-fill-danger-hover data-[state=open]:active:bg-fill-danger-active border-border-danger bg-fill-danger'
     },
     variant: {
-      default:
-        'active:border-b-1 border-x border-b-[2px] border-t data-[state=open]:border-b',
+      default: 'shadow-short data-[state=open]:shadow-none',
       ghost:
         'border-b-1 border-x border-t [&:not([data-state=open]):hover]:border-transparent [&:not([data-state=open]):not(:hover)]:border-transparent [&:not([data-state=open]):not(:hover)]:bg-transparent',
       outline: 'border'

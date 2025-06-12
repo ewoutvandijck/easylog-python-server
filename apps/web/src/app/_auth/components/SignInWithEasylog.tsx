@@ -1,10 +1,11 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import Button from '@/app/_ui/components/Button/Button';
 import ButtonContent from '@/app/_ui/components/Button/ButtonContent';
-import Logo from '@/app/_ui/components/Logo/Logo';
+import LogoIcon from '@/app/_ui/components/Logo/LogoIcon';
 import authBrowserClient from '@/lib/better-auth/browser';
 
 const SignInWithEasylog = () => {
@@ -16,14 +17,18 @@ const SignInWithEasylog = () => {
       })
   });
 
+  useEffect(() => {
+    signInWithEasylog();
+  }, [signInWithEasylog]);
+
   return (
     <Button
       size="lg"
       onClick={() => signInWithEasylog()}
       isDisabled={isPending}
     >
-      <ButtonContent iconLeft={Logo} isLoading={isPending}>
-        Sign in with Apperto
+      <ButtonContent iconLeft={LogoIcon} isLoading={isPending}>
+        Inloggen met Apperto
       </ButtonContent>
     </Button>
   );
