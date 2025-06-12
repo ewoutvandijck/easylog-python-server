@@ -14,12 +14,23 @@ import Icon from '@/app/_ui/components/Icon/Icon';
 import IconSpinner from '@/app/_ui/components/Icon/IconSpinner';
 import useZodForm from '@/app/_ui/hooks/useZodForm';
 
+import useChatContext from '../hooks/useChatContext';
+
 const schema = z.object({
   content: z.string().min(1)
 });
 
 const ChatInput = () => {
-  const { sendMessage } = useChat();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { chat } = useChatContext();
+
+  const { sendMessage } = useChat({
+    chat,
+    onFinish: () => {
+      textareaRef.current?.focus();
+    }
+  });
 
   const {
     reset,
@@ -27,8 +38,6 @@ const ChatInput = () => {
     handleSubmit,
     formState: { isSubmitting, isValid, isSubmitSuccessful }
   } = useZodForm(schema);
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const submitHandler: SubmitHandler<z.infer<typeof schema>> = async (data) => {
     await sendMessage({
@@ -42,6 +51,7 @@ const ChatInput = () => {
   useEffect(() => {
     if (isSubmitSuccessful) {
       reset();
+      textareaRef.current?.focus();
     }
   }, [isSubmitSuccessful, reset]);
 

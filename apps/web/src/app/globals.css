@@ -59,6 +59,10 @@
 
   --shadow-short: 0px 4px 4px 0px #0000000a, 0px 0px 1px 0px var(--color-stone-400);
 
+  --brand-color: oklch(0.5725 0.132 246.95);
+
+  --animate-scale-in: scale-in 1s ease-in-out infinite;
+
   --color-fill-primary: var(--color-white);
   --color-fill-primary-hover: color-mix(in oklch, var(--color-stone-50) 97%, black);
   --color-fill-primary-active: color-mix(in oklch, var(--color-stone-50) 95%, black);
@@ -69,10 +73,10 @@
   --color-fill-muted-active: color-mix(in oklch, var(--color-stone-100) 95%, black);
   --color-fill-muted-selected: color-mix(in oklch, var(--color-stone-100) 99%, black);
 
-  --color-fill-brand: var(--color-blue-600);
-  --color-fill-brand-hover: color-mix(in oklch, var(--color-blue-600) 97%, black);
-  --color-fill-brand-active: color-mix(in oklch, var(--color-blue-600) 95%, black);
-  --color-fill-brand-selected: color-mix(in oklch, var(--color-blue-600) 95%, black);
+  --color-fill-brand: var(--brand-color);
+  --color-fill-brand-hover: color-mix(in oklch, var(--brand-color) 97%, black);
+  --color-fill-brand-active: color-mix(in oklch, var(--brand-color) 95%, black);
+  --color-fill-brand-selected: color-mix(in oklch, var(--brand-color) 95%, black);
 
   --color-fill-danger: var(--color-red-600);
   --color-fill-danger-hover: color-mix(in oklch, var(--color-red-600) 97%, black);
@@ -99,10 +103,10 @@
   --color-text-muted-active: color-mix(in oklch, var(--color-stone-500) 95%, black);
   --color-text-muted-on-fill: var(--color-stone-800);
 
-  --color-text-brand: var(--color-blue-700);
-  --color-text-brand-hover: color-mix(in oklch, var(--color-blue-700) 97%, black);
-  --color-text-brand-active: color-mix(in oklch, var(--color-blue-700) 95%, black);
-  --color-text-brand-on-fill: var(--color-blue-50);
+  --color-text-brand: color-mix(in oklch, var(--brand-color) 95%, black);
+  --color-text-brand-hover: color-mix(in oklch, var(--brand-color) 97%, black);
+  --color-text-brand-active: color-mix(in oklch, var(--brand-color) 95%, black);
+  --color-text-brand-on-fill: var(--color-white);
 
   --color-text-success: var(--color-green-700);
   --color-text-success-hover: color-mix(in oklch, var(--color-green-700) 97%, black);
@@ -144,7 +148,7 @@
   --color-surface-primary-active: color-mix(in oklch, var(--color-white) 95%, black);
   --color-surface-primary-selected: color-mix(in oklch, var(--color-white) 95%, black);
 
-  --color-surface-muted: var(--color-stone-50);
+  --color-surface-muted: var(--color-stone-100);
   --color-surface-muted-hover: color-mix(in oklch, var(--color-stone-100) 97%, black);
   --color-surface-muted-active: color-mix(in oklch, var(--color-stone-100) 95%, black);
   --color-surface-muted-selected: color-mix(in oklch, var(--color-stone-100) 95%, black);
@@ -163,6 +167,16 @@
   --color-surface-danger-hover: color-mix(in oklch, var(--color-red-100) 97%, black);
   --color-surface-danger-active: color-mix(in oklch, var(--color-red-100) 95%, black);
   --color-surface-danger-selected: color-mix(in oklch, var(--color-red-100) 95%, black);
+
+  @keyframes scale-in {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.25);
+    }
+  }
 }
 
 @layer base {
