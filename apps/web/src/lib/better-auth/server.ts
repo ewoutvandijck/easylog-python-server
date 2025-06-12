@@ -19,6 +19,7 @@ const authServerClient = betterAuth({
           clientId: '99a0db85-5cd0-4f60-b65e-03483b72d14a',
           discoveryUrl:
             'https://staging2.easylog.nu/.well-known/openid-configuration',
+          scopes: ['openid'],
           pkce: true,
           clientSecret: ''
         }
