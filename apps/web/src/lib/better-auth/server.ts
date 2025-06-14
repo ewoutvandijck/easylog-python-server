@@ -1,3 +1,4 @@
+import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
@@ -11,6 +12,7 @@ const authServerClient = betterAuth({
   baseURL: serverConfig.appUrl.toString(),
   secret: serverConfig.betterAuthSecret,
   plugins: [
+    expo(),
     nextCookies(),
     genericOAuth({
       config: [
@@ -25,6 +27,12 @@ const authServerClient = betterAuth({
         }
       ]
     })
+  ],
+  trustedOrigins: [
+    serverConfig.appUrl.toString(),
+    /** TODO: Remove these once we have a proper app to handle deep links */
+    'exp://10.2.77.17:8081',
+    'exp://192.168.1.209:8081'
   ],
   advanced: {
     database: {
