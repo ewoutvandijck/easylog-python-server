@@ -25,8 +25,10 @@ export const POST = async (req: NextRequest) => {
     tools: {
       getDatasources: tool({
         description: 'Get all datasources from Easylog',
-        parameters: z.object({}),
-        execute: async () => {
+        parameters: z.object({
+          types: z.array(z.string()).optional().default([])
+        }),
+        execute: async ({ types }) => {
           const account = await db.query.accounts.findFirst({
             where: {
               providerId: 'easylog',
@@ -45,11 +47,11 @@ export const POST = async (req: NextRequest) => {
             basePath: 'https://staging2.easylog.nu/api'
           });
 
-          const datasources = await client.datasources.v2DatasourcesGet();
+          const datasources = await client.datasources.v2DatasourcesGet({
+            types
+          });
 
-          return {
-            content: JSON.stringify(datasources, null, 2)
-          };
+          return JSON.stringify(datasources, null, 2);
         }
       })
     }
