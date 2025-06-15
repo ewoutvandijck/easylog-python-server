@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 
 import ChatMessageAssistant from './ChatMessageAssistant';
+import ChatMessageAssistantChart from './ChatMessageAssistantChart';
 import ChatMessageAssistantMarkdownContent from './ChatMessageAssistantMarkdownContent';
 import ChatMessageUser from './ChatMessageUser';
 import ChatMessageUserTextContent from './ChatMessageUserTextContent';
@@ -49,14 +50,18 @@ const ChatHistory = () => {
               </ChatMessageUser>
             ) : message.role === 'assistant' ? (
               <ChatMessageAssistant key={message.id}>
-                {message.parts.map(
-                  (part, i) =>
-                    part.type === 'text' && (
-                      <ChatMessageAssistantMarkdownContent
-                        key={`${message.id}-${i}`}
-                        text={part.text}
-                      />
-                    )
+                {message.parts.map((part, i) =>
+                  part.type === 'text' ? (
+                    <ChatMessageAssistantMarkdownContent
+                      key={`${message.id}-${i}`}
+                      text={part.text}
+                    />
+                  ) : part.type === 'data-chart' ? (
+                    <ChatMessageAssistantChart
+                      key={`${message.id}-${i}`}
+                      config={part.data}
+                    />
+                  ) : null
                 )}
               </ChatMessageAssistant>
             ) : null
