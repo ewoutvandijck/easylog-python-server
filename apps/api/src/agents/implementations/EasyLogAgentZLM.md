@@ -4,7 +4,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 import pytz
@@ -22,84 +22,81 @@ from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.lib.prisma import prisma
 from src.models.chart_widget import (
-    ChartWidget,
-    Line,
+DEFAULT_COLOR_ROLE_MAP,
+ChartWidget,
+Line,
+ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
-
 class QuestionaireQuestionConfig(BaseModel):
-    question: str = Field(
-        default="",
-        description="The text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
-    )
-    instructions: str = Field(
-        default="",
-        description="Additional guidance or context for the ai agent on how to answer the question, such as language requirements or format expectations.",
-    )
-    name: str = Field(
-        default="",
-        description="A unique identifier for this question, used for referencing the answer in prompts or logic. For example, if the question is 'What is your name?', the name could be 'user_name', allowing you to use {questionaire.user_name.answer} in templates.",
-    )
-
+question: str = Field(
+default="",
+description="The text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
+)
+instructions: str = Field(
+default="",
+description="Additional guidance or context for the ai agent on how to answer the question, such as language requirements or format expectations.",
+)
+name: str = Field(
+default="",
+description="A unique identifier for this question, used for referencing the answer in prompts or logic. For example, if the question is 'What is your name?', the name could be 'user_name', allowing you to use {questionaire.user_name.answer} in templates.",
+)
 
 class RoleConfig(BaseModel):
-    name: str = Field(
-        default="EasyLogAssistant",
-        description="The display name of the role, used to identify and select this role in the system.",
-    )
-    prompt: str = Field(
-        default="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-        description="The system prompt or persona instructions for this role, defining its behavior and tone.",
-    )
-    model: str = Field(
-        default="anthropic/claude-sonnet-4",
-        description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
-    )
-    tools_regex: str = Field(
-        default=".*",
-        description="A regular expression specifying which tools this role is permitted to use. Use '.*' to allow all tools, or restrict as needed.",
-    )
-    allowed_subjects: list[str] | None = Field(
-        default=None,
-        description="A list of subject names from the knowledge base that this role is allowed to access. If None, all subjects are allowed.",
-    )
-    questionaire: list[QuestionaireQuestionConfig] = Field(
-        default_factory=list,
-        description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
-    )
-
+name: str = Field(
+default="EasyLogAssistant",
+description="The display name of the role, used to identify and select this role in the system.",
+)
+prompt: str = Field(
+default="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+description="The system prompt or persona instructions for this role, defining its behavior and tone.",
+)
+model: str = Field(
+default="anthropic/claude-sonnet-4",
+description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
+)
+tools_regex: str = Field(
+default="._",
+description="A regular expression specifying which tools this role is permitted to use. Use '._' to allow all tools, or restrict as needed.",
+)
+allowed_subjects: list[str] | None = Field(
+default=None,
+description="A list of subject names from the knowledge base that this role is allowed to access. If None, all subjects are allowed.",
+)
+questionaire: list[QuestionaireQuestionConfig] = Field(
+default_factory=list,
+description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
+)
 
 class EasyLogAgentConfig(BaseModel):
-    roles: list[RoleConfig] = Field(
-        default_factory=lambda: [
-            RoleConfig(
-                name="EasyLogAssistant",
-                prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model=r"anthropic\/claude-sonnet-4",
-                tools_regex=".*",
-                allowed_subjects=None,
-                questionaire=[],
-            )
-        ]
-    )
-    prompt: str = Field(
-        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
-    )
-
+roles: list[RoleConfig] = Field(
+default_factory=lambda: [
+RoleConfig(
+name="EasyLogAssistant",
+prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
+model=r"anthropic\/claude-sonnet-4",
+tools_regex=".\*",
+allowed_subjects=None,
+questionaire=[],
+)
+]
+)
+prompt: str = Field(
+default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
+)
 
 class DefaultKeyDict(dict):
-    def __missing__(self, key):
-        return f"[missing:{key}]"
-
+def **missing**(self, key):
+return f"[missing:{key}]"
 
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
-    async def get_current_role(self) -> RoleConfig:
-        role = await self.get_metadata("current_role", self.config.roles[0].name)
-        if role not in [role.name for role in self.config.roles]:
-            role = self.config.roles[0].name
+async def get_current_role(self) -> RoleConfig:
+role = await self.get_metadata("current_role", self.config.roles[0].name)
+if role not in [role.name for role in self.config.roles]:
+role = self.config.roles[0].name
 
         return next(role_config for role_config in self.config.roles if role_config.name == role)
 
@@ -209,6 +206,288 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return await self.get_metadata(question_name, "[not answered]")
 
         # Visualization tools
+        def tool_create_zlm_chart(
+            language: Literal["nl", "en"],
+            data: list[dict[str, Any]],
+            x_key: str,
+            y_keys: list[str],
+            y_labels: list[str] | None = None,
+            height: int = 1000,
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
+            The chart visualizes scores as percentages, expecting values in the **0-100 range**.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: The data for the chart. Each dictionary in the list represents a
+                      point or group on the x-axis.
+                      - Each dictionary MUST contain the `x_key` field.
+                      - For each `y_key` specified in `y_keys`, the dictionary MUST
+                        contain a field with that `y_key` name.
+                      - The value associated with each `y_key` MUST be a dictionary
+                        with two keys:
+                        1.  `"value"`: A numerical percentage (float or integer).
+                            **IMPORTANT: This value MUST be between 0 and 100 (inclusive).**
+                            For example, 75 represents 75%. Do NOT use values like 0.75.
+                        2.  `"colorRole"`: A string that MUST be one of "success",
+                            "warning", or "neutral". This role will be mapped to specific
+                            ZLM colors. 0-40 = warning, 40-70 = neutral, 70-100 = success.
+                      - Example (single y-key):
+                        `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
+                              `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
+                        (if x_key="category", y_keys=["score"])
+                      - Example (multiple y-keys):
+                        `data=[{"month": "Jan", "metric_a": {"value": 85, "colorRole": "success"}, "metric_b": {"value": 45, "colorRole": "warning"}},`
+                              `{"month": "Feb", "metric_a": {"value": 90, "colorRole": "success"}, "metric_b": {"value": 50, "colorRole": "neutral"}}]`
+                        (if x_key="month", y_keys=["metric_a", "metric_b"])
+                x_key: The key in each data dictionary that represents the x-axis value
+                       (e.g., "category", "month").
+                y_keys: A list of keys in each data dictionary that represent the y-axis
+                        values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
+                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
+                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
+                          if provided.
+                height: Optional. The height of the chart in pixels. Defaults to 400.
+
+            Returns:
+                A ChartWidget object configured for ZLM display!
+
+            Raises:
+                ValueError: If data is missing required keys, values are not numbers,
+                            percentages are outside the 0-100 range, or colorRole is invalid.
+            """
+
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+
+            # Custom color role map for ZLM charts
+            ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
+                # We only use a custom neutral color, the rest is re-used.
+                "success": DEFAULT_COLOR_ROLE_MAP["success"],
+                "neutral": "#ffdaaf",  # Pastel orange
+                "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
+            }
+
+            horizontal_lines = None
+
+            # Data validation for ZLM charts
+            for raw_item_idx, raw_item in enumerate(data):
+                if x_key not in raw_item:
+                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
+                current_x_value = raw_item[x_key]
+
+                for y_key in y_keys:
+                    if y_key not in raw_item:
+                        # Skip missing keys - handled by chart widget
+                        continue
+
+                    value_container = raw_item[y_key]
+                    if not (
+                        isinstance(value_container, dict)
+                        and "value" in value_container
+                        and "colorRole" in value_container  # LLM must provide colorRole
+                    ):
+                        raise ValueError(
+                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
+                            "for ZLM chart is not in the expected format: "
+                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
+                            f"Received: {value_container}"
+                        )
+
+                    val_from_container = value_container["value"]
+                    if not isinstance(val_from_container, (int, float)):
+                        raise ValueError(
+                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
+                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
+                        )
+
+                    val_float = float(val_from_container)
+                    if not (0.0 <= val_float <= 100.0):
+                        # Check for common 0-1 scale mistake
+                        hint = ""
+                        if 0 < val_from_container <= 1.0:
+                            hint = f" (Value {val_from_container} looks like 0-1 scale; use 0-100 range)"
+                        raise ValueError(
+                            f"ZLM chart value {val_from_container} for '{y_key}' is outside 0-100 range{hint}"
+                        )
+
+                    role_from_data = value_container["colorRole"]
+                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
+                        raise ValueError(
+                            f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
+                            f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
+                        )
+
+            chart = ChartWidget.create_bar_chart(
+                title=title,
+                description=description,
+                data=data,
+                x_key=x_key,
+                y_keys=y_keys,
+                y_labels=y_labels,
+                height=height,
+                custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
+                horizontal_lines=horizontal_lines,
+                y_axis_domain_min=0,
+                y_axis_domain_max=100,
+            )
+
+            # Configure tooltip to hide domain labels and show only percentage
+            from src.models.chart_widget import TooltipConfig
+
+            chart.tooltip = TooltipConfig(show=True, hide_label=True)
+
+            return chart
+
+        def tool_create_zlm_balloon_chart(
+            language: Literal["nl", "en"],
+            data: list[ZLMDataRow] | list[dict[str, Any]] | str,
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using the official ZLM scoring system.
+            Uses complex domain-specific scoring logic with original ZLM cutoff points and rules.
+            Scores are expected in the **0-6 range** as per ZLM COPD guidelines.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: A list of `ZLMDataRow` objects, dictionaries, or a JSON string representing the chart data.
+                      Each item represents a category on the x-axis and its corresponding scores.
+                      - If using dictionaries, each should contain:
+                        - `x_value` (str): The name of the category (e.g., "Longklachten").
+                        - `y_current` (float): The current score (0-6).
+                        - `y_old` (float | None): Optional. The previous score the patient had (0-6).
+                        - `y_label` (str): The label for the y-axis, typically "Score (0-6)".
+
+            Returns:
+                A ChartWidget object configured as a balloon chart with domain-specific ZLM scoring.
+
+            Note:
+                Uses original ZLM COPD scoring logic with specific cutoff points per domain:
+                - Longklachten: Complex logic based on average + individual kortademig in rust check
+                - Longaanvallen: Discrete values (0=100%, 1=50%, 2+=0%)
+                - Other domains: Specific cutoff points as per ZLM documentation
+
+            Example:
+                ```python
+                data = [
+                    {"x_value": "Longklachten", "y_current": 2.5, "y_old": 3.0, "y_label": "Score (0-6)"},
+                    {"x_value": "Vermoeidheid", "y_current": 1.2, "y_old": 1.8, "y_label": "Score (0-6)"},
+                ]
+                chart_widget = tool_create_zlm_balloon_chart(language="nl", data=data)
+                ```
+            """
+            title = "Dit zijn uw resultaten"
+            description = None
+
+            # Validate input data
+            if not data or len(data) == 0:
+                raise ValueError("Data list must contain at least one item.")
+
+            # Handle JSON string input by parsing it first and ensure proper typing
+            processed_data: list[ZLMDataRow] | list[dict[str, Any]]
+            if isinstance(data, str):
+                try:
+                    import json
+
+                    parsed_data = json.loads(data)
+                    if not isinstance(parsed_data, list):
+                        raise ValueError("JSON string must represent a list")
+                    processed_data = parsed_data
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON string provided: {e}")
+            else:
+                processed_data = data
+
+            # Apply domain-specific ZLM COPD scoring logic
+            converted_data = []
+
+            for i, item in enumerate(processed_data):
+                if isinstance(item, dict):
+                    # Validate required keys
+                    required_keys = ["x_value", "y_current", "y_label"]
+                    for key in required_keys:
+                        if key not in item:
+                            raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
+
+                    # Validate score ranges
+                    current_score = item["y_current"]
+                    old_score = item.get("y_old")
+                    domain_name = str(item["x_value"])
+
+                    if not isinstance(current_score, (int, float)):
+                        raise ValueError(f"Current score must be numeric for item {i}")
+
+                    if not (0 <= current_score <= 6):
+                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
+
+                    if old_score is not None:
+                        if not isinstance(old_score, (int, float)):
+                            raise ValueError(f"Old score must be numeric for item {i}")
+                        if not (0 <= old_score <= 6):
+                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
+
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, processed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(domain_name, old_score, processed_data)
+                        if old_score is not None
+                        else None
+                    )
+
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=domain_name,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=current_score,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
+                        )
+                    )
+
+                elif hasattr(item, "y_current"):
+                    # ZLMDataRow object validation
+                    if not (0 <= item.y_current <= 6):
+                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
+
+                    if item.y_old is not None and not (0 <= item.y_old <= 6):
+                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
+
+                    # Apply domain-specific scoring logic
+                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, processed_data)
+                    old_height = (
+                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, processed_data)
+                        if item.y_old is not None
+                        else None
+                    )
+
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+
+                    converted_data.append(
+                        ZLMDataRow(
+                            x_value=item.x_value,
+                            y_current=flutter_y_current,
+                            y_old=flutter_y_old,
+                            y_label="Score (0-6)",
+                            tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
+                            tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
+                        )
+                    )
+                else:
+                    raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
+
+            return ChartWidget.create_balloon_chart(
+                title=title,
+                description=description,
+                data=converted_data,
+            )
 
         def tool_create_bar_chart(
             title: str,
@@ -617,6 +896,8 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_get_questionaire_answer,
             # Visualization tools
             tool_create_bar_chart,
+            tool_create_zlm_chart,
+            tool_create_zlm_balloon_chart,
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
@@ -638,7 +919,236 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         ]
         return {tool.__name__: tool for tool in tools_list}
 
+    def _calculate_zlm_balloon_height(
+        self,
+        domain_name: str,
+        score: float,
+        all_data: list[ZLMDataRow] | list[dict[str, Any]],
+    ) -> float:
+        """
+        Calculate balloon height using official ZLM COPD scoring guide..
+        Based on ccq-copd-questionnaire.md documentation.
 
+        Args:
+            domain_name: Name of the domain (e.g., "Long klachten", "Vermoeidheid")
+            score: The score for this domain (0-6)
+            all_data: All domain data (needed for cross-domain checks)
+
+        Returns:
+            Balloon height as percentage (0-100%)
+        """
+        if score is None:
+            return 0.0
+
+        # Domain-specific scoring logic from official ZLM COPD documentation
+        if domain_name in ["Long aanvallen", "Longaanvallen"]:
+            # G17: Discrete scoring for exacerbations
+            # FIXED: Handle all scores correctly - higher scores = more courses =
+            # worse = lower balloon
+            if score <= 0.5:  # Score 0 = 0 courses
+                return 100.0  # Green (0 courses)
+            elif score <= 1.5:  # Score 1 = 1 course
+                return 50.0  # Orange (1 course)
+            else:  # Score >= 2 = 2+ courses (includes 2, 3, 4, 5, 6)
+                return 0.0  # Red (2+ courses) - All high scores are bad
+
+        elif domain_name in ["Longklachten", "Long klachten"]:
+            # CRITICAL: Longklachten requires G12 check (kortademig in rust)
+            # Official rule: Score < 1 AND G12 < 2 = Green,
+            # Score ≥1-≤2 AND G12 < 2 = Orange, Score > 2 OR G12 ≥ 2 = Red
+
+            # Try to find G12 value in all_data
+            g12_value = None
+            try:
+                if isinstance(all_data, list) and len(all_data) > 0:
+                    for item in all_data:
+                        if isinstance(item, dict):
+                            # Look for G12 related domain
+                            x_val = str(item.get("x_value", "")).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                # Found potential G12 item, extract its y_current score
+                                if "y_current" in item:
+                                    g12_value = float(item["y_current"])
+                                    break
+                        elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                            # ZLMDataRow object
+                            x_val = str(item.x_value).lower()
+                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                                g12_value = float(item.y_current)
+                                break
+            except (ValueError, TypeError, AttributeError):
+                # If we can't extract G12, fall back to general scoring
+                pass
+
+            # Apply official Longklachten scoring with G12 check
+            if g12_value is not None:
+                # Official logic with G12 check
+                if score < 1.0 and g12_value < 2.0:
+                    # Groen: BallonHoogte(%) = 100 - (Score * 20)
+                    height = 100.0 - (score * 20.0)
+                    return max(0.0, min(100.0, height))
+                elif score >= 1.0 and score <= 2.0 and g12_value < 2.0:
+                    # Oranje: BallonHoogte(%) = 80 - ((Score - 1) * 20)
+                    height = 80.0 - ((score - 1.0) * 20.0)
+                    return max(0.0, min(100.0, height))
+                else:  # score > 2.0 OR g12_value >= 2.0
+                    # Rood: BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+                    height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+                    return max(0.0, min(100.0, height))
+            else:
+                # Fallback: Use general scoring if G12 not found
+                # This should not happen in production but provides safety
+                pass  # Fall through to general scoring
+
+        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI"]:
+            # CRITICAL: BMI scoring uses direct BMI ranges, not 0-6 scale conversion
+            # Official ranges from ccq-copd-questionnaire.md:
+            # ≥21 en <25: Groen (100%)
+            # ≥25 en <35: Oranje (20-80%), lineair geschaald
+            # ≥18.5 en <21: Oranje (70-<100%), lineair geschaald
+            # ≥35: Rood (0%)
+            # <18.5: Rood (0%)
+
+            # Try to extract BMI value or calculate from weight/height
+            bmi_value = None
+
+            # Method 1: BMI might be passed directly as the score
+            if score is not None and 10.0 <= score <= 60.0:  # Reasonable BMI range
+                bmi_value = score
+
+            # Method 2: Try to find weight and height in all_data to calculate BMI
+            if bmi_value is None:
+                try:
+                    weight_kg = None
+                    height_cm = None
+
+                    if isinstance(all_data, list):
+                        for item in all_data:
+                            if isinstance(item, dict):
+                                x_val = str(item.get("x_value", "")).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    if "y_current" in item:
+                                        weight_kg = float(item["y_current"])
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    if "y_current" in item:
+                                        height_cm = float(item["y_current"])
+                            elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                                x_val = str(item.x_value).lower()
+                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                    weight_kg = float(item.y_current)
+                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                    height_cm = float(item.y_current)
+
+                    # Calculate BMI if both weight and height found
+                    if weight_kg is not None and height_cm is not None and height_cm > 0:
+                        height_m = height_cm / 100.0
+                        bmi_value = weight_kg / (height_m * height_m)
+
+                except (ValueError, TypeError, AttributeError, ZeroDivisionError):
+                    pass
+
+            # Apply official BMI scoring
+            if bmi_value is not None:
+                if bmi_value >= 21.0 and bmi_value < 25.0:
+                    # Groen (100%)
+                    return 100.0
+                elif bmi_value >= 25.0 and bmi_value < 35.0:
+                    # Oranje (20-80%), lineair geschaald
+                    # Linear scaling: BMI 25 → 80%, BMI 35 → 20%
+                    height = 80.0 - ((bmi_value - 25.0) / 10.0 * 60.0)
+                    return max(20.0, min(80.0, height))
+                elif bmi_value >= 18.5 and bmi_value < 21.0:
+                    # Oranje (70-<100%), lineair geschaald
+                    # Linear scaling: BMI 18.5 → 70%, BMI 21 → 100%
+                    height = 70.0 + ((bmi_value - 18.5) / 2.5 * 30.0)
+                    return max(70.0, min(100.0, height))
+                elif bmi_value >= 35.0:
+                    # Rood (0%) - Ernstig overgewicht
+                    return 0.0
+                elif bmi_value < 18.5:
+                    # Rood (0%) - Ondergewicht
+                    return 0.0
+                else:
+                    # Edge case fallback
+                    return 50.0
+            else:
+                # Fallback: if BMI cannot be determined, use general scoring
+                pass  # Fall through to general scoring
+
+        elif domain_name == "Bewegen":
+            # G18: Exercise days per week - FIXED to handle all 0-6 score range
+            # Original G18: 0=0 dagen, 1=1-2 dagen, 2=3-4 dagen, 3=5+ dagen
+            # But ZLM scores can be 0-6, where 6 = worst (0 dagen)
+            # CRITICAL FIX: Handle score 6 correctly as RED (0 dagen beweging)
+
+            if score >= 5.0:  # Scores 5-6 = zeer slecht (0 dagen beweging)
+                return 0.0  # Red - No exercise is worst possible
+            elif score >= 3.5:  # Scores 4-5 = slecht (1-2 dagen?)
+                return 20.0  # Red-ish
+            elif score >= 2.5:  # Score 3 = (roughly G18=3: 5+ dagen)
+                return 100.0  # Green - Good exercise
+            elif score >= 1.5:  # Score 2 = (roughly G18=2: 3-4 dagen)
+                return 60.0  # Orange - Moderate exercise
+            elif score >= 0.5:  # Score 1 = (roughly G18=1: 1-2 dagen)
+                return 40.0  # Orange - Light exercise
+            else:  # Score 0 = (roughly G18=0: 0 dagen)
+                return 0.0  # Red - No exercise
+
+        elif domain_name == "Alcohol":
+            # G19: Alcohol glasses per week - OFFICIAL DIRECT MAPPING
+            # Official ranges from ccq-copd-questionnaire.md:
+            # 0 glazen: Groen (100%)
+            # 1-7 glazen: Oranje (60%)
+            # 8-14 glazen: Oranje (40%)
+            # 14+ glazen: Rood (0%)
+
+            # Score represents G19 answer value (0-3 scale in questionnaire)
+            # G19 mapping: 0=0 glazen, 1=1-7 glazen, 2=8-14 glazen, 3=15+ glazen
+            if score <= 0.5:  # G19=0 (0 glazen)
+                return 100.0  # Green
+            elif score <= 1.5:  # G19=1 (1-7 glazen)
+                return 60.0  # Orange
+            elif score <= 2.5:  # G19=2 (8-14 glazen)
+                return 40.0  # Orange
+            else:  # G19=3+ (15+ glazen) - Handle high scores correctly
+                return 0.0  # Red
+
+        elif domain_name == "Roken":
+            # G20: Smoking status - OFFICIAL DIRECT MAPPING
+            # Official ranges from ccq-copd-questionnaire.md:
+            # Nooit gerookt: Groen (100%)
+            # Vroeger gerookt: Groen (100%) (Note: limited granularity in G20)
+            # Ja (rookt): Rood (0%)
+
+            # Score represents G20 answer mapping
+            # G20 mapping: 'nooit'→0, 'vroeger'→1, 'ja'→6 (from ZLMuitslag conversion)
+            if score <= 0.5:  # G20='nooit' (never smoked)
+                return 100.0  # Green
+            elif score <= 1.5:  # G20='vroeger' (former smoker)
+                return 100.0  # Green (official says 100% for former smokers)
+            else:  # G20='ja' (current smoker) - includes scores 2-6
+                return 0.0  # Red
+
+        # OFFICIAL GENERAL SCORING - Based on ccq-copd-questionnaire.md lineaire schaling
+        # These formulas replace the previous complex scoring logic
+
+        # Voor Groene ballonnen (scores < 1):
+        # BallonHoogte(%) = 100 - (Score * 20)
+        if score < 1.0:
+            height = 100.0 - (score * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+
+        # Voor Oranje ballonnen (scores 1-2):
+        # BallonHoogte(%) = 80 - ((Score - 1) * 20)
+        elif score <= 2.0:
+            height = 80.0 - ((score - 1.0) * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+
+        # Voor Rode ballonnen (scores > 2):
+        # BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+        else:  # score > 2.0
+            height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
@@ -809,28 +1319,34 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
 
         prompt = f"""
+
 # Notification Management System
 
 ## Core Responsibility
+
 You are the notification management system responsible for delivering timely alerts without duplication. Your task is to analyze pending notifications and determine which ones need to be sent.
 
 ## Current Time
+
 Current system time: {datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Previously Sent Notifications
+
 The following notifications have already been sent and MUST NOT be resent:
 {json.dumps(notifications, indent=2)}
 
 ## Items to Evaluate
+
 Please evaluate these items for notification eligibility:
 
 1. Reminders:
-{json.dumps(reminders, indent=2)}
+   {json.dumps(reminders, indent=2)}
 
 2. Recurring Tasks:
-{json.dumps(recurring_tasks, indent=2)}
+   {json.dumps(recurring_tasks, indent=2)}
 
 ## Decision Rules
+
 - A notification should be sent for any reminder that is currently due
 - For recurring tasks, evaluate the cron expression to determine if it should be triggered at the current time
 - If a cron expression indicates the task is due now and hasn't already been sent today, send a notification
@@ -839,30 +1355,32 @@ Please evaluate these items for notification eligibility:
 - The date attribute of the reminders in the reminders list is the due date. If that date is before the current date, the reminder is due.
 
 ## Required Action
+
 After analysis, you must take exactly ONE of these actions:
+
 - If any eligible notifications are found: invoke the send_notification tool with details
 - If no eligible notifications exist: invoke the noop tool
-"""
+  """
 
-        self.logger.info(f"Calling super agent with prompt: {prompt}")
+          self.logger.info(f"Calling super agent with prompt: {prompt}")
 
-        response = await self.client.chat.completions.create(
-            model="openai/gpt-4.1",  # Consider making this configurable or same as role_config.model
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt,
-                },
-                {
-                    "role": "user",
-                    "content": "Send my notifications",
-                },
-            ],
-            tools=[function_to_openai_tool(tool) for tool in tools],
-            tool_choice="auto",
-        )
+          response = await self.client.chat.completions.create(
+              model="openai/gpt-4.1",  # Consider making this configurable or same as role_config.model
+              messages=[
+                  {
+                      "role": "system",
+                      "content": prompt,
+                  },
+                  {
+                      "role": "user",
+                      "content": "Send my notifications",
+                  },
+              ],
+              tools=[function_to_openai_tool(tool) for tool in tools],
+              tool_choice="auto",
+          )
 
-        self.logger.info(f"Super agent response: {response.choices[0].message}")
+          self.logger.info(f"Super agent response: {response.choices[0].message}")
 
-        async for _ in self._handle_completion(response, tools, messages):
-            pass
+          async for _ in self._handle_completion(response, tools, messages):
+              pass
