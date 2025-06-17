@@ -48,7 +48,11 @@ export const POST = async (req: NextRequest) => {
           getDatasources: tool({
             description: 'Get all datasources from Easylog',
             parameters: z.object({
-              types: z.array(z.string()).optional().default([])
+              /**
+               * Leave out optional and default, as this is not allowed by
+               * OpenAI.
+               */
+              types: z.array(z.string())
             }),
             execute: async ({ types }) => {
               const account = await db.query.accounts.findFirst({
