@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 import serverEnv from '@/server.env';
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['*.ngrok.app', '*.ngrok.ngrok.dev'],
+  allowedDevOrigins: ['*.ngrok.app', '*.ngrok.dev'],
   rewrites: async () => {
     return [
       {
