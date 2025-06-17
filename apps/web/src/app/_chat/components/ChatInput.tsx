@@ -40,7 +40,6 @@ const ChatInput = () => {
   } = useZodForm(schema);
 
   const submitHandler: SubmitHandler<z.infer<typeof schema>> = async (data) => {
-    console.log('test');
     await sendMessage({
       parts: [{ type: 'text', text: data.content }],
       role: 'user'
