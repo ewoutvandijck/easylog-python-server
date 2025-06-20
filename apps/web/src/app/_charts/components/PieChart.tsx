@@ -40,9 +40,14 @@ const PieChart = ({ config }: PieChartProps) => {
           strokeWidth={5}
           stroke="var(--card)"
         >
-          {data.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-          ))}
+          {data.map((_, index) => {
+            return (
+              <Cell
+                key={`cell-${index}`}
+                fill={colors[index % colors.length]}
+              />
+            );
+          })}
         </Pie>
         <ChartLegend content={<ChartLegendContent />} />
       </RechartsPieChart>
