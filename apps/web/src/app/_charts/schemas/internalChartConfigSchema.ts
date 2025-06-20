@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const internalChartConfigSchema = z.object({
-  type: z.enum(['stacked-bar']),
+  type: z.enum(['stacked-bar', 'bar', 'line', 'pie']),
   data: z.array(
     z
       .object({})

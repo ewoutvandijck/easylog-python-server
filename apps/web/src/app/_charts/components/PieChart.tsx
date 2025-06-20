@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
+import { Cell, Pie, PieChart as RechartsPieChart } from 'recharts';
 
 import ChartContainer from '@/app/_ui/components/Chart/ChartContainer';
 import ChartLegend from '@/app/_ui/components/Chart/ChartLegend';
@@ -9,11 +9,11 @@ import { ChartConfig } from '@/app/_ui/components/Chart/utils/chartConfig';
 
 import { InternalChartConfig } from '../schemas/internalChartConfigSchema';
 
-export interface StackedBarChartProps {
+export interface PieChartProps {
   config: InternalChartConfig;
 }
 
-const StackedBarChart = ({ config }: StackedBarChartProps) => {
+const PieChart = ({ config }: PieChartProps) => {
   const { series, xAxisKey, data } = config;
 
   const chartConfig = series.reduce((acc, item) => {
@@ -24,37 +24,30 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
     return acc;
   }, {} as ChartConfig);
 
+  // Assuming the first series is the one to display in the pie chart
+  const pieSeries = series[0];
+  const colors = series.map((s) => s.color);
+
   return (
     <ChartContainer config={chartConfig}>
-      <BarChart accessibilityLayer data={data}>
-        <CartesianGrid vertical={false} />
-        <XAxis
-          dataKey={xAxisKey}
-          tickLine={false}
-          tickMargin={10}
-          axisLine={false}
-          tickFormatter={(value) => value.slice(0, 3)}
-        />
+      <RechartsPieChart>
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+        <Pie
+          data={data}
+          dataKey={pieSeries.dataKey}
+          nameKey={xAxisKey}
+          innerRadius={60}
+          strokeWidth={5}
+          stroke="var(--card)"
+        >
+          {data.map((_, index) => (
+            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+          ))}
+        </Pie>
         <ChartLegend content={<ChartLegendContent />} />
-        {series.map((s, idx, arr) => (
-          <Bar
-            key={s.dataKey}
-            dataKey={s.dataKey}
-            stackId="a"
-            fill={s.color}
-            radius={
-              idx === 0
-                ? [0, 0, 4, 4]
-                : idx === arr.length - 1
-                  ? [4, 4, 0, 0]
-                  : [0, 0, 0, 0]
-            }
-          />
-        ))}
-      </BarChart>
+      </RechartsPieChart>
     </ChartContainer>
   );
 };
 
-export default StackedBarChart;
+export default PieChart;

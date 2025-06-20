@@ -157,6 +157,8 @@ By following these steps and using the tools in combination, you can handle a wi
                 id: opts.toolCallId,
                 data: config
               });
+
+              return 'Chart created';
             }
           }),
           getDatasources: toolGetDataSources(user.id),

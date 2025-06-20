@@ -1,4 +1,9 @@
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
+import {
+  CartesianGrid,
+  Line,
+  LineChart as RechartsLineChart,
+  XAxis
+} from 'recharts';
 
 import ChartContainer from '@/app/_ui/components/Chart/ChartContainer';
 import ChartLegend from '@/app/_ui/components/Chart/ChartLegend';
@@ -9,11 +14,11 @@ import { ChartConfig } from '@/app/_ui/components/Chart/utils/chartConfig';
 
 import { InternalChartConfig } from '../schemas/internalChartConfigSchema';
 
-export interface StackedBarChartProps {
+export interface LineChartProps {
   config: InternalChartConfig;
 }
 
-const StackedBarChart = ({ config }: StackedBarChartProps) => {
+const LineChart = ({ config }: LineChartProps) => {
   const { series, xAxisKey, data } = config;
 
   const chartConfig = series.reduce((acc, item) => {
@@ -26,7 +31,7 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
 
   return (
     <ChartContainer config={chartConfig}>
-      <BarChart accessibilityLayer data={data}>
+      <RechartsLineChart accessibilityLayer data={data}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey={xAxisKey}
@@ -37,24 +42,18 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
         />
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         <ChartLegend content={<ChartLegendContent />} />
-        {series.map((s, idx, arr) => (
-          <Bar
+        {series.map((s) => (
+          <Line
             key={s.dataKey}
             dataKey={s.dataKey}
-            stackId="a"
-            fill={s.color}
-            radius={
-              idx === 0
-                ? [0, 0, 4, 4]
-                : idx === arr.length - 1
-                  ? [4, 4, 0, 0]
-                  : [0, 0, 0, 0]
-            }
+            stroke={s.color}
+            strokeWidth={2}
+            dot={false}
           />
         ))}
-      </BarChart>
+      </RechartsLineChart>
     </ChartContainer>
   );
 };
 
-export default StackedBarChart;
+export default LineChart;

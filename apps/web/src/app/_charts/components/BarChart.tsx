@@ -1,4 +1,9 @@
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
+import {
+  Bar,
+  CartesianGrid,
+  BarChart as RechartsBarChart,
+  XAxis
+} from 'recharts';
 
 import ChartContainer from '@/app/_ui/components/Chart/ChartContainer';
 import ChartLegend from '@/app/_ui/components/Chart/ChartLegend';
@@ -9,11 +14,11 @@ import { ChartConfig } from '@/app/_ui/components/Chart/utils/chartConfig';
 
 import { InternalChartConfig } from '../schemas/internalChartConfigSchema';
 
-export interface StackedBarChartProps {
+export interface BarChartProps {
   config: InternalChartConfig;
 }
 
-const StackedBarChart = ({ config }: StackedBarChartProps) => {
+const BarChart = ({ config }: BarChartProps) => {
   const { series, xAxisKey, data } = config;
 
   const chartConfig = series.reduce((acc, item) => {
@@ -26,7 +31,7 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
 
   return (
     <ChartContainer config={chartConfig}>
-      <BarChart accessibilityLayer data={data}>
+      <RechartsBarChart accessibilityLayer data={data}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey={xAxisKey}
@@ -37,24 +42,17 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
         />
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         <ChartLegend content={<ChartLegendContent />} />
-        {series.map((s, idx, arr) => (
+        {series.map((s) => (
           <Bar
             key={s.dataKey}
             dataKey={s.dataKey}
-            stackId="a"
             fill={s.color}
-            radius={
-              idx === 0
-                ? [0, 0, 4, 4]
-                : idx === arr.length - 1
-                  ? [4, 4, 0, 0]
-                  : [0, 0, 0, 0]
-            }
+            radius={[4, 4, 0, 0]}
           />
         ))}
-      </BarChart>
+      </RechartsBarChart>
     </ChartContainer>
   );
 };
 
-export default StackedBarChart;
+export default BarChart;
