@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 const internalChartConfigSchema = z.object({
   type: z.enum(['stacked-bar']),
-  data: z.array(z.record(z.string(), z.unknown())),
+  data: z.array(
+    z
+      .object({})
+      .catchall(z.union([z.number(), z.string()]))
+      .strict()
+  ),
   xAxisKey: z.string(),
   series: z.array(
     z.object({
