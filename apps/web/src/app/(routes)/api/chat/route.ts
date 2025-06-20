@@ -11,8 +11,8 @@ import { z } from 'zod';
 
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
-import db from '@/database/client';
 import openrouter from '@/lib/ai-providers/openrouter';
+import authServerClient from '@/lib/better-auth/server';
 import createClient from '@/lib/easylog/client';
 
 export const maxDuration = 30;
@@ -51,24 +51,24 @@ export const POST = async (req: NextRequest) => {
                * Leave out optional and default, as this is not allowed by
                * OpenAI.
                */
-              types: z.array(z.string()).default([])
+              types: z.array(z.string()).optional().default([])
             }),
             execute: async ({ types }) => {
-              const account = await db.query.accounts.findFirst({
-                where: {
-                  providerId: 'easylog',
-                  userId: user.id
+              const { accessToken } = await authServerClient.api.getAccessToken(
+                {
+                  body: {
+                    providerId: 'easylog',
+                    userId: user.id
+                  }
                 }
-              });
+              );
 
-              if (!account?.accessToken) {
-                return {
-                  content: 'No access token'
-                };
+              if (!accessToken) {
+                throw new Error('No access token');
               }
 
               const client = createClient({
-                apiKey: account.accessToken,
+                apiKey: accessToken,
                 basePath: 'https://staging2.easylog.nu/api'
               });
 
