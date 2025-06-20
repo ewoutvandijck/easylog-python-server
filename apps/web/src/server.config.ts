@@ -12,7 +12,12 @@ const serverConfig = {
   s3SecretKey: serverEnv.S3_SECRET_KEY,
   s3PublicBucketName: serverEnv.S3_PUBLIC_BUCKET_NAME,
   triggerSecretKey: serverEnv.TRIGGER_SECRET_KEY,
-  betterAuthSecret: serverEnv.BETTER_AUTH_SECRET
+  betterAuthSecret: serverEnv.BETTER_AUTH_SECRET,
+  easylogDbHost: serverEnv.EASYLOG_DB_HOST,
+  easylogDbPort: serverEnv.EASYLOG_DB_PORT,
+  easylogDbUser: serverEnv.EASYLOG_DB_USER,
+  easylogDbName: serverEnv.EASYLOG_DB_NAME,
+  easylogDbPassword: serverEnv.EASYLOG_DB_PASSWORD
 } as const;
 
 export default serverConfig;

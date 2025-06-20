@@ -7,6 +7,7 @@ import {
   tool
 } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
@@ -23,6 +24,7 @@ import toolGetResources from '@/app/_chat/tools/easylog-backend/toolGetResources
 import toolUpdatePlanningPhase from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningPhase';
 import toolUpdatePlanningProject from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningProject';
 import openrouter from '@/lib/ai-providers/openrouter';
+import easylogDb from '@/lib/easylog/db';
 
 export const maxDuration = 30;
 
@@ -172,7 +174,17 @@ By following these steps and using the tools in combination, you can handle a wi
           getResources: toolGetResources(user.id),
           getProjectsOfResource: toolGetProjectsOfResource(user.id),
           getResourceGroups: toolGetResourceGroups(user.id),
-          createMultipleAllocations: toolCreateMultipleAllocations(user.id)
+          createMultipleAllocations: toolCreateMultipleAllocations(user.id),
+          executeSql: tool({
+            description: 'Execute a SQL query on the Easylog database',
+            inputSchema: z.object({
+              query: z.string()
+            }),
+            execute: async (query) => {
+              const [result] = await easylogDb.execute(query.query);
+              return result.rows;
+            }
+          })
         }
       });
 

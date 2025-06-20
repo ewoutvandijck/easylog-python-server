@@ -14,7 +14,12 @@
         "S3_ENDPOINT",
         "S3_REGION",
         "TRIGGER_SECRET_KEY",
-        "BETTER_AUTH_SECRET"
+        "BETTER_AUTH_SECRET",
+        "EASYLOG_DB_HOST",
+        "EASYLOG_DB_PORT",
+        "EASYLOG_DB_USER",
+        "EASYLOG_DB_NAME",
+        "EASYLOG_DB_PASSWORD"
       ]
     },
     "dev": {

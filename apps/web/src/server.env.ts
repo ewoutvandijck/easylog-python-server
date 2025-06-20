@@ -10,7 +10,12 @@ const rawEnv = {
   S3_SECRET_KEY: process.env.S3_SECRET_KEY,
   S3_PUBLIC_BUCKET_NAME: process.env.S3_PUBLIC_BUCKET_NAME,
   TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
-  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET
+  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+  EASYLOG_DB_HOST: process.env.EASYLOG_DB_HOST,
+  EASYLOG_DB_PORT: process.env.EASYLOG_DB_PORT,
+  EASYLOG_DB_USER: process.env.EASYLOG_DB_USER,
+  EASYLOG_DB_NAME: process.env.EASYLOG_DB_NAME,
+  EASYLOG_DB_PASSWORD: process.env.EASYLOG_DB_PASSWORD
 };
 
 const envSchema = z.object({
@@ -30,7 +35,12 @@ const envSchema = z.object({
   S3_SECRET_KEY: z.string().default('miniopassword123'),
   S3_PUBLIC_BUCKET_NAME: z.string().default('public-storage'),
   TRIGGER_SECRET_KEY: z.string(),
-  BETTER_AUTH_SECRET: z.string()
+  BETTER_AUTH_SECRET: z.string(),
+  EASYLOG_DB_HOST: z.string(),
+  EASYLOG_DB_PORT: z.string(),
+  EASYLOG_DB_USER: z.string(),
+  EASYLOG_DB_NAME: z.string(),
+  EASYLOG_DB_PASSWORD: z.string()
 });
 
 const serverEnv = envSchema.parse(rawEnv);
