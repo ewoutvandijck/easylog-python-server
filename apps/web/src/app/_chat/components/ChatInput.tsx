@@ -26,10 +26,7 @@ const ChatInput = () => {
   const { chat } = useChatContext();
 
   const { sendMessage } = useChat({
-    chat,
-    onFinish: () => {
-      textareaRef.current?.focus();
-    }
+    chat
   });
 
   const {

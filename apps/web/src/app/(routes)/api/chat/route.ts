@@ -29,30 +29,29 @@ export const POST = async (req: NextRequest) => {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
-        model: openrouter('openai/gpt-4.1'),
+        model: openrouter('google/gemini-2.5-flash-preview-05-20'),
         system: `You're acting as a personal assistant and you're participating in a chat with ${user.name}. When first starting the conversation, you should greet the user by their first name.`,
         messages: convertToModelMessages(messages),
         tools: {
           createChart: tool({
             description: 'Create a chart',
-            parameters: internalChartConfigSchema,
-            execute: async (config, { toolCallId }) => {
+            inputSchema: internalChartConfigSchema,
+            execute: async (config, opts) => {
               writer.write({
                 type: 'data-chart',
-                id: toolCallId,
+                id: opts.toolCallId,
                 data: config
               });
-              return true;
             }
           }),
           getDatasources: tool({
             description: 'Get all datasources from Easylog',
-            parameters: z.object({
+            inputSchema: z.object({
               /**
                * Leave out optional and default, as this is not allowed by
                * OpenAI.
                */
-              types: z.array(z.string())
+              types: z.array(z.string()).default([])
             }),
             execute: async ({ types }) => {
               const account = await db.query.accounts.findFirst({

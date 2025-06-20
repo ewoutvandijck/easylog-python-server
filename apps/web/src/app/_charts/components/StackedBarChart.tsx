@@ -21,7 +21,7 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
   const chartConfig = series.reduce((acc, item) => {
     acc[item.dataKey] = {
       label: item.label,
-      color: `var(--color-${item.color})`
+      color: item.color
     };
     return acc;
   }, {} as ChartConfig);
@@ -44,7 +44,7 @@ const StackedBarChart = ({ config }: StackedBarChartProps) => {
             key={s.dataKey}
             dataKey={s.dataKey}
             stackId="a"
-            fill={`var(--color-${s.color})`}
+            fill={s.color}
             radius={
               idx === 0
                 ? [0, 0, 4, 4]
