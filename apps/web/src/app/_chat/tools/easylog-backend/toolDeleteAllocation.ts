@@ -15,7 +15,7 @@ const toolDeleteAllocation = (userId: string) => {
     execute: async ({ allocationId }) => {
       const client = await getEasylogClient(userId);
 
-      const [allocations, error] = await tryCatch(
+      const [_, error] = await tryCatch(
         client.allocations.v2DatasourcesAllocationsAllocationIdDelete({
           allocationId
         })
@@ -26,9 +26,9 @@ const toolDeleteAllocation = (userId: string) => {
         return `Error getting allocations: ${error.message}`;
       }
 
-      console.log('allocations', allocations);
+      console.log('allocation deleted');
 
-      return JSON.stringify(allocations, null, 2);
+      return 'Allocation deleted';
     }
   });
 };
