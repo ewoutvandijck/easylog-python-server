@@ -12,6 +12,13 @@
         "--reload"
       ],
       "jinja": true
+    },
+    {
+      "name": "Next.js: debug server-side",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run dev",
+      "cwd": "${workspaceFolder}/apps/web"
     }
   ]
 }
