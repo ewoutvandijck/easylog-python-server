@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -22,6 +23,7 @@ const toolGetPlanningPhase = (userId: string) => {
       );
 
       if (error) {
+        Sentry.captureException(error);
         return `Error getting phase: ${error.message}`;
       }
       return JSON.stringify(phase, null, 2);

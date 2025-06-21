@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -44,6 +45,7 @@ const toolUpdatePlanningProject = (userId: string) => {
       );
 
       if (error) {
+        Sentry.captureException(error);
         return `Error updating project: ${error.message}`;
       }
 

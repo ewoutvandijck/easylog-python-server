@@ -5,6 +5,7 @@
     "build": {
       "outputs": [".next/**", "!.next/cache/**"],
       "env": [
+        "NEXT_RUNTIME",
         "NODE_ENV",
         "DB_URL",
         "OPENROUTER_API_KEY",

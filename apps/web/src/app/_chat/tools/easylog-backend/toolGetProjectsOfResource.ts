@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -30,6 +31,7 @@ const toolGetProjectsOfResource = (userId: string) => {
       );
 
       if (error) {
+        Sentry.captureException(error);
         return `Error getting projects: ${error.message}`;
       }
 
