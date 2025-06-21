@@ -49,6 +49,8 @@ const toolUpdatePlanningProject = (userId: string) => {
         return `Error updating project: ${error.message}`;
       }
 
+      console.log('updated project', updatedProjectResponse);
+
       return JSON.stringify(updatedProjectResponse, null, 2);
     }
   });

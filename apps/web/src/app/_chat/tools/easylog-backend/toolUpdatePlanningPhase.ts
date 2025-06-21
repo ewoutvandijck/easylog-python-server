@@ -37,6 +37,8 @@ const toolUpdatePlanningPhase = (userId: string) => {
         return `Error updating phase: ${error.message}`;
       }
 
+      console.log('updated phase', updatedPhaseResponse);
+
       return JSON.stringify(updatedPhaseResponse, null, 2);
     }
   });

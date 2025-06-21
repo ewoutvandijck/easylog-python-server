@@ -26,6 +26,8 @@ const toolGetPlanningPhases = (userId: string) => {
         return `Error getting phases: ${error.message}`;
       }
 
+      console.log('planning phases', phases);
+
       return JSON.stringify(phases, null, 2);
     }
   });

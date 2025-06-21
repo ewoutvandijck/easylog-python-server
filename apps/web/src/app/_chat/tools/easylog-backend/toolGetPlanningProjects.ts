@@ -35,6 +35,8 @@ const toolGetPlanningProjects = (userId: string) => {
         return `Error getting projects: ${error.message}`;
       }
 
+      console.log('planning projects', projects);
+
       return JSON.stringify(projects, null, 2);
     }
   });

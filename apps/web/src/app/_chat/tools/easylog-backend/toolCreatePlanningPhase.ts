@@ -47,6 +47,8 @@ const toolCreatePlanningPhase = (userId: string) => {
         return `Error creating phase: ${error.message}`;
       }
 
+      console.log('created phase', phase);
+
       return JSON.stringify(phase, null, 2);
     }
   });

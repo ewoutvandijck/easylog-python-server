@@ -26,6 +26,9 @@ const toolGetPlanningPhase = (userId: string) => {
         Sentry.captureException(error);
         return `Error getting phase: ${error.message}`;
       }
+
+      console.log('planning phase', phase);
+
       return JSON.stringify(phase, null, 2);
     }
   });

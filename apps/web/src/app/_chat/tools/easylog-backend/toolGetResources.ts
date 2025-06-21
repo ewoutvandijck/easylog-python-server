@@ -22,6 +22,8 @@ const toolGetResources = (userId: string) => {
         return `Error getting resources: ${error.message}`;
       }
 
+      console.log('resources', resources);
+
       return JSON.stringify(resources, null, 2);
     }
   });

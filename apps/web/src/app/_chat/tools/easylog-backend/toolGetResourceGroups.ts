@@ -33,6 +33,8 @@ const toolGetResourceGroups = (userId: string) => {
         return `Error getting resource groups: ${error.message}`;
       }
 
+      console.log('resource groups', resourceGroups);
+
       return JSON.stringify(resourceGroups, null, 2);
     }
   });

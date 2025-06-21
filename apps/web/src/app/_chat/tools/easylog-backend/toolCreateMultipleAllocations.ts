@@ -70,6 +70,8 @@ const toolCreateMultipleAllocations = (userId: string) => {
         return `Error creating allocations: ${error.message}`;
       }
 
+      console.log('allocations', allocations);
+
       return JSON.stringify(allocations, null, 2);
     }
   });

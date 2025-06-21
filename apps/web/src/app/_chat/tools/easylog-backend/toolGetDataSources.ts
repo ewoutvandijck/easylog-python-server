@@ -26,6 +26,8 @@ const toolGetDataSources = (userId: string) => {
         return `Error getting datasources: ${error.message}`;
       }
 
+      console.log('datasources', datasources);
+
       return JSON.stringify(datasources, null, 2);
     }
   });
