@@ -37,7 +37,7 @@ const envSchema = z.object({
   TRIGGER_SECRET_KEY: z.string(),
   BETTER_AUTH_SECRET: z.string(),
   EASYLOG_DB_HOST: z.string(),
-  EASYLOG_DB_PORT: z.string(),
+  EASYLOG_DB_PORT: z.string().transform((val) => parseInt(val)),
   EASYLOG_DB_USER: z.string(),
   EASYLOG_DB_NAME: z.string(),
   EASYLOG_DB_PASSWORD: z.string()

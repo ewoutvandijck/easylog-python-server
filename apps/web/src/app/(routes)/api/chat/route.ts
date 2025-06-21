@@ -24,7 +24,6 @@ import toolGetResources from '@/app/_chat/tools/easylog-backend/toolGetResources
 import toolUpdatePlanningPhase from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningPhase';
 import toolUpdatePlanningProject from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningProject';
 import openrouter from '@/lib/ai-providers/openrouter';
-import easylogDb from '@/lib/easylog/db';
 import tryCatch from '@/utils/try-catch';
 
 export const maxDuration = 30;
@@ -182,6 +181,16 @@ By following these steps and using the tools in combination, you can handle a wi
               query: z.string()
             }),
             execute: async (query) => {
+              const [importData, importError] = await tryCatch(
+                import('@/lib/easylog/db')
+              );
+
+              if (importError) {
+                return `Error importing Easylog database: ${importError.message}`;
+              }
+
+              const { default: easylogDb } = importData;
+
               const [result, error] = await tryCatch(
                 easylogDb.execute(query.query)
               );
