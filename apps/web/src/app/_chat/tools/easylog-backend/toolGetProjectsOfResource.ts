@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import tryCatch from '@/utils/try-catch';
+
 import getEasylogClient from './utils/getEasylogClient';
 
 const toolGetProjectsOfResource = (userId: string) => {
@@ -18,13 +20,18 @@ const toolGetProjectsOfResource = (userId: string) => {
     execute: async ({ resourceId, datasourceSlug }) => {
       const client = await getEasylogClient(userId);
 
-      const projects =
-        await client.planningResources.v2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet(
+      const [projects, error] = await tryCatch(
+        client.planningResources.v2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet(
           {
             resourceId,
             datasourceSlug
           }
-        );
+        )
+      );
+
+      if (error) {
+        return `Error getting projects: ${error.message}`;
+      }
 
       return JSON.stringify(projects, null, 2);
     }

@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import { ProjectBody } from '@/lib/easylog/generated-client/models';
+import tryCatch from '@/utils/try-catch';
 
 import getEasylogClient from './utils/getEasylogClient';
 
@@ -35,16 +36,18 @@ const toolUpdatePlanningProject = (userId: string) => {
         extraData: updateData.extraData ? updateData.extraData : undefined
       } satisfies ProjectBody;
 
-      await client.planning.v2DatasourcesProjectsProjectIdPut({
-        projectId,
-        projectBody: projectBody as ProjectBody
-      });
+      const [updatedProjectResponse, error] = await tryCatch(
+        client.planning.v2DatasourcesProjectsProjectIdPut({
+          projectId,
+          projectBody: projectBody as ProjectBody
+        })
+      );
 
-      const project = await client.planning.v2DatasourcesProjectsProjectIdGet({
-        projectId
-      });
+      if (error) {
+        return `Error updating project: ${error.message}`;
+      }
 
-      return JSON.stringify(project, null, 2);
+      return JSON.stringify(updatedProjectResponse, null, 2);
     }
   });
 };

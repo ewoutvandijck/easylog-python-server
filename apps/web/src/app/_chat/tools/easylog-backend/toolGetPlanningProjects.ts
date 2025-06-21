@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import tryCatch from '@/utils/try-catch';
+
 import getEasylogClient from './utils/getEasylogClient';
 
 const toolGetPlanningProjects = (userId: string) => {
@@ -20,10 +22,16 @@ const toolGetPlanningProjects = (userId: string) => {
     execute: async ({ startDate, endDate }) => {
       const client = await getEasylogClient(userId);
 
-      const projects = await client.planning.v2DatasourcesProjectsGet({
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined
-      });
+      const [projects, error] = await tryCatch(
+        client.planning.v2DatasourcesProjectsGet({
+          startDate: startDate ? new Date(startDate) : undefined,
+          endDate: endDate ? new Date(endDate) : undefined
+        })
+      );
+
+      if (error) {
+        return `Error getting projects: ${error.message}`;
+      }
 
       return JSON.stringify(projects, null, 2);
     }

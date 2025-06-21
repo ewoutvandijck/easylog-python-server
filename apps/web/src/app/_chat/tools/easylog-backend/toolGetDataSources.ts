@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import tryCatch from '@/utils/try-catch';
+
 import getEasylogClient from './utils/getEasylogClient';
 
 const toolGetDataSources = (userId: string) => {
@@ -12,9 +14,15 @@ const toolGetDataSources = (userId: string) => {
     execute: async ({ types }) => {
       const client = await getEasylogClient(userId);
 
-      const datasources = await client.datasources.v2DatasourcesGet({
-        types
-      });
+      const [datasources, error] = await tryCatch(
+        client.datasources.v2DatasourcesGet({
+          types
+        })
+      );
+
+      if (error) {
+        return `Error getting datasources: ${error.message}`;
+      }
 
       return JSON.stringify(datasources, null, 2);
     }

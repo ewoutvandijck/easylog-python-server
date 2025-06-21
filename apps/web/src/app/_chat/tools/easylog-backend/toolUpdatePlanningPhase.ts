@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import { PhaseUpdateBody } from '@/lib/easylog/generated-client/models';
+import tryCatch from '@/utils/try-catch';
 
 import getEasylogClient from './utils/getEasylogClient';
 
@@ -23,15 +24,18 @@ const toolUpdatePlanningPhase = (userId: string) => {
         end: new Date(end)
       };
 
-      await client.planningPhases.v2DatasourcesPhasesPhaseIdPut({
-        phaseId,
-        phaseUpdateBody
-      });
+      const [updatedPhaseResponse, error] = await tryCatch(
+        client.planningPhases.v2DatasourcesPhasesPhaseIdPut({
+          phaseId,
+          phaseUpdateBody
+        })
+      );
 
-      const phase = await client.planningPhases.v2DatasourcesPhasesPhaseIdGet({
-        phaseId
-      });
-      return JSON.stringify(phase, null, 2);
+      if (error) {
+        return `Error updating phase: ${error.message}`;
+      }
+
+      return JSON.stringify(updatedPhaseResponse, null, 2);
     }
   });
 };

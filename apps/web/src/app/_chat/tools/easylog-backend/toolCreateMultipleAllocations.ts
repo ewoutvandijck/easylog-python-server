@@ -5,6 +5,7 @@ import {
   AdditionalAllocationData,
   DatasourceAllocationMultipleBody
 } from '@/lib/easylog/generated-client/models';
+import tryCatch from '@/utils/try-catch';
 
 import getEasylogClient from './utils/getEasylogClient';
 
@@ -57,10 +58,16 @@ const toolCreateMultipleAllocations = (userId: string) => {
           }))
         };
 
-      const allocations =
-        await client.allocations.v2DatasourcesAllocationsMultiplePost({
+      const [allocations, error] = await tryCatch(
+        client.allocations.v2DatasourcesAllocationsMultiplePost({
           datasourceAllocationMultipleBody
-        });
+        })
+      );
+
+      if (error) {
+        return `Error creating allocations: ${error.message}`;
+      }
+
       return JSON.stringify(allocations, null, 2);
     }
   });

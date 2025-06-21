@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import tryCatch from '@/utils/try-catch';
+
 import getEasylogClient from './utils/getEasylogClient';
 
 const toolGetPlanningPhase = (userId: string) => {
@@ -12,9 +14,16 @@ const toolGetPlanningPhase = (userId: string) => {
     }),
     execute: async ({ phaseId }) => {
       const client = await getEasylogClient(userId);
-      const phase = await client.planningPhases.v2DatasourcesPhasesPhaseIdGet({
-        phaseId
-      });
+
+      const [phase, error] = await tryCatch(
+        client.planningPhases.v2DatasourcesPhasesPhaseIdGet({
+          phaseId
+        })
+      );
+
+      if (error) {
+        return `Error getting phase: ${error.message}`;
+      }
       return JSON.stringify(phase, null, 2);
     }
   });

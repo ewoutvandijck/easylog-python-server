@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import tryCatch from '@/utils/try-catch';
+
 import getEasylogClient from './utils/getEasylogClient';
 
 const toolGetResourceGroups = (userId: string) => {
@@ -16,13 +18,18 @@ const toolGetResourceGroups = (userId: string) => {
     execute: async ({ resourceId, resourceSlug }) => {
       const client = await getEasylogClient(userId);
 
-      const resourceGroups =
-        await client.planningResources.v2DatasourcesResourcesResourceIdResourceSlugGet(
+      const [resourceGroups, error] = await tryCatch(
+        client.planningResources.v2DatasourcesResourcesResourceIdResourceSlugGet(
           {
             resourceId,
             resourceSlug
           }
-        );
+        )
+      );
+
+      if (error) {
+        return `Error getting resource groups: ${error.message}`;
+      }
 
       return JSON.stringify(resourceGroups, null, 2);
     }
