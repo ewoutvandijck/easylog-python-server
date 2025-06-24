@@ -24,10 +24,10 @@ async def last_synced(
 ) -> LastSyncedResponse:
     user = await prisma.users.find_first(where=usersWhereInput(external_id=user_id))
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        return LastSyncedResponse(last_synced=datetime.datetime(1970, 1, 1))
 
     last_synced = await prisma.health_data_points.find_first(
-        where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps),
+        where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps, source_uuid=source_uuid),
         order={"created_at": "desc"},
     )
 

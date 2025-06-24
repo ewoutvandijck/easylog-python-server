@@ -67,7 +67,7 @@ model health_data_points {
     created_at DateTime @default(now())
     updated_at DateTime @default(now()) @updatedAt
 
-    user_id String
+    user_id String @db.Uuid
     user    users  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
     type      health_data_point_type
