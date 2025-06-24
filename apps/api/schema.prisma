@@ -42,6 +42,61 @@ enum widget_type {
     multiple_choice
 }
 
+enum health_data_point_type {
+    steps
+}
+
+enum health_platform {
+    apple_health
+    google_fit
+}
+
+enum recording_method {
+    AUTOMATIC
+    MANUAL
+    ACTIVE
+    UNKNOWN
+}
+
+enum health_data_unit {
+    COUNT
+}
+
+model health_data_points {
+    id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    created_at DateTime @default(now())
+    updated_at DateTime @default(now()) @updatedAt
+
+    user_id String
+    user    users  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    type      health_data_point_type
+    value     Int
+    unit      health_data_unit
+    date_from DateTime
+    date_to   DateTime
+
+    // Source information
+    source_uuid      String          @unique
+    health_platform  health_platform
+    source_device_id String?
+    source_id        String? // e.g. com.apple.Health
+    source_name      String? // e.g. Apple Health
+
+    @@map("health_data_points")
+}
+
+model users {
+    id          String   @id @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    external_id String   @unique
+    created_at  DateTime @default(now())
+    updated_at  DateTime @default(now()) @updatedAt
+
+    health_data_points health_data_points[]
+
+    @@map("users")
+}
+
 model threads {
     id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     external_id String?    @unique

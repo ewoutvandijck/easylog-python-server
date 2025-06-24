@@ -13,7 +13,7 @@ from graphiti_core import Graphiti
 from graphiti_core.llm_client import LLMConfig, OpenAIClient
 from weaviate.classes.config import DataType, Property
 
-from src.api import health, knowledge, messages, threads
+from src.api import health, knowledge, messages, steps, threads
 from src.lib import graphiti as graphiti_lib
 from src.lib.openai import openai_client
 from src.lib.prisma import prisma
@@ -146,3 +146,4 @@ app.include_router(health.router)
 app.include_router(threads.router)
 app.include_router(messages.router)
 app.include_router(knowledge.router)
+app.include_router(steps.router)
