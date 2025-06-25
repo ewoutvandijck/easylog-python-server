@@ -3,7 +3,10 @@ import datetime
 from fastapi import APIRouter, HTTPException, Response
 from prisma.enums import health_data_point_type, health_data_unit, health_platform
 from prisma.types import (
-    health_data_pointsCreateWithoutRelationsInput,
+    _health_data_pointsWhereUnique_source_uuid_Input,
+    health_data_pointsCreateInput,
+    health_data_pointsUpdateInput,
+    health_data_pointsUpsertInput,
     health_data_pointsWhereInput,
     usersCreateInput,
     usersWhereInput,
@@ -27,7 +30,7 @@ async def last_synced(
         return LastSyncedResponse(last_synced=datetime.datetime(1970, 1, 1))
 
     last_synced = await prisma.health_data_points.find_first(
-        where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps, source_uuid=source_uuid),
+        where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps),
         order={"created_at": "desc"},
     )
 
@@ -43,8 +46,6 @@ async def sync_steps(
 ) -> Response:
     try:
         logger.info(f"Syncing steps data for user {data.user_id} with {len(data.data_points)} data points")
-        if data.data_points is None:
-            return Response(status_code=200)
 
         for step_data in data.data_points:
             if step_data.unit != health_data_unit.COUNT:
@@ -60,30 +61,41 @@ async def sync_steps(
             # Cannot be None given the above...
             raise HTTPException(status_code=500, detail="User not found")
 
-        # Map data to prisma insert data
-        step_insert_data = [
-            health_data_pointsCreateWithoutRelationsInput(
-                user_id=user_id,
-                type=health_data_point_type.steps,
-                value=step_data.value,
-                unit=health_data_unit(step_data.unit),
-                date_from=step_data.date_from,
-                date_to=step_data.date_to,
-                source_uuid=step_data.source_uuid,
-                health_platform=health_platform(step_data.health_platform),
-                source_device_id=step_data.source_device_id,
-                source_id=step_data.source_id,
-                source_name=step_data.source_name,
+        batcher = prisma.batch_()
+        for step_data in data.data_points:
+            batcher.health_data_points.upsert(
+                where=_health_data_pointsWhereUnique_source_uuid_Input(source_uuid=step_data.source_uuid),
+                data=health_data_pointsUpsertInput(
+                    create=health_data_pointsCreateInput(
+                        user_id=user_id,
+                        type=health_data_point_type.steps,
+                        value=step_data.value,
+                        unit=health_data_unit(step_data.unit),
+                        date_from=step_data.date_from,
+                        date_to=step_data.date_to,
+                        source_uuid=step_data.source_uuid,
+                        health_platform=health_platform(step_data.health_platform),
+                        source_device_id=step_data.source_device_id,
+                        source_id=step_data.source_id,
+                        source_name=step_data.source_name,
+                    ),
+                    update=health_data_pointsUpdateInput(
+                        type=health_data_point_type.steps,
+                        value=step_data.value,
+                        unit=health_data_unit(step_data.unit),
+                        date_from=step_data.date_from,
+                        date_to=step_data.date_to,
+                        health_platform=health_platform(step_data.health_platform),
+                        source_device_id=step_data.source_device_id,
+                        source_id=step_data.source_id,
+                        source_name=step_data.source_name,
+                    ),
+                ),
             )
-            for step_data in data.data_points
-        ]
 
-        # TODO: Upsert data!!!
-        await prisma.health_data_points.create_many(
-            data=step_insert_data,
-            skip_duplicates=True,  # This will skip records that violate unique constraints
-        )
+        await batcher.commit()
         return Response(status_code=200)
+
     except Exception as e:
         logger.error(f"Error inserting steps data: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
