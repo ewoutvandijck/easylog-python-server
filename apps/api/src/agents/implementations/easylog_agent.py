@@ -32,12 +32,11 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
-        default="",
-        description="The text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
+        default="", text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
     )
     instructions: str = Field(
         default="",
-        description="Additional guidance or context for the ai agent on how to answer the question, such as language requirements or format expectations.",
+        description="Additional guidance orr context for the ai agent on how to answer the question, such as language requirements or format expectations.",
     )
     name: str = Field(
         default="",
