@@ -32,7 +32,7 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
-        default="", text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
+        default="text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
     )
     instructions: str = Field(
         default="",
@@ -636,8 +636,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             BaseTools.tool_call_super_agent,
         ]
         return {tool.__name__: tool for tool in tools_list}
-
-
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
