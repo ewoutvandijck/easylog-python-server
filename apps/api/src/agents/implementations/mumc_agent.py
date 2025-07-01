@@ -1144,26 +1144,26 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             else:  # G20='ja' (current smoker)
                 return 0.0  # Red
 
-        # OFFICIAL GENERAL SCORING - Based on ccq-copd-questionnaire.md lineaire schaling
-        # These formulas replace the previous complex scoring logic
+        # ENHANCED GENERAL SCORING - Better chart space utilization
+        # Improved formulas for better visual distribution across full chart height
 
         # Voor Groene ballonnen (scores < 1):
-        # BallonHoogte(%) = 100 - (Score * 20)
+        # BallonHoogte(%) = 85 - (Score * 15) - Start lager, minder compressed
         if score < 1.0:
-            height = 100.0 - (score * 20.0)
-            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+            height = 85.0 - (score * 15.0)
+            return max(0.0, min(100.0, height))  # Range: 70-85%
 
         # Voor Oranje ballonnen (scores 1-2):
-        # BallonHoogte(%) = 80 - ((Score - 1) * 20)
+        # BallonHoogte(%) = 70 - ((Score - 1) * 25) - Better middle range
         elif score <= 2.0:
-            height = 80.0 - ((score - 1.0) * 20.0)
-            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+            height = 70.0 - ((score - 1.0) * 25.0)
+            return max(0.0, min(100.0, height))  # Range: 45-70%
 
         # Voor Rode ballonnen (scores > 2):
-        # BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
+        # BallonHoogte(%) = 45 - ((Score - 2) / 4 * 35) - Use lower space more
         else:  # score > 2.0
-            height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
-            return max(0.0, min(100.0, height))  # Clamp between 0-100%
+            height = 45.0 - ((score - 2.0) / 4.0 * 35.0)
+            return max(10.0, min(100.0, height))  # Range: 10-45%, minimum 10%
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
