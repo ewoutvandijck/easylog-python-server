@@ -435,17 +435,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         else None
                     )
 
-                    # Convert balloon height percentages to Flutter Y-values (0-10 scale)
-                    # Rescale from actual range (10-85%) to full Flutter range (0-10)
-                    min_height, max_height = 10.0, 85.0  # Actual range from enhanced scoring
-                    flutter_y_current = ((current_height - min_height) / (max_height - min_height)) * 10.0
-                    flutter_y_current = max(0.0, min(10.0, flutter_y_current))  # Clamp to 0-10
-                    
-                    if old_height is not None:
-                        flutter_y_old = ((old_height - min_height) / (max_height - min_height)) * 10.0
-                        flutter_y_old = max(0.0, min(10.0, flutter_y_old))  # Clamp to 0-10
-                    else:
-                        flutter_y_old = None
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
 
                     converted_data.append(
                         ZLMDataRow(
@@ -474,17 +466,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         else None
                     )
 
-                    # Convert balloon height percentages to Flutter Y-values (0-10 scale)
-                    # Rescale from actual range (10-85%) to full Flutter range (0-10)
-                    min_height, max_height = 10.0, 85.0  # Actual range from enhanced scoring
-                    flutter_y_current = ((current_height - min_height) / (max_height - min_height)) * 10.0
-                    flutter_y_current = max(0.0, min(10.0, flutter_y_current))  # Clamp to 0-10
-                    
-                    if old_height is not None:
-                        flutter_y_old = ((old_height - min_height) / (max_height - min_height)) * 10.0
-                        flutter_y_old = max(0.0, min(10.0, flutter_y_old))  # Clamp to 0-10
-                    else:
-                        flutter_y_old = None
+                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
+                    flutter_y_current = current_height / 10.0
+                    flutter_y_old = old_height / 10.0 if old_height is not None else None
 
                     converted_data.append(
                         ZLMDataRow(
@@ -1160,26 +1144,26 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             else:  # G20='ja' (current smoker)
                 return 0.0  # Red
 
-        # ENHANCED GENERAL SCORING - Better chart space utilization
-        # Improved formulas for better visual distribution across full chart height
+        # OFFICIAL GENERAL SCORING - Based on ccq-copd-questionnaire.md lineaire schaling
+        # These formulas replace the previous complex scoring logic
 
         # Voor Groene ballonnen (scores < 1):
-        # BallonHoogte(%) = 85 - (Score * 15) - Start lager, minder compressed
+        # BallonHoogte(%) = 100 - (Score * 20)
         if score < 1.0:
-            height = 85.0 - (score * 15.0)
-            return max(0.0, min(100.0, height))  # Range: 70-85%
+            height = 100.0 - (score * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
         # Voor Oranje ballonnen (scores 1-2):
-        # BallonHoogte(%) = 70 - ((Score - 1) * 25) - Better middle range
+        # BallonHoogte(%) = 80 - ((Score - 1) * 20)
         elif score <= 2.0:
-            height = 70.0 - ((score - 1.0) * 25.0)
-            return max(0.0, min(100.0, height))  # Range: 45-70%
+            height = 80.0 - ((score - 1.0) * 20.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
         # Voor Rode ballonnen (scores > 2):
-        # BallonHoogte(%) = 45 - ((Score - 2) / 4 * 35) - Use lower space more
+        # BallonHoogte(%) = 40 - ((Score - 2) / 4 * 40)
         else:  # score > 2.0
-            height = 45.0 - ((score - 2.0) / 4.0 * 35.0)
-            return max(10.0, min(100.0, height))  # Range: 10-45%, minimum 10%
+            height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
+            return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
     def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
