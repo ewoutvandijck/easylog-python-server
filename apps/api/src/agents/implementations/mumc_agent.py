@@ -942,13 +942,18 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Domain-specific scoring logic from official ZLM COPD documentation
         if domain_name in ["Long aanvallen", "Longaanvallen", "Longaanval"]:
-            # G17: Discrete scoring for exacerbations
-            if score == 0:
-                return 100.0  # Green (0 courses)
-            elif score == 1:
-                return 50.0  # Orange (1 course)
-            else:  # score >= 2
-                return 0.0  # Red (2+ courses)
+            # G17: Enhanced graduated scoring for exacerbations (0-4 scale → 0-100% height)
+            # More gradation to use full balloon height range
+            if score <= 0.5:        # 0 kuren
+                return 100.0        # Green (perfect, no exacerbations)
+            elif score <= 1.5:      # 1 kuur  
+                return 75.0         # Light green/orange (mild concern)
+            elif score <= 2.5:      # 2 kuren
+                return 50.0         # Orange (moderate concern)
+            elif score <= 3.5:      # 3 kuren
+                return 25.0         # Dark orange/red (serious concern)
+            else:                   # 4+ kuren
+                return 0.0          # Red (critical concern)
 
         elif domain_name in ["Longklachten", "Long klachten", "Longklacht"]:
             # CRITICAL: Longklachten requires G12 check (kortademig in rust)
