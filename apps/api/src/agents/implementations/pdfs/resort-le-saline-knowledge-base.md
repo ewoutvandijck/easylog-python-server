@@ -83,7 +83,7 @@
 - **Building Style:** Traditional local techniques with granite, ceramics, wood
 - **Interior:** Furniture and fabrics inspired by ancient Sardinian traditions
 
-## Malì Beach Bar ⭐⭐⭐⭐⭐ **VERIFIED 2024**
+## Malì Beach Bar **VERIFIED 2024**
 
 **Location:** 200 meters from resort villas  
 **Contact:** +39 393 9715229 / info@malibeachbar.com  
@@ -91,6 +91,7 @@
 
 **Operating Season:** June 1 - mid September  
 **Daily Hours:** Open until 19:30 (7:30 PM) ⭐ **GUEST CONFIRMED**
+**⚠️ IMPORTANT:** Malì closes at 7:30 PM - NOT suitable for dinner after 7 PM
 
 ### The Experience
 
@@ -103,10 +104,11 @@
 ### Services
 
 - **Breakfast by the Sea:** Fresh breakfast on the beach
-- **Restaurant:** Mediterranean cuisine with sea views
+- **Lunch:** Mediterranean cuisine with sea views (until 7:30 PM)
 - **Happy Hour:** Sunset cocktails with spectacular views
 - **Events:** Beach weddings and celebrations
 - **Staff:** Alice provides warm Sardinian hospitality
+- **⚠️ Note:** Malì is NOT available for evening dinner - closes at 7:30 PM
 
 ### Complete Menu ⭐ 2025
 
@@ -225,7 +227,7 @@ Non-alcoholic signature drinks:
 
 **Note:** All cocktails crafted by Alice with premium ingredients and Sardinian hospitality
 
-### Resort Breakfast Service ⭐ **COMPLETE MENU**
+### Resort Breakfast Service **COMPLETE MENU**
 
 **Service Hours:** 08:30 - 10:30 daily
 
@@ -269,7 +271,7 @@ Non-alcoholic signature drinks:
 
 ## Practical Guest Information
 
-### Resort Services Available at Reception ⭐ **COMPLETE SERVICES**
+### Resort Services Available at Reception **COMPLETE SERVICES**
 
 **Contact Reception:** +39 392 1175342 (Maddalena)
 
@@ -355,7 +357,7 @@ Non-alcoholic signature drinks:
 - **Features:** Soft white sand, sparkling turquoise waters
 - **Atmosphere:** Timeless elegance and privacy
 
-### Hidden Paradise Beaches - Palau to Cannigione Route ⭐⭐⭐⭐⭐ **LOCAL SECRETS**
+### Hidden Paradise Beaches - Palau to Cannigione Route **LOCAL SECRETS**
 
 **Route Discovery:** Along the scenic coastal road from Resort Le Saline to Cannigione
 
@@ -379,7 +381,7 @@ Non-alcoholic signature drinks:
 
 ### Natural Landmarks & Must-Visit Attractions
 
-#### **Roccia dell'Orso (Bear Rock) - Official Natural Monument** ⭐⭐⭐⭐⭐ **FIORE'S MUST-VISIT**
+#### **Roccia dell'Orso (Bear Rock) - Official Natural Monument** **FIORE'S MUST-VISIT**
 
 - **Official Site:** Via Roccia dell'Orso, 8, Palau
 - **Contact:** +39 347 091 3032 / info@museipalau.com
@@ -401,7 +403,7 @@ Non-alcoholic signature drinks:
 
 ## Activities & Experiences
 
-### La Maddalena Archipelago Excursions ⭐ **VERIFIED 2024**
+### La Maddalena Archipelago Excursions **VERIFIED 2024**
 
 #### **Sardinia Island Tours** (Highly Recommended)
 
@@ -430,32 +432,32 @@ Non-alcoholic signature drinks:
 
 #### Must-Visit Islands in Archipelago
 
-**Spargi Island** ⭐⭐⭐⭐⭐
+**Spargi Island**
 
 - **Cala Corsara:** Four pristine sandy coves surrounded by Mediterranean vegetation
 - **Character:** Most fragrant with wild herbs and sea lilies
 - **Activities:** Snorkeling, hiking, photography
 
-**Budelli Island** ⭐⭐⭐⭐⭐
+**Budelli Island**
 
 - **Spiaggia Rosa (Pink Beach):** Protected - viewable from boat only
 - **Status:** Conservation area, landing prohibited
 - **Uniqueness:** Famous pink sand from coral and shell fragments
 
-**Santa Maria Island** ⭐⭐⭐⭐⭐
+**Santa Maria Island**
 
 - **Grande Cala di Santa Maria:** Brilliant blue transparent waters
 - **Character:** Northernmost magnificent island
 - **Access:** Few houses, walking paths, serene atmosphere
 
-**Caprera Island** ⭐⭐⭐⭐⭐
+**Caprera Island**
 
 - **Garibaldi Connection:** Home of Italian unification hero Giuseppe Garibaldi
 - **Attractions:** Garibaldi Museum, olive groves, historic sites
 - **Beaches:** Cala Coticcio ("Tahiti of Sardinia"), Cala Due Dei Due
 - **Activities:** Historical tours, hiking, pristine beach access
 
-**Santo Stefano Island** ⭐⭐⭐⭐
+**Santo Stefano Island**
 
 - **History:** Former military installations, abandoned fort
 - **Features:** Granite quarries, strategic position
@@ -481,10 +483,10 @@ Non-alcoholic signature drinks:
 
 ### Local Authentic Restaurants
 
-**Ristorante Calianu (Palau)** ⭐⭐⭐⭐⭐ **AUTHENTIC LOCAL FAMILY RESTAURANT** **FIORE'S TIP**
+**Da Caltinu (Palau)** **AUTHENTIC LOCAL FAMILY RESTAURANT** **FIORE'S TIP**
 
-- **Address:** Via delle Ginestre, 4, 07020, Palau, Sardinia Italy
-- **Phone:** +39 0789 709258
+- **Address:** Via delle Ginestre, 4, 07020 Palau SS
+- **Phone:** +39 0789 708406
 - **Website:** Available (contact for details)
 - **Type:** Traditional family-run restaurant ("ristorante pizzeria")
 - **Atmosphere:** Authentic local gem where Italian families dine
@@ -492,12 +494,29 @@ Non-alcoholic signature drinks:
 - **Character:** Hidden local favorite with genuine local atmosphere
 - **Experience:** True Sardinian hospitality and traditional recipes
 - **Guest Discovery:** "Echt een lokaal familierestaurant in Palau, hier komen de Italianen eten. Heerlijk eten gemaakt door de oma."
-- **Distance from Resort:** Approximately 5-10 minutes drive to Palau center
+- **Distance from Resort:** 2.5 km from resort
 - **Hours:** Contact restaurant for current opening hours
 - **Best For:** Traditional Sardinian family dining experience
 - **Note:** This is exactly the type of authentic restaurant that makes Palau special - discovered by guests who venture into town
 
-**Isule Surelle (Palau)** ⭐⭐⭐⭐⭐ **EVENING BAR & RESTAURANT** **FIORE'S TIP**
+**Ristorante Del Porticciolo (Palau)** **FAMILY FISH RESTAURANT** **FIORE'S TIP**
+
+- **Address:** Piazza del Comune 7, 07020, Palau, Sardinia Italy
+- **Phone:** +39 0789 707051
+- **Website:** Available (contact for details)
+- **Hours:** Open until 2:00 PM, 7:15 PM - 10:30 PM
+- **Type:** Traditional family-run fish restaurant
+- **Specialty:** Fresh fish and seafood specialties
+- **Atmosphere:** Authentic family restaurant atmosphere in central Palau piazza
+- **Character:** Local favorite for delicious fish dishes
+- **Experience:** Traditional Italian family hospitality with fresh seafood
+- **Guest Discovery:** "Nog een familie restaurant waar je heerlijke vis kan eten."
+- **Location:** Central Palau in the main piazza
+- **Distance from Resort:** Approximately 5-10 minutes drive to Palau center
+- **Best For:** Fresh fish dining, authentic family-style service, central location
+- **Note:** Authentic local fish restaurant in the heart of Palau - perfect for quality seafood and family atmosphere
+
+**Isule Surelle (Palau)** **EVENING BAR & RESTAURANT** **FIORE'S TIP**
 
 - **Address:** Piazza Due Palme 2, 07020, Palau, Sardinia Italy
 - **Phone:** +39 334 786 3924 / +39 349 186 6167
@@ -514,12 +533,11 @@ Non-alcoholic signature drinks:
 - **Guest Reviews:** "Characteristic place with excellent meat," "Beautiful staff, incredible food, beer and wine"
 - **Note:** Ideal complement to daytime activities - perfect for sunset drinks and evening dining
 
-**Bear Rock Café - Il Baretto dell'Orso (Palau)** ⭐⭐⭐⭐⭐ **LOCAL CAFÉ NEAR VILLAS** **FIORE'S TIP**
+**Bear Rock Café - Il Baretto dell'Orso (Palau)** **LOCAL CAFÉ NEAR VILLAS** **FIORE'S TIP**
 
 - **Address:** Località Capo d'Orso, Via Poltu Mannu, 2, Palau, Sardinia Italy
 - **Phone:** +39 392 005 2581
-- **Rating:** 4.7/5 from 149 Google reviews
-- **Ranking:** #14 of 74 pubs & bars in Palau
+
 - **Hours:** Mon-Sat 9:30-22:00, Sunday closed
 - **Price Range:** €10-20 per person
 - **Type:** Simple local café with authentic Italian dishes
@@ -535,7 +553,7 @@ Non-alcoholic signature drinks:
 
 ### Fine Dining
 
-**Le Terrazze Ritual (Baja Sardinia)** ⭐⭐⭐⭐⭐ **SPECTACULAR VIEWS** **GUEST RECOMMENDED**
+**Le Terrazze Ritual (Baja Sardinia)** **SPECTACULAR VIEWS** **GUEST RECOMMENDED**
 
 - **Location:** SP59, 07021 Arzachena SS (Baja Sardinia)
 - **Contact:** +39 0789 177 6677 / +39 324 873 92 25
@@ -543,8 +561,7 @@ Non-alcoholic signature drinks:
 - **Website:** ritual.it/le-terrazze-ritual/
 - **Distance:** 25 minutes from resort, heart of Costa Smeralda
 - **Type:** Unique rooftop restaurant carved into granite rock
-- **Rating:** 4.1/5 stars (250 reviews)
-- **Ranking:** #2 on "The 24 best bars and drinks in Olbia"
+
 - **Specialty:** Contemporary Mediterranean cuisine with panoramic sunset views
 - **Architecture:** Multiple terraces with waterfalls, water features, colorful mosaic floors
 - **Views:** Breathtaking panorama over Gulf of Cannigione and Maddalena Archipelago
@@ -565,7 +582,7 @@ Non-alcoholic signature drinks:
 - **Reservations:** Essential, book well in advance for sunset tables
 - **Note:** Connected to legendary Ritual Club nightlife venue for after-dinner entertainment
 
-**La Scogliera (Porto Massimo, La Maddalena)** ⭐⭐⭐⭐⭐
+**La Scogliera (Porto Massimo, La Maddalena)**
 
 - **Location:** Spectacularly situated on granite rocks
 - **Specialty:** Luxury seafood restaurant
@@ -573,7 +590,7 @@ Non-alcoholic signature drinks:
 - **Features:** Tables on beach, private jetty, exclusive atmosphere
 - **Cuisine:** Fresh lobster, prawns, local fish, Mediterranean specialties
 
-**La Gritta** ⭐⭐⭐⭐⭐ **MICHELIN RECOMMENDED** **ROMANTIC FINE DINING**
+**La Gritta** **MICHELIN RECOMMENDED** **ROMANTIC FINE DINING**
 
 - **Location:** Vicolo del Faro, 2, 07020 Palau (Porto Faro)
 - **Contact:** +39 0789 708045
@@ -599,7 +616,7 @@ Non-alcoholic signature drinks:
 - **Michelin Description:** "Two of your senses will experience powerful marine sensations - sight delighted with enchanting views, taste tantalized by imaginative top-quality cuisine"
 - **Reservations:** Highly recommended for terrace seating
 
-**Le Terrazze Restaurant (Park Hotel Cala di Lepre, Palau)** ⭐⭐⭐⭐⭐ **PANORAMIC VIEWS**
+**Le Terrazze Restaurant (Park Hotel Cala di Lepre, Palau)** **PANORAMIC VIEWS**
 
 - **Location:** Park Hotel Cala di Lepre, Loc. Cala di Lepre, 07020 Palau
 - **Contact:** +39 0789 790316
@@ -620,7 +637,7 @@ Non-alcoholic signature drinks:
 
 ### Authentic Local Dining
 
-**Agriturismo La Colti (Cannigione)** ⭐⭐⭐⭐⭐
+**Agriturismo La Colti (Cannigione)**
 
 - **Location:** SP Arzachena-Cannigione, Località Lu Pireddu
 - **Contact:** +39 0789 88440 / booking@lacolti.it
@@ -628,7 +645,7 @@ Non-alcoholic signature drinks:
 - **Signature:** Porcetto allo spiedo (spit-roasted suckling pig)
 - **Setting:** Traditional farmhouse with working farm atmosphere
 
-**Tenute Testoni Agriturismo** ⭐⭐⭐⭐⭐
+**Tenute Testoni Agriturismo**
 
 - **Location:** Strada Arzachena-Bassacutena km10
 - **Contact:** +39 348 093 9071 / tenutetestoni@gmail.com
@@ -638,7 +655,7 @@ Non-alcoholic signature drinks:
 
 ### Casual Dining Options
 
-**Il Pirata Restaurant** ⭐⭐⭐⭐⭐ **GUEST RECOMMENDED**
+**Il Pirata Restaurant** **GUEST RECOMMENDED**
 
 - **Location:** Circonvallazione Palau Vecchio, 2, 07020 Palau
 - **Contact:** +39 339 330 1359 (WhatsApp available)
@@ -647,15 +664,13 @@ Non-alcoholic signature drinks:
   - **Wednesday:** 19:00-23:00 (dinner only)
 - **Type:** Authentic Italian seafood restaurant by the sea
 - **Price Range:** €22-43 per person
-- **Ranking:** #4 of 41 seafood restaurants in Palau
-- **Rating:** 4.2/5 stars (Facebook)
 - **Specialty:** Fresh fish with professional tableside filleting service
 - **Signature Dishes:** Branzino, spaghetti, fresh seafood tartare, octopus
 - **Atmosphere:** Beautiful evening lighting, waterfront location, romantic setting
 - **Features:** Outdoor seating, takeaway, credit cards accepted, parking, booking available, wheelchair accessible
 - **Guest Experience:** "Excellent fish restaurant with professional service and beautiful evening atmosphere by the sea"
 
-**Ristorante Il Maestrale (Porto Pollo)** ⭐⭐⭐⭐ **LOCAL GRILLED MEAT SPECIALIST**
+**Ristorante Il Maestrale (Porto Pollo)** **LOCAL GRILLED MEAT SPECIALIST**
 
 - **Location:** Loc. Porto Pollo, Palau
 - **Contact:** +39 0789 705033
@@ -668,7 +683,7 @@ Non-alcoholic signature drinks:
 - **Perfect For:** Meat lovers, families, casual dining with a show
 - **Features:** Vegetarian options available, bay views, local atmosphere
 
-**Cuppulata Pizzeria Ristorante** ⭐⭐⭐⭐⭐
+**Cuppulata Pizzeria Ristorante**
 
 - **Location:** Vicolo La Maddalena, 4, 07024 Palau (city center)
 - **Contact:** +39 0789 709338 / +39 345 7115 179
@@ -683,7 +698,7 @@ Non-alcoholic signature drinks:
 - **Signature Features:** 72-hour pizza dough maturation, highly digestible pizza, perfect blend of sea and mountain flavors
 - **Philosophy:** "True classic, traditional and innovative cuisine" combining coastal and inland Sardinian recipes
 
-**Le Dolcezze Napoletane** ⭐⭐⭐⭐⭐ **AUTHENTIC NEAPOLITAN BAKERY**
+**Le Dolcezze Napoletane** **AUTHENTIC NEAPOLITAN BAKERY**
 
 - **Location:** Via Nazionale, 48, Palau
 - **Contact:** +39 338 3177217
@@ -702,13 +717,12 @@ Non-alcoholic signature drinks:
 - **Service:** Breakfast, pastries, custom cakes, take-away
 - **Experience:** Bringing the authentic aromas and flavors of Naples to Sardinia
 
-**Trattoria Pizzeria Lo Spizzico** ⭐⭐⭐⭐ **LE SALINE GUEST DISCOUNT**
+**Trattoria Pizzeria Lo Spizzico** **LE SALINE GUEST DISCOUNT**
 
 - **Location:** Via Sportiva, 13, 07020 Palau
 - **Contact:** +39 0789 709147
 - **Website:** lospizzico.com
 - **Hours:** Daily 18:00-23:00 (dinner only)
-- **Rating:** 4.2/5 stars (642 Google reviews)
 - **Specialty:** Authentic Italian cuisine, thin-crust pizza, fresh seafood
 - **Features:** Large wine and grappa list, terrace with scenic views
 - **Atmosphere:** Genuine local restaurant with friendly staff
@@ -716,7 +730,7 @@ Non-alcoholic signature drinks:
 - **Special Offer:** **10% DISCOUNT for Le Saline Resort guests** (mention resort when ordering)
 - **Note:** Popular with locals, busy restaurant - quality ingredients and authentic taste
 
-**La Taverna** ⭐⭐⭐⭐⭐ **GUEST RECOMMENDED - BEST FISH IN PALAU**
+**La Taverna** **GUEST RECOMMENDED - BEST FISH IN PALAU**
 
 - **Location:** Palau (exact address to be confirmed)
 - **Type:** Traditional Italian fish restaurant
@@ -726,7 +740,7 @@ Non-alcoholic signature drinks:
 - **Guest Experience:** "The best in Palau is La Taverna for fish, run by 2 old Italian men"
 - **Note:** Highly recommended by guests for authentic fish preparation and traditional service
 
-**Re Ferdinando** ⭐⭐⭐⭐⭐ **LE SALINE GUEST DISCOUNT**
+**Re Ferdinando** **LE SALINE GUEST DISCOUNT**
 
 - **Location:** Via Fonte Vecchia, Palau, 07024
 - **Type:** Traditional Sardinian cuisine with modern innovative flair
@@ -748,9 +762,70 @@ Non-alcoholic signature drinks:
 - **Website:** cucumiao.it
 - **Specialty:** Traditional Sardinian and Mediterranean cuisine
 
-### Wine Bars & Aperitif Spots ⭐ **GUEST DISCOVERIES**
+### Premium Beach Clubs & Nightlife **EXCLUSIVE EXPERIENCES**
 
-**Bottega di Isule Surelle** ⭐⭐⭐⭐⭐ **GUEST RECOMMENDED**
+**Phi Beach (Baja Sardinia)** **PREMIUM BEACH CLUB** **FIORE'S TIP**
+
+- **Address:** Loc. Forte Cappellini, Baja Sardinia 07021 Arzachena
+- **Phone:** +39 0789 955012
+- **WhatsApp:** +39 345 2884254
+- **Email:** info@phibeach.com
+- **Website:** phibeach.com
+- **Type:** Open air club, beach club, restaurant (much more than a club)
+- **Location:** Just a few kilometers from Porto Cervo and close to Le Saline Resort
+- **Operating:** Open every day during summer season
+- **Experiences:**
+  - **Beach Day:** Perfect blend of relaxation on private beach with culinary delights
+  - **Sunset:** Best sunset view with magic golden hour atmosphere
+  - **Night:** Exclusive DJ sets with international artists and unique performances
+- **Dining Options:**
+  - **Phi Restaurant:** Gourmet cuisine with Pied Dans l'Eau Room and VIP Dining Room
+  - **Nammos Baja Sardinia:** Signature coastal dining with world-class music (June 13-August 31)
+- **Special Features:**
+  - **The Rock Club:** Intimate, exclusive setting for private moments
+  - **Private Events:** Luxury event hosting with professional team
+  - **Yacht Services:** Courtesy yacht tender service (+39 331 3814831)
+- **Famous Artists:** Hosts best international DJs including Black Coffee, Claptone, Peggy Gou, Jamie Jones
+- **Character:** Exclusive location where luxury meets sophistication
+- **Perfect For:** Beach relaxation, sunset viewing, fine dining, nightlife, special celebrations
+- **Distance from Resort:** Very close - approximately 10-15 minutes drive
+- **Note:** One of Sardinia's most exclusive venues combining beach, dining, and entertainment
+
+### Wine Bars & Aperitif Spots **GUEST DISCOVERIES**
+
+**Il Molo Wine Bar (Palau)** **APERITIVO SPECIALIST** **FIORE'S TIP**
+
+- **Address:** Via Fonte Vecchia, 80, 07020 Palau SS
+- **Phone:** +39 333 193 4874
+- **Type:** Wine bar specializing in aperitivo and antipasti
+- **Specialty:** Excellent wine selection with delicious antipasti during aperitivo hour
+- **Atmosphere:** Perfect spot for traditional Italian aperitivo experience
+- **Character:** Authentic wine bar atmosphere ideal for pre-dinner drinks
+- **Experience:** Traditional aperitivo culture with quality wine and food pairings
+- **Guest Discovery:** "Een leuke Wijnbar in Palau waar ze tijdens appertivo een selectie van heerlijke antipasti serveren."
+- **Best For:** Aperitivo hour, wine lovers, authentic Italian pre-dinner experience
+- **Distance from Resort:** Central Palau location, 5-10 minutes drive
+- **Note:** Perfect introduction to Italian aperitivo culture with quality wines and antipasti
+
+**Tipiko Enoteca (Palau)** **WINE & CHEESE SPECIALIST** **FIORE'S TIP**
+
+- **Address:** Via Sportiva, 15, 07020 Palau SS
+- **Phone:** +39 349 541 2444
+- **Website:** [Restaurant Guru](https://restaurantguru.it/Tipiko-Palau-Sardinia)
+- **Hours:** Daily 10:00-00:00 (Closed Wednesdays)
+- **Price Range:** €10-20 per person
+- **Type:** Enoteca specializing in wines, cheese, and charcuterie
+- **Specialty:** Quality wines, craft beers, cheese and charcuterie boards, sandwiches
+- **Atmosphere:** Young, vibrant atmosphere with knowledgeable staff
+- **Character:** Great alternative for non-fish eaters - focus on local cheeses and cured meats
+- **Signature Offerings:** Taglieri (charcuterie boards), quality local products, craft beers
+- **Services:** Takeaway available, credit cards accepted
+- **Guest Experience:** "Ottima alternativa per chi non vuole mangiare pesce! Formaggi buoni, panini altrettanto, vini e birre artigianali di qualità."
+- **Best For:** Wine lovers, cheese enthusiasts, those preferring non-seafood options, evening drinks
+- **Distance from Resort:** Central Palau location, 5-10 minutes drive
+- **Note:** Perfect for authentic Italian enoteca experience with local products and honest prices
+
+**Bottega di Isule Surelle** **GUEST RECOMMENDED**
 
 - **Location:** Palau (exact address to be confirmed)
 - **Type:** Wine bar specializing in aperitif wines
@@ -759,9 +834,9 @@ Non-alcoholic signature drinks:
 - **Guest Experience:** "Perfect spot for aperitif wines before dinner, excellent wine bar in Palau"
 - **Note:** Popular local discovery for quality wines and aperitifs
 
-### Additional Local Recommendations ⭐ **LOCAL FAVORITES**
+### Additional Local Recommendations **LOCAL FAVORITES**
 
-**Pizza Biga (Cannigione)** ⭐⭐⭐⭐⭐ **GUEST RECOMMENDED**
+**Pizza Biga (Cannigione)** **GUEST RECOMMENDED**
 
 - **Location:** Cannigione (approximately 15 minutes from resort)
 - **Type:** Authentic Neapolitan pizzeria
@@ -795,17 +870,15 @@ Non-alcoholic signature drinks:
 - **Specialty:** Fresh fish and maritime cuisine
 - **Focus:** Daily catch and local seafood preparations
 
-### Missing Local Gems - Fiore's Additional Discoveries ⭐ **AUTHENTIC LOCAL FAVORITES**
+### Missing Local Gems - Fiore's Additional Discoveries **AUTHENTIC LOCAL FAVORITES**
 
-**La Taverna (Palau)** ⭐⭐⭐⭐⭐ **BEST FISH IN PALAU - FIORE'S TIP**
+**La Taverna (Palau)** **BEST FISH IN PALAU - FIORE'S TIP**
 
 - **Address:** Vicolo Gioacchino Rossini, 6, Palau, Sardinia Italy
 - **Phone:** +39 0789 709289
 - **Hours:** Daily 12:30-23:00 (Closed Tuesdays)
 - **Price Range:** €9-22 per person
 - **Type:** Traditional Italian fish restaurant run by 2 old Italian men
-- **Ranking:** #3 of 41 seafood restaurants in Palau
-- **Rating:** 4.2/5 stars from 587 reviews
 - **Specialty:** Authentic local fish preparation with professional service
 - **Character:** Family-style operation with authentic Italian atmosphere
 - **Signature Dishes:** Nicely cooked monkfish, risotto, spaghetti vongole, grilled fish
@@ -814,7 +887,7 @@ Non-alcoholic signature drinks:
 - **Distance from Resort:** 5-10 minutes drive to Palau center
 - **Note:** The authentic choice for traditional Italian fish preparation that locals trust
 
-**Da Battino (Porto Pozzo)** ⭐⭐⭐⭐⭐ **AUTHENTIC BEACH DINING** **FIORE'S MUST-VISIT TIP**
+**Da Battino (Porto Pozzo)** **AUTHENTIC BEACH DINING** **FIORE'S MUST-VISIT TIP**
 
 - **Location:** Porto Pozzo beach, Palau area
 - **Type:** Beach restaurant with feet-in-the-sand dining
@@ -826,7 +899,7 @@ Non-alcoholic signature drinks:
 - **Perfect For:** Authentic Sardinian beach culture and fresh fish
 - **Note:** Essential for experiencing real local fishing culture
 
-**Da Thomas (Santa Teresa di Gallura)** ⭐⭐⭐⭐⭐ **HISTORIC FAMILY RESTAURANT**
+**Da Thomas (Santa Teresa di Gallura)** **HISTORIC FAMILY RESTAURANT**
 
 - **Address:** Via Valle D'Aosta, 22, 07028 Santa Teresa Gallura (SS)
 - **Phone:** +39 349 6929613
@@ -836,7 +909,6 @@ Non-alcoholic signature drinks:
 - **Founded:** 1978 by Francesco (Cecchino) and Isabella
 - **Generation:** Now run by third generation of the family
 - **Type:** Traditional Sardinian seafood restaurant (family-run for 47 years)
-- **Rating:** 4.6/5 stars (Yelp reviews)
 - **Recognition:** Featured in Gambero Rosso "Ristoranti d'Italia 2025" guide
 - **Specialty:** Fresh fish from Bocche di Bonifacio, local seafood, traditional Sardinian dishes
 - **Signature Dishes:**
@@ -850,14 +922,14 @@ Non-alcoholic signature drinks:
 - **Distance from Resort:** 25 minutes drive to Santa Teresa di Gallura
 - **Note:** Historic restaurant representing authentic Sardinian maritime culinary tradition
 
-**La Garita (Palau Area)** ⭐⭐⭐⭐
+**La Garita (Palau Area)**
 
 - **Location:** Palau area (exact address to be confirmed)
 - **Type:** Local restaurant
 - **Character:** Authentic local dining option
 - **Note:** Additional details to be gathered from local sources
 
-**Il Paguro (Marina di Cala Capra)** ⭐⭐⭐⭐⭐ **PREMIUM WATERFRONT DINING**
+**Il Paguro (Marina di Cala Capra)** **PREMIUM WATERFRONT DINING**
 
 - **Location:** Marina di Cala Capra, Palau (near resort)
 - **Phone:** +39 0789 702000 (restaurant) / +39 0789 702021 (marina)
@@ -875,7 +947,7 @@ Non-alcoholic signature drinks:
 
 ## Wine Experiences
 
-### **Cantine Surrau - Arzachena** ⭐⭐⭐⭐⭐ **VERIFIED 2024**
+### **Cantine Surrau - Arzachena** **VERIFIED 2024**
 
 **Location:** Località Chilvagghja, 07021 Arzachena  
 **Contact:** +39 0789 82933 / info@surrau.it  
@@ -917,7 +989,7 @@ Non-alcoholic signature drinks:
 
 ### Local Transportation
 
-#### **Push Hard Palau - Scooter & E-bike Rental** ⭐⭐⭐⭐⭐ **RECOMMENDED**
+#### **Push Hard Palau - Scooter & E-bike Rental** **RECOMMENDED**
 
 - **Location:** Via delle Ginestre 10 A, 07020 Palau
 - **Contact:** +39 346 872 8022 / info@pushhardpalau.com
@@ -925,8 +997,10 @@ Non-alcoholic signature drinks:
 - **Rating:** 5.0/5 stars (91 Google reviews)
 - **Fleet:** High-quality vehicles including Yamaha T-Max 500, Sym 125 Symphony SR
 - **Specialty:** E-bikes perfect for exploring La Maddalena and Caprera islands
+- **Villa Delivery Service:** Scooters can be delivered directly to your villa upon request
 - **Why Scooters:** Perfect for discovering hidden bays and scenic coastal routes unreachable by car
 - **Service:** Professional, well-maintained vehicles, includes route recommendations
+- **Convenience:** Villa pickup and delivery service available for maximum guest comfort
 - **Advantage:** Freedom to explore Gallura's stunning coastline and hidden gems
 
 #### Other Transportation Options
@@ -945,7 +1019,7 @@ Non-alcoholic signature drinks:
 - **Architecture:** Traditional Gallurese granite buildings
 - **Atmosphere:** Bohemian spirit with Mediterranean elegance
 
-#### **L'Assaggio Restaurant (San Pantaleo)** ⭐⭐⭐⭐⭐ **SPECIALIZED MUSSELS**
+#### **L'Assaggio Restaurant (San Pantaleo)** **SPECIALIZED MUSSELS**
 
 - **Location:** Via Zara 36, San Pantaleo (SS)
 - **Contact:** +39 339 338 17 40
@@ -970,7 +1044,7 @@ Non-alcoholic signature drinks:
 - **Beaches:** Rena Bianca, Santa Reparata
 - **History:** Gateway to Corsica with ancient Roman quarries
 
-### **Capo Testa - Valle della Luna (Moon Valley)** ⭐⭐⭐⭐⭐ **HIPPIE PARADISE & STUNNING BEACHES**
+### **Capo Testa - Valle della Luna (Moon Valley)** **HIPPIE PARADISE & STUNNING BEACHES**
 
 **Location:** 4km west of Santa Teresa di Gallura, northernmost point of Sardinia
 
@@ -1016,7 +1090,7 @@ Non-alcoholic signature drinks:
 - **Prehistoric Access:** Hidden, well-protected road dating back to prehistoric times
 - **Fresh Water:** Natural spring marked by two large entrance stones
 
-#### **Il Faro di Capo Testa Lighthouse** ⭐⭐⭐⭐⭐
+#### **Il Faro di Capo Testa Lighthouse**
 
 - **Built:** 1845, active lighthouse crucial for North Sardinia navigation
 - **Architecture:** Rectangular building with two floors and tower with glowing lantern
@@ -1076,7 +1150,7 @@ Non-alcoholic signature drinks:
 
 ## Emergency & Practical Information
 
-### Emergency Contacts ⭐ **COMPLETE DIRECTORY**
+### Emergency Contacts **COMPLETE DIRECTORY**
 
 **All numbers with Italian country code +39**
 
@@ -1112,7 +1186,7 @@ Non-alcoholic signature drinks:
 - **ATMs:** Available throughout Palau
 - **Post Office:** Palau center
 
-### Weekly Markets in Gallura Region ⭐ **WEEKLY SCHEDULE**
+### Weekly Markets in Gallura Region **WEEKLY SCHEDULE**
 
 **Traditional street markets with local products, crafts, and fresh foods:**
 
@@ -1135,20 +1209,85 @@ Non-alcoholic signature drinks:
 - **Credit Cards:** Widely accepted
 - **Shopping:** Local markets, boutiques in Palau and Porto Cervo
 
-#### **Supermarkets & Local Products** ⭐ **GUEST RECOMMENDED**
+#### **Supermarkets & Local Products** **COMPLETE DIRECTORY**
 
-**DettoriMarket** ⭐⭐⭐⭐⭐ **LOCAL SPECIALTIES**
+**Eurospin Palau** **CLOSEST TO RESORT** **VERIFIED 2024**
+
+- **Address:** Via Dei Cisti, 07020 Palau SS, Italia
+- **Opening Hours:**
+  - **Monday-Saturday:** 08:30-20:00
+  - **Sunday:** 08:30-13:30
+- **Type:** Discount supermarket with quality products at competitive prices
+- **Services:** Parking, air conditioning, wheelchair accessible, gift cards
+- **Departments:** Fresh produce, butcher, packaged bread
+- **Distance from Resort:** 5-10 minutes drive to Palau center
+- **Best For:** Daily shopping, competitive prices, convenient location
+
+**Supermarket Gallura 2000** **LOCAL FAMILY SUPERMARKET**
+
+- **Address:** Via delle Ginestre, 18, 07020 Palau SS, Italia
+- **Rating:** 3.8/5 stars (103 Google reviews)
+- **Type:** Local family-run supermarket
+- **Character:** Traditional neighborhood supermarket serving local community
+- **Distance from Resort:** 5-10 minutes drive to Palau center
+- **Best For:** Local shopping experience, neighborhood atmosphere
+
+**L.H Megastore Supermarket** **HOUSEHOLD & GENERAL GOODS**
+
+- **Address:** Strada Statale 133 di Palau, 142, 07020 Palau SS, Italia
+- **Type:** Chinese-style general store with household items and food
+- **Specialty:** Wide variety of household articles at competitive prices
+- **Character:** "Classic Chinese store where you find a bit of everything at very interesting prices"
+- **Best For:** Household items, general goods, budget-friendly shopping
+- **Note:** Good option considering Palau's generally higher prices
+
+**CONAD SUPERSTORE** **LARGEST SELECTION** **VERIFIED 2024**
+
+- **Address:** SS 125 Olbia Palau Km.4,800, 07026 Olbia SS, Italia
+- **Phone:** +39 0789 562067
+- **Website:** conad.it
+- **Opening Hours:** Daily 08:00-21:00
+- **Distance from Resort:** 15-20 minutes drive (on route from Olbia Airport)
+- **Type:** Large superstore with comprehensive selection
+- **Services:** Online shopping, pharmacy shop-in-shop, parafarmacy products
+- **Departments:** Fresh fish, butcher counter, deli, fresh produce, wine cellar, technology
+- **Special Services:** Home delivery, text booking, bill payments, phone recharges
+- **Best For:** Weekly shopping, largest product selection, pharmacy needs
+
+**DettoriMarket** **LOCAL SARDINIAN SPECIALTIES**
 
 - **Website:** dettorimarket.it
-- **Type:** Supermarket specializing in local Sardinian products
 - **Locations:**
-  - **Palau Centro:** Via del Cisti area, Palau center
-  - **Tanca Manne:** On the road toward Cannigione
+  - **Palau Centro:** Via del Cisti area, Palau center _(exact address needed)_
+  - **Tanca Manne:** On the road toward Cannigione _(exact address needed)_
+- **Type:** Supermarket specializing in local Sardinian products
 - **Specialty:** Excellent selection of local Sardinian products and specialties
 - **Villa Essentials:** Bialetti coffee capsules for your villa coffee machine (also available at resort reception)
 - **Guest Experience:** "Fine supermarket with good local products - satisfied with the local product selection"
 - **Perfect For:** Guests wanting authentic Sardinian ingredients, local specialties, and villa supplies
-- **Note:** Two convenient locations for resort guests
+- **Note:** Contact Maddalena at reception (+39 392 1175342) for exact addresses and opening hours
+
+**Dettori Market Crai Extra** **SANTA TERESA GALLURA** **HIGHLY RATED**
+
+- **Address:** Via Nazionale, 07028 Santa Teresa Gallura SS, Italia
+- **Phone:** +39 0789 754796
+- **Website:** dettorimarket.it
+- **Rating:** 4.0/5 stars (768 Google reviews)
+- **Distance from Resort:** 25 minutes drive to Santa Teresa di Gallura
+- **Type:** Large Crai supermarket with excellent fresh departments
+- **Specialty:** Fresh fish department run by Murru family, always fresh catch
+- **Features:** Huge parking lot, wheelchair accessible, butcher and fish counter
+- **Nearby Services:** Fruit shop and hardware store with gas bottle sales
+- **Guest Reviews:** "One of the best supermarkets in Santa Teresa Gallura with fresh fish and complete departments"
+- **Best For:** Fresh fish, weekly shopping, combination with Santa Teresa visit
+
+**Shopping Tips:**
+
+- **Villa Supplies:** All supermarkets carry Bialetti coffee capsules, BBQ charcoal, and basic villa needs
+- **Opening Hours:** Most follow Italian pattern - closed Sunday afternoons, some close for lunch break
+- **Local Products:** DettoriMarket locations specialize in authentic Sardinian specialties
+- **Parking:** All locations provide parking facilities
+- **Payment:** Credit cards widely accepted at all major supermarkets
 
 ## Awards & Recognition **VERIFIED 2024**
 

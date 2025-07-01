@@ -941,7 +941,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return 0.0
 
         # Domain-specific scoring logic from official ZLM COPD documentation
-        if domain_name in ["Long aanvallen", "Longaanvallen"]:
+        if domain_name in ["Long aanvallen", "Longaanvallen", "Longaanval"]:
             # G17: Discrete scoring for exacerbations
             if score == 0:
                 return 100.0  # Green (0 courses)
@@ -950,7 +950,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             else:  # score >= 2
                 return 0.0  # Red (2+ courses)
 
-        elif domain_name in ["Longklachten", "Long klachten"]:
+        elif domain_name in ["Longklachten", "Long klachten", "Longklacht"]:
             # CRITICAL: Longklachten requires G12 check (kortademig in rust)
             # Official rule: Score < 1 AND G12 < 2 = Green, Score ≥1-≤2 AND G12 < 2 = Orange, Score > 2 OR G12 ≥ 2 = Red
 
@@ -997,7 +997,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 # This should not happen in production but provides safety
                 pass  # Fall through to general scoring
 
-        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI"]:
+        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]:
             # CRITICAL: BMI scoring uses direct BMI ranges, not 0-6 scale conversion
             # Official ranges from ccq-copd-questionnaire.md:
             # ≥21 en <25: Groen (100%)
@@ -1122,6 +1122,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             # Score represents G20 answer mapping
             # G20 mapping: 'nooit'→0, 'vroeger'→1, 'ja'→6 (from ZLMuitslag conversion)
+            # Also handle string values directly in case conversion hasn't happened yet
+            if isinstance(score, str):
+                if score.lower() in ['nooit', 'never']:
+                    return 100.0  # Green
+                elif score.lower() in ['vroeger', 'former']:
+                    return 100.0  # Green
+                else:  # 'ja', 'yes', or any other value
+                    return 0.0  # Red
+            
+            # Handle numeric scores
             if score <= 0.5:  # G20='nooit' (never smoked)
                 return 100.0  # Green
             elif score <= 1.5:  # G20='vroeger' (former smoker)
