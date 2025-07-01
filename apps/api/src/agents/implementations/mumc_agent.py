@@ -435,9 +435,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         else None
                     )
 
-                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
-                    flutter_y_current = current_height / 10.0
-                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    # Convert balloon height percentages to Flutter Y-values (0-10 scale)
+                    # Rescale from actual range (10-85%) to full Flutter range (0-10)
+                    min_height, max_height = 10.0, 85.0  # Actual range from enhanced scoring
+                    flutter_y_current = ((current_height - min_height) / (max_height - min_height)) * 10.0
+                    flutter_y_current = max(0.0, min(10.0, flutter_y_current))  # Clamp to 0-10
+                    
+                    if old_height is not None:
+                        flutter_y_old = ((old_height - min_height) / (max_height - min_height)) * 10.0
+                        flutter_y_old = max(0.0, min(10.0, flutter_y_old))  # Clamp to 0-10
+                    else:
+                        flutter_y_old = None
 
                     converted_data.append(
                         ZLMDataRow(
@@ -466,9 +474,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         else None
                     )
 
-                    # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
-                    flutter_y_current = current_height / 10.0
-                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    # Convert balloon height percentages to Flutter Y-values (0-10 scale)
+                    # Rescale from actual range (10-85%) to full Flutter range (0-10)
+                    min_height, max_height = 10.0, 85.0  # Actual range from enhanced scoring
+                    flutter_y_current = ((current_height - min_height) / (max_height - min_height)) * 10.0
+                    flutter_y_current = max(0.0, min(10.0, flutter_y_current))  # Clamp to 0-10
+                    
+                    if old_height is not None:
+                        flutter_y_old = ((old_height - min_height) / (max_height - min_height)) * 10.0
+                        flutter_y_old = max(0.0, min(10.0, flutter_y_old))  # Clamp to 0-10
+                    else:
+                        flutter_y_old = None
 
                     converted_data.append(
                         ZLMDataRow(

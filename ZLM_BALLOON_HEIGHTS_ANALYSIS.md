@@ -197,6 +197,120 @@ NA: Use BMI value DIRECTLY for balloon height calculation - DO NOT convert to 0-
 
 ---
 
+## 🚨 **PROBLEEM ONTDEKT & OPGELOST**
+
+**Gebruiker had gelijk:** De balloon heights werden NIET correct getoond ondanks de Python backend wijzigingen.
+
+### **Root Cause: Flutter Y-Values Rescaling Probleem**
+
+**Probleem:**
+
+```python
+# FOUT - Directe conversie zonder rescaling:
+flutter_y_current = current_height / 10.0
+
+# Resultaat:
+# Voor: 0-100% → 0.0-10.0 Flutter Y-values (VOLLEDIGE HOOGTE)
+# Na: 10-85% → 1.0-8.5 Flutter Y-values (BEPERKTE HOOGTE!)
+```
+
+Flutter verwacht 0-10 bereik voor volledige balloon height, maar kreeg slechts 1.0-8.5!
+
+**✅ OPLOSSING GEÏMPLEMENTEERD:**
+
+```python
+# CORRECT - Rescaling naar volledig Flutter bereik:
+min_height, max_height = 10.0, 85.0  # Actual range from enhanced scoring
+flutter_y_current = ((current_height - min_height) / (max_height - min_height)) * 10.0
+flutter_y_current = max(0.0, min(10.0, flutter_y_current))  # Clamp to 0-10
+```
+
+**Nu gebruikt elk domein het VOLLEDIGE balloon height bereik (0-10)!**
+
+---
+
+## 🎯 **FINAAL RESULTAAT**
+
+| **Score**             | **Percentage** | **Voor (Flutter)** | **Na (Flutter)** | **Effect**          |
+| --------------------- | -------------- | ------------------ | ---------------- | ------------------- |
+| **Perfect (Score 0)** | 85%            | 8.5                | **10.0**         | 🟢 Volledige hoogte |
+| **Goed (Score 1)**    | 70%            | 7.0                | **8.0**          | 🟡 Hoog             |
+| **Matig (Score 2)**   | 45%            | 4.5                | **4.7**          | 🟠 Middel           |
+| **Slecht (Score 6)**  | 10%            | 1.0                | **0.0**          | 🔴 Helemaal laag    |
+
+### **🎉 Verbeteringen:**
+
+1. **✅ Groene ballonnen**: Nu écht bovenaan (10.0 vs 8.5)
+2. **✅ Rode ballonnen**: Nu écht onderaan (0.0 vs 1.0)
+3. **✅ Volledige ruimte**: 100% van chart height wordt gebruikt
+4. **✅ Betere spreiding**: Meer visuele differentiatie tussen scores
+
+---
+
+## 📊 **ALLE GEÏMPLEMENTEERDE FIXES**
+
+### **1. ✅ Long Aanvallen Graduatie**
+
+- **Was:** 0→100%, 1→50%, 2+→0% (geen graduatie)
+- **Nu:** 0→100%, 1→75%, 2→50%, 3→25%, 4→0% (volledige graduatie)
+
+### **2. ✅ BMI Conversie Fix**
+
+- **Was:** Convert to 0-6 scale (incorrect)
+- **Nu:** Use BMI value DIRECTLY (correct)
+
+### **3. ✅ Enhanced General Scoring**
+
+- **Was:** 0-100% range (te gecompressed)
+- **Nu:** 10-85% range (betere spreiding)
+
+### **4. ✅ Flutter Y-Values Rescaling**
+
+- **Was:** Direct division by 10 (verkeerde schaling)
+- **Nu:** Linear rescaling naar 0-10 (volledige hoogte)
+
+### **5. ✅ Color Mapping Correction**
+
+- **Was:** 60-80% Orange (te smal bereik)
+- **Nu:** 40-80% Orange (correcte ZLM ranges)
+
+---
+
+## 🔧 **Implementatie Details**
+
+**Locatie:** `agents/mumc_agent.py` - `tool_create_zlm_balloon_chart`
+
+**Beide instanties gefixt:**
+
+1. Dictionary input verwerking (regel ~441)
+2. ZLMDataRow object verwerking (regel ~472)
+
+**Formule:**
+
+```python
+flutter_y = ((height_percentage - 10.0) / (85.0 - 10.0)) * 10.0
+```
+
+**Clamp naar Flutter range:**
+
+```python
+flutter_y = max(0.0, min(10.0, flutter_y))
+```
+
+---
+
+## ✅ **VERIFICATIE**
+
+**Nu krijgt Flutter:**
+
+- **Slechtste scores** → **0.0** (helemaal onderaan)
+- **Beste scores** → **10.0** (helemaal bovenaan)
+- **Volledige 0-10 range** voor maximale visuele impact
+
+**De gebruiker zou nu duidelijk hoogteverschil moeten zien tussen verschillende ZLM scores!** 🎈
+
+---
+
 ## 🔍 **COMPLETE SYSTEEM STATUS**
 
 ### **✅ ALLE FIXES GEÏMPLEMENTEERD**
