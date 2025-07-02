@@ -418,19 +418,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric for item {i}")
 
-                    # BMI domains use direct BMI values, not 0-6 scale  
-                    # More robust string matching for BMI domain detection
-                    domain_name_lower = domain_name.lower().strip()
-                    is_bmi_domain = any(bmi_keyword in domain_name_lower for bmi_keyword in ["gewicht", "bmi", "weight"])
+                    # BMI domains use direct BMI values, not 0-6 scale
+                    is_bmi_domain = domain_name in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]
                     
                     if not is_bmi_domain and not (0 <= current_score <= 6):
-                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i} (domain: '{domain_name}')")
+                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
 
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric for item {i}")
                         if not is_bmi_domain and not (0 <= old_score <= 6):
-                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i} (domain: '{domain_name}')")
+                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(domain_name, current_score, processed_data)
@@ -457,15 +455,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
                 elif hasattr(item, "y_current"):
                     # ZLMDataRow object validation - SPECIAL EXCEPTION FOR BMI DOMAIN
-                    # More robust string matching for BMI domain detection
-                    domain_name_lower = item.x_value.lower().strip()
-                    is_bmi_domain = any(bmi_keyword in domain_name_lower for bmi_keyword in ["gewicht", "bmi", "weight"])
+                    is_bmi_domain = item.x_value in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]
                     
                     if not is_bmi_domain and not (0 <= item.y_current <= 6):
-                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i} (domain: '{item.x_value}')")
+                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
 
                     if item.y_old is not None and not is_bmi_domain and not (0 <= item.y_old <= 6):
-                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i} (domain: '{item.x_value}')")
+                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
                     current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, processed_data)
@@ -951,22 +947,18 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         # Domain-specific scoring logic from official ZLM COPD documentation
         if domain_name in ["Long aanvallen", "Longaanvallen", "Longaanval"]:
-            # G17: Convert from 0-4 scale to 0-6 scale for consistent scoring
-            # G17 scale: 0=geen, 1=1 kuur, 2=2 kuren, 3=3 kuren, 4=4+ kuren
-            # Convert to 0-6 ZLM scale for consistent balloon height calculation
+            # G17: Enhanced graduated scoring for exacerbations (0-4 scale → 0-100% height)
+            # More gradation to use full balloon height range
             if score <= 0.5:        # 0 kuren
-                converted_score = 0.0    # No exacerbations = no burden
+                return 100.0        # Green (perfect, no exacerbations)
             elif score <= 1.5:      # 1 kuur  
-                converted_score = 2.0    # 1 course = moderate burden
+                return 75.0         # Light green/orange (mild concern)
             elif score <= 2.5:      # 2 kuren
-                converted_score = 3.5    # 2 courses = significant burden
+                return 50.0         # Orange (moderate concern)
             elif score <= 3.5:      # 3 kuren
-                converted_score = 5.0    # 3 courses = high burden
+                return 25.0         # Dark orange/red (serious concern)
             else:                   # 4+ kuren
-                converted_score = 6.0    # 4+ courses = maximum burden
-            
-            # Use the converted score with general scoring logic
-            score = converted_score
+                return 0.0          # Red (critical concern)
 
         elif domain_name in ["Longklachten", "Long klachten", "Longklacht"]:
             # CRITICAL: Longklachten requires G12 check (kortademig in rust)
@@ -1015,7 +1007,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 # This should not happen in production but provides safety
                 pass  # Fall through to general scoring
 
-        elif any(bmi_keyword in domain_name.lower().strip() for bmi_keyword in ["gewicht", "bmi", "weight"]):
+        elif domain_name in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]:
             # CRITICAL: BMI scoring uses direct BMI ranges, not 0-6 scale conversion
             # Official ranges from ccq-copd-questionnaire.md:
             # ≥21 en <25: Groen (100%)
