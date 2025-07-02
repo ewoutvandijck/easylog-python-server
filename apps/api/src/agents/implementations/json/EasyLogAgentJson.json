@@ -2,7 +2,7 @@
   "id": 3,
   "schema": [
     {
-      "name": "mumc-ewt-02",
+      "name": "mumc-ewt-07",
       "type": "assistant",
       "label": "Orly MUMC",
       "agentConfig": {
