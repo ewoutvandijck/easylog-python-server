@@ -347,17 +347,24 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         async def tool_get_steps_data(
             date_from: str | datetime,
             date_to: str | datetime,
+            aggregation: Literal["hour", "day", None] | None = None,
         ) -> list[dict[str, Any]]:
-            """Get the steps data for a user, aggregated by day or hour.
+            """Get the steps data for a user with optional aggregation.
             Make sure to use the tool_get_date_time tool to get the actual current date and time.
 
             Args:
-                date_from (str): The start date and time for the data in ISO 8601 format YYYY-MM-DD HH:MM:SS.
-                date_to (str): The end date and time for the data in ISO 8601 format YYYY-MM-DD HH:MM:SS.
+                date_from (str | datetime): The start date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
+                date_to   (str | datetime): The end date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
+                aggregation (Literal["hour", "day", None], optional):
+                    - "hour":   Return total steps per **hour** within range.
+                    - "day":    Return total steps per **day** within range.
+                    - None (default): Return raw, un-aggregated datapoints.
 
             Returns:
-                list[dict[str, Any]]: A list of dictionaries, where each dictionary represents an aggregated data point.
-                                      ach dict will have 'created_at' (full datetime) and 'value'.
+                list[dict[str, Any]]: Depending on aggregation level:
+                    - Raw points:   [{"created_at": "...", "value": 123}, ...]
+                    - Per hour:     [{"bucket": "YYYY-MM-DD HH:00:00", "value": 456}, ...]
+                    - Per day:      [{"bucket": "YYYY-MM-DD", "value": 789}, ...]
             """
             external_user_id = self.request_headers.get("x-onesignal-external-user-id")
 
@@ -369,9 +376,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             )
             if user is None:
                 raise ValueError("User not found")
-
-            if date_from is None or date_to is None:
-                raise ValueError("date_from and date_to must be provided.")
 
             date_from = (
                 datetime.fromisoformat(date_from)
@@ -398,6 +402,30 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             if not steps_data:
                 return []
+
+            if aggregation in {"hour", "day"}:
+                trunc_unit = aggregation
+
+                rows: list[dict[str, Any]] = await prisma.query_raw(
+                    f"""
+                    SELECT
+                        date_trunc('{trunc_unit}', created_at) AS bucket,
+                        SUM(value)::int                     AS total
+                    FROM health_data_points
+                    WHERE user_id = $1::uuid
+                        AND type     = 'steps'
+                        AND created_at BETWEEN $2::timestamp AND $3::timestamp
+                    GROUP BY bucket
+                    ORDER BY bucket
+                    """,
+                    user.id,
+                    date_from,
+                    date_to,
+                )
+
+                return [
+                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
+                ]
 
             return [
                 {"created_at": step.created_at.isoformat(), "value": step.value}
