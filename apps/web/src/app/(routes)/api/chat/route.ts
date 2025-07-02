@@ -41,7 +41,7 @@ export const POST = async (req: NextRequest) => {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
-        model: openrouter('openai/gpt-4o-mini'),
+        model: openrouter('openai/gpt-4.1'),
 
         system: `You're acting as a personal assistant and you're participating in a chat with ${user.name}. When first starting the conversation, you should greet the user by their first name.
 

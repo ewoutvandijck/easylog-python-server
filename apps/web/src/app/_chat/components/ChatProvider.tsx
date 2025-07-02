@@ -1,7 +1,7 @@
 'use client';
 
 import { Chat } from '@ai-sdk/react';
-import { UIMessage } from 'ai';
+import { DefaultChatTransport, UIMessage } from 'ai';
 import { createContext, useState } from 'react';
 import z from 'zod';
 
@@ -31,6 +31,7 @@ const ChatProvider = ({
 }: React.PropsWithChildren<ChatProviderProps>) => {
   const [chat] = useState<AIChat>(
     new Chat({
+      transport: new DefaultChatTransport(),
       maxSteps: 5,
       dataPartSchemas: {
         chart: internalChartConfigSchema

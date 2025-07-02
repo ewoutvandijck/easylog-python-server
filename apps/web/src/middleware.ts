@@ -10,12 +10,6 @@ export const middleware = async (request: NextRequest) => {
 
   const hasSession = getSessionCookie(request) !== null;
 
-  console.log(
-    pathname,
-    hasSession,
-    protectedRoutes.some((route) => route.test(pathname))
-  );
-
   if (protectedRoutes.some((route) => route.test(pathname)) && !hasSession) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
