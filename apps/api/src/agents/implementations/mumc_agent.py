@@ -410,7 +410,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         if key not in item:
                             raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
 
-                    # Validate score ranges - SPECIAL EXCEPTION FOR BMI DOMAIN
+                    # Validate score ranges
                     current_score = item["y_current"]
                     old_score = item.get("y_old")
                     domain_name = str(item["x_value"])
@@ -418,16 +418,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     if not isinstance(current_score, (int, float)):
                         raise ValueError(f"Current score must be numeric for item {i}")
 
-                    # BMI domains use direct BMI values, not 0-6 scale
-                    is_bmi_domain = domain_name in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]
-                    
-                    if not is_bmi_domain and not (0 <= current_score <= 6):
+                    if not (0 <= current_score <= 6):
                         raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
 
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric for item {i}")
-                        if not is_bmi_domain and not (0 <= old_score <= 6):
+                        if not (0 <= old_score <= 6):
                             raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
@@ -454,13 +451,11 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     )
 
                 elif hasattr(item, "y_current"):
-                    # ZLMDataRow object validation - SPECIAL EXCEPTION FOR BMI DOMAIN
-                    is_bmi_domain = item.x_value in ["Gewicht (BMI)", "Gewicht", "BMI", "Weight"]
-                    
-                    if not is_bmi_domain and not (0 <= item.y_current <= 6):
+                    # ZLMDataRow object validation
+                    if not (0 <= item.y_current <= 6):
                         raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
 
-                    if item.y_old is not None and not is_bmi_domain and not (0 <= item.y_old <= 6):
+                    if item.y_old is not None and not (0 <= item.y_old <= 6):
                         raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
 
                     # Apply domain-specific scoring logic
