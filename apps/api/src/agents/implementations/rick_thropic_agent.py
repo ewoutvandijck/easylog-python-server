@@ -387,6 +387,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
             )
 
+            # If both inputs refer to the same calendar date and no explicit time was
+            # provided (i.e. they are at midnight), extend `date_to` to the end of that day
+            if (
+                date_from.date() == date_to.date()
+                and date_from.time() == datetime.min.time()
+                and date_to.time() == datetime.min.time()
+            ):
+                date_to = date_to.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
+
             steps_data = await prisma.health_data_points.find_many(
                 where=health_data_pointsWhereInput(
                     user_id=user.id,
