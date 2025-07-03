@@ -17,7 +17,17 @@ export const timestamps = {
     .$onUpdate(() => new Date())
 };
 
-export const documentTypeEnum = pgEnum('document_type_enum', ['pdf']);
+export const documentTypeEnum = pgEnum('document_type_enum', [
+  'unknown',
+  'pdf'
+]);
+
+export const documentStatusEnum = pgEnum('document_status_enum', [
+  'pending',
+  'processing',
+  'completed',
+  'failed'
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -97,9 +107,10 @@ export const passkeys = pgTable('passkeys', {
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   path: text('path').notNull(),
-  type: documentTypeEnum('type').notNull(),
-  summary: text('summary').notNull(),
-  tags: text('tags').array(),
-  content: jsonb('content').notNull(),
+  type: documentTypeEnum('type').notNull().default('unknown'),
+  summary: text('summary'),
+  tags: text('tags').array().notNull().default([]),
+  content: jsonb('content'),
+  status: documentStatusEnum('status').notNull().default('pending'),
   ...timestamps
 });

@@ -17,7 +17,8 @@ const serverConfig = {
   easylogDbPort: serverEnv.EASYLOG_DB_PORT,
   easylogDbUser: serverEnv.EASYLOG_DB_USER,
   easylogDbName: serverEnv.EASYLOG_DB_NAME,
-  easylogDbPassword: serverEnv.EASYLOG_DB_PASSWORD
+  easylogDbPassword: serverEnv.EASYLOG_DB_PASSWORD,
+  vercelBlobReadWriteToken: serverEnv.BLOB_READ_WRITE_TOKEN
 } as const;
 
 export default serverConfig;

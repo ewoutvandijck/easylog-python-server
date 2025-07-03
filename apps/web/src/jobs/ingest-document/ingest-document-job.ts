@@ -52,7 +52,7 @@ export const ingestDocumentJob = schemaTask({
         - Ensure that the summary includes relevant details, while avoiding any unnecessary information or repetition. 
         - Rely strictly on the provided text, without including external information.
         - The length of the summary must be within 1000 characters.
-        - Your summary must always be in english.
+        - Your summary must always be in English.
         - Generate tags for unique entities in the text (like people, companies, locations, etc.)
       </guidelines>
 
