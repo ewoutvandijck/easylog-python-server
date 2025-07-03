@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev --turbo",
     "trigger:dev": "pnpm dlx trigger.dev@v4-beta dev",
+    "trigger:deploy": "pnpm dlx trigger.dev@v4-beta deploy",
     "lint": "next lint",
     "start": "next start",
     "studio": "drizzle-kit studio",
