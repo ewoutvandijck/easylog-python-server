@@ -27,7 +27,7 @@ import toolExecuteSQL from '@/app/_chat/tools/toolExecuteSQL';
 import toolSearchKnowledgeBase from '@/app/_chat/tools/toolSearchKnowledgeBase';
 import openrouter from '@/lib/ai-providers/openrouter';
 
-export const maxDuration = 30;
+export const maxDuration = 300;
 
 export const POST = async (req: NextRequest) => {
   const user = await getCurrentUser(req.headers);
