@@ -1,6 +1,8 @@
 import {
   boolean,
   integer,
+  jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -14,6 +16,8 @@ export const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date())
 };
+
+export const documentTypeEnum = pgEnum('document_type_enum', ['pdf']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -87,5 +91,15 @@ export const passkeys = pgTable('passkeys', {
   deviceType: text('device_type').notNull(),
   backedUp: boolean('backed_up').notNull(),
   transports: text('transports').notNull(),
+  ...timestamps
+});
+
+export const documents = pgTable('documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  path: text('path').notNull(),
+  type: documentTypeEnum('type').notNull(),
+  summary: text('summary').notNull(),
+  tags: text('tags').array(),
+  content: jsonb('content').notNull(),
   ...timestamps
 });
