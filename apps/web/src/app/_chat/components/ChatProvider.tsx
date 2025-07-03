@@ -7,11 +7,14 @@ import z from 'zod';
 
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
 
+import documentSearchSchema from '../schemas/documentSearchSchema';
+
 type AIChat = Chat<
   UIMessage<
     unknown,
     {
       chart: z.infer<typeof internalChartConfigSchema>;
+      'document-search': z.infer<typeof documentSearchSchema>;
     }
   >
 >;
@@ -34,7 +37,8 @@ const ChatProvider = ({
       transport: new DefaultChatTransport(),
       maxSteps: 5,
       dataPartSchemas: {
-        chart: internalChartConfigSchema
+        chart: internalChartConfigSchema,
+        'document-search': documentSearchSchema
       }
     })
   );

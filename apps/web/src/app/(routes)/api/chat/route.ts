@@ -7,7 +7,6 @@ import {
   tool
 } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
@@ -24,8 +23,9 @@ import toolGetResourceGroups from '@/app/_chat/tools/easylog-backend/toolGetReso
 import toolGetResources from '@/app/_chat/tools/easylog-backend/toolGetResources';
 import toolUpdatePlanningPhase from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningPhase';
 import toolUpdatePlanningProject from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningProject';
+import toolExecuteSQL from '@/app/_chat/tools/toolExecuteSQL';
+import toolSearchKnowledgeBase from '@/app/_chat/tools/toolSearchKnowledgeBase';
 import openrouter from '@/lib/ai-providers/openrouter';
-import tryCatch from '@/utils/try-catch';
 
 export const maxDuration = 30;
 
@@ -191,33 +191,8 @@ Door deze strikte benadering van contextbegrip, toolselectie en verificatie uit 
           getResourceGroups: toolGetResourceGroups(user.id),
           createMultipleAllocations: toolCreateMultipleAllocations(user.id),
           deleteAllocation: toolDeleteAllocation(user.id),
-          executeSql: tool({
-            description: 'Execute a SQL query on the Easylog database',
-            inputSchema: z.object({
-              query: z.string()
-            }),
-            execute: async (query) => {
-              const [importData, importError] = await tryCatch(
-                import('@/lib/easylog/db')
-              );
-
-              if (importError) {
-                return `Error importing Easylog database: ${importError.message}`;
-              }
-
-              const { default: easylogDb } = importData;
-
-              const [result, error] = await tryCatch(
-                easylogDb.execute(query.query)
-              );
-
-              if (error) {
-                return `Error executing SQL query: ${error.message}`;
-              }
-
-              return JSON.stringify(result, null, 2);
-            }
-          })
+          executeSql: toolExecuteSQL(),
+          searchKnowledgeBase: toolSearchKnowledgeBase(writer)
         }
       });
 

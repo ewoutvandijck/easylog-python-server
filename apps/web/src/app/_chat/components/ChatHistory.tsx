@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 
 import ChatMessageAssistant from './ChatMessageAssistant';
 import ChatMessageAssistantChart from './ChatMessageAssistantChart';
+import ChatMessageAssistantDocumentSearch from './ChatMessageAssistantDocumentSearch';
 import ChatMessageAssistantMarkdownContent from './ChatMessageAssistantMarkdownContent';
 import ChatMessageUser from './ChatMessageUser';
 import ChatMessageUserTextContent from './ChatMessageUserTextContent';
@@ -60,6 +61,12 @@ const ChatHistory = () => {
                     <ChatMessageAssistantChart
                       key={`${message.id}-${i}`}
                       config={part.data}
+                    />
+                  ) : part.type === 'data-document-search' ? (
+                    <ChatMessageAssistantDocumentSearch
+                      key={`${message.id}-${i}`}
+                      status={part.data.status}
+                      content={part.data.content}
                     />
                   ) : null
                 )}
