@@ -1,39 +1,53 @@
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import path from 'path';
+
 import { AbortTaskRunError, logger, schemaTask } from '@trigger.dev/sdk';
+import { head } from '@vercel/blob';
 import { generateObject } from 'ai';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import db from '@/database/client';
 import { documents } from '@/database/schema';
 import openrouterProvider from '@/lib/ai-providers/openrouter';
-import s3Client from '@/lib/aws-s3/client';
-import serverEnv from '@/server.env';
+import serverConfig from '@/server.config';
 
 import { processPdfJob } from './converters/process-pdf-job';
 
 export const ingestDocumentJob = schemaTask({
   id: 'ingest-document',
   schema: z.object({
-    filename: z.string()
+    documentId: z.string()
   }),
-  run: async ({ filename }) => {
-    const headResponse = await s3Client.send(
-      new HeadObjectCommand({
-        Bucket: serverEnv.S3_PUBLIC_BUCKET_NAME,
-        Key: filename
-      })
-    );
+  run: async ({ documentId }) => {
+    const dbDocument = await db.query.documents.findFirst({
+      where: {
+        id: documentId
+      }
+    });
 
-    const contentType = headResponse.ContentType;
+    if (!dbDocument || !dbDocument.path) {
+      throw new AbortTaskRunError('Document not found or path is missing');
+    }
+
+    const headResponse = await head(dbDocument.path, {
+      token: serverConfig.vercelBlobReadWriteToken
+    });
+
+    const contentType = headResponse.contentType;
 
     if (contentType !== 'application/pdf') {
       throw new AbortTaskRunError('Unsupported content type');
     }
 
-    logger.info('Processing document', { filename, contentType });
+    logger.info('Processing document', {
+      filename: dbDocument.name,
+      downloadUrl: headResponse.downloadUrl,
+      contentType
+    });
 
     const processingResult = await processPdfJob.triggerAndWait({
-      filename: filename
+      downloadUrl: headResponse.downloadUrl,
+      basePath: path.dirname(dbDocument.path)
     });
 
     if (!processingResult.ok) {
@@ -69,9 +83,8 @@ export const ingestDocumentJob = schemaTask({
     logger.info('Summary', { summary, tags });
 
     const [document] = await db
-      .insert(documents)
-      .values({
-        path: filename,
+      .update(documents)
+      .set({
         type: 'pdf',
         summary,
         tags,
@@ -82,6 +95,7 @@ export const ingestDocumentJob = schemaTask({
           }))
         }
       })
+      .where(eq(documents.id, documentId))
       .returning();
 
     logger.info('Document inserted', { document });

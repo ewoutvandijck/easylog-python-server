@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { upload } from '@vercel/blob/client';
 import { DropzoneOptions } from 'react-dropzone';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 import UploadDropzone from '@/app/_ui/components/UploadDropzone/UploadDropzone';
 import useTRPC from '@/lib/trpc/browser';
@@ -24,7 +25,7 @@ const DocumentsDropzone = ({
     mutationFn: async (files: File[]) => {
       return await Promise.all(
         files.map(async (file) => {
-          const uploadResult = await upload(file.name, file, {
+          const uploadResult = await upload(`${uuidv4()}/${file.name}`, file, {
             access: 'public',
             handleUploadUrl: `/api/documents/upload`
           });

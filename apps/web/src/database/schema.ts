@@ -106,7 +106,8 @@ export const passkeys = pgTable('passkeys', {
 
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
-  path: text('path').notNull(),
+  name: text('name').notNull(),
+  path: text('path'),
   type: documentTypeEnum('type').notNull().default('unknown'),
   summary: text('summary'),
   tags: text('tags').array().notNull().default([]),

@@ -1,36 +1,26 @@
 import path from 'path';
 
-import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { logger, schemaTask } from '@trigger.dev/sdk';
+import { put } from '@vercel/blob';
 import { z } from 'zod';
 
-import clientConfig from '@/client.config';
-import s3Client from '@/lib/aws-s3/client';
 import mistralClient from '@/lib/mistral/client';
-import serverEnv from '@/server.env';
+import serverConfig from '@/server.config';
 
 export const processPdfJob = schemaTask({
   id: 'process-pdf',
   schema: z.object({
-    filename: z.string()
+    downloadUrl: z.string(),
+    basePath: z.string()
   }),
-  run: async ({ filename }) => {
-    const basePath = path.dirname(filename);
-
-    logger.info('Base path', { basePath });
-
-    const documentUrl = new URL(
-      path.join(`/s3/${serverEnv.S3_PUBLIC_BUCKET_NAME}`, filename),
-      clientConfig.appUrl
-    );
-
-    logger.info('Document URL', { documentUrl });
+  run: async ({ downloadUrl, basePath }) => {
+    logger.info('Document URL', { downloadUrl });
 
     const ocrResult = await mistralClient.ocr.process({
       model: 'mistral-ocr-latest',
       document: {
         type: 'document_url',
-        documentUrl: documentUrl.toString()
+        documentUrl: downloadUrl
       },
       includeImageBase64: true
     });
@@ -61,26 +51,18 @@ export const processPdfJob = schemaTask({
 
             const base64 = imageData.replace(`data:${contentType};base64,`, '');
 
-            await s3Client.send(
-              new PutObjectCommand({
-                Bucket: serverEnv.S3_PUBLIC_BUCKET_NAME,
-                Key: imagePath,
-                Body: Buffer.from(base64, 'base64'),
-                ContentType: contentType,
-                ContentEncoding: 'base64'
-              })
-            );
-
-            const publicUrl = new URL(
-              path.join(`/s3/${serverEnv.S3_PUBLIC_BUCKET_NAME}`, imagePath),
-              clientConfig.appUrl
-            );
+            const blob = await put(imagePath, Buffer.from(base64, 'base64'), {
+              token: serverConfig.vercelBlobReadWriteToken,
+              access: 'public',
+              addRandomSuffix: true,
+              contentType
+            });
 
             return {
               id: image.id,
               path: imagePath,
               contentType,
-              publicUrl: publicUrl.toString()
+              publicUrl: blob.url
             };
           })
         );

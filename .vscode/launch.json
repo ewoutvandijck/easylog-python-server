@@ -19,6 +19,22 @@
       "request": "launch",
       "command": "pnpm run dev",
       "cwd": "${workspaceFolder}/apps/web"
+    },
+    {
+      "name": "Trigger.dev: debug",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run trigger:dev",
+      "cwd": "${workspaceFolder}/apps/web"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Next.js + Trigger.dev",
+      "configurations": [
+        "Next.js: debug server-side",
+        "Trigger.dev: debug"
+      ]
     }
   ]
 }

@@ -16,7 +16,8 @@ const rawEnv = {
   EASYLOG_DB_USER: process.env.EASYLOG_DB_USER,
   EASYLOG_DB_NAME: process.env.EASYLOG_DB_NAME,
   EASYLOG_DB_PASSWORD: process.env.EASYLOG_DB_PASSWORD,
-  BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN
+  BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
+  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY
 };
 
 const envSchema = z.object({
@@ -42,7 +43,8 @@ const envSchema = z.object({
   EASYLOG_DB_USER: z.string(),
   EASYLOG_DB_NAME: z.string(),
   EASYLOG_DB_PASSWORD: z.string(),
-  BLOB_READ_WRITE_TOKEN: z.string()
+  BLOB_READ_WRITE_TOKEN: z.string(),
+  MISTRAL_API_KEY: z.string()
 });
 
 const serverEnv = envSchema.parse(rawEnv);
