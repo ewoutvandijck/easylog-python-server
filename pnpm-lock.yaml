@@ -282,6 +282,9 @@ importers:
       '@next/eslint-plugin-next':
         specifier: ^15.3.4
         version: 15.3.4
+      '@sentry/esbuild-plugin':
+        specifier: ^3.5.0
+        version: 3.5.0
       '@tailwindcss/postcss':
         specifier: ^4.1.7
         version: 4.1.8
@@ -2496,6 +2499,10 @@ packages:
   '@sentry/core@9.30.0':
     resolution: {integrity: sha512-JfEpeQ8a1qVJEb9DxpFTFy1J1gkNdlgKAPiqYGNnm4yQbnfl2Kb/iEo1if70FkiHc52H8fJwISEF90pzMm6lPg==}
     engines: {node: '>=18'}
+
+  '@sentry/esbuild-plugin@3.5.0':
+    resolution: {integrity: sha512-wJwbjPrUV9o4r+5RYHJzG/sVO0cLdagXBmPi+rQ+/zI5Q5TkE6yED8dXHs1t5SAL2YBnXJsYhgeHSo+m9346FQ==}
+    engines: {node: '>= 14'}
 
   '@sentry/nextjs@9.30.0':
     resolution: {integrity: sha512-9Ouf0Tng1HAPeYPaT9xUSj6jt/qV+h9/6Vf2yzIEGR4j1FbP5wdccGMs8LRdkp9msqEwv2ERnU////zHL1fpyA==}
@@ -9804,6 +9811,15 @@ snapshots:
       - supports-color
 
   '@sentry/core@9.30.0': {}
+
+  '@sentry/esbuild-plugin@3.5.0':
+    dependencies:
+      '@sentry/bundler-plugin-core': 3.5.0
+      unplugin: 1.0.1
+      uuid: 9.0.1
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
 
   '@sentry/nextjs@9.30.0(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(next@15.3.3(@babel/core@7.27.4)(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@19.0.0-beta-ebf51a3-20250411)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.99.9(esbuild@0.19.12))':
     dependencies:

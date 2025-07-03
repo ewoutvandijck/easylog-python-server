@@ -1,23 +1,48 @@
+import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
+import { esbuildPlugin } from '@trigger.dev/build/extensions';
 import { syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
-import { defineConfig } from '@trigger.dev/sdk/v3';
+import { defineConfig } from '@trigger.dev/sdk';
+
+if (!process.env.SENTRY_AUTH_TOKEN) {
+  console.warn('SENTRY_AUTH_TOKEN not set, no source maps will be uploaded');
+}
+
+export const machineConfig = {
+  default: 'small-1x',
+  casafariInsert: 'medium-1x'
+} as const;
 
 export default defineConfig({
   project: 'proj_pggrqndlxlqrizkrcfbx',
   build: {
-    extensions: [syncVercelEnvVars()],
-    external: ['sharp', 'pg']
+    extensions: [
+      syncVercelEnvVars(),
+      esbuildPlugin(
+        sentryEsbuildPlugin({
+          org: 'byont-ventures',
+          project: 'easylog-ai-chat',
+          authToken: process.env.SENTRY_AUTH_TOKEN
+        }),
+        { placement: 'last', target: 'deploy' }
+      )
+    ],
+    external: ['sharp']
   },
   logLevel: 'log',
   runtime: 'node',
-  maxDuration: 3600,
+  machine: machineConfig.default,
+  // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
+  // You can override this on an individual task.
+  // See https://trigger.dev/docs/runs/max-duration
+  maxDuration: 5 * 60 * 60,
   retries: {
-    enabledInDev: false,
+    enabledInDev: true,
     default: {
-      maxAttempts: 3,
-      minTimeoutInMs: 1000,
-      maxTimeoutInMs: 10000,
-      factor: 2,
-      randomize: true
+      maxAttempts: 5,
+      factor: 1.8,
+      minTimeoutInMs: 500,
+      maxTimeoutInMs: 30_000,
+      randomize: false
     }
   },
   dirs: ['./src/jobs']
