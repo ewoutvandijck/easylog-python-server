@@ -2,12 +2,21 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { upload } from '@vercel/blob/client';
+import { DropzoneOptions } from 'react-dropzone';
 import { toast } from 'sonner';
 
 import UploadDropzone from '@/app/_ui/components/UploadDropzone/UploadDropzone';
 import useTRPC from '@/lib/trpc/browser';
 
-const DocumentsDropzone = ({ children }: React.PropsWithChildren) => {
+interface DocumentsDropzoneProps extends DropzoneOptions {
+  onUploadSuccess?: () => void;
+}
+
+const DocumentsDropzone = ({
+  children,
+  onUploadSuccess,
+  ...props
+}: React.PropsWithChildren<DocumentsDropzoneProps>) => {
   const queryClient = useQueryClient();
   const api = useTRPC();
 
@@ -30,11 +39,14 @@ const DocumentsDropzone = ({ children }: React.PropsWithChildren) => {
       });
 
       toast.success('Files uploaded');
+
+      onUploadSuccess?.();
     }
   });
 
   return (
     <UploadDropzone
+      {...props}
       onDropRejected={(fileRejections) => {
         fileRejections.forEach((fileRejection) => {
           toast.error(

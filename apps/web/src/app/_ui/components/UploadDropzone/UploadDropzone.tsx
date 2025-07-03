@@ -9,7 +9,7 @@ export const uploadDropzoneStyles = tv({
     root: 'relative size-full',
     overlay: 'transition-opacity duration-300',
     dropIndicator:
-      'fixed left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2',
+      'absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2',
     dropIndicatorContent:
       'border-border-focus bg-surface-primary flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-8 shadow-lg',
     dropIndicatorText: 'text-text-primary text-xl font-medium',

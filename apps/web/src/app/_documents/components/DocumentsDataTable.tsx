@@ -5,7 +5,6 @@ import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
 import DataTable from '@/app/_ui/components/DataTable/DataTable';
 import useTRPC from '@/lib/trpc/browser';
 
-import DocumentsDropzone from './DocumentsDropzone';
 import { documentsTableColumns } from '../table-columns/DocumentsTableColumns';
 
 const DocumentsDataTable = () => {
@@ -36,11 +35,7 @@ const DocumentsDataTable = () => {
 
   const documents = documentData.pages.flatMap((page) => page.data) ?? [];
 
-  return (
-    <DocumentsDropzone>
-      <DataTable columns={documentsTableColumns} data={documents} />
-    </DocumentsDropzone>
-  );
+  return <DataTable columns={documentsTableColumns} data={documents} />;
 };
 
 export default DocumentsDataTable;
