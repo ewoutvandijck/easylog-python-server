@@ -443,7 +443,12 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 ]
 
             return [
-                {"created_at": step.created_at.isoformat(), "value": step.value}
+                {
+                    "created_at": step.created_at.isoformat(),
+                    "date_from": step.date_from.isoformat(),
+                    "date_to": step.date_to.isoformat(),
+                    "value": step.value,
+                }
                 for step in steps_data
             ]
 
