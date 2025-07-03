@@ -377,6 +377,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             if user is None:
                 raise ValueError("User not found")
 
+            print("Retrieving steps data for user", user.id)
             date_from = (
                 datetime.fromisoformat(date_from)
                 if isinstance(date_from, str)
@@ -390,15 +391,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 where=health_data_pointsWhereInput(
                     user_id=user.id,
                     type=health_data_point_type.steps,
-                    created_at={
+                    date_from={
                         "gte": date_from,
+                    },
+                    date_to={
                         "lte": date_to,
                     },
                 ),
-                order={
-                    "created_at": "asc"
-                },  # Order by created_at for proper aggregation
+                order={"created_at": "asc"},
             )
+
+            print("No steps data found for user between", date_from, "and", date_to)
 
             if not steps_data:
                 return []
@@ -409,12 +412,13 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 rows: list[dict[str, Any]] = await prisma.query_raw(
                     f"""
                     SELECT
-                        date_trunc('{trunc_unit}', created_at) AS bucket,
+                        date_trunc('{trunc_unit}', date_from) AS bucket,
                         SUM(value)::int                     AS total
                     FROM health_data_points
                     WHERE user_id = $1::uuid
                         AND type     = 'steps'
-                        AND created_at BETWEEN $2::timestamp AND $3::timestamp
+                        AND date_from >= $2::timestamp
+                        AND date_to   <= $3::timestamp
                     GROUP BY bucket
                     ORDER BY bucket
                     """,
