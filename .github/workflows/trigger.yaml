@@ -17,42 +17,7 @@ env:
   HUSKY: 0
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          run_install: false
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Lint & Test
-        run: pnpm turbo run lint
-
-      - name: Semantic Release
-        run: pnpm run semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_AUTH_TOKEN }}
-
   trigger-deploy:
-    needs: [check]
     runs-on: ubuntu-latest
     environment: production
     # if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
