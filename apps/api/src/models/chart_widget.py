@@ -257,10 +257,10 @@ class ChartWidget(BaseModel):
             current_y = zlm_row.y_current
             current_color_role: str
             
-            # current_y is already a Flutter Y-value (0-10 scale) from tool_create_zlm_balloon_chart
-            # No need to divide by 10 again - it's already been converted!
+            # current_y is now a Flutter Y-value (0-10 scale) from tool_create_zlm_balloon_chart
+            # Convert back to percentage for color mapping logic
             # Higher Y-value = better health (green), lower Y-value = worse health (red)
-            flutter_y_current = zlm_row.y_current  # Already on 0-10 scale
+            flutter_y_current = zlm_row.y_current / 10.0  # 0-100% → 0-10 scale
             
             # Official ZLM COPD color mapping based on Flutter Y-values (0-10 scale)
             # CORRECTED: Official ZLM ranges are 80-100% Green, 40-80% Orange, 0-40% Red
@@ -271,7 +271,7 @@ class ChartWidget(BaseModel):
             else:  # flutter_y_current < 4.0 (equivalent to <40% balloon height)
                 current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]  # Pastel Red/Pink
 
-            # Use tooltip_score if available, otherwise fallback to original score for tooltip display
+            # Use tooltip_score if available, otherwise fallback to y_current for tooltip display
             tooltip_value = zlm_row.tooltip_score if zlm_row.tooltip_score is not None else current_y
 
             processed_data_rows.append(
@@ -279,7 +279,7 @@ class ChartWidget(BaseModel):
                     x_value=zlm_row.x_value,
                     y_values={
                         y_current_key: ChartDataPointValue(
-                            value=current_y,  # Use Y-position for balloon height
+                            value=tooltip_value,  # Show original 0-6 score in tooltip
                             color=current_color_role,
                         )
                     },
@@ -290,15 +290,14 @@ class ChartWidget(BaseModel):
             if zlm_row.y_old is not None:
                 old_y = zlm_row.y_old
                 old_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]  # Pastel Gray for previous scores
-                has_old_values = True
                 
-                # Use tooltip_old_score if available, otherwise fallback to original score for tooltip display
+                # Use tooltip_old_score if available, otherwise fallback to y_old for tooltip display
                 old_tooltip_value = zlm_row.tooltip_old_score if zlm_row.tooltip_old_score is not None else old_y
                 
                 # Find the existing row and add the old value
                 existing_row = processed_data_rows[-1]  # Just added row
                 existing_row.y_values[y_old_key] = ChartDataPointValue(
-                    value=old_y,  # Use Y-position for balloon height
+                    value=old_tooltip_value,  # Show original 0-6 score in tooltip
                     color=old_color_role,
                 )
 
