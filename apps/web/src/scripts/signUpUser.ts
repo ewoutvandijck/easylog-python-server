@@ -16,5 +16,5 @@ const signUpUser = async () => {
 };
 
 void signUpUser().then(() => {
-  console.log('User signed up');
+  console.log('User signed up 2');
 });
