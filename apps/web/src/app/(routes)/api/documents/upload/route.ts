@@ -28,7 +28,7 @@ export async function POST(request: Request) {
           .insert(documents)
           .values({
             name: pathname.split('/').pop() ?? 'unknown',
-            type: 'pdf',
+            type: 'unknown',
             status: 'pending',
             userId: user.id
           })
