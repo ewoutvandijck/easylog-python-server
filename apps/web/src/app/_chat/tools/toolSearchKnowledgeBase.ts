@@ -132,7 +132,9 @@ const getToolSearchKnowledgeBase = (
                 },
                 {
                   role: 'user',
-                  content: `User query: ${userSearchQuery}\nSearch result name: ${dbDocument.name}\nSearch result: ${dbDocument.content}`
+                  content: `User query: ${userSearchQuery}\nSearch result name: ${dbDocument.name}\nSearch result: ${JSON.stringify(
+                    dbDocument.content
+                  )}`
                 }
               ]
             });
