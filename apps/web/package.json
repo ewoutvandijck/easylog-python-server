@@ -90,6 +90,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
     "weaviate-client": "^3.5.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.25.64"
   },
   "devDependencies": {

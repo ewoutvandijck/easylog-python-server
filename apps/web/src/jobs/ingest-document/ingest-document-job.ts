@@ -12,6 +12,7 @@ import openrouterProvider from '@/lib/ai-providers/openrouter';
 import serverConfig from '@/server.config';
 
 import { processPdfJob } from './converters/process-pdf-job';
+import { processXlsxJob } from './converters/process-xlsx-job';
 
 export const ingestDocumentJob = schemaTask({
   id: 'ingest-document',
@@ -35,8 +36,13 @@ export const ingestDocumentJob = schemaTask({
 
     const contentType = headResponse.contentType;
 
-    if (contentType !== 'application/pdf') {
-      throw new AbortTaskRunError('Unsupported content type');
+    const supportedContentTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (!supportedContentTypes.includes(contentType)) {
+      throw new AbortTaskRunError(`Unsupported content type ${contentType}`);
     }
 
     logger.info('Processing document', {
@@ -45,10 +51,15 @@ export const ingestDocumentJob = schemaTask({
       contentType
     });
 
-    const processingResult = await processPdfJob.triggerAndWait({
-      downloadUrl: headResponse.downloadUrl,
-      basePath: path.dirname(dbDocument.path)
-    });
+    const processingResult =
+      contentType === 'application/pdf'
+        ? await processPdfJob.triggerAndWait({
+            downloadUrl: headResponse.downloadUrl,
+            basePath: path.dirname(dbDocument.path)
+          })
+        : await processXlsxJob.triggerAndWait({
+            downloadUrl: headResponse.downloadUrl
+          });
 
     if (!processingResult.ok) {
       throw new AbortTaskRunError('Failed to process document');
@@ -88,12 +99,7 @@ export const ingestDocumentJob = schemaTask({
         type: 'pdf',
         summary,
         tags,
-        content: {
-          pages: processingResult.output.map((page) => ({
-            pageNumber: page.pageNumber,
-            markdown: page.markdown
-          }))
-        }
+        content: processingResult.output
       })
       .where(eq(documents.id, documentId))
       .returning();

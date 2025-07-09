@@ -58,7 +58,10 @@ const DocumentsDropzone = ({
       maxFiles={50}
       maxSize={50000000} // 50mb
       accept={{
-        'application/pdf': ['.pdf']
+        'application/pdf': ['.pdf'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+          '.xlsx'
+        ]
       }}
       onDrop={async (acceptedFiles) => {
         if (acceptedFiles.length === 0) {
