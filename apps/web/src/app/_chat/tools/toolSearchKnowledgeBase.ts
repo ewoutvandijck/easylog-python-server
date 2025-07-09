@@ -9,8 +9,6 @@ import splitArrayBatches from '@/utils/split-array-batches';
 const getToolSearchKnowledgeBase = (
   messageStreamWriter: UIMessageStreamWriter
 ) => {
-  console.log('🔍 [toolSearchKnowledgeBase] Tool function created');
-
   return tool({
     description: 'Search the knowledge base for information',
     inputSchema: z.object({
@@ -18,8 +16,6 @@ const getToolSearchKnowledgeBase = (
     }),
     execute: async ({ userSearchQuery }) => {
       const id = uuidv4();
-
-      console.log(userSearchQuery);
 
       messageStreamWriter.write({
         type: 'data-document-search',
@@ -43,7 +39,7 @@ const getToolSearchKnowledgeBase = (
       const {
         object: { documents }
       } = await generateObject({
-        model: openrouterProvider('google/gemini-2.5-pro-preview'),
+        model: openrouterProvider('google/gemini-2.5-flash'),
         prompt: `You are a document search assistant. Analyze the user's question and the available documents to identify which documents are most relevant to answering their query.
 
         User Question: "${userSearchQuery}"
@@ -120,7 +116,7 @@ const getToolSearchKnowledgeBase = (
             });
 
             const { text } = await generateText({
-              model: openrouterProvider('google/gemini-2.5-pro-preview'),
+              model: openrouterProvider('google/gemini-2.5-flash'),
               messages: [
                 {
                   role: 'system',
