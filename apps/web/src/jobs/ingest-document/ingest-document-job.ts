@@ -96,7 +96,7 @@ export const ingestDocumentJob = schemaTask({
     const [document] = await db
       .update(documents)
       .set({
-        type: 'pdf',
+        type: contentType === 'application/pdf' ? 'pdf' : 'xlsx',
         summary,
         tags,
         content: processingResult.output

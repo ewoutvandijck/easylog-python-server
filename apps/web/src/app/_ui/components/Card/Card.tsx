@@ -12,7 +12,7 @@ export const cardStyles = tv({
     },
     variant: {
       ghost: null,
-      outline: 'border border-b-2'
+      outline: 'border'
     },
     shadow: {
       none: null,

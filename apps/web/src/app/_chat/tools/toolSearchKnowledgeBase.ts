@@ -6,7 +6,12 @@ import db from '@/database/client';
 import openrouterProvider from '@/lib/ai-providers/openrouter';
 import splitArrayBatches from '@/utils/split-array-batches';
 
+interface ToolSearchKnowledgeBaseProps {
+  userId: string;
+}
+
 const getToolSearchKnowledgeBase = (
+  { userId }: ToolSearchKnowledgeBaseProps,
   messageStreamWriter: UIMessageStreamWriter
 ) => {
   return tool({
@@ -33,6 +38,9 @@ const getToolSearchKnowledgeBase = (
           name: true,
           summary: true,
           tags: true
+        },
+        where: {
+          userId
         }
       });
 

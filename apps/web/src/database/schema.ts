@@ -19,7 +19,8 @@ export const timestamps = {
 
 export const documentTypeEnum = pgEnum('document_type_enum', [
   'unknown',
-  'pdf'
+  'pdf',
+  'xlsx'
 ]);
 
 export const documentStatusEnum = pgEnum('document_status_enum', [
@@ -113,5 +114,8 @@ export const documents = pgTable('documents', {
   tags: text('tags').array().notNull().default([]),
   content: jsonb('content'),
   status: documentStatusEnum('status').notNull().default('pending'),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
   ...timestamps
 });

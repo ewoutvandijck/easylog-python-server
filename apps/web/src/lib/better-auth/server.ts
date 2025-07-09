@@ -10,6 +10,9 @@ import serverConfig from '@/server.config';
 const authServerClient = betterAuth({
   baseURL: serverConfig.appUrl.toString(),
   secret: serverConfig.betterAuthSecret,
+  emailAndPassword: {
+    enabled: true
+  },
   plugins: [
     nextCookies(),
     genericOAuth({

@@ -29,7 +29,8 @@ export async function POST(request: Request) {
           .values({
             name: pathname.split('/').pop() ?? 'unknown',
             type: 'pdf',
-            status: 'pending'
+            status: 'pending',
+            userId: user.id
           })
           .returning();
 

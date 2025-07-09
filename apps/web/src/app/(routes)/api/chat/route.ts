@@ -210,7 +210,12 @@ Always respond in the language used by the user in their message. If the user's 
           createMultipleAllocations: toolCreateMultipleAllocations(user.id),
           deleteAllocation: toolDeleteAllocation(user.id),
           executeSql: toolExecuteSQL(),
-          searchKnowledgeBase: toolSearchKnowledgeBase(writer),
+          searchKnowledgeBase: toolSearchKnowledgeBase(
+            {
+              userId: user.id
+            },
+            writer
+          ),
           loadDocument: toolLoadDocument()
         }
       });

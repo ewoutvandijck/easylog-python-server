@@ -23,7 +23,7 @@ const SignInWithEasylog = () => {
       isDisabled={isPending}
     >
       <ButtonContent iconLeft={LogoIcon} isLoading={isPending}>
-        Inloggen met Apperto
+        Sign in with Apperto
       </ButtonContent>
     </Button>
   );
