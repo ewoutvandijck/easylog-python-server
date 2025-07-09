@@ -129,8 +129,6 @@ const getToolSearchKnowledgeBase = (
               ]
             });
 
-            console.log(text);
-
             relevantInformationObject.relevantInformation = text;
 
             messageStreamWriter.write({
@@ -155,8 +153,6 @@ const getToolSearchKnowledgeBase = (
             .join('\n')
         }
       });
-
-      console.log(relevantInformationObjects);
 
       return relevantInformationObjects;
     }
