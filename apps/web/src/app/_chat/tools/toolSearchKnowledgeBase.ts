@@ -119,7 +119,7 @@ const getToolSearchKnowledgeBase = (
               id,
               data: {
                 status: 'researching_document',
-                content: `Researching document ${dbDocument.name}`
+                content: `Researching ${dbDocument.name}: ${relevantInformationObject.reason}`
               }
             });
 
@@ -128,7 +128,7 @@ const getToolSearchKnowledgeBase = (
               messages: [
                 {
                   role: 'system',
-                  content: `You are an expert information extractor. Given a user query and a search result, extract all pieces of information that are relevant to answering the user's query. Return only the relevant information from the document as plain text without commentary. If you don't find any relevant information, return an empty string.`
+                  content: `You are an expert information extractor. Given a user query and a search result, extract all pieces of information that are relevant to answering the user's query. Return only the relevant information from the document as plain text without commentary. It must be human readable. If you don't find any relevant information, return an empty string.`
                 },
                 {
                   role: 'user',
@@ -158,7 +158,7 @@ const getToolSearchKnowledgeBase = (
           status: 'document_research_complete',
           content: relevantInformationObjects
             .map((d) => d.relevantInformation)
-            .join('\n')
+            .join('\n-')
         }
       });
 
