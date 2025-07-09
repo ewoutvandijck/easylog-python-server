@@ -15,4 +15,6 @@ const signUpUser = async () => {
   console.log(data);
 };
 
-void signUpUser();
+void signUpUser().then(() => {
+  console.log('User signed up 2');
+});
