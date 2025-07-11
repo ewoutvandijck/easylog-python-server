@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -15,6 +16,7 @@ const toolExecuteSQL = () => {
       );
 
       if (importError) {
+        Sentry.captureException(importError);
         return `Error importing Easylog database: ${importError.message}`;
       }
 
