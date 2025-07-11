@@ -17,6 +17,7 @@ const toolExecuteSQL = () => {
 
       if (importError) {
         Sentry.captureException(importError);
+        console.error(importError);
         return `Error importing Easylog database: ${importError.message}`;
       }
 
