@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/nextjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import easylogDb from '@/lib/easylog/db';
 import tryCatch from '@/utils/try-catch';
 
 const toolExecuteSQL = () => {
@@ -11,21 +12,11 @@ const toolExecuteSQL = () => {
       query: z.string()
     }),
     execute: async (query) => {
-      const [importData, importError] = await tryCatch(
-        import('@/lib/easylog/db')
-      );
-
-      if (importError) {
-        Sentry.captureException(importError);
-        console.error(importError);
-        return `Error importing Easylog database: ${importError.message}`;
-      }
-
-      const { default: easylogDb } = importData;
-
       const [result, error] = await tryCatch(easylogDb.execute(query.query));
 
       if (error) {
+        Sentry.captureException(error);
+        console.error(error);
         return `Error executing SQL query: ${error.message}`;
       }
 
