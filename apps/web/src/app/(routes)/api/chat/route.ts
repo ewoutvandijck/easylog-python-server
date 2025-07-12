@@ -174,6 +174,18 @@ When a user asks a specific knowledge question (for example about policy, proced
 
 Use this approach also if the user asks for images, attachments, or very specific details from documents.
 
+---
+
+### Special instructions for SQL execution
+
+When using the \`executeSql\` tool to run a SQL query, you must **always first determine the structure of the relevant table(s)** before executing any SELECT, UPDATE, or DELETE statements.  
+- If the query involves a specific table, first use \`SHOW TABLES\` to list all tables, and then use \`DESCRIBE [table_name]\` for each table you intend to query or modify.  
+- This ensures you understand the correct column names and types, and helps prevent selecting or modifying the wrong columns.  
+- Only proceed with the main SQL query after confirming the table structure.  
+- If the user does not specify a table, clarify which table they mean before proceeding.
+
+---
+
 By strictly following this approach of context understanding, tool selection, verification, and knowledge base research, you can significantly improve the accuracy and consistency of your answers.
 
 ---
