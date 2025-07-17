@@ -4,7 +4,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 import pytz
@@ -14,6 +14,8 @@ from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from PIL import Image, ImageOps
+from prisma.enums import health_data_point_type
+from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
@@ -601,6 +603,119 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
             return "Notification sent"
 
+        # Step counter tools
+        async def tool_get_date_time() -> str:
+            """Get the current date and time in ISO 8601 format YYYY-MM-DD HH:MM:SS."""
+            return datetime.now().isoformat()
+
+        async def tool_get_steps_data(
+            date_from: str | datetime,
+            date_to: str | datetime,
+            aggregation: Literal["hour", "day", None] | None = None,
+        ) -> list[dict[str, Any]]:
+            """Get the steps data for a user with optional aggregation.
+            Make sure to use the tool_get_date_time tool to get the actual current date and time.
+
+            Args:
+                date_from (str | datetime): The start date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
+                date_to   (str | datetime): The end date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
+                aggregation (Literal["hour", "day", None], optional):
+                    - "hour":   Return total steps per **hour** within range.
+                    - "day":    Return total steps per **day** within range.
+                    - None (default): Return raw, un-aggregated datapoints.
+
+            Returns:
+                list[dict[str, Any]]: Depending on aggregation level:
+                    - Raw points:   [{"created_at": "...", "value": 123}, ...]
+                    - Per hour:     [{"bucket": "YYYY-MM-DD HH:00:00", "value": 456}, ...]
+                    - Per day:      [{"bucket": "YYYY-MM-DD", "value": 789}, ...]
+            """
+            external_user_id = self.request_headers.get("x-onesignal-external-user-id")
+
+            if external_user_id is None:
+                raise ValueError("User ID not provided and not found in agent context.")
+
+            user = await prisma.users.find_first(
+                where=usersWhereInput(external_id=external_user_id)
+            )
+            if user is None:
+                raise ValueError("User not found")
+
+            print("Retrieving steps data for user", user.id)
+            date_from = (
+                datetime.fromisoformat(date_from)
+                if isinstance(date_from, str)
+                else date_from
+            )
+            date_to = (
+                datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+            )
+
+            # If both inputs refer to the same calendar date and no explicit time was
+            # provided (i.e. they are at midnight), extend `date_to` to the end of that day
+            if (
+                date_from.date() == date_to.date()
+                and date_from.time() == datetime.min.time()
+                and date_to.time() == datetime.min.time()
+            ):
+                date_to = date_to.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
+
+            steps_data = await prisma.health_data_points.find_many(
+                where=health_data_pointsWhereInput(
+                    user_id=user.id,
+                    type=health_data_point_type.steps,
+                    date_from={
+                        "gte": date_from,
+                    },
+                    date_to={
+                        "lte": date_to,
+                    },
+                ),
+                order={"created_at": "asc"},
+            )
+
+            print("No steps data found for user between", date_from, "and", date_to)
+
+            if not steps_data:
+                return []
+
+            if aggregation in {"hour", "day"}:
+                trunc_unit = aggregation
+
+                rows: list[dict[str, Any]] = await prisma.query_raw(
+                    f"""
+                    SELECT
+                        date_trunc('{trunc_unit}', date_from) AS bucket,
+                        SUM(value)::int                     AS total
+                    FROM health_data_points
+                    WHERE user_id = $1::uuid
+                        AND type     = 'steps'
+                        AND date_from >= $2::timestamp
+                        AND date_to   <= $3::timestamp
+                    GROUP BY bucket
+                    ORDER BY bucket
+                    """,
+                    user.id,
+                    date_from,
+                    date_to,
+                )
+
+                return [
+                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
+                ]
+
+            return [
+                {
+                    "created_at": step.created_at.isoformat(),
+                    "date_from": step.date_from.isoformat(),
+                    "date_to": step.date_to.isoformat(),
+                    "value": step.value,
+                }
+                for step in steps_data
+            ]
+
         # Assemble and return the complete tool list
         tools_list = [
             # EasyLog-specific tools
@@ -631,6 +746,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             tool_get_memory,
             # Notification tool
             tool_send_notification,
+            # Step counter tools
+            tool_get_date_time,
+            tool_get_steps_data,
             # System tools
             BaseTools.tool_noop,
             BaseTools.tool_call_super_agent,
