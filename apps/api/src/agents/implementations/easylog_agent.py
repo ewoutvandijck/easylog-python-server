@@ -26,6 +26,7 @@ from src.lib.prisma import prisma
 from src.models.chart_widget import (
     ChartWidget,
     Line,
+    ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -379,6 +380,59 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 y_axis_domain_max=y_axis_domain_max,
             )
 
+        def tool_create_zlm_chart(
+            language: Literal["nl", "en"],
+            data: list[ZLMDataRow],
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using a predefined ZLM color scheme.
+            The chart visualizes scores, expecting values in the 0-10 range. Where 0 is bad and 10 is the best
+            The y-axis label is derived from the `y_label` field of the first data item.
+
+            Args:
+                language: The language for chart title and description ('nl' or 'en').
+                data: A list of `ZLMDataRow` objects for the chart. Each item represents a
+                      category on the x-axis and its corresponding scores.
+                      - `x_value` (str): The name of the category (e.g., "Algemeen").
+                      - `y_current` (float): The current score (0-10).
+                      - `y_old` (float | None): Optional. The previous score the patient had (0-10).
+                      - `y_label` (str): The label for the y-axis, typically including units
+                                         (e.g., "Score (0-10)"). This is used for the overall
+                                         Y-axis label of the chart.
+
+            Returns:
+                A ChartWidget object configured as a balloon chart.
+
+            Raises:
+                ValueError: If the `data` list is empty.
+
+            Example:
+                ```python
+                # Assuming ZLMDataRow is imported from src.models.chart_widget
+                data = [
+                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-10)"),
+                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-10)"),
+                    ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
+                ]
+                chart_widget = tool_create_zlm_chart(language="nl", data=data)
+                ```
+            """
+            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
+
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+
+            # Check that data list is at least 1 or more,.
+            if len(data) < 1:
+                raise ValueError("Data list must be at least 1 or more.")
+
+            # Convert dictionaries to ZLMDataRow objects if needed
+            return ChartWidget.create_balloon_chart(
+                title=title,
+                description=description,
+                data=data,
+            )
+
         # Interaction tools
         def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
@@ -635,21 +689,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if external_user_id is None:
                 raise ValueError("User ID not provided and not found in agent context.")
 
-            user = await prisma.users.find_first(
-                where=usersWhereInput(external_id=external_user_id)
-            )
+            user = await prisma.users.find_first(where=usersWhereInput(external_id=external_user_id))
             if user is None:
                 raise ValueError("User not found")
 
             print("Retrieving steps data for user", user.id)
-            date_from = (
-                datetime.fromisoformat(date_from)
-                if isinstance(date_from, str)
-                else date_from
-            )
-            date_to = (
-                datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
-            )
+            date_from = datetime.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+            date_to = datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
 
             # If both inputs refer to the same calendar date and no explicit time was
             # provided (i.e. they are at midnight), extend `date_to` to the end of that day
@@ -658,9 +704,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 and date_from.time() == datetime.min.time()
                 and date_to.time() == datetime.min.time()
             ):
-                date_to = date_to.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
 
             steps_data = await prisma.health_data_points.find_many(
                 where=health_data_pointsWhereInput(
@@ -702,9 +746,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     date_to,
                 )
 
-                return [
-                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
-                ]
+                return [{"created_at": row["bucket"], "value": row["total"]} for row in rows]
 
             return [
                 {
@@ -732,6 +774,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Visualization tools
             tool_create_bar_chart,
             tool_create_line_chart,
+            tool_create_zlm_chart,
             # Interaction tools
             tool_ask_multiple_choice,
             # Image tools

@@ -5,24 +5,24 @@ from pydantic import BaseModel, Field
 # Semantic roles for individual data points
 ColorRole = Literal["success", "warning", "neutral", "info", "primary", "accent", "muted"]
 DEFAULT_COLOR_ROLE_MAP: dict[str, str] = {
-    "success": "#e8f5e8",  # Very Light Pastel Green
-    "neutral": "#f0f8ff",  # Very Light Pastel Blue  
-    "warning": "#ffe4e1",  # Very Light Pastel Pink/Red
-    "info": "#fffef0",     # Very Light Pastel Yellow
-    "primary": "#f5f0ff",  # Very Light Pastel Purple
-    "accent": "#f0ffff",   # Very Light Pastel Cyan
-    "muted": "#f8f8f8",    # Very Light Gray
+    "success": "#b2f2bb",  # Pastel Green
+    "neutral": "#a1c9f4",  # Pastel Blue
+    "warning": "#ffb3ba",  # Pastel Red
+    "info": "#FFFACD",  # LemonChiffon (Pastel Yellow for informational points)
+    "primary": "#DDA0DD",  # Plum (Pastel Purple for primary emphasis)
+    "accent": "#B0E0E6",  # PowderBlue (Pastel Cyan/Blue for secondary emphasis)
+    "muted": "#D3D3D3",  # LightGray (For de-emphasized points)
 }
 
 # Predefined palette for default series colors (used for legends and when colorRole is null)
 # Ensure this palette has enough variety or a good fallback strategy.
 DEFAULT_SERIES_COLORS_PALETTE: list[str] = [
-    "#f0f8ff",  # Very Light Pastel Blue
-    "#fff4e6",  # Very Light Pastel Orange
-    "#f0fff0",  # Very Light Pastel Mint
-    "#f5f0ff",  # Very Light Pastel Purple
-    "#ffe4e1",  # Very Light Pastel Pink
-    "#f0ffff",  # Very Light Pastel Cyan
+    "#a1c9f4",  # Pastel Blue
+    "#ffdaaf",  # Pastel Orange
+    "#c1e1c1",  # Pastel Teal/Mint
+    "#d5a6bd",  # Pastel Purple
+    "#ffb3ba",  # Pastel Pink
+    "#b3dee2",  # Pastel Cyan
 ]
 # Fallback color if the palette is exhausted or for unexpected scenarios
 DEFAULT_FALLBACK_COLOR = "#343a40"  # Dark Gray
@@ -40,8 +40,6 @@ class ZLMDataRow(BaseModel):
     y_old: float | None = Field(default=None, description="The old value for this row.")
     y_current: float = Field(..., description="The current value for this row.")
     y_label: str = Field(..., description="The label for the y-axis.")
-    tooltip_score: float | None = Field(default=None, description="The original 0-6 score to display in tooltip.")
-    tooltip_old_score: float | None = Field(default=None, description="The original 0-6 old score to display in tooltip.")
 
 
 class ChartDataPointValue(BaseModel):
@@ -201,7 +199,7 @@ class ChartWidget(BaseModel):
         Create a balloon chart for ZLM COPD data.
         Colors are based on ZLM COPD score ranges (0-6):
         - Green (80-100%): scores typically 0-1 (low burden)
-        - Orange (60-80%): scores typically 1-2 (moderate burden)  
+        - Orange (60-80%): scores typically 1-2 (moderate burden)
         - Red (0-40%): scores typically >2 (high burden)
         - Old values: muted gray
 
@@ -211,12 +209,12 @@ class ChartWidget(BaseModel):
                   Dictionaries are automatically converted to ZLMDataRow objects.
                   Scores must be in the 0-6 range as per ZLM COPD guidelines.
         """
-        # ZLM COPD official color role map - Very Light Pastel version
+        # ZLM COPD official color role map - Pastel version
         ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
-            "success": "#e8f5e8",  # Very Light Pastel Green - RGB(232, 245, 232) - Low burden, good health
-            "neutral": "#fff4e6",  # Very Light Pastel Orange - RGB(255, 244, 230) - Moderate burden
-            "warning": "#ffe4e1",  # Very Light Pastel Pink - RGB(255, 228, 225) - High burden, poor health
-            "old": "#f0f0f0",      # Very Light Gray - RGB(240, 240, 240) - Previous scores
+            "success": "#a8e6a3",  # Pastel Green - RGB(168, 230, 163) - Low burden, good health
+            "neutral": "#ffd6a5",  # Pastel Orange - RGB(255, 214, 165) - Moderate burden
+            "warning": "#ffb3ba",  # Pastel Red/Pink - RGB(255, 179, 186) - High burden, poor health
+            "old": "#d0d0d0",  # Light Gray - RGB(208, 208, 208) - Previous scores
         }
 
         # Define Literal constants for dictionary keys derived from ZLMDataRow field names
@@ -241,8 +239,6 @@ class ChartWidget(BaseModel):
                         y_current=item["y_current"],
                         y_old=item.get("y_old"),
                         y_label=item["y_label"],
-                        tooltip_score=item.get("tooltip_score"),
-                        tooltip_old_score=item.get("tooltip_old_score"),
                     )
                 )
         else:
@@ -256,30 +252,29 @@ class ChartWidget(BaseModel):
         for zlm_row in zlm_data_rows:
             current_y = zlm_row.y_current
             current_color_role: str
-            
+
             # current_y is now a Flutter Y-value (0-10 scale) from tool_create_zlm_balloon_chart
             # Convert back to percentage for color mapping logic
             # Higher Y-value = better health (green), lower Y-value = worse health (red)
-            flutter_y_current = zlm_row.y_current / 10.0  # 0-100% → 0-10 scale
-            
-            # Official ZLM COPD color mapping based on Flutter Y-values (0-10 scale)
-            # CORRECTED: Official ZLM ranges are 80-100% Green, 40-80% Orange, 0-40% Red
-            if flutter_y_current >= 8.0:  # Equivalent to 80%+ balloon height
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["success"]  # Pastel Green
-            elif flutter_y_current >= 4.0:  # Equivalent to 40%+ balloon height  
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
-            else:  # flutter_y_current < 4.0 (equivalent to <40% balloon height)
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]  # Pastel Red/Pink
+            flutter_y_value = current_y  # 0-10 scale value
 
-            # Use tooltip_score if available, otherwise fallback to y_current for tooltip display
-            tooltip_value = zlm_row.tooltip_score if zlm_row.tooltip_score is not None else current_y
+            # Official ZLM COPD color mapping based on Flutter Y-values (0-10 scale)
+            # Map to original balloon height logic: 8-10 = Green, 6-8 = Orange, 3.5-6 = Orange, 0-3.5 = Red
+            if flutter_y_value >= 8.0:  # Equivalent to 80%+ balloon height
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["success"]  # Pastel Green
+            elif flutter_y_value >= 6.0:  # Equivalent to 60%+ balloon height
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
+            elif flutter_y_value >= 3.5:  # Equivalent to 35%+ balloon height
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
+            else:  # flutter_y_value < 3.5 (equivalent to <35% balloon height)
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]  # Pastel Red/Pink
 
             processed_data_rows.append(
                 ChartDataRow(
                     x_value=zlm_row.x_value,
                     y_values={
                         y_current_key: ChartDataPointValue(
-                            value=tooltip_value,  # Show original 0-6 score in tooltip
+                            value=current_y,
                             color=current_color_role,
                         )
                     },
@@ -290,14 +285,11 @@ class ChartWidget(BaseModel):
             if zlm_row.y_old is not None:
                 old_y = zlm_row.y_old
                 old_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]  # Pastel Gray for previous scores
-                
-                # Use tooltip_old_score if available, otherwise fallback to y_old for tooltip display
-                old_tooltip_value = zlm_row.tooltip_old_score if zlm_row.tooltip_old_score is not None else old_y
-                
+
                 # Find the existing row and add the old value
                 existing_row = processed_data_rows[-1]  # Just added row
                 existing_row.y_values[y_old_key] = ChartDataPointValue(
-                    value=old_tooltip_value,  # Show original 0-6 score in tooltip
+                    value=old_y,
                     color=old_color_role,
                 )
 
