@@ -402,7 +402,6 @@ class ChartWidget(BaseModel):
         data: list[dict[str, Any]],
         x_key: str,
         y_keys: list[str],
-        y_labels: list[str] | None = None,
         description: str | None = None,
         height: int = 400,
         horizontal_lines: list[Line] | None = None,
@@ -429,8 +428,7 @@ class ChartWidget(BaseModel):
             y_axis_domain_min: Optional. Sets the minimum value for the Y-axis scale.
             y_axis_domain_max: Optional. Sets the maximum value for the Y-axis scale.
         """
-        if y_labels is None:
-            y_labels = y_keys
+        y_labels = y_keys
 
         if len(y_keys) != len(y_labels):
             raise ValueError("y_keys and y_labels must have the same length")
@@ -462,47 +460,67 @@ class ChartWidget(BaseModel):
                 point_value_final: Any
                 point_color_hex_final: str
 
-                if y_key not in raw_item:  # Sparse data for this y_key
+                # If the current y_key is missing from the data point, treat it as None and
+                # colour the bar with the default series colour, matching the previous behaviour.
+                if y_key not in raw_item:
                     point_value_final = None
                     point_color_hex_final = series_default_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
-                else:
-                    value_container = raw_item[y_key]
-                    if not (
-                        isinstance(value_container, dict)
-                        and "value" in value_container
-                        and "colorRole" in value_container
-                    ):
-                        raise ValueError(
-                            f"""Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx})
-                            is not in the expected format:
-                            {{'value': ..., 'colorRole': ...}}. Received: {value_container}"""
-                        )
+                    current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
+                    # Skip further processing for this y_key
+                    continue
 
+                value_container = raw_item[y_key]
+
+                # Accept three possible shapes for the value container:
+                # 1. A *direct* numeric / string value (e.g. 123 or "123")
+                # 2. A dict with at least a 'value' key and **optional** 'colorRole' key
+                # 3. A dict with the legacy keys 'value' & 'color_role' (snake-case)
+
+                # Shape 1 ─ direct numeric / string value
+                if isinstance(value_container, (int, float, str)) or value_container is None:
+                    point_value_from_container = value_container
+                    role_from_data = None
+
+                # Shape 2 / 3 ─ dictionary based
+                elif isinstance(value_container, dict) and "value" in value_container:
                     point_value_from_container = value_container["value"]
-                    role_from_data: str | None = value_container["colorRole"]
+                    # Support both camelCase and snake_case for the role key and make it optional
+                    role_from_data = value_container.get("colorRole") or value_container.get("color_role")
 
-                    point_value_final = point_value_from_container
-                    if role_from_data is None:
-                        point_color_hex_final = series_default_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
-                    elif role_from_data in active_color_role_map:
-                        # If active_color_role_map is DEFAULT_COLOR_ROLE_MAP (dict[ColorRole, str]),
-                        # and role_from_data (str) is in its keys, then role_from_data is a valid ColorRole string.
-                        # Pylance might require a cast here if the active_map is strictly typed with ColorRole keys.
-                        if active_color_role_map is DEFAULT_COLOR_ROLE_MAP:
-                            point_color_hex_final = active_color_role_map[cast(ColorRole, role_from_data)]
-                        else:  # active_color_role_map is custom_color_role_map (dict[str, str])
-                            point_color_hex_final = active_color_role_map[role_from_data]
-                    else:
-                        # Behavior if role_from_data is not in active_color_role_map:
-                        # If a custom_map was provided but the role isn't in it, it's an issue.
-                        # If default_map was used and role isn't a defined ColorRole, it's an issue.
-                        raise ValueError(
-                            f"Invalid colorRole '{role_from_data}' for y_key '{y_key}' "
-                            f"in x_value '{current_x_value}' (index {raw_item_idx}). "
-                            f"It's not defined in the active color_role_map. "
-                            f"Available in default map: {list(DEFAULT_COLOR_ROLE_MAP.keys())}. "
-                            f"If using custom map, ensure role is defined there."
-                        )
+                # Anything else is invalid
+                else:
+                    raise ValueError(
+                        f"""Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) is not in an accepted format.\n"
+                        f"Expected either a number/None or a dict containing at least a 'value' key (optionally 'colorRole').\n"
+                        f"Received: {value_container}"""
+                    )
+
+                # Normalise role_from_data so that empty strings become None
+                if isinstance(role_from_data, str) and role_from_data.strip() == "":
+                    role_from_data = None
+
+                point_value_final = point_value_from_container
+                if role_from_data is None:
+                    point_color_hex_final = series_default_hex_colors.get(y_key, DEFAULT_FALLBACK_COLOR)
+                elif role_from_data in active_color_role_map:
+                    # If active_color_role_map is DEFAULT_COLOR_ROLE_MAP (dict[ColorRole, str]),
+                    # and role_from_data (str) is in its keys, then role_from_data is a valid ColorRole string.
+                    # Pylance might require a cast here if the active_map is strictly typed with ColorRole keys.
+                    if active_color_role_map is DEFAULT_COLOR_ROLE_MAP:
+                        point_color_hex_final = active_color_role_map[cast(ColorRole, role_from_data)]
+                    else:  # active_color_role_map is custom_color_role_map (dict[str, str])
+                        point_color_hex_final = active_color_role_map[role_from_data]
+                else:
+                    # Behavior if role_from_data is not in active_color_role_map:
+                    # If a custom_map was provided but the role isn't in it, it's an issue.
+                    # If default_map was used and role isn't a defined ColorRole, it's an issue.
+                    raise ValueError(
+                        f"Invalid colorRole '{role_from_data}' for y_key '{y_key}' "
+                        f"in x_value '{current_x_value}' (index {raw_item_idx}). "
+                        f"It's not defined in the active color_role_map. "
+                        f"Available in default map: {list(DEFAULT_COLOR_ROLE_MAP.keys())}. "
+                        f"If using custom map, ensure role is defined there."
+                    )
 
                 current_y_values[y_key] = ChartDataPointValue(value=point_value_final, color=point_color_hex_final)
 
@@ -554,8 +572,22 @@ class ChartWidget(BaseModel):
         Create a line chart. Data points for y_keys should be direct numerical values.
         `custom_series_colors_palette` affects line colors.
         """
+        # 1. Derive labels if none supplied
+        # 2. If a list is supplied but shorter/longer than y_keys, automatically
+        #    pad or trim it instead of throwing an error. This makes the API
+        #    tolerant to minor LLM mistakes while still allowing custom labels.
+
         if y_labels is None:
-            y_labels = y_keys
+            # Default labels: prettified y_keys ("sales_total" → "Sales Total")
+            y_labels = [yk.replace("_", " ").title() for yk in y_keys]
+        else:
+            # If fewer labels than keys, pad with the remaining key names.
+            if len(y_labels) < len(y_keys):
+                y_labels = y_labels + [yk.replace("_", " ").title() for yk in y_keys[len(y_labels) :]]
+
+            # If more labels than keys, truncate extras.
+            elif len(y_labels) > len(y_keys):
+                y_labels = y_labels[: len(y_keys)]
 
         if len(y_keys) != len(y_labels):
             raise ValueError("y_keys and y_labels must have the same length for line chart")
