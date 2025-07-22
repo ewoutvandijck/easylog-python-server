@@ -17,7 +17,6 @@ from PIL import Image, ImageOps
 from prisma.enums import health_data_point_type
 from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
@@ -101,7 +100,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(role_config for role_config in self.config.roles if role_config.name == role)
+        return next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
     def get_tools(self) -> dict[str, Callable]:
         # EasyLog-specific tools
@@ -165,7 +166,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 search_query, subjects=(await self.get_current_role()).allowed_subjects
             )
 
-            return "\n-".join([f"Path: {document.path} - Summary: {document.summary}" for document in result])
+            return "\n-".join(
+                [
+                    f"Path: {document.path} - Summary: {document.summary}"
+                    for document in result
+                ]
+            )
 
         async def tool_get_document_contents(path: str) -> str:
             """Retrieve the complete contents of a specific document from the knowledge database.
@@ -185,7 +191,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
             """Answer a question from the questionaire.
 
             Args:
@@ -261,8 +269,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             percentages are outside the 0-100 range, or colorRole is invalid.
             """
 
-            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
-            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+            title = (
+                "Resultaten ziektelastmeter COPD %"
+                if language == "nl"
+                else "Disease burden results %"
+            )
+            description = (
+                "Uw ziektelastmeter COPD resultaten."
+                if language == "nl"
+                else "Your COPD burden results."
+            )
 
             # Custom color role map for ZLM charts
             ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
@@ -277,7 +293,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # Data validation for ZLM charts
             for raw_item_idx, raw_item in enumerate(data):
                 if x_key not in raw_item:
-                    raise ValueError(f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}")
+                    raise ValueError(
+                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
+                    )
                 current_x_value = raw_item[x_key]
 
                 for y_key in y_keys:
@@ -316,7 +334,10 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         )
 
                     role_from_data = value_container["colorRole"]
-                    if role_from_data is not None and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP:
+                    if (
+                        role_from_data is not None
+                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
+                    ):
                         raise ValueError(
                             f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
                             f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
@@ -410,7 +431,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     required_keys = ["x_value", "y_current", "y_label"]
                     for key in required_keys:
                         if key not in item:
-                            raise ValueError(f"Missing required key '{key}' in data item {i}: {item}")
+                            raise ValueError(
+                                f"Missing required key '{key}' in data item {i}: {item}"
+                            )
 
                     # Validate score ranges
                     current_score = item["y_current"]
@@ -421,25 +444,35 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         raise ValueError(f"Current score must be numeric for item {i}")
 
                     if not (0 <= current_score <= 6):
-                        raise ValueError(f"ZLM score {current_score} outside range 0-6 for item {i}")
+                        raise ValueError(
+                            f"ZLM score {current_score} outside range 0-6 for item {i}"
+                        )
 
                     if old_score is not None:
                         if not isinstance(old_score, (int, float)):
                             raise ValueError(f"Old score must be numeric for item {i}")
                         if not (0 <= old_score <= 6):
-                            raise ValueError(f"ZLM old score {old_score} outside range 0-6 for item {i}")
+                            raise ValueError(
+                                f"ZLM old score {old_score} outside range 0-6 for item {i}"
+                            )
 
                     # Apply domain-specific scoring logic
-                    current_height = self._calculate_zlm_balloon_height(domain_name, current_score, processed_data)
+                    current_height = self._calculate_zlm_balloon_height(
+                        domain_name, current_score, processed_data
+                    )
                     old_height = (
-                        self._calculate_zlm_balloon_height(domain_name, old_score, processed_data)
+                        self._calculate_zlm_balloon_height(
+                            domain_name, old_score, processed_data
+                        )
                         if old_score is not None
                         else None
                     )
 
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
-                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    flutter_y_old = (
+                        old_height / 10.0 if old_height is not None else None
+                    )
 
                     converted_data.append(
                         ZLMDataRow(
@@ -455,22 +488,32 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 elif hasattr(item, "y_current"):
                     # ZLMDataRow object validation
                     if not (0 <= item.y_current <= 6):
-                        raise ValueError(f"ZLM score {item.y_current} outside range 0-6 for item {i}")
+                        raise ValueError(
+                            f"ZLM score {item.y_current} outside range 0-6 for item {i}"
+                        )
 
                     if item.y_old is not None and not (0 <= item.y_old <= 6):
-                        raise ValueError(f"ZLM old score {item.y_old} outside range 0-6 for item {i}")
+                        raise ValueError(
+                            f"ZLM old score {item.y_old} outside range 0-6 for item {i}"
+                        )
 
                     # Apply domain-specific scoring logic
-                    current_height = self._calculate_zlm_balloon_height(item.x_value, item.y_current, processed_data)
+                    current_height = self._calculate_zlm_balloon_height(
+                        item.x_value, item.y_current, processed_data
+                    )
                     old_height = (
-                        self._calculate_zlm_balloon_height(item.x_value, item.y_old, processed_data)
+                        self._calculate_zlm_balloon_height(
+                            item.x_value, item.y_old, processed_data
+                        )
                         if item.y_old is not None
                         else None
                     )
 
                     # Convert balloon height percentages (0-100%) to Flutter Y-values (0-10 scale)
                     flutter_y_current = current_height / 10.0
-                    flutter_y_old = old_height / 10.0 if old_height is not None else None
+                    flutter_y_old = (
+                        old_height / 10.0 if old_height is not None else None
+                    )
 
                     converted_data.append(
                         ZLMDataRow(
@@ -483,7 +526,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         )
                     )
                 else:
-                    raise ValueError(f"Invalid data item at index {i}: expected dict or ZLMDataRow")
+                    raise ValueError(
+                        f"Invalid data item at index {i}: expected dict or ZLMDataRow"
+                    )
 
             return ChartWidget.create_balloon_chart(
                 title=title,
@@ -625,15 +670,23 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
+                raise ValueError(
+                    "If y_labels are provided for line chart, they must match the length of y_keys."
+                )
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
+                    raise ValueError(
+                        f"Line chart data item missing x_key '{x_key}': {item}"
+                    )
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
-                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(
+                        item[y_key], (int, float, type(None))
+                    ):
+                        if isinstance(
+                            item[y_key], str
+                        ):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -660,7 +713,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -680,8 +735,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
-                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
 
             return MultipleChoiceWidget(
                 question=question,
@@ -719,7 +778,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
+                    self.logger.info(
+                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
+                    )
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -740,7 +801,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -762,7 +825,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -782,7 +847,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -796,9 +863,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
@@ -838,13 +909,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 title (str): The title of the notification.
                 contents (str): The text to send in the notification.
             """
-            onesignal_id = self.request_headers.get("x-onesignal-external-user-id") or await self.get_metadata(
-                "onesignal_id", None
-            )
+            onesignal_id = self.request_headers.get(
+                "x-onesignal-external-user-id"
+            ) or await self.get_metadata("onesignal_id", None)
 
-            assistant_field_name = self.request_headers.get("x-assistant-field-name") or await self.get_metadata(
-                "assistant_field_name", None
-            )
+            assistant_field_name = self.request_headers.get(
+                "x-assistant-field-name"
+            ) or await self.get_metadata("assistant_field_name", None)
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
@@ -956,9 +1027,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 order={"created_at": "asc"},
             )
 
-            print("No steps data found for user between", date_from, "and", date_to)
-
             if not steps_data:
+                print("No steps data found for user between", date_from, "and", date_to)
                 return []
 
             if aggregation in {"hour", "day"}:
@@ -1062,16 +1132,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         if domain_name in ["Long aanvallen", "Longaanvallen", "Longaanval"]:
             # G17: Enhanced graduated scoring for exacerbations (0-4 scale → 0-100% height)
             # More gradation to use full balloon height range
-            if score <= 0.5:        # 0 kuren
-                return 100.0        # Green (perfect, no exacerbations)
-            elif score <= 1.5:      # 1 kuur  
-                return 75.0         # Light green/orange (mild concern)
-            elif score <= 2.5:      # 2 kuren
-                return 50.0         # Orange (moderate concern)
-            elif score <= 3.5:      # 3 kuren
-                return 25.0         # Dark orange/red (serious concern)
-            else:                   # 4+ kuren
-                return 0.0          # Red (critical concern)
+            if score <= 0.5:  # 0 kuren
+                return 100.0  # Green (perfect, no exacerbations)
+            elif score <= 1.5:  # 1 kuur
+                return 75.0  # Light green/orange (mild concern)
+            elif score <= 2.5:  # 2 kuren
+                return 50.0  # Orange (moderate concern)
+            elif score <= 3.5:  # 3 kuren
+                return 25.0  # Dark orange/red (serious concern)
+            else:  # 4+ kuren
+                return 0.0  # Red (critical concern)
 
         elif domain_name in ["Longklachten", "Long klachten", "Longklacht"]:
             # CRITICAL: Longklachten requires G12 check (kortademig in rust)
@@ -1085,7 +1155,10 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         if isinstance(item, dict):
                             # Look for G12 related domain
                             x_val = str(item.get("x_value", "")).lower()
-                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                            if any(
+                                keyword in x_val
+                                for keyword in ["kortademig", "rust", "g12"]
+                            ):
                                 # Found potential G12 item, extract its y_current score
                                 if "y_current" in item:
                                     g12_value = float(item["y_current"])
@@ -1093,7 +1166,10 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         elif hasattr(item, "x_value") and hasattr(item, "y_current"):
                             # ZLMDataRow object
                             x_val = str(item.x_value).lower()
-                            if any(keyword in x_val for keyword in ["kortademig", "rust", "g12"]):
+                            if any(
+                                keyword in x_val
+                                for keyword in ["kortademig", "rust", "g12"]
+                            ):
                                 g12_value = float(item.y_current)
                                 break
             except (ValueError, TypeError, AttributeError):
@@ -1146,21 +1222,39 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                         for item in all_data:
                             if isinstance(item, dict):
                                 x_val = str(item.get("x_value", "")).lower()
-                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                if any(
+                                    keyword in x_val
+                                    for keyword in ["gewicht", "weight", "g21"]
+                                ):
                                     if "y_current" in item:
                                         weight_kg = float(item["y_current"])
-                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                elif any(
+                                    keyword in x_val
+                                    for keyword in ["lengte", "height", "g22"]
+                                ):
                                     if "y_current" in item:
                                         height_cm = float(item["y_current"])
-                            elif hasattr(item, "x_value") and hasattr(item, "y_current"):
+                            elif hasattr(item, "x_value") and hasattr(
+                                item, "y_current"
+                            ):
                                 x_val = str(item.x_value).lower()
-                                if any(keyword in x_val for keyword in ["gewicht", "weight", "g21"]):
+                                if any(
+                                    keyword in x_val
+                                    for keyword in ["gewicht", "weight", "g21"]
+                                ):
                                     weight_kg = float(item.y_current)
-                                elif any(keyword in x_val for keyword in ["lengte", "height", "g22"]):
+                                elif any(
+                                    keyword in x_val
+                                    for keyword in ["lengte", "height", "g22"]
+                                ):
                                     height_cm = float(item.y_current)
 
                     # Calculate BMI if both weight and height found
-                    if weight_kg is not None and height_cm is not None and height_cm > 0:
+                    if (
+                        weight_kg is not None
+                        and height_cm is not None
+                        and height_cm > 0
+                    ):
                         height_m = height_cm / 100.0
                         bmi_value = weight_kg / (height_m * height_m)
 
@@ -1201,21 +1295,21 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # G18=0 dagen → ZLM Score=6, G18=1-2 dagen → ZLM Score=4,
             # G18=3-4 dagen → ZLM Score=2, G18=5+ dagen → ZLM Score=0
             # After inversion, LOWER ZLM score = MORE exercise days = HIGHER balloon
-            
+
             # Official balloon heights based on exercise frequency:
             # 5+ dagen (score=0): Groen (100%)
             # 3-4 dagen (score=2): Oranje (60%)
             # 1-2 dagen (score=4): Oranje (40%)
             # 0 dagen (score=6): Rood (0%)
-            
+
             if score <= 0.5:  # Score 0 = 5+ dagen beweging (na inversie)
                 return 100.0  # Green - beweegt voldoende
             elif score <= 2.5:  # Score 2 = 3-4 dagen beweging (na inversie)
-                return 60.0   # Orange - stap in goede richting
+                return 60.0  # Orange - stap in goede richting
             elif score <= 4.5:  # Score 4 = 1-2 dagen beweging (na inversie)
-                return 40.0   # Orange - beweegt, maar nog niet genoeg
+                return 40.0  # Orange - beweegt, maar nog niet genoeg
             else:  # Score 6 = 0 dagen beweging (na inversie)
-                return 0.0    # Red - beweegt onvoldoende
+                return 0.0  # Red - beweegt onvoldoende
 
         elif domain_name == "Alcohol":
             # G19: Alcohol glasses per week - OFFICIAL DIRECT MAPPING
@@ -1247,13 +1341,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # G20 mapping: 'nooit'→0, 'vroeger'→1, 'ja'→6 (from ZLMuitslag conversion)
             # Also handle string values directly in case conversion hasn't happened yet
             if isinstance(score, str):
-                if score.lower() in ['nooit', 'never']:
+                if score.lower() in ["nooit", "never"]:
                     return 100.0  # Green
-                elif score.lower() in ['vroeger', 'former']:
+                elif score.lower() in ["vroeger", "former"]:
                     return 100.0  # Green
                 else:  # 'ja', 'yes', or any other value
                     return 0.0  # Red
-            
+
             # Handle numeric scores
             if score <= 0.5:  # G20='nooit' (never smoked)
                 return 100.0  # Green
@@ -1283,7 +1377,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             height = 40.0 - ((score - 2.0) / 4.0 * 40.0)
             return max(0.0, min(100.0, height))  # Clamp between 0-100%
 
-    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
+    def _substitute_double_curly_placeholders(
+        self, template_string: str, data_dict: dict[str, Any]
+    ) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
 
         # First, replace all known placeholders
@@ -1299,7 +1395,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             var_name = match.group(1)  # Content inside {{...}}
             return f"[missing:{var_name}]"
 
-        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
+        output_string = re.sub(
+            r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string
+        )
         return output_string
 
     async def on_message(
@@ -1324,9 +1422,15 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
+                q_item.question
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
+                q_item.instructions
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
+                q_item.name
+            )
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
         # Format the role prompt with questionnaire data
@@ -1348,19 +1452,29 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
+            "available_roles": "\n".join(
+                [f"- {role.name}" for role in self.config.roles]
+            ),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
-                [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                [
+                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                    for task in recurring_tasks
+                ]
             )
             if recurring_tasks
             else "<no recurring tasks>",
             "reminders": "\n".join(
-                [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
+                [
+                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                    for reminder in reminders
+                ]
             )
             if reminders
             else "<no reminders>",
-            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
+            "memories": "\n".join(
+                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
+            )
             if memories
             else "<no memories>",
             "notifications": "\n".join(
@@ -1386,10 +1500,14 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             await self.set_metadata("assistant_field_name", assistant_field_name)
 
         try:
-            llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
+            llm_content = self._substitute_double_curly_placeholders(
+                self.config.prompt, main_prompt_format_args
+            )
         except Exception as e:
             self.logger.warning(f"Error formatting system prompt: {e}")
-            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            llm_content = (
+                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            )
 
         self.logger.debug(llm_content)
 
@@ -1419,7 +1537,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+    ) -> (
+        tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None
+    ):
         onesignal_id = await self.get_metadata("onesignal_id")
 
         if onesignal_id is None:
@@ -1441,7 +1561,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return
 
         if last_thread.id != self.thread_id:
-            self.logger.info("Last thread id does not match current thread id, skipping super agent call")
+            self.logger.info(
+                "Last thread id does not match current thread id, skipping super agent call"
+            )
             return
 
         tools = [
