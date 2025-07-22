@@ -1,0 +1,18 @@
+---
+description: USE nuqs for URL search parameter state management to maintain state in the URL
+globs: apps/web/src/**/*.{tsx,jsx,ts}
+---
+
+# nuqs URL State Management
+
+## Context
+
+Our application uses the 'nuqs' library to manage state through URL search parameters, making state shareable and bookmarkable.
+
+## Requirements
+
+- Use 'nuqs' hooks for any state that should be preserved in the URL
+- Prefer URL state over local state for filters, pagination, and view preferences
+- Use appropriate parsers and serializers for different data types
+- Ensure URL parameters have meaningful, descriptive names
+- Handle default values appropriately

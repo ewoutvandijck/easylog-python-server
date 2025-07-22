@@ -1,0 +1,20 @@
+---
+description: USE descriptive variable names with auxiliary verbs for state and conditions
+globs: **/*.{ts,tsx}
+---
+
+# Naming Conventions
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- Clear naming improves code readability and self-documentation
+
+## Requirements
+
+- Always use descriptive variable names that explain their purpose
+- Always use auxiliary verbs for boolean variables and state (isLoading, hasError)
+- Always use present tense for functions that perform actions (fetchData, validateInput)
+- Always use noun phrases for data variables (userData, configOptions)
+- Always use camelCase for variables and functions
+- Always use PascalCase for types, interfaces, and components

@@ -1,0 +1,16 @@
+---
+description: AVOID type assertions (as)
+globs: **/*.{ts,tsx}
+---
+
+# TypeScript Type Assertions Standards
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- Type assertions bypass TypeScript's type checking and can lead to runtime errors
+
+## Requirements
+
+- Never use type assertions (as) unless absolutely necessary
+- Document any necessary use of type assertions with comments

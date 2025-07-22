@@ -1,0 +1,19 @@
+---
+description: FOLLOW Next.js best practices for Data Fetching, Rendering, and Routing
+globs: **/*.{tsx,jsx,ts}
+---
+
+# Next.js Best Practices
+
+## Context
+
+Our application uses Next.js and follows its recommended patterns for data fetching, rendering, and routing to ensure optimal performance and developer experience.
+
+## Requirements
+
+- Use the App Router for all new routes and features
+- Implement Server Components by default, using Client Components only when necessary
+- Follow recommended data fetching patterns based on use case
+- Use appropriate rendering strategies (Static, Dynamic, Streaming) based on content needs
+- Implement proper caching and revalidation strategies
+- Use route handlers for API endpoints

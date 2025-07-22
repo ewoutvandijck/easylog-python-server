@@ -1,0 +1,18 @@
+---
+description: OPTIMIZE Web Vitals (LCP, CLS, FID) for better performance and user experience
+globs: **/*.{tsx,jsx}
+---
+
+# Web Vitals Optimization
+
+## Context
+
+Web Vitals are essential metrics for providing a great user experience. We focus on optimizing Largest Contentful Paint (LCP), Cumulative Layout Shift (CLS), and First Input Delay (FID).
+
+## Requirements
+
+- Keep LCP under 2.5 seconds by optimizing image loading and server response times
+- Minimize CLS to under 0.1 by setting explicit dimensions for images and dynamic content
+- Reduce FID to under 100ms by minimizing main thread blocking
+- Implement proper loading strategies (lazy loading, preloading critical assets)
+- Minimize JavaScript bundle size with code splitting and tree shaking

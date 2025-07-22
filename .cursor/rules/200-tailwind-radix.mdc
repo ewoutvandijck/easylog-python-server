@@ -1,0 +1,18 @@
+---
+description: USE Tailwind and Radix for styling and components with mobile-first responsive design
+globs: **/*.{tsx,jsx}
+---
+
+# Tailwind and Radix Component Guidelines
+
+## Context
+
+Our application uses Tailwind CSS for styling and Radix UI for accessible components. We follow a mobile-first approach to responsive design.
+
+## Requirements
+
+- Prefer internal \_ui/\*\* components over direct Radix components when they exist
+- Use Tailwind CSS for all styling needs
+- Implement responsive design using Tailwind's mobile-first breakpoint system
+- Ensure components are accessible and follow Radix UI best practices
+- Avoid inline styles or CSS-in-JS solutions

@@ -1,0 +1,41 @@
+---
+description: PRESERVE original errors by using the cause option when rethrowing errors in TypeScript
+globs: **/*.{ts,tsx}
+---
+
+# TypeScript Error Handling
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- When catching and rethrowing errors, the original error should always be preserved
+
+## Requirements
+
+- Always include the original error as the `cause` when rethrowing errors
+- Always use the Error constructor's second parameter to set the `cause` property
+- Ensure error chains are maintained for proper debugging
+
+## Examples
+
+### ✅ Good
+
+```ts
+try {
+  await fetchData();
+} catch (error) {
+  // Add context while preserving original error
+  throw new Error(`Data fetch failed: ${error.message}`, { cause: error });
+}
+```
+
+### ❌ Bad
+
+```ts
+try {
+  await fetchData();
+} catch (error) {
+  // Only message is preserved, stack trace and other properties are lost
+  throw new Error(`Data fetch failed: ${error.message}`);
+}
+```

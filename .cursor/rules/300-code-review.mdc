@@ -1,0 +1,108 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Code Review Standards 📋
+
+## Context
+
+- Apply during pull request reviews to ensure code quality and consistency
+- Reference all existing cursor rules for comprehensive evaluation
+- Focus on consistency, clarity, and descriptive naming
+- Make suggestions only, do not commit changes
+
+## Core Review Criteria
+
+### 🏗️ Architecture & Standards
+
+- **TypeScript Rules**: Enforce 100-typescript-\* rules
+  - Use arrow functions with const declarations
+  - Avoid enums, use string literal unions
+  - Apply proper error handling with cause option
+  - Use Zod for runtime validation
+  - Avoid type assertions (as)
+  - Use JSDoc-style comments (/\*\* \*/)
+  - Follow functional programming patterns
+- **React Standards**: Apply 200-react-\* rules
+  - Arrow function syntax for components
+  - PropsWithChildren typing (avoid React.FC)
+  - Tailwind + Radix for styling
+- **Next.js**: Follow 200-nextjs-best-practices
+- **Python**: Apply 100-python-rules for explicit typing and error handling
+- **Performance**: Check 000-web-vitals optimization
+
+### 🎯 Naming & Clarity
+
+- **Variables**: Descriptive, purpose-clear names
+  - `userData` not `data`
+  - `isLoading` not `loading`
+  - `hasError` not `error`
+- **Functions**: Action-oriented present tense
+  - `fetchUserData()` not `getUserData()`
+  - `validateEmail()` not `emailValidation()`
+- **Components**: Clear, domain-specific PascalCase
+  - `UserProfileCard` not `Card`
+  - `PaymentButton` not `Button`
+
+### 📁 File & Structure Consistency
+
+- **Naming**: Consistent file naming patterns
+  - Components: PascalCase (`UserProfile.tsx`)
+  - Utilities: camelCase (`formatDate.ts`)
+- **Organization**: Logical file structure
+- **Capitalization**: Consistent across similar files
+
+### 🔍 Code Quality Checks
+
+- **Readability**: Self-documenting code
+- **Consistency**: Uniform patterns within codebase
+- **Error Handling**: Proper error management
+- **Type Safety**: Strong typing where applicable
+- **Performance**: Efficient patterns
+
+### 🛠️ Build & Lint Verification
+
+- **Dependencies**: Run `pnpm install` to ensure clean dependency installation
+- **Linting**: Execute `pnpm lint` to verify code style and catch issues
+- **Build**: Run `pnpm build` to confirm the project compiles successfully
+- **Pre-deployment**: Ensure all commands pass before approving changes
+
+## Review Actions
+
+- ✅ **Approve**: All standards met
+- 💬 **Comment**: Specific improvement suggestions
+- 🔄 **Request Changes**: Critical issues requiring fixes
+- 📚 **Reference**: Link to relevant cursor rules
+
+## Anti-Patterns to Flag
+
+```typescript
+// ❌ Bad naming
+const data = await fetch('/api/users');
+const loading = true;
+function getData() { ... }
+
+// ✅ Good naming
+const userData = await fetch('/api/users');
+const isLoading = true;
+const fetchUserData = () => { ... };
+```
+
+## Review Template
+
+```markdown
+### Code Review Checklist
+
+- [ ] TypeScript standards (100-typescript-\*)
+- [ ] React patterns (200-react-\*)
+- [ ] Naming conventions clear and descriptive
+- [ ] File naming consistency
+- [ ] Error handling implemented
+- [ ] Performance considerations
+- [ ] Documentation adequate
+- [ ] Dependencies install cleanly (`pnpm install`)
+- [ ] Code passes linting (`pnpm lint`)
+- [ ] Project builds successfully (`pnpm build`)
+```

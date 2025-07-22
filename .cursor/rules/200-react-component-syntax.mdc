@@ -1,0 +1,19 @@
+---
+description: USE arrow function syntax for React components with const ComponentName = () => {} pattern
+globs: **/*.{jsx,tsx}
+---
+
+# React Component Syntax
+
+## Context
+
+- This rule applies to all React component definitions in JSX and TSX files
+- Components should be defined using arrow function syntax with const declarations
+- Default exports should use the `export default ComponentName` syntax when appropriate
+
+## Requirements
+
+- Always define React components using arrow function syntax with const declarations
+- Always follow the pattern: `const ComponentName = () => { return (...) }` or `const ComponentName = () => (...)`
+- Always use PascalCase for component names
+- Always for default exports of components, use `export default ComponentName` syntax

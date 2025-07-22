@@ -1,0 +1,19 @@
+---
+description: USE Zod schemas for runtime type validation and data parsing
+globs: **/*.{ts,tsx}
+---
+
+# Zod Validation Standards
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- Runtime validation ensures data integrity beyond compile-time type checking
+
+## Requirements
+
+- Always use Zod schemas to validate external data (API responses, form inputs)
+- Always define Zod schemas for complex data structures
+- Always derive TypeScript types from Zod schemas using z.infer<typeof schema>
+- Always handle validation errors gracefully
+- Always use Zod transformations for data normalization when appropriate

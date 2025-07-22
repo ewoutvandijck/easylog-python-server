@@ -1,0 +1,75 @@
+---
+description: AVOID TypeScript enums and USE string literal unions and const object maps instead
+globs: **/*.{ts,tsx}
+---
+
+# TypeScript Enum Alternatives Standards
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- Enums in TypeScript have runtime overhead and can lead to unexpected behavior
+
+## Requirements
+
+- Avoid using TypeScript enums
+- Use string literal unions for type-safe options
+- Use const object maps with as const for runtime constants
+
+## Examples
+
+### ✅ Valid
+
+```typescript
+// String literal union
+type UserRole = 'admin' | 'editor' | 'viewer';
+
+// Const object map
+const HttpStatus = {
+  OK: 200,
+  CREATED: 201,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  NOT_FOUND: 404,
+  SERVER_ERROR: 500
+} as const;
+
+type HttpStatus = (typeof HttpStatus)[keyof typeof HttpStatus];
+
+// Usage
+function hasEditAccess(role: UserRole): boolean {
+  return role === 'admin' || role === 'editor';
+}
+
+function handleResponse(status: number) {
+  if (status === HttpStatus.OK) {
+    // Handle success
+  }
+}
+```
+
+### ❌ Invalid
+
+```typescript
+// Don't use enum
+enum UserRole {
+  ADMIN = 'admin',
+  EDITOR = 'editor',
+  VIEWER = 'viewer'
+}
+
+// Don't use enum
+enum HttpStatus {
+  OK = 200,
+  CREATED = 201,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  NOT_FOUND = 404,
+  SERVER_ERROR = 500
+}
+
+// Usage with enum
+function hasEditAccess(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.EDITOR;
+}
+```

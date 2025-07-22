@@ -1,0 +1,80 @@
+---
+description: Use ALWAYS when asked to CREATE A RULE or UPDATE A RULE or taught a lesson from the user that should be retained as a new rule for Cursor
+globs: *.mdc
+---
+
+# Cursor Rules Format
+
+## File Organization
+
+- **Location**: `.cursor/rules/` with `.mdc` extension
+- **Naming Convention**: `PREFIX-name.mdc`
+  - `000-core.mdc` - Core standards
+  - `100-{lang}-*.mdc` - Language specific (js, py, etc.)
+  - `200-framework-*.mdc` - Framework specific (react, vue, etc.)
+  - `300-testing.mdc` - Testing standards
+  - `400-docs.mdc` - Documentation standards
+  - `_private-*.mdc` - Private rules
+
+~## Glob Patterns
+
+- Core standards: `.cursor/rules/*.mdc`
+- Language rules: `src/**/*.{js,jsx,ts,tsx}`
+- Testing standards: `**/*.test.{js,jsx,ts,tsx}`
+- React components: `src/components/**/*.{tsx,jsx}`
+- Documentation: `docs/**/*.md`
+- API rules: `api/**/*`
+
+## Required Fields
+
+### Frontmatter
+
+- `description`: ACTION TRIGGER OUTCOME format
+- `globs`: glob pattern for files and folders
+
+### Body Requirements
+
+- Context: Usage conditions
+- Requirements: Actionable items
+- Examples: Both valid and invalid
+
+## Formatting Guidelines
+
+- Always indent content within nested sections by 2 spaces
+- Keep rules as short as possible
+- Use Mermaid syntax if it will be shorter or clearer than describing a complex rule
+- Use Emojis where appropriate to convey meaning that will improve rule understanding by the AI Agent
+- Keep examples as short as possible to clearly convey the positive or negative example
+
+## AI Optimization
+
+### Tips
+
+- Use precise, deterministic ACTION TRIGGER OUTCOME format in description
+- Provide concise positive and negative example of rule application in practice
+- Optimize for AI context window efficiency
+- Remove any non-essential or redundant information
+- Use standard glob patterns without quotes (e.g., _.js, src/\*\*/_.ts)
+
+### Context Efficiency
+
+- Keep frontmatter description under 120 characters while maintaining clear intent
+- Limit examples to essential patterns only
+- Use hierarchical structure for quick parsing
+- Remove redundant information across sections
+- Maintain high information density with minimal tokens
+- Focus on machine-actionable instructions over human explanations
+
+## Critical Rules
+
+- The front matter can ONLY have the fields description and globs
+- The file MUST start with this exactly:
+  ```
+  ---
+  description: front matter description
+  globs: front matter glob pattern or no value
+  ---
+  ```
+- All contents after the frontmatter should be well-structured
+- NEVER include verbose explanations or redundant context that increases AI token overhead
+- Keep file as short and to the point as possible BUT NEVER at the expense of sacrificing rule impact and usefulness for the AI Agent

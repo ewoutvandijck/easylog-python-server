@@ -1,0 +1,80 @@
+---
+description: USE functional and declarative programming patterns and AVOID classes
+globs: **/*.{ts,tsx}
+---
+
+# Functional Programming Standards
+
+## Context
+
+- This rule applies to all TypeScript and TSX files in the project
+- Functional programming leads to more predictable, testable, and maintainable code
+
+## Requirements
+
+- Use pure functions whenever possible
+- Avoid mutable state; use immutable data structures
+- Prefer arrow functions for consistency
+- Use array methods (map, filter, reduce) instead of loops when appropriate
+- Avoid classes; use functional components for React
+- Use composition over inheritance
+
+## Examples
+
+### ✅ Valid
+
+```typescript
+// Pure function
+const calculateTotal = (items: Item[]): number => {
+  return items.reduce((sum, item) => sum + item.price, 0);
+};
+
+// Functional component
+const UserProfile = ({ user }: UserProfileProps): JSX.Element => {
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  );
+};
+
+// Immutable update
+const addTodo = (todos: Todo[], newTodo: Todo): Todo[] => {
+  return [...todos, newTodo];
+};
+```
+
+### ❌ Invalid
+
+```typescript
+// Class-based approach
+class Calculator {
+  constructor(private items: Item[]) {}
+
+  calculateTotal(): number {
+    let sum = 0;
+    for (let i = 0; i < this.items.length; i++) {
+      sum += this.items[i].price;
+    }
+    return sum;
+  }
+}
+
+// Class component
+class UserProfile extends React.Component<UserProfileProps> {
+  render() {
+    return (
+      <div>
+        <h1>{this.props.user.name}</h1>
+        <p>{this.props.user.email}</p>
+      </div>
+    );
+  }
+}
+
+// Mutable update
+const addTodo = (todos: Todo[], newTodo: Todo): void => {
+  todos.push(newTodo);
+};
+```

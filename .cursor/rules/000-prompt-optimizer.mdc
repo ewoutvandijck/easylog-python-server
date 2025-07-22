@@ -1,0 +1,122 @@
+# Prompt Engineering Guide for LLMs
+
+## Prompt Formats
+
+### Direct Prompts (Zero-shot)
+
+Providing the model with a direct instruction or question without additional context or examples.
+
+```
+Generate 5 ideas for reducing carbon emissions in urban areas.
+```
+
+### One-shot, Few-shot, and Multi-shot Prompts
+
+Providing the model with one or more examples of desired input-output pairs before presenting the actual prompt.
+
+```
+Example 1:
+Input: Summarize this article about climate change.
+Output: This article discusses the impacts of climate change, including rising sea levels and extreme weather events, and outlines potential mitigation strategies.
+
+Now, summarize this article about artificial intelligence: [article text]
+```
+
+### Chain of Thought (CoT) Prompts
+
+Encouraging the model to break down complex reasoning into intermediate steps.
+
+```
+Question: If I buy 3 books at $12 each and 2 magazines at $5 each, how much will I spend in total?
+Let's think step by step:
+```
+
+### Zero-shot CoT Prompts
+
+Combining chain of thought with zero-shot by asking the model to perform reasoning steps.
+
+```
+Solve this problem step by step: A train travels at 60 mph for 2 hours, then at 30 mph for 3 hours. What is the average speed for the entire journey?
+```
+
+## Best Practices
+
+1. **Provide Clear Context**: Include relevant information that helps the model understand the task.
+
+2. **Be Specific**: Clear instructions yield better results than vague ones.
+
+   ```
+   Good: "Write a 150-word email to schedule a business meeting with a client for next Tuesday at 2pm."
+   Less effective: "Write a business email."
+   ```
+
+3. **Use Structured Formats**: Format prompts with clear sections for context, examples, and instructions.
+
+   ```
+   CONTEXT: You are a financial advisor helping clients understand investment options.
+   TASK: Explain the difference between stocks and bonds to a beginning investor.
+   TONE: Conversational and easy to understand without financial jargon.
+   ```
+
+4. **Include Examples**: Demonstrate the desired output format or style.
+
+5. **Specify Output Format**: Clearly state how you want the response formatted.
+
+   ```
+   Provide your answer as a bulleted list with 3-5 points.
+   ```
+
+6. **Use Role Prompting**: Assign a specific role to guide the model's perspective.
+
+   ```
+   You are an experienced cybersecurity professional. Explain how to create a strong password policy for a mid-sized company.
+   ```
+
+7. **Control Response Length**: Guide the model on how detailed the response should be.
+
+   ```
+   Explain quantum computing in approximately 100 words.
+   ```
+
+8. **Iterative Refinement**: Modify prompts based on previous outputs to improve results.
+
+## Advanced Techniques
+
+1. **System Prompts**: Setting the behavior and capabilities of the AI system.
+
+2. **Evaluation Criteria**: Including self-evaluation instructions in the prompt.
+
+   ```
+   After generating your answer, evaluate it based on accuracy, clarity, and completeness.
+   ```
+
+3. **In-context Learning**: Providing relevant examples and guidance within the prompt.
+
+4. **Prompt Chaining**: Breaking complex tasks into a series of simpler prompts.
+
+5. **Temperature Control**: Adjusting creativity vs. determinism (usually set externally but can be requested in prompt).
+   ```
+   Generate a creative and unique story. Feel free to be imaginative.
+   ```
+   vs.
+   ```
+   Provide a factual, accurate summary of the historical event without embellishment.
+   ```
+
+## Common Applications
+
+- Creative writing
+- Summarization
+- Translation
+- Dialogue generation
+- Question answering (open-ended, specific, multiple-choice)
+- Code generation
+- Data analysis
+- Content transformation (style, tone, format changes)
+- Task automation
+- Brainstorming and ideation
+  description:
+  globs:
+  alwaysApply: false
+
+---

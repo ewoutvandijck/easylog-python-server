@@ -1,0 +1,21 @@
+---
+description: USE arrow function syntax for functions with const functionName = () => {} pattern
+globs: **/*.{ts,tsx}
+---
+
+# JavaScript/TypeScript Function Syntax
+
+## Context
+
+- This rule applies to all function definitions in JavaScript and TypeScript files
+- Functions should be defined using arrow function syntax with const declarations
+- Default exports should use the `export default functionName` syntax when appropriate
+
+## Requirements
+
+- Always define functions using arrow function syntax with const declarations
+- Always follow the pattern: `const functionName = () => { ... }` or `const functionName = () => (...)`
+- Always use camelCase for function names
+- Always for default exports of functions, use `export default functionName` syntax
+- Never add return types to functions unless specifically instructed
+- Let TypeScript's type inference determine the return type automatically
