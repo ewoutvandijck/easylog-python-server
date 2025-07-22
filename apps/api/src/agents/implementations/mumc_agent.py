@@ -102,6 +102,28 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             role_config for role_config in self.config.roles if role_config.name == role
         )
 
+    def get_tools(self) -> dict[str, Callable]:
+        # EasyLog-specific tools
+        easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
+        easylog_backend_tools = EasylogBackendTools(
+            bearer_token=easylog_token,
+            base_url=settings.EASYLOG_API_URL,
+        )
+
+        if easylog_token:
+            pass  # Token available for EasyLog tools
+
+        easylog_sql_tools = EasylogSqlTools(
+            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
+            ssh_host=settings.EASYLOG_SSH_HOST,
+            ssh_username=settings.EASYLOG_SSH_USERNAME,
+            db_password=settings.EASYLOG_DB_PASSWORD,
+            db_user=settings.EASYLOG_DB_USER,
+            db_host=settings.EASYLOG_DB_HOST,
+            db_port=settings.EASYLOG_DB_PORT,
+            db_name=settings.EASYLOG_DB_NAME,
+        )
+
         # Role management tool
         async def tool_set_current_role(role: str) -> str:
             """Set the current role for the agent.
