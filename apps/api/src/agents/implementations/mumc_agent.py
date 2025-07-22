@@ -19,8 +19,6 @@ from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
-from src.agents.tools.easylog_backend_tools import EasylogBackendTools
-from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.lib.prisma import prisma
 from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
@@ -102,28 +100,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         return next(
             role_config for role_config in self.config.roles if role_config.name == role
-        )
-
-    def get_tools(self) -> dict[str, Callable]:
-        # EasyLog-specific tools
-        easylog_token = self.request_headers.get("x-easylog-bearer-token", "")
-        easylog_backend_tools = EasylogBackendTools(
-            bearer_token=easylog_token,
-            base_url=settings.EASYLOG_API_URL,
-        )
-
-        if easylog_token:
-            pass  # Token available for EasyLog tools
-
-        easylog_sql_tools = EasylogSqlTools(
-            ssh_key_path=settings.EASYLOG_SSH_KEY_PATH,
-            ssh_host=settings.EASYLOG_SSH_HOST,
-            ssh_username=settings.EASYLOG_SSH_USERNAME,
-            db_password=settings.EASYLOG_DB_PASSWORD,
-            db_user=settings.EASYLOG_DB_USER,
-            db_host=settings.EASYLOG_DB_HOST,
-            db_port=settings.EASYLOG_DB_PORT,
-            db_name=settings.EASYLOG_DB_NAME,
         )
 
         # Role management tool
