@@ -26,7 +26,6 @@ from src.lib.prisma import prisma
 from src.models.chart_widget import (
     ChartWidget,
     Line,
-    ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
@@ -103,7 +102,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        return next(role_config for role_config in self.config.roles if role_config.name == role)
+        return next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
     def get_tools(self) -> dict[str, Callable]:
         # EasyLog-specific tools
@@ -167,7 +168,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 search_query, subjects=(await self.get_current_role()).allowed_subjects
             )
 
-            return "\n-".join([f"Path: {document.path} - Summary: {document.summary}" for document in result])
+            return "\n-".join(
+                [
+                    f"Path: {document.path} - Summary: {document.summary}"
+                    for document in result
+                ]
+            )
 
         async def tool_get_document_contents(path: str) -> str:
             """Retrieve the complete contents of a specific document from the knowledge database.
@@ -187,7 +193,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return json.dumps(await self.get_document(path), default=str)
 
         # Questionnaire tools
-        async def tool_answer_questionaire_question(question_name: str, answer: str) -> str:
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
             """Answer a question from the questionaire.
 
             Args:
@@ -346,15 +354,23 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
+                raise ValueError(
+                    "If y_labels are provided for line chart, they must match the length of y_keys."
+                )
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
+                    raise ValueError(
+                        f"Line chart data item missing x_key '{x_key}': {item}"
+                    )
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
-                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(
+                        item[y_key], (int, float, type(None))
+                    ):
+                        if isinstance(
+                            item[y_key], str
+                        ):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -380,61 +396,10 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 y_axis_domain_max=y_axis_domain_max,
             )
 
-        def tool_create_zlm_chart(
-            language: Literal["nl", "en"],
-            data: list[ZLMDataRow],
-        ) -> ChartWidget:
-            """
-            Creates a ZLM (Ziektelastmeter COPD) balloon chart using a predefined ZLM color scheme.
-            The chart visualizes scores, expecting values in the 0-10 range. Where 0 is bad and 10 is the best
-            The y-axis label is derived from the `y_label` field of the first data item.
-
-            Args:
-                language: The language for chart title and description ('nl' or 'en').
-                data: A list of `ZLMDataRow` objects for the chart. Each item represents a
-                      category on the x-axis and its corresponding scores.
-                      - `x_value` (str): The name of the category (e.g., "Algemeen").
-                      - `y_current` (float): The current score (0-10).
-                      - `y_old` (float | None): Optional. The previous score the patient had (0-10).
-                      - `y_label` (str): The label for the y-axis, typically including units
-                                         (e.g., "Score (0-10)"). This is used for the overall
-                                         Y-axis label of the chart.
-
-            Returns:
-                A ChartWidget object configured as a balloon chart.
-
-            Raises:
-                ValueError: If the `data` list is empty.
-
-            Example:
-                ```python
-                # Assuming ZLMDataRow is imported from src.models.chart_widget
-                data = [
-                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-10)"),
-                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-10)"),
-                    ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
-                ]
-                chart_widget = tool_create_zlm_chart(language="nl", data=data)
-                ```
-            """
-            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
-
-            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
-            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
-
-            # Check that data list is at least 1 or more,.
-            if len(data) < 1:
-                raise ValueError("Data list must be at least 1 or more.")
-
-            # Convert dictionaries to ZLMDataRow objects if needed
-            return ChartWidget.create_balloon_chart(
-                title=title,
-                description=description,
-                data=data,
-            )
-
         # Interaction tools
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> tuple[MultipleChoiceWidget, bool]:
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> tuple[MultipleChoiceWidget, bool]:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -454,8 +419,12 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
-                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
 
             return MultipleChoiceWidget(
                 question=question,
@@ -493,7 +462,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
+                    self.logger.info(
+                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
+                    )
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -514,7 +485,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -536,7 +509,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -556,7 +531,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -570,9 +547,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
@@ -612,13 +593,13 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 title (str): The title of the notification.
                 contents (str): The text to send in the notification.
             """
-            onesignal_id = self.request_headers.get("x-onesignal-external-user-id") or await self.get_metadata(
-                "onesignal_id", None
-            )
+            onesignal_id = self.request_headers.get(
+                "x-onesignal-external-user-id"
+            ) or await self.get_metadata("onesignal_id", None)
 
-            assistant_field_name = self.request_headers.get("x-assistant-field-name") or await self.get_metadata(
-                "assistant_field_name", None
-            )
+            assistant_field_name = self.request_headers.get(
+                "x-assistant-field-name"
+            ) or await self.get_metadata("assistant_field_name", None)
 
             self.logger.info(f"Sending notification to {onesignal_id}")
 
@@ -689,13 +670,21 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             if external_user_id is None:
                 raise ValueError("User ID not provided and not found in agent context.")
 
-            user = await prisma.users.find_first(where=usersWhereInput(external_id=external_user_id))
+            user = await prisma.users.find_first(
+                where=usersWhereInput(external_id=external_user_id)
+            )
             if user is None:
                 raise ValueError("User not found")
 
             print("Retrieving steps data for user", user.id)
-            date_from = datetime.fromisoformat(date_from) if isinstance(date_from, str) else date_from
-            date_to = datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+            date_from = (
+                datetime.fromisoformat(date_from)
+                if isinstance(date_from, str)
+                else date_from
+            )
+            date_to = (
+                datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+            )
 
             # If both inputs refer to the same calendar date and no explicit time was
             # provided (i.e. they are at midnight), extend `date_to` to the end of that day
@@ -704,7 +693,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                 and date_from.time() == datetime.min.time()
                 and date_to.time() == datetime.min.time()
             ):
-                date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+                date_to = date_to.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
 
             steps_data = await prisma.health_data_points.find_many(
                 where=health_data_pointsWhereInput(
@@ -746,7 +737,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
                     date_to,
                 )
 
-                return [{"created_at": row["bucket"], "value": row["total"]} for row in rows]
+                return [
+                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
+                ]
 
             return [
                 {
@@ -774,7 +767,6 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             # Visualization tools
             tool_create_bar_chart,
             tool_create_line_chart,
-            tool_create_zlm_chart,
             # Interaction tools
             tool_ask_multiple_choice,
             # Image tools
@@ -798,7 +790,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         ]
         return {tool.__name__: tool for tool in tools_list}
 
-    def _substitute_double_curly_placeholders(self, template_string: str, data_dict: dict[str, Any]) -> str:
+    def _substitute_double_curly_placeholders(
+        self, template_string: str, data_dict: dict[str, Any]
+    ) -> str:
         """Substitutes {{placeholder}} style placeholders in a string with values from data_dict."""
 
         # First, replace all known placeholders
@@ -814,7 +808,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             var_name = match.group(1)  # Content inside {{...}}
             return f"[missing:{var_name}]"
 
-        output_string = re.sub(r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string)
+        output_string = re.sub(
+            r"\{\{([^}]+)\}\}", replace_missing_with_indicator, output_string
+        )
         return output_string
 
     async def on_message(
@@ -839,9 +835,15 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         questionnaire_format_kwargs: dict[str, str] = {}
         for q_item in role_config.questionaire:
             answer = await self.get_metadata(q_item.name, "[not answered]")
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = q_item.question
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = q_item.instructions
-            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = q_item.name
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_question"] = (
+                q_item.question
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_instructions"] = (
+                q_item.instructions
+            )
+            questionnaire_format_kwargs[f"questionaire_{q_item.name}_name"] = (
+                q_item.name
+            )
             questionnaire_format_kwargs[f"questionaire_{q_item.name}_answer"] = answer
 
         # Format the role prompt with questionnaire data
@@ -863,19 +865,29 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
         main_prompt_format_args = {
             "current_role": role_config.name,
             "current_role_prompt": formatted_current_role_prompt,
-            "available_roles": "\n".join([f"- {role.name}" for role in self.config.roles]),
+            "available_roles": "\n".join(
+                [f"- {role.name}" for role in self.config.roles]
+            ),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
-                [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                [
+                    f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                    for task in recurring_tasks
+                ]
             )
             if recurring_tasks
             else "<no recurring tasks>",
             "reminders": "\n".join(
-                [f"- {reminder['id']}: {reminder['date']} - {reminder['message']}" for reminder in reminders]
+                [
+                    f"- {reminder['id']}: {reminder['date']} - {reminder['message']}"
+                    for reminder in reminders
+                ]
             )
             if reminders
             else "<no reminders>",
-            "memories": "\n".join([f"- {memory['id']}: {memory['memory']}" for memory in memories])
+            "memories": "\n".join(
+                [f"- {memory['id']}: {memory['memory']}" for memory in memories]
+            )
             if memories
             else "<no memories>",
             "notifications": "\n".join(
@@ -901,10 +913,14 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             await self.set_metadata("assistant_field_name", assistant_field_name)
 
         try:
-            llm_content = self._substitute_double_curly_placeholders(self.config.prompt, main_prompt_format_args)
+            llm_content = self._substitute_double_curly_placeholders(
+                self.config.prompt, main_prompt_format_args
+            )
         except Exception as e:
             self.logger.warning(f"Error formatting system prompt: {e}")
-            llm_content = f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            llm_content = (
+                f"Role: {role_config.name}\nPrompt: {formatted_current_role_prompt}"
+            )
 
         # Create the completion request
         response = await self.client.chat.completions.create(
@@ -932,7 +948,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
 
     async def on_super_agent_call(
         self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None:
+    ) -> (
+        tuple[AsyncStream[ChatCompletionChunk] | ChatCompletion, list[Callable]] | None
+    ):
         onesignal_id = await self.get_metadata("onesignal_id")
 
         if onesignal_id is None:
@@ -954,7 +972,9 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return
 
         if last_thread.id != self.thread_id:
-            self.logger.info("Last thread id does not match current thread id, skipping super agent call")
+            self.logger.info(
+                "Last thread id does not match current thread id, skipping super agent call"
+            )
             return
 
         tools = [
