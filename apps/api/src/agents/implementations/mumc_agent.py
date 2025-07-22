@@ -325,7 +325,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=data,
                 x_key=x_key,
                 y_keys=y_keys,
-                y_labels=y_labels,
                 height=height,
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
                 horizontal_lines=horizontal_lines,
@@ -512,7 +511,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=converted_data,
             )
 
-        def tool_create_bar_chart(
+ def tool_create_bar_chart(
             title: str,
             data: list[dict[str, Any]],
             x_key: str,
