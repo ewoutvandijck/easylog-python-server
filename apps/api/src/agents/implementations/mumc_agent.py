@@ -349,7 +349,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=data,
                 x_key=x_key,
                 y_keys=y_keys,
-                y_labels=y_labels,
                 height=height,
                 custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
                 horizontal_lines=horizontal_lines,
@@ -536,81 +535,241 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=converted_data,
             )
 
-        def tool_create_bar_chart(
+ def tool_create_bar_chart(
             title: str,
             data: list[dict[str, Any]],
             x_key: str,
             y_keys: list[str],
-            y_labels: list[str] | None = None,
-            custom_color_role_map: dict[str, str] | None = None,
-            custom_series_colors_palette: list[str] | None = None,
-            horizontal_lines: list[Line] | None = None,
+            horizontal_lines: list[dict[str, Any]] | None = None,
             description: str | None = None,
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
             height: int = 400,
         ) -> ChartWidget:
-            """
-            Creates a bar chart with customizable colors and optional horizontal lines..
+            """Create a bar chart.
 
-            You MUST provide data where each y_key's value is a dictionary: ß
-            {{"value": <actual_value>, "colorRole": <role_name_str> | null}}.
-            - If `colorRole` is a string (e.g., "high_sales", "low_stock"), it will be
-              used as a key to look up the color. The lookup order is:
-              1. `custom_color_role_map` (if provided)
-              2. The default chart color roles (e.g., "success", "warning", "neutral", "info", "primary", etc. Current default map: {DEFAULT_COLOR_ROLE_MAP.keys()})
-              If the role is not found in any map, a default series color is used for the bar.
-            - If `colorRole` is null, the chart widget will assign a default color for that
-              bar based on its series.
+            Notes for the model:
+            • If you provide ``custom_color_role_map`` it **must** be a JSON object, not a
+              JSON-encoded string
+
+            ## Data Structure Requirements
+
+            The `data` parameter expects a list of dictionaries where:
+            - Each dictionary represents one category (x-axis position)
+            - The `x_key` field contains the category name/label and MUST be a string
+            - Each `y_key` field contains either:
+              1. **Simple value**: A direct number (e.g., `"sales": 1500`)
+              2. **Structured value**: `{"value": <number>, "colorRole": "<role_name>"}`
+
+            ### Simple Data Example:
+            data = [{"month": "Jan", "sales": 1000, "returns": 50}, {"month": "Feb", "sales": 1200, "returns": 75}]
+
+
+            ### Advanced Data with Color Roles:
+            data = [
+                {
+                    "month": "Jan",
+                    "sales": {"value": 1000, "colorRole": "success"},
+                    "returns": {"value": 50, "colorRole": "warning"},
+                },
+                {
+                    "month": "Feb",
+                    "sales": {"value": 1200, "colorRole": "success"},
+                    "returns": {"value": 75, "colorRole": "neutral"},
+                },
+            ]
+
+
+            ## Color System
+
+            ### Built-in Color Roles (use when custom_color_role_map=None):
+            - `"success"`: Light green - for positive metrics, achievements
+            - `"warning"`: Light orange/red - for alerts, issues requiring attention
+            - `"neutral"`: Light blue - for standard/baseline metrics
+            - `"info"`: Light yellow - for informational data
+            - `"primary"`: Light purple - for primary focus areas
+            - `"accent"`: Light cyan - for special highlights
+            - `"muted"`: Light gray - for less important data
+
+            ## Horizontal Lines
+
+            The `horizontal_lines` parameter accepts a list of dictionaries, each defining a reference line:
+            ```python
+            horizontal_lines = [
+                {"value": 100, "label": "Target", "color": "#e8f5e8"},
+                {"value": 80, "label": "Minimum", "color": "#ffe4e1"},
+                {"value": 50},  # Just value, will use default label and color
+            ]
+            ```
+
+            Required fields:
+            - `value` (float): The y-axis value where the line is drawn
+
+            Optional fields:
+            - `label` (str): Text label for the line (defaults to None)
+            - `color` (str): HEX color code (defaults to black)
+
+            ## Complete Usage Examples
+
+            ### Basic Sales Chart:
+            chart = tool_create_bar_chart(
+                title="Monthly Sales Performance",
+                data=[
+                    {"month": "Jan", "sales": 15000, "target": 12000},
+                    {"month": "Feb", "sales": 18000, "target": 15000},
+                    {"month": "Mar", "sales": 14000, "target": 16000},
+                ],
+                horizontal_lines=[
+                    {"value": 15000, "label": "Target", "color": "#e8f5e8"},
+                    {"value": 10000, "label": "Minimum", "color": "#ffe4e1"},
+                ],
+                x_key="month",
+                y_keys=["sales", "target"],
+                description="Q1 2024 sales vs targets",
+            )
+
+            ### Advanced Chart with Color Coding:
+            chart = tool_create_bar_chart(
+                title="Department Performance Dashboard",
+                data=[
+                    {
+                        "department": "Sales",
+                        "performance": {"value": 95, "colorRole": "success"},
+                        "budget_usage": {"value": 80, "colorRole": "neutral"},
+                    },
+                    {
+                        "department": "Marketing",
+                        "performance": {"value": 75, "colorRole": "warning"},
+                        "budget_usage": {"value": 120, "colorRole": "warning"},
+                    },
+                ],
+                x_key="department",
+                y_keys=["performance", "budget_usage"],
+                horizontal_lines=[
+                    {"value": 100, "label": "Target", "color": "#e8f5e8"},
+                    {"value": 50, "label": "Minimum", "color": "#ffe4e1"},
+                ],
+                y_axis_domain_min=0,
+                y_axis_domain_max=150,
+                height=500,
+            )
 
             Args:
-                title (str): Chart title.
-                data (list[dict[str, Any]]): List of data objects.
-                    Example:
-                    [
-                        {{"month": "Jan", "sales": {{"value": 100, "colorRole": "neutral"}}, "returns": {{"value": 10, "colorRole": "warning"}}}},
-                        {{"month": "Feb", "sales": {{"value": 150, "colorRole": "success"}}, "returns": {{"value": 12, "colorRole": null}}}}
-                    ]
-                x_key (str): Key in data objects for the x-axis (e.g., 'month').
-                y_keys (list[str]): Keys for y-axis values (e.g., ['sales', 'returns']).
-                y_labels (list[str] | None): Optional labels for y-axis values. If None,
-                                            `y_keys` are used. Must match `y_keys` length.
-                custom_color_role_map (dict[str, str] | None): Optional. A dictionary to
-                                     define custom mappings from `colorRole` strings (provided in `data`)
-                                     to specific HEX color codes (e.g., '#RRGGBB').
-                                     Example: {{"high_sales": "#4CAF50", "low_sales": "#F44336"}}
-                custom_series_colors_palette (list[str] | None): Optional. A list of HEX color strings
-                                     to define the default colors for each series (y_key).
-                                     If not provided, a default palette is used.
-                                     Example: ["#FF0000", "#00FF00"] for two series.
-                horizontal_lines (list[Line] | None): Optional. A list of `Line` objects to
-                                     draw horizontal lines across the chart. Each `Line` object
-                                     defines the y-axis value, an optional label, and an optional color.
-                                     The `Line` model requires:
-                                     - `value` (float): The y-axis value where the line is drawn.
-                                     - `label` (str | None): Optional text label for the line.
-                                     - `color` (str | None): Optional HEX color (e.g., '#000000' for black).
-                                       Defaults to black if not specified.
-                                     Example:
-                                     `[Line(value=80, label="Target Sales", color="#FF0000"), Line(value=50)]`
-                description (str | None): Optional chart description.
+                title (str): The main title displayed above the chart.
+
+                data (list[dict[str, Any]]): List of data objects. Each object represents one
+                    x-axis category. See examples above for structure.
+
+                x_key (str): The dictionary key that contains the x-axis category labels
+                    (e.g., "month", "department", "product").
+
+                y_keys (list[str]): List of dictionary keys for the data series to plot as bars.
+                    Each key becomes a separate bar series (e.g., ["sales", "returns"]).
+                horizontal_lines (list[dict[str, Any]] | None): Optional reference lines drawn across
+                    the chart. Each dictionary should contain:
+                    - "value" (float, required): The y-axis value where the line is drawn
+                    - "label" (str, optional): Text label for the line
+                    - "color" (str, optional): HEX color code (e.g., "#000000")
+
+                description (str | None): Optional subtitle/description shown below the title.
+
+                y_axis_domain_min (float | None): Optional minimum value for y-axis scale.
+                    Forces chart to start at this value instead of auto-scaling.
+
+                y_axis_domain_max (float | None): Optional maximum value for y-axis scale.
+                    Forces chart to end at this value instead of auto-scaling.
+
                 height (int): Chart height in pixels. Defaults to 400.
-                y_axis_domain_min (float | None): Optional. Sets the minimum value for the Y-axis scale.
-                y_axis_domain_max (float | None): Optional. Sets the maximum value for the Y-axis scale.
+                    Recommended range: 300-800 pixels.
+
             Returns:
-                A ChartWidget object.
+                ChartWidget: A configured chart widget ready for display in the UI.
+                The widget includes all styling, data, and interactive features.
+
+            Raises:
+                ValueError: If required keys are missing from data objects, or if color roles
+                    are invalid when using built-in color system, or if horizontal_lines
+                    have invalid structure.
+
+            Common mistakes:
+                - x_key is not a string
+                - y_keys are not strings
             """
+            # ------------------------------------------------------------------
+            # Validate / coerce custom_color_role_map
+            # ------------------------------------------------------------------
+
+            # Parse horizontal_lines from dictionaries to Line objects
+            parsed_horizontal_lines: list[Line] | None = None
+            if horizontal_lines is not None:
+                import ast
+                import json
+
+                # Step 1 – normalise input to a list of dictionaries
+                normalised_lines: list[dict[str, Any]] = []
+
+                # Helper to convert a single string to dict or list
+                def _parse_str_to_obj(raw: str) -> list[dict[str, Any]]:
+                    raw_s = raw.strip()
+                    try:
+                        obj = json.loads(raw_s)
+                    except json.JSONDecodeError:
+                        obj = ast.literal_eval(raw_s)
+
+                    if isinstance(obj, list):
+                        return obj  # Expect list[dict]
+                    if isinstance(obj, dict):
+                        return [obj]
+                    raise ValueError("horizontal_lines string must decode to a dict or list of dicts")
+
+                if isinstance(horizontal_lines, str):
+                    normalised_lines.extend(_parse_str_to_obj(horizontal_lines))
+                elif isinstance(horizontal_lines, list):
+                    for idx, item in enumerate(horizontal_lines):
+                        if isinstance(item, dict):
+                            normalised_lines.append(item)
+                        elif isinstance(item, str):
+                            normalised_lines.extend(_parse_str_to_obj(item))
+                        else:
+                            raise ValueError(f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}")
+                else:
+                    raise ValueError("horizontal_lines must be a list, string, or None")
+
+                # Step 2 – validate dictionaries and convert to Line objects
+                parsed_horizontal_lines = []
+                for i, line_dict in enumerate(normalised_lines):
+                    if not isinstance(line_dict, dict):
+                        raise ValueError(
+                            f"horizontal_lines[{i}] must be a dictionary after parsing, got {type(line_dict)}"
+                        )
+
+                    if "value" not in line_dict:
+                        raise ValueError(f"horizontal_lines[{i}] missing required 'value' field")
+
+                    try:
+                        value = float(line_dict["value"])
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(
+                            f"horizontal_lines[{i}] 'value' must be numeric, got {line_dict['value']}"
+                        ) from e
+
+                    label = line_dict.get("label")
+                    color = line_dict.get("color")
+
+                    # Validate color format if provided
+                    if color is not None and not isinstance(color, str):
+                        raise ValueError(f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}")
+
+                    parsed_horizontal_lines.append(Line(value=value, label=label, color=color))
+
             return ChartWidget.create_bar_chart(
                 title=title,
                 data=data,
                 x_key=x_key,
                 y_keys=y_keys,
-                y_labels=y_labels,
                 description=description,
                 height=height,
-                horizontal_lines=horizontal_lines,
-                custom_color_role_map=custom_color_role_map,
-                custom_series_colors_palette=custom_series_colors_palette,
+                horizontal_lines=parsed_horizontal_lines,
                 y_axis_domain_min=y_axis_domain_min,
                 y_axis_domain_max=y_axis_domain_max,
             )
