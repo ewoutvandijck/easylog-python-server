@@ -2,7 +2,7 @@ import io
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any, Literal
 
 import httpx
@@ -14,7 +14,6 @@ from PIL import Image, ImageOps
 from prisma.enums import health_data_point_type
 from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
-
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -153,7 +152,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
+                    self.logger.info(
+                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
+                    )
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -173,7 +174,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks.append(
                 {
@@ -195,7 +198,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
             existing_reminders.append(
                 {
@@ -215,7 +220,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
+            existing_tasks: list[dict[str, str]] = await self.get_metadata(
+                "recurring_tasks", []
+            )
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -229,15 +236,21 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
+            existing_reminders: list[dict[str, str]] = await self.get_metadata(
+                "reminders", []
+            )
 
-            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
+            existing_reminders = [
+                reminder for reminder in existing_reminders if reminder["id"] != id
+            ]
 
             await self.set_metadata("reminders", existing_reminders)
 
             return f"Reminder {id} removed"
 
-        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(
+            question: str, choices: list[dict[str, str]]
+        ) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -257,8 +270,12 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
-                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
+                    raise ValueError(
+                        "Each choice dictionary must contain 'label' and 'value' keys."
+                    )
+                parsed_choices.append(
+                    Choice(label=choice_dict["label"], value=choice_dict["value"])
+                )
 
             return MultipleChoiceWidget(
                 question=question,
@@ -305,8 +322,16 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             """
             # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
 
-            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
-            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
+            title = (
+                "Resultaten ziektelastmeter COPD %"
+                if language == "nl"
+                else "Disease burden results %"
+            )
+            description = (
+                "Uw ziektelastmeter COPD resultaten."
+                if language == "nl"
+                else "Your COPD burden results."
+            )
 
             # Check that data list is at least 1 or more,.
             if len(data) < 1:
@@ -326,97 +351,135 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         async def tool_get_steps_data(
             date_from: str | datetime,
             date_to: str | datetime,
+            timezone: str | None = None,
             aggregation: Literal["hour", "day", None] | None = None,
         ) -> list[dict[str, Any]]:
-            """Get the steps data for a user with optional aggregation.
-            Make sure to use the tool_get_date_time tool to get the actual current date and time.
+            """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!! """
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-            Args:
-                date_from (str | datetime): The start date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
-                date_to   (str | datetime): The end date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
-                aggregation (Literal["hour", "day", None], optional):
-                    - "hour":   Return total steps per **hour** within range.
-                    - "day":    Return total steps per **day** within range.
-                    - None (default): Return raw, un-aggregated datapoints.
+            # ------------------------------------------------------------------ #
+            # 1. Resolve / validate timezone                                     #
+            # ------------------------------------------------------------------ #
+            tz_name = (timezone or "Europe/Amsterdam").strip()
+            if tz_name in {"CET", "CEST"}:
+                tz_name = "Europe/Amsterdam"
 
-            Returns:
-                list[dict[str, Any]]: Depending on aggregation level:
-                    - Raw points:   [{"created_at": "...", "value": 123}, ...]
-                    - Per hour:     [{"bucket": "YYYY-MM-DD HH:00:00", "value": 456}, ...]
-                    - Per day:      [{"bucket": "YYYY-MM-DD", "value": 789}, ...]
-            """
+            try:
+                tz = ZoneInfo(tz_name)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError(
+                    f"Invalid timezone '{timezone}'. Please provide a valid IANA name."
+                ) from exc
+
+            UTC = ZoneInfo("UTC")  # single UTC instance for reuse
+
+            # ------------------------------------------------------------------ #
+            # 2. Parse inputs → timezone-aware datetimes                         #
+            # ------------------------------------------------------------------ #
+            def _parse_input(val: str | datetime) -> datetime:
+                """ISO string → datetime; naïve → attach local tz."""
+                dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
+                if dt_obj.tzinfo is None:  # treat naïve as local
+                    dt_obj = dt_obj.replace(tzinfo=tz)
+                return dt_obj
+
+            date_from_dt = _parse_input(date_from)
+            date_to_dt = _parse_input(date_to)
+            
+            extra = ""
+            if (date_from_dt.year < datetime.now().year):
+                raise ValueError("Date from is in the past")
+
+            # Expand “whole-day” range (00:00 → 23:59:59.999999)
+            if (
+                date_from_dt.date() == date_to_dt.date()
+                and date_from_dt.timetz() == time(0, tzinfo=tz)
+                and date_to_dt.timetz() == time(0, tzinfo=tz)
+            ):
+                date_to_dt = date_to_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            # Convert to **UTC** for querying
+            date_from_utc = date_from_dt.astimezone(UTC)
+            date_to_utc = date_to_dt.astimezone(UTC)
+
+            # ------------------------------------------------------------------ #
+            # 3. Fetch user id                                                   #
+            # ------------------------------------------------------------------ #
             external_user_id = self.request_headers.get("x-onesignal-external-user-id")
-
             if external_user_id is None:
                 raise ValueError("User ID not provided and not found in agent context.")
 
-            user = await prisma.users.find_first(where=usersWhereInput(external_id=external_user_id))
+            user = await prisma.users.find_first(
+                where=usersWhereInput(external_id=external_user_id)
+            )
             if user is None:
                 raise ValueError("User not found")
 
-            print("Retrieving steps data for user", user.id)
-            date_from = datetime.fromisoformat(date_from) if isinstance(date_from, str) else date_from
-            date_to = datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
-
-            # If both inputs refer to the same calendar date and no explicit time was
-            # provided (i.e. they are at midnight), extend `date_to` to the end of that day
-            if (
-                date_from.date() == date_to.date()
-                and date_from.time() == datetime.min.time()
-                and date_to.time() == datetime.min.time()
-            ):
-                date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
-
+            # ------------------------------------------------------------------ #
+            # 4. Retrieve raw datapoints                                         #
+            # ------------------------------------------------------------------ #
             steps_data = await prisma.health_data_points.find_many(
                 where=health_data_pointsWhereInput(
                     user_id=user.id,
                     type=health_data_point_type.steps,
-                    date_from={
-                        "gte": date_from,
-                    },
-                    date_to={
-                        "lte": date_to,
-                    },
+                    date_from={"gte": date_from_utc},
+                    date_to={"lte": date_to_utc},
                 ),
                 order={"created_at": "asc"},
             )
-
-            print("No steps data found for user between", date_from, "and", date_to)
-
             if not steps_data:
                 return []
 
-            if aggregation in {"hour", "day"}:
-                trunc_unit = aggregation
+            # ------------------------------------------------------------------ #
+            # 5. Helper: convert any str/naïve dt → ISO in *local* timezone      #
+            # ------------------------------------------------------------------ #
+            def _iso_local(val: str | datetime) -> str:
+                dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
+                if dt_obj.tzinfo is None:              # DB can return naïve UTC
+                    dt_obj = dt_obj.replace(tzinfo=UTC)
+                return dt_obj.astimezone(tz).isoformat()
 
+            # ------------------------------------------------------------------ #
+            # 6. Aggregation                                                     #
+            # ------------------------------------------------------------------ #
+            if aggregation in {"hour", "day"}:
                 rows: list[dict[str, Any]] = await prisma.query_raw(
                     f"""
                     SELECT
-                        date_trunc('{trunc_unit}', date_from) AS bucket,
-                        SUM(value)::int                     AS total
-                    FROM health_data_points
-                    WHERE user_id = $1::uuid
-                        AND type     = 'steps'
-                        AND date_from >= $2::timestamp
-                        AND date_to   <= $3::timestamp
-                    GROUP BY bucket
-                    ORDER BY bucket
+                        date_trunc('{aggregation}', date_from AT TIME ZONE 'UTC') AS bucket,
+                        SUM(value)::int                                          AS total
+                    FROM   health_data_points
+                    WHERE  user_id  = $1::uuid
+                    AND  type     = 'steps'
+                    AND  date_from >= $2::timestamptz
+                    AND  date_to   <= $3::timestamptz
+                    GROUP  BY bucket
+                    ORDER  BY bucket
                     """,
                     user.id,
-                    date_from,
-                    date_to,
+                    date_from_utc,
+                    date_to_utc,
                 )
 
-                return [{"created_at": row["bucket"], "value": row["total"]} for row in rows]
+                return [
+                    {
+                        "created_at": _iso_local(row["bucket"]),
+                        "value": row["total"],
+                    }
+                    for row in rows
+                ]
 
+            # ------------------------------------------------------------------ #
+            # 7. Raw datapoints                                                  #
+            # ------------------------------------------------------------------ #
             return [
                 {
-                    "created_at": step.created_at.isoformat(),
-                    "date_from": step.date_from.isoformat(),
-                    "date_to": step.date_to.isoformat(),
-                    "value": step.value,
+                    "created_at": _iso_local(dp.created_at),
+                    "date_from": _iso_local(dp.date_from),
+                    "date_to": _iso_local(dp.date_to),
+                    "value": dp.value,
                 }
-                for step in steps_data
+                for dp in steps_data
             ]
 
         def tool_create_bar_chart(
@@ -604,7 +667,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         return obj  # Expect list[dict]
                     if isinstance(obj, dict):
                         return [obj]
-                    raise ValueError("horizontal_lines string must decode to a dict or list of dicts")
+                    raise ValueError(
+                        "horizontal_lines string must decode to a dict or list of dicts"
+                    )
 
                 if isinstance(horizontal_lines, str):
                     normalised_lines.extend(_parse_str_to_obj(horizontal_lines))
@@ -615,7 +680,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         elif isinstance(item, str):
                             normalised_lines.extend(_parse_str_to_obj(item))
                         else:
-                            raise ValueError(f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}")
+                            raise ValueError(
+                                f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}"
+                            )
                 else:
                     raise ValueError("horizontal_lines must be a list, string, or None")
 
@@ -628,7 +695,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         )
 
                     if "value" not in line_dict:
-                        raise ValueError(f"horizontal_lines[{i}] missing required 'value' field")
+                        raise ValueError(
+                            f"horizontal_lines[{i}] missing required 'value' field"
+                        )
 
                     try:
                         value = float(line_dict["value"])
@@ -642,9 +711,13 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
                     # Validate color format if provided
                     if color is not None and not isinstance(color, str):
-                        raise ValueError(f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}")
+                        raise ValueError(
+                            f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}"
+                        )
 
-                    parsed_horizontal_lines.append(Line(value=value, label=label, color=color))
+                    parsed_horizontal_lines.append(
+                        Line(value=value, label=label, color=color)
+                    )
 
             return ChartWidget.create_bar_chart(
                 title=title,
@@ -713,15 +786,23 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
+                raise ValueError(
+                    "If y_labels are provided for line chart, they must match the length of y_keys."
+                )
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
+                    raise ValueError(
+                        f"Line chart data item missing x_key '{x_key}': {item}"
+                    )
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
-                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(
+                        item[y_key], (int, float, type(None))
+                    ):
+                        if isinstance(
+                            item[y_key], str
+                        ):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -772,14 +853,18 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
+        role_config = next(
+            role_config for role_config in self.config.roles if role_config.name == role
+        )
 
         tools = self.get_tools()
 
         for tool in tools:
             self.logger.info(f"{tool.__name__}: {tool.__doc__}")
 
-        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
+        tools = [
+            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
+        ]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
@@ -792,9 +877,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
+                        available_roles="\n".join(
+                            [
+                                f"- {role.name}: {role.prompt}"
+                                for role in self.config.roles
+                            ]
+                        ),
                         recurring_tasks="\n".join(
-                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
+                            [
+                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
+                                for task in recurring_tasks
+                            ]
                         ),
                         reminders="\n".join(
                             [
