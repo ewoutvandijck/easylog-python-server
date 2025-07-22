@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 from prisma.enums import health_data_point_type
 from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
+
 from src.agents.base_agent import BaseAgent
 from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
@@ -73,6 +74,11 @@ class JobEntity(BaseModel):
     description: str | None = None
     start_date: str | None = None
     end_date: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Helper types
+# ---------------------------------------------------------------------------
 
 
 class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
@@ -147,9 +153,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 if image.width > max_size or image.height > max_size:
                     ratio = min(max_size / image.width, max_size / image.height)
                     new_size = (int(image.width * ratio), int(image.height * ratio))
-                    self.logger.info(
-                        f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}"
-                    )
+                    self.logger.info(f"Resizing image from {image.width}x{image.height} to {new_size[0]}x{new_size[1]}")
                     image = image.resize(new_size, Image.Resampling.LANCZOS)
 
                 return image
@@ -169,9 +173,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 task (str): The task to set the schedule for.
             """
 
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks.append(
                 {
@@ -193,9 +195,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 message (str): The message to remind the user about.
             """
 
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
             existing_reminders.append(
                 {
@@ -215,9 +215,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the task to remove.
             """
-            existing_tasks: list[dict[str, str]] = await self.get_metadata(
-                "recurring_tasks", []
-            )
+            existing_tasks: list[dict[str, str]] = await self.get_metadata("recurring_tasks", [])
 
             existing_tasks = [task for task in existing_tasks if task["id"] != id]
 
@@ -231,21 +229,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             Args:
                 id (str): The ID of the reminder to remove.
             """
-            existing_reminders: list[dict[str, str]] = await self.get_metadata(
-                "reminders", []
-            )
+            existing_reminders: list[dict[str, str]] = await self.get_metadata("reminders", [])
 
-            existing_reminders = [
-                reminder for reminder in existing_reminders if reminder["id"] != id
-            ]
+            existing_reminders = [reminder for reminder in existing_reminders if reminder["id"] != id]
 
             await self.set_metadata("reminders", existing_reminders)
 
             return f"Reminder {id} removed"
 
-        def tool_ask_multiple_choice(
-            question: str, choices: list[dict[str, str]]
-        ) -> MultipleChoiceWidget:
+        def tool_ask_multiple_choice(question: str, choices: list[dict[str, str]]) -> MultipleChoiceWidget:
             """Asks the user a multiple-choice question with distinct labels and values.
                 When using this tool, you must not repeat the same question or answers in text unless asked to do so by the user.
                 This widget already presents the question and choices to the user.
@@ -265,12 +257,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed_choices = []
             for choice_dict in choices:
                 if "label" not in choice_dict or "value" not in choice_dict:
-                    raise ValueError(
-                        "Each choice dictionary must contain 'label' and 'value' keys."
-                    )
-                parsed_choices.append(
-                    Choice(label=choice_dict["label"], value=choice_dict["value"])
-                )
+                    raise ValueError("Each choice dictionary must contain 'label' and 'value' keys.")
+                parsed_choices.append(Choice(label=choice_dict["label"], value=choice_dict["value"]))
 
             return MultipleChoiceWidget(
                 question=question,
@@ -317,16 +305,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             """
             # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
 
-            title = (
-                "Resultaten ziektelastmeter COPD %"
-                if language == "nl"
-                else "Disease burden results %"
-            )
-            description = (
-                "Uw ziektelastmeter COPD resultaten."
-                if language == "nl"
-                else "Your COPD burden results."
-            )
+            title = "Resultaten ziektelastmeter COPD %" if language == "nl" else "Disease burden results %"
+            description = "Uw ziektelastmeter COPD resultaten." if language == "nl" else "Your COPD burden results."
 
             # Check that data list is at least 1 or more,.
             if len(data) < 1:
@@ -370,21 +350,13 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             if external_user_id is None:
                 raise ValueError("User ID not provided and not found in agent context.")
 
-            user = await prisma.users.find_first(
-                where=usersWhereInput(external_id=external_user_id)
-            )
+            user = await prisma.users.find_first(where=usersWhereInput(external_id=external_user_id))
             if user is None:
                 raise ValueError("User not found")
 
             print("Retrieving steps data for user", user.id)
-            date_from = (
-                datetime.fromisoformat(date_from)
-                if isinstance(date_from, str)
-                else date_from
-            )
-            date_to = (
-                datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
-            )
+            date_from = datetime.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+            date_to = datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
 
             # If both inputs refer to the same calendar date and no explicit time was
             # provided (i.e. they are at midnight), extend `date_to` to the end of that day
@@ -393,9 +365,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 and date_from.time() == datetime.min.time()
                 and date_to.time() == datetime.min.time()
             ):
-                date_to = date_to.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
 
             steps_data = await prisma.health_data_points.find_many(
                 where=health_data_pointsWhereInput(
@@ -437,9 +407,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     date_to,
                 )
 
-                return [
-                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
-                ]
+                return [{"created_at": row["bucket"], "value": row["total"]} for row in rows]
 
             return [
                 {
@@ -456,18 +424,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             data: list[dict[str, Any]],
             x_key: str,
             y_keys: list[str],
-            custom_color_role_map: dict[str, str] | None = None,
             horizontal_lines: list[dict[str, Any]] | None = None,
             description: str | None = None,
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
             height: int = 400,
         ) -> ChartWidget:
-            """Creates a bar chart with dynamic coloring and optional horizontal lines.
+            """Create a bar chart.
 
-            This tool generates a professional bar chart from structured data. Each bar can have
-            individual colors controlled by a 'colorRole' system, making it perfect for dashboards,
-            analytics, and data visualization.
+            Notes for the model:
+            • If you provide ``custom_color_role_map`` it **must** be a JSON object, not a
+              JSON-encoded string
 
             ## Data Structure Requirements
 
@@ -479,12 +446,10 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
               2. **Structured value**: `{"value": <number>, "colorRole": "<role_name>"}`
 
             ### Simple Data Example:
-            ```python
             data = [{"month": "Jan", "sales": 1000, "returns": 50}, {"month": "Feb", "sales": 1200, "returns": 75}]
-            ```
+
 
             ### Advanced Data with Color Roles:
-            ```python
             data = [
                 {
                     "month": "Jan",
@@ -497,7 +462,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "returns": {"value": 75, "colorRole": "neutral"},
                 },
             ]
-            ```
+
 
             ## Color System
 
@@ -509,16 +474,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             - `"primary"`: Light purple - for primary focus areas
             - `"accent"`: Light cyan - for special highlights
             - `"muted"`: Light gray - for less important data
-
-            ### Custom Colors:
-            When `custom_color_role_map` is provided, you can define your own role names:
-            ```python
-            custom_color_role_map = {
-                "high_performance": "#4CAF50",  # Green
-                "low_stock": "#F44336",  # Red
-                "trending_up": "#2196F3",  # Blue
-            }
-            ```
 
             ## Horizontal Lines
 
@@ -541,7 +496,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             ## Complete Usage Examples
 
             ### Basic Sales Chart:
-            ```python
             chart = tool_create_bar_chart(
                 title="Monthly Sales Performance",
                 data=[
@@ -557,10 +511,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_keys=["sales", "target"],
                 description="Q1 2024 sales vs targets",
             )
-            ```
 
             ### Advanced Chart with Color Coding:
-            ```python
             chart = tool_create_bar_chart(
                 title="Department Performance Dashboard",
                 data=[
@@ -585,7 +537,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_axis_domain_max=150,
                 height=500,
             )
-            ```
 
             Args:
                 title (str): The main title displayed above the chart.
@@ -598,11 +549,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
                 y_keys (list[str]): List of dictionary keys for the data series to plot as bars.
                     Each key becomes a separate bar series (e.g., ["sales", "returns"]).
-
-                custom_color_role_map (dict[str, str] | None): Optional mapping of role names
-                    to HEX colors. If None, uses built-in color roles.
-                    Example: `{"high": "#4CAF50", "low": "#F44336"}`
-
                 horizontal_lines (list[dict[str, Any]] | None): Optional reference lines drawn across
                     the chart. Each dictionary should contain:
                     - "value" (float, required): The y-axis value where the line is drawn
@@ -628,7 +574,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 ValueError: If required keys are missing from data objects, or if color roles
                     are invalid when using built-in color system, or if horizontal_lines
                     have invalid structure.
+
+            Common mistakes:
+                - x_key is not a string
+                - y_keys are not strings
             """
+            # ------------------------------------------------------------------
+            # Validate / coerce custom_color_role_map
+            # ------------------------------------------------------------------
+
             # Parse horizontal_lines from dictionaries to Line objects
             parsed_horizontal_lines: list[Line] | None = None
             if horizontal_lines is not None:
@@ -650,9 +604,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         return obj  # Expect list[dict]
                     if isinstance(obj, dict):
                         return [obj]
-                    raise ValueError(
-                        "horizontal_lines string must decode to a dict or list of dicts"
-                    )
+                    raise ValueError("horizontal_lines string must decode to a dict or list of dicts")
 
                 if isinstance(horizontal_lines, str):
                     normalised_lines.extend(_parse_str_to_obj(horizontal_lines))
@@ -663,9 +615,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         elif isinstance(item, str):
                             normalised_lines.extend(_parse_str_to_obj(item))
                         else:
-                            raise ValueError(
-                                f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}"
-                            )
+                            raise ValueError(f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}")
                 else:
                     raise ValueError("horizontal_lines must be a list, string, or None")
 
@@ -678,9 +628,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                         )
 
                     if "value" not in line_dict:
-                        raise ValueError(
-                            f"horizontal_lines[{i}] missing required 'value' field"
-                        )
+                        raise ValueError(f"horizontal_lines[{i}] missing required 'value' field")
 
                     try:
                         value = float(line_dict["value"])
@@ -694,13 +642,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
                     # Validate color format if provided
                     if color is not None and not isinstance(color, str):
-                        raise ValueError(
-                            f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}"
-                        )
+                        raise ValueError(f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}")
 
-                    parsed_horizontal_lines.append(
-                        Line(value=value, label=label, color=color)
-                    )
+                    parsed_horizontal_lines.append(Line(value=value, label=label, color=color))
 
             return ChartWidget.create_bar_chart(
                 title=title,
@@ -710,7 +654,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 description=description,
                 height=height,
                 horizontal_lines=parsed_horizontal_lines,
-                custom_color_role_map=custom_color_role_map,
                 y_axis_domain_min=y_axis_domain_min,
                 y_axis_domain_max=y_axis_domain_max,
             )
@@ -770,23 +713,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 A ChartWidget object configured as a line chart.
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
-                raise ValueError(
-                    "If y_labels are provided for line chart, they must match the length of y_keys."
-                )
+                raise ValueError("If y_labels are provided for line chart, they must match the length of y_keys.")
 
             # Basic validation for data structure (can be enhanced)
             for item in data:
                 if x_key not in item:
-                    raise ValueError(
-                        f"Line chart data item missing x_key '{x_key}': {item}"
-                    )
+                    raise ValueError(f"Line chart data item missing x_key '{x_key}': {item}")
                 for y_key in y_keys:
-                    if y_key in item and not isinstance(
-                        item[y_key], (int, float, type(None))
-                    ):
-                        if isinstance(
-                            item[y_key], str
-                        ):  # Allow string if it's meant to be a number
+                    if y_key in item and not isinstance(item[y_key], (int, float, type(None))):
+                        if isinstance(item[y_key], str):  # Allow string if it's meant to be a number
                             try:
                                 float(item[y_key])
                             except ValueError:
@@ -837,18 +772,14 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         if role not in [role.name for role in self.config.roles]:
             role = self.config.roles[0].name
 
-        role_config = next(
-            role_config for role_config in self.config.roles if role_config.name == role
-        )
+        role_config = next(role_config for role_config in self.config.roles if role_config.name == role)
 
         tools = self.get_tools()
 
         for tool in tools:
             self.logger.info(f"{tool.__name__}: {tool.__doc__}")
 
-        tools = [
-            tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)
-        ]
+        tools = [tool for tool in tools if re.match(role_config.tools_regex, tool.__name__)]
 
         recurring_tasks = await self.get_metadata("recurring_tasks", [])
         reminders = await self.get_metadata("reminders", [])
@@ -861,17 +792,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     "content": self.config.prompt.format(
                         current_role=role,
                         current_role_prompt=role_config.prompt,
-                        available_roles="\n".join(
-                            [
-                                f"- {role.name}: {role.prompt}"
-                                for role in self.config.roles
-                            ]
-                        ),
+                        available_roles="\n".join([f"- {role.name}: {role.prompt}" for role in self.config.roles]),
                         recurring_tasks="\n".join(
-                            [
-                                f"- {task['id']}: {task['cron_expression']} - {task['task']}"
-                                for task in recurring_tasks
-                            ]
+                            [f"- {task['id']}: {task['cron_expression']} - {task['task']}" for task in recurring_tasks]
                         ),
                         reminders="\n".join(
                             [
