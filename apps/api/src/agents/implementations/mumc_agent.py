@@ -479,8 +479,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             y_current=flutter_y_current,
                             y_old=flutter_y_old,
                             y_label="Score (0-6)",
-                            tooltip_score=current_score,  # Store original 0-6 score for tooltip
-                            tooltip_old_score=old_score,  # Store original 0-6 old score for tooltip
                         )
                     )
 
@@ -520,8 +518,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                             y_current=flutter_y_current,
                             y_old=flutter_y_old,
                             y_label="Score (0-6)",
-                            tooltip_score=item.y_current,  # Store original 0-6 score for tooltip
-                            tooltip_old_score=item.y_old,  # Store original 0-6 old score for tooltip
                         )
                     )
                 else:
@@ -1124,8 +1120,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             return "Notification sent"
 
         async def tool_get_date_time() -> str:
-                """Get the current date and time in ISO 8601 format YYYY-MM-DD HH:MM:SS."""
-                return datetime.now().isoformat()
+            """Get the current date and time in ISO 8601 format YYYY-MM-DD HH:MM:SS."""
+            return datetime.now().isoformat()
 
         async def tool_get_steps_data(
             date_from: str | datetime,
@@ -1133,7 +1129,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             timezone: str | None = None,
             aggregation: Literal["hour", "day", None] | None = None,
         ) -> list[dict[str, Any]]:
-            """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!! """
+            """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!!"""
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             # ------------------------------------------------------------------ #
@@ -1164,9 +1160,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             date_from_dt = _parse_input(date_from)
             date_to_dt = _parse_input(date_to)
-            
+
             extra = ""
-            if (date_from_dt.year < datetime.now().year):
+            if date_from_dt.year < datetime.now().year:
                 raise ValueError("Date from is in the past")
 
             # Expand “whole-day” range (00:00 → 23:59:59.999999)
@@ -1175,7 +1171,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 and date_from_dt.timetz() == time(0, tzinfo=tz)
                 and date_to_dt.timetz() == time(0, tzinfo=tz)
             ):
-                date_to_dt = date_to_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                date_to_dt = date_to_dt.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
 
             # Convert to **UTC** for querying
             date_from_utc = date_from_dt.astimezone(UTC)
@@ -1214,7 +1212,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # ------------------------------------------------------------------ #
             def _iso_local(val: str | datetime) -> str:
                 dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
-                if dt_obj.tzinfo is None:              # DB can return naïve UTC
+                if dt_obj.tzinfo is None:  # DB can return naïve UTC
                     dt_obj = dt_obj.replace(tzinfo=UTC)
                 return dt_obj.astimezone(tz).isoformat()
 
