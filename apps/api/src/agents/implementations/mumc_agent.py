@@ -511,7 +511,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=converted_data,
             )
 
- def tool_create_bar_chart(
+        def tool_create_bar_chart(
             title: str,
             data: list[dict[str, Any]],
             x_key: str,
