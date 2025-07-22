@@ -19,6 +19,8 @@ from prisma.types import health_data_pointsWhereInput, usersWhereInput
 from pydantic import BaseModel, Field
 from src.agents.base_agent import BaseAgent, SuperAgentConfig
 from src.agents.tools.base_tools import BaseTools
+from src.agents.tools.easylog_backend_tools import EasylogBackendTools
+from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.lib.prisma import prisma
 from src.models.chart_widget import (
     DEFAULT_COLOR_ROLE_MAP,
