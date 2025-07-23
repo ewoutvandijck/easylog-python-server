@@ -1118,7 +1118,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # ------------------------------------------------------------------
             # Build data list – validate each score
             # ------------------------------------------------------------------
-            data: list[dict[str, Any]] = []
+            # Build chart data as a list of `ZLMDataRow` objects so that it
+            # satisfies the expected type signature of `tool_create_zlm_chart`.
+            data: list[ZLMDataRow] = []
             missing_keys: list[str] = []
             for key, label in domain_label_map:
                 if key not in scores:
@@ -1136,12 +1138,12 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     )
 
                 data.append(
-                    {
-                        "x_value": label,
-                        "y_current": float(score_val),
-                        "y_old": None,  # No previous scores yet
-                        "y_label": "Score (0-6)",
-                    }
+                    ZLMDataRow(
+                        x_value=label,
+                        y_current=float(score_val),
+                        y_old=None,  # No previous scores yet
+                        y_label="Score (0-6)",
+                    )
                 )
 
             if missing_keys:
@@ -1152,7 +1154,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # ------------------------------------------------------------------
             # Delegate to generic balloon chart creator
             # ------------------------------------------------------------------
-            return tool_create_zlm_balloon_chart(language=language, data=data)
+            return tool_create_zlm_chart(language=language, data=data)
 
         return [
             *easylog_backend_tools.all_tools,

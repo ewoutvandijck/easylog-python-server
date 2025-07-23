@@ -216,151 +216,171 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
-        # Visualization tools
-        def tool_create_zlm_chart(
-            language: Literal["nl", "en"],
-            data: list[dict[str, Any]],
-            x_key: str,
-            y_keys: list[str],
-            y_labels: list[str] | None = None,
-            height: int = 1000,
-        ) -> ChartWidget:
-            """
-            Creates a ZLM (Ziektelastmeter COPD) bar chart using a predefined ZLM color scheme.
-            The chart visualizes scores as percentages, expecting values in the **0-100 range**.
+        async def tool_calculate_zlm_scores() -> dict[str, float]:
+            """Calculate Ziektelastmeter COPD domain scores based on previously
+            answered questionnaire values. The questionnaire must be complete before calling this tool.
 
-            Args:
-                language: The language for chart title and description ('nl' or 'en').
-                data: The data for the chart. Each dictionary in the list represents a
-                      point or group on the x-axis.
-                      - Each dictionary MUST contain the `x_key` field.
-                      - For each `y_key` specified in `y_keys`, the dictionary MUST
-                        contain a field with that `y_key` name.
-                      - The value associated with each `y_key` MUST be a dictionary
-                        with two keys:
-                        1.  `"value"`: A numerical percentage (float or integer).
-                            **IMPORTANT: This value MUST be between 0 and 100 (inclusive).**
-                            For example, 75 represents 75%. Do NOT use values like 0.75.
-                        2.  `"colorRole"`: A string that MUST be one of "success",
-                            "warning", or "neutral". This role will be mapped to specific
-                            ZLM colors. 0-40 = warning, 40-70 = neutral, 70-100 = success.
-                      - Example (single y-key):
-                        `data=[{"category": "Lung Function", "score": {"value": 65, "colorRole": "neutral"}},`
-                              `{"category": "Symptoms", "score": {"value": 30, "colorRole": "warning"}}]`
-                        (if x_key="category", y_keys=["score"])
-                      - Example (multiple y-keys):
-                        `data=[{"month": "Jan", "metric_a": {"value": 85, "colorRole": "success"}, "metric_b": {"value": 45, "colorRole": "warning"}},`
-                              `{"month": "Feb", "metric_a": {"value": 90, "colorRole": "success"}, "metric_b": {"value": 50, "colorRole": "neutral"}}]`
-                        (if x_key="month", y_keys=["metric_a", "metric_b"])
-                x_key: The key in each data dictionary that represents the x-axis value
-                       (e.g., "category", "month").
-                y_keys: A list of keys in each data dictionary that represent the y-axis
-                        values. (e.g., `["score"]`, `["metric_a", "metric_b"]`)
-                y_labels: Optional. Custom labels for each y-series. If None, `y_keys`
-                          will be used as labels. **IMPORTANT**: Must have the same length as `y_keys`
-                          if provided.
-                height: Optional. The height of the chart in pixels. Defaults to 400.
-
-            Returns:
-                A ChartWidget object configured for ZLM display!
-
-            Raises:
-                ValueError: If data is missing required keys, values are not numbers,
-                            percentages are outside the 0-100 range, or colorRole is invalid.
+            Upon successful calculation the individual domain scores **and** the
+            calculated BMI value are persisted as memories using
+            ``tool_store_memory``.
             """
 
-            title = (
-                "Resultaten ziektelastmeter COPD %"
-                if language == "nl"
-                else "Disease burden results %"
-            )
-            description = (
-                "Uw ziektelastmeter COPD resultaten."
-                if language == "nl"
-                else "Your COPD burden results."
-            )
+            # --------------------------------------------------------------
+            # 1. Gather & validate answers
+            # --------------------------------------------------------------
+            question_codes = [f"g{i}" for i in range(1, 23)]  # g1 … g22 inclusive
 
-            # Custom color role map for ZLM charts
-            ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
-                # We only use a custom neutral color, the rest is re-used.
-                "success": DEFAULT_COLOR_ROLE_MAP["success"],
-                "neutral": "#ffdaaf",  # Pastel orange
-                "warning": DEFAULT_COLOR_ROLE_MAP["warning"],
+            raw_answers: dict[str, str] = {}
+            missing: list[str] = []
+            for code in question_codes:
+                ans = await tool_get_questionaire_answer(code)
+                if ans in {"[not answered]", None, ""}:
+                    missing.append(code)
+                else:
+                    raw_answers[code] = ans
+
+            if missing:
+                raise ValueError(
+                    "Missing questionnaire answers for: " + ", ".join(missing)
+                )
+
+            # --------------------------------------------------------------
+            # 2. Parse & validate using Pydantic model
+            # --------------------------------------------------------------
+            def _to_int(val: str) -> int:
+                try:
+                    return int(val)
+                except Exception as exc:
+                    raise ValueError(
+                        f"Expected integer, got '{val}' for question."
+                    ) from exc
+
+            def _to_float(val: str) -> float:
+                try:
+                    return float(val)
+                except Exception as exc:
+                    raise ValueError(
+                        f"Expected float, got '{val}' for question."
+                    ) from exc
+
+            parsed: dict[str, Any] = {
+                # ints 0-6 unless specified
+                **{
+                    f"g{i}": _to_int(raw_answers[f"g{i}"])
+                    for i in range(1, 20)
+                    if i != 20
+                },
+                # g20 remains str literal
+                "g20": raw_answers["g20"].strip().lower(),
+                # floats
+                "g21": _to_float(raw_answers["g21"]),
+                "g22": _to_float(raw_answers["g22"]),
             }
 
-            horizontal_lines = None
+            answers = ZLMQuestionnaireAnswers(**parsed)
 
-            # Data validation for ZLM charts
-            for raw_item_idx, raw_item in enumerate(data):
-                if x_key not in raw_item:
-                    raise ValueError(
-                        f"Missing x_key '{x_key}' in ZLM data item at index {raw_item_idx}: {raw_item}"
-                    )
-                current_x_value = raw_item[x_key]
+            # --------------------------------------------------------------
+            # 3. Domain score computation
+            # --------------------------------------------------------------
+            from statistics import mean
 
-                for y_key in y_keys:
-                    if y_key not in raw_item:
-                        # Skip missing keys - handled by chart widget
-                        continue
+            def _avg(vals: list[int]) -> float:
+                return float(mean(vals)) if vals else 0.0
 
-                    value_container = raw_item[y_key]
-                    if not (
-                        isinstance(value_container, dict)
-                        and "value" in value_container
-                        and "colorRole" in value_container  # LLM must provide colorRole
-                    ):
-                        raise ValueError(
-                            f"Data for y_key '{y_key}' in x_value '{current_x_value}' (index {raw_item_idx}) "
-                            "for ZLM chart is not in the expected format: "
-                            "{'value': <percentage_0_to_100>, 'colorRole': <'success'|'warning'|'neutral'|null>}. "
-                            f"Received: {value_container}"
-                        )
+            scores: dict[str, float] = {
+                "longklachten": _avg(
+                    [answers.g12, answers.g13, answers.g15, answers.g16]
+                ),
+                "longaanvallen": float(answers.g17),
+                "lichamelijke_beperkingen": _avg([answers.g5, answers.g6, answers.g7]),
+                "vermoeidheid": float(answers.g1),
+                "nachtrust": float(answers.g2),
+                "gevoelens_emoties": _avg([answers.g3, answers.g11, answers.g14]),
+                "seksualiteit": float(answers.g10),
+                "relaties_en_werk": _avg([answers.g8, answers.g9]),
+                "medicijnen": float(answers.g4),
+            }
 
-                    val_from_container = value_container["value"]
-                    if not isinstance(val_from_container, (int, float)):
-                        raise ValueError(
-                            f"ZLM chart 'value' for y_key '{y_key}' (x_value '{current_x_value}', index {raw_item_idx}) "
-                            f"must be a number, got: {val_from_container} (type: {type(val_from_container).__name__})"
-                        )
+            # BMI-related score
+            height_m = answers.g22 / 100.0
+            bmi_value = answers.g21 / (height_m**2)
+            if bmi_value < 16:
+                gewicht_score = 4
+            elif bmi_value < 18.5:
+                gewicht_score = 2
+            elif bmi_value < 25:
+                gewicht_score = 0
+            elif bmi_value < 30:
+                gewicht_score = 2
+            elif bmi_value < 35:
+                gewicht_score = 4
+            else:
+                gewicht_score = 6
 
-                    val_float = float(val_from_container)
-                    if not (0.0 <= val_float <= 100.0):
-                        # Check for common 0-1 scale mistake
-                        hint = ""
-                        if 0 < val_from_container <= 1.0:
-                            hint = f" (Value {val_from_container} looks like 0-1 scale; use 0-100 range)"
-                        raise ValueError(
-                            f"ZLM chart value {val_from_container} for '{y_key}' is outside 0-100 range{hint}"
-                        )
+            # Scale scores that are not already 0-6 to 0-6
+            # scale longklachten and bewegen from 0-4 to 0-6
+            scores["longklachten"] = scores["longklachten"] * 1.5
+            # score 0-3 to 0-6
+            scores["bewegen"] = scores["bewegen"] * 2
+            scores["gewicht_bmi"] = float(gewicht_score)
 
-                    role_from_data = value_container["colorRole"]
-                    if (
-                        role_from_data is not None
-                        and role_from_data not in ZLM_CUSTOM_COLOR_ROLE_MAP
-                    ):
-                        raise ValueError(
-                            f"Invalid colorRole '{role_from_data}' for '{y_key}'. "
-                            f"Must be one of {list(ZLM_CUSTOM_COLOR_ROLE_MAP.keys())} or null"
-                        )
+            # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
+            bmi_value = bmi_value * 1.5
 
-            chart = ChartWidget.create_bar_chart(
-                title=title,
-                description=description,
-                data=data,
-                x_key=x_key,
-                y_keys=y_keys,
-                height=height,
-                custom_color_role_map=ZLM_CUSTOM_COLOR_ROLE_MAP,
-                horizontal_lines=horizontal_lines,
-                y_axis_domain_min=0,
-                y_axis_domain_max=100,
-            )
+            # Bewegen score
+            if answers.g18 == 0:
+                bewegen_score = 6
+            elif 1 <= answers.g18 <= 2:
+                bewegen_score = 4
+            elif 3 <= answers.g18 <= 4:
+                bewegen_score = 2
+            else:
+                bewegen_score = 0
+            scores["bewegen"] = float(bewegen_score)
 
-            # Configure tooltip to hide domain labels and show only percentage
+            # Alcohol score
+            alcohol_map = {0: 0, 1: 2, 2: 4, 3: 6}
+            scores["alcohol"] = float(alcohol_map[answers.g19])
 
-            chart.tooltip = TooltipConfig(show=True, hide_label=True)
+            # Roken score
+            roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
+            scores["roken"] = float(roken_map[answers.g20])
 
-            return chart
+            # --------------------------------------------------------------
+            # 4. Persist memories
+            # --------------------------------------------------------------
+            label_map = {
+                "longklachten": "Longklachten",
+                "longaanvallen": "Longaanvallen",
+                "lichamelijke_beperkingen": "Lichamelijke-beperkingen",
+                "vermoeidheid": "Vermoeidheid",
+                "nachtrust": "Nachtrust",
+                "gevoelens_emoties": "Emoties",
+                "seksualiteit": "Seksualiteit",
+                "relaties_en_werk": "Relaties-en-werk",
+                "medicijnen": "Medicijnen",
+                "gewicht_bmi": "BMI",
+                "bewegen": "Bewegen",
+                "alcohol": "Alcohol",
+                "roken": "Roken",
+            }
+
+            today_str = datetime.now().strftime("%d-%m-%Y")
+
+            # Store domain scores
+            for key, score in scores.items():
+                label = label_map.get(key, key.title())
+                if key == "gewicht_bmi":
+                    # Separate BMI memory
+                    mem = f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
+                else:
+                    mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
+                await tool_store_memory(mem)
+
+            # Additional explicit BMI value memory if not yet stored (handled above)
+
+            return scores
+
 
         def tool_create_zlm_balloon_chart(
             language: Literal["nl", "en"],
