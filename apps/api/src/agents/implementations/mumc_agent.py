@@ -352,7 +352,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # score 0-3 to 0-6
 
             # Roken score
-            roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
+            roken_map = {"nooit": 0, "vroeger": 2, "ja": 6}
             scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
