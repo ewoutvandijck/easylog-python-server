@@ -453,85 +453,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 data=data,
             )
 
-        async def tool_create_zlm_chart_from_scores(
-            scores: dict[str, float],
-            language: Literal["nl", "en"] = "nl",
-        ) -> ChartWidget:
-            """Generate a ZLM balloon chart directly from the output of ``tool_calculate_zlm_scores``.
-
-            Parameters
-            ----------
-            scores : dict[str, float]
-                The scores dictionary returned by ``tool_calculate_zlm_scores``.
-            language : Literal["nl", "en"], default "nl"
-                Chart language (affects title/description only).
-
-            Returns
-            -------
-            ChartWidget
-                Configured balloon chart ready for display.
-            """
-
-            # ------------------------------------------------------------------
-            # Expected domain order + labels (closely follows official Dutch terms)
-            # ------------------------------------------------------------------
-            domain_label_map: list[tuple[str, str]] = [
-                ("longklachten", "Long klachten"),
-                ("longaanvallen", "Long aanvallen"),
-                ("lichamelijke_beperkingen", "Lich. Beperking"),
-                ("vermoeidheid", "Vermoeidheid"),
-                ("nachtrust", "Nachtrust"),
-                ("gevoelens_emoties", "Gevoelens/emoties"),
-                ("seksualiteit", "Seksualiteit"),
-                ("relaties_en_werk", "Relaties en werk"),
-                ("medicijnen", "Medicijnen"),
-                ("gewicht_bmi", "Gewicht (BMI)"),
-                ("bewegen", "Bewegen"),
-                ("alcohol", "Alcohol"),
-                ("roken", "Roken"),
-            ]
-
-            # ------------------------------------------------------------------
-            # Build data list – validate each score
-            # ------------------------------------------------------------------
-            # Build chart data as a list of `ZLMDataRow` objects so that it
-            # satisfies the expected type signature of `tool_create_zlm_chart`.
-            data: list[ZLMDataRow] = []
-            missing_keys: list[str] = []
-            for key, label in domain_label_map:
-                if key not in scores:
-                    missing_keys.append(key)
-                    continue
-
-                score_val = scores[key]
-                if not isinstance(score_val, (int, float)):
-                    raise TypeError(
-                        f"Score for domain '{key}' must be numeric, got {type(score_val).__name__}."
-                    )
-                if not 0 <= score_val <= 6:
-                    raise ValueError(
-                        f"Score for domain '{key}' must be between 0 and 6, got {score_val}."
-                    )
-
-                data.append(
-                    ZLMDataRow(
-                        x_value=label,
-                        y_current=float(score_val),
-                        y_old=None,  # No previous scores yet
-                        y_label="Score (0-6)",
-                    )
-                )
-
-            if missing_keys:
-                raise ValueError(
-                    "Scores dictionary missing values for: " + ", ".join(missing_keys)
-                )
-
-            # ------------------------------------------------------------------
-            # Delegate to generic balloon chart creator
-            # ------------------------------------------------------------------
-            return tool_create_zlm_chart(language=language, data=data)
-
         def tool_create_bar_chart(
             title: str,
             data: list[dict[str, Any]],
@@ -1277,7 +1198,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_create_bar_chart,
             tool_calculate_zlm_scores,
             tool_create_zlm_chart,
-            tool_create_zlm_chart_from_scores,
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
