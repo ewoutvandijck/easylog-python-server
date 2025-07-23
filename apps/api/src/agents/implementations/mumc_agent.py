@@ -324,6 +324,8 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "seksualiteit": float(answers.g10),
                 "relaties_en_werk": _avg([answers.g8, answers.g9]),
                 "medicijnen": float(answers.g4),
+                "bewegen": float(answers.g18),
+                "alcohol": float(answers.g19),
             }
 
             # BMI-related score
@@ -350,9 +352,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
             bmi_value = bmi_value * 1.5
-
-            scores["bewegen"] = float(bewegen_score)
-            scores["alcohol"] = float(alcohol_map[answers.g19])
 
             # Roken score
             roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
