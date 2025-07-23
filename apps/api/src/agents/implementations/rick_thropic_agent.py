@@ -75,6 +75,33 @@ class JobEntity(BaseModel):
     end_date: str | None = None
 
 
+class ZLMQuestionnaireAnswers(BaseModel):
+    """Validated answers for the Ziektelastmeter COPD questionnaire (G1–G22)."""
+
+    g1: int = Field(..., ge=0, le=6)
+    g2: int = Field(..., ge=0, le=6)
+    g3: int = Field(..., ge=0, le=6)
+    g4: int = Field(..., ge=0, le=6)
+    g5: int = Field(..., ge=0, le=6)
+    g6: int = Field(..., ge=0, le=6)
+    g7: int = Field(..., ge=0, le=6)
+    g8: int = Field(..., ge=0, le=6)
+    g9: int = Field(..., ge=0, le=6)
+    g10: int = Field(..., ge=0, le=6)
+    g11: int = Field(..., ge=0, le=6)
+    g12: int = Field(..., ge=0, le=6)
+    g13: int = Field(..., ge=0, le=6)
+    g14: int = Field(..., ge=0, le=6)
+    g15: int = Field(..., ge=0, le=6)
+    g16: int = Field(..., ge=0, le=6)
+    g17: int = Field(..., ge=0, le=4)
+    g18: int = Field(..., ge=0, le=7)
+    g19: int = Field(..., ge=0, le=3)
+    g20: Literal["nooit", "vroeger", "ja"]
+    g21: float = Field(..., gt=0)
+    g22: float = Field(..., gt=0)
+
+
 # ---------------------------------------------------------------------------
 # Helper types
 # ---------------------------------------------------------------------------
@@ -283,6 +310,212 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 selected_choice=None,
             )
 
+        # ------------------------------------------------------------------
+        # Questionnaire utilities                                            
+        # ------------------------------------------------------------------
+
+        async def tool_get_questionaire_answer(question_name: str) -> str:
+            """Retrieve a previously stored questionnaire answer.
+
+            Args:
+                question_name: The name/identifier of the questionnaire question (e.g. "g1").
+
+            Returns
+            -------
+            str
+                The stored answer or the string "[not answered]" when no answer is found.
+            """
+
+            return await self.get_metadata(question_name, "[not answered]")
+
+        async def tool_store_memory(memory: str) -> str:
+            """Persist a memory string in the agent context.
+
+            Args:
+                memory: The memory text to store.
+
+            Returns
+            -------
+            str
+                Confirmation message.
+            """
+
+            memories = await self.get_metadata("memories", [])
+            memories.append({"id": str(uuid.uuid4())[0:8], "memory": memory})
+            await self.set_metadata("memories", memories)
+
+            return f"Memory stored: {memory}"
+
+        # ------------------------------------------------------------------
+        # ZLM score calculation                                              
+        # ------------------------------------------------------------------
+ 
+        async def tool_calculate_zlm_scores() -> dict[str, float]:
+            """Calculate Ziektelastmeter COPD domain scores based on previously
+            answered questionnaire values.
+
+            The answers are fetched via ``tool_get_questionaire_answer``. If any
+            required answer is missing, a ``ValueError`` is raised with a list of
+            the missing question codes so that the LLM can decide to ask the
+            questionnaire first.
+
+            Upon successful calculation the individual domain scores **and** the
+            calculated BMI value are persisted as memories using
+            ``tool_store_memory``.
+            """
+
+            # --------------------------------------------------------------
+            # 1. Gather & validate answers
+            # --------------------------------------------------------------
+            question_codes = [
+                f"g{i}" for i in range(1, 23)
+            ]  # g1 … g22 inclusive
+
+            raw_answers: dict[str, str] = {}
+            missing: list[str] = []
+            for code in question_codes:
+                ans = await tool_get_questionaire_answer(code)
+                if ans in {"[not answered]", None, ""}:
+                    missing.append(code)
+                else:
+                    raw_answers[code] = ans
+
+            if missing:
+                raise ValueError(
+                    "Missing questionnaire answers for: " + ", ".join(missing)
+                )
+
+            # --------------------------------------------------------------
+            # 2. Parse & validate using Pydantic model                      
+            # --------------------------------------------------------------
+            def _to_int(val: str) -> int:
+                try:
+                    return int(val)
+                except Exception as exc:
+                    raise ValueError(f"Expected integer, got '{val}' for question.") from exc
+
+            def _to_float(val: str) -> float:
+                try:
+                    return float(val)
+                except Exception as exc:
+                    raise ValueError(f"Expected float, got '{val}' for question.") from exc
+
+            parsed: dict[str, Any] = {
+                # ints 0-6 unless specified
+                **{f"g{i}": _to_int(raw_answers[f"g{i}"]) for i in range(1, 20) if i != 20},
+                # g20 remains str literal
+                "g20": raw_answers["g20"].strip().lower(),
+                # floats
+                "g21": _to_float(raw_answers["g21"]),
+                "g22": _to_float(raw_answers["g22"]),
+            }
+
+            answers = ZLMQuestionnaireAnswers(**parsed)
+
+            # --------------------------------------------------------------
+            # 3. Domain score computation                                  
+            # --------------------------------------------------------------
+            from statistics import mean
+
+            def _avg(vals: list[int]) -> float:
+                return float(mean(vals)) if vals else 0.0
+
+            scores: dict[str, float] = {
+                "longklachten": _avg([answers.g12, answers.g13, answers.g15, answers.g16]),
+                "longaanvallen": float(answers.g17),
+                "lichamelijke_beperkingen": _avg([answers.g5, answers.g6, answers.g7]),
+                "vermoeidheid": float(answers.g1),
+                "nachtrust": float(answers.g2),
+                "gevoelens_emoties": _avg([answers.g3, answers.g11, answers.g14]),
+                "seksualiteit": float(answers.g10),
+                "relaties_en_werk": _avg([answers.g8, answers.g9]),
+                "medicijnen": float(answers.g4),
+            }
+
+
+            # BMI-related score
+            height_m = answers.g22 / 100.0
+            bmi_value = answers.g21 / (height_m ** 2)
+            if bmi_value < 16:
+                gewicht_score = 4
+            elif bmi_value < 18.5:
+                gewicht_score = 2
+            elif bmi_value < 25:
+                gewicht_score = 0
+            elif bmi_value < 30:
+                gewicht_score = 2
+            elif bmi_value < 35:
+                gewicht_score = 4
+            else:
+                gewicht_score = 6
+
+            # Scale scores that are not already 0-6 to 0-6
+            # scale longklachten and bewegen from 0-4 to 0-6
+            scores["longklachten"] = scores["longklachten"] * 1.5
+            # score 0-3 to 0-6
+            scores["bewegen"] = scores["bewegen"] * 2
+            scores["gewicht_bmi"] = float(gewicht_score)
+            
+            # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
+            bmi_value = bmi_value * 1.5
+
+            # Bewegen score
+            if answers.g18 == 0:
+                bewegen_score = 6
+            elif 1 <= answers.g18 <= 2:
+                bewegen_score = 4
+            elif 3 <= answers.g18 <= 4:
+                bewegen_score = 2
+            else:
+                bewegen_score = 0
+            scores["bewegen"] = float(bewegen_score)
+
+            # Alcohol score
+            alcohol_map = {0: 0, 1: 2, 2: 4, 3: 6}
+            scores["alcohol"] = float(alcohol_map[answers.g19])
+
+            # Roken score
+            roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
+            scores["roken"] = float(roken_map[answers.g20])
+
+            # --------------------------------------------------------------
+            # 4. Persist memories                                           
+            # --------------------------------------------------------------
+            label_map = {
+                "longklachten": "Longklachten",
+                "longaanvallen": "Longaanvallen",
+                "lichamelijke_beperkingen": "Lichamelijke-beperkingen",
+                "vermoeidheid": "Vermoeidheid",
+                "nachtrust": "Nachtrust",
+                "gevoelens_emoties": "Emoties",
+                "seksualiteit": "Seksualiteit",
+                "relaties_en_werk": "Relaties-en-werk",
+                "medicijnen": "Medicijnen",
+                "gewicht_bmi": "BMI",
+                "bewegen": "Bewegen",
+                "alcohol": "Alcohol",
+                "roken": "Roken",
+            }
+
+            today_str = datetime.now().strftime("%d-%m-%Y")
+
+            # Store domain scores
+            for key, score in scores.items():
+                label = label_map.get(key, key.title())
+                if key == "gewicht_bmi":
+                    # Separate BMI memory
+                    mem = (
+                        f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
+                    )
+                else:
+                    mem = (
+                        f"ZLM-Score-{label} {today_str}: Score = {score}"
+                    )
+                await tool_store_memory(mem)
+
+            # Additional explicit BMI value memory if not yet stored (handled above)
+
+            return scores
 
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
@@ -829,6 +1062,83 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_axis_domain_max=y_axis_domain_max,
             )
 
+        async def tool_create_zlm_chart_from_scores(
+            scores: dict[str, float],
+            language: Literal["nl", "en"] = "nl",
+        ) -> ChartWidget:
+            """Generate a ZLM balloon chart directly from the output of ``tool_calculate_zlm_scores``.
+
+            Parameters
+            ----------
+            scores : dict[str, float]
+                The scores dictionary returned by ``tool_calculate_zlm_scores``.
+            language : Literal["nl", "en"], default "nl"
+                Chart language (affects title/description only).
+
+            Returns
+            -------
+            ChartWidget
+                Configured balloon chart ready for display.
+            """
+
+            # ------------------------------------------------------------------
+            # Expected domain order + labels (closely follows official Dutch terms)
+            # ------------------------------------------------------------------
+            domain_label_map: list[tuple[str, str]] = [
+                ("longklachten", "Long klachten"),
+                ("longaanvallen", "Long aanvallen"),
+                ("lichamelijke_beperkingen", "Lich. Beperking"),
+                ("vermoeidheid", "Vermoeidheid"),
+                ("nachtrust", "Nachtrust"),
+                ("gevoelens_emoties", "Gevoelens/emoties"),
+                ("seksualiteit", "Seksualiteit"),
+                ("relaties_en_werk", "Relaties en werk"),
+                ("medicijnen", "Medicijnen"),
+                ("gewicht_bmi", "Gewicht (BMI)"),
+                ("bewegen", "Bewegen"),
+                ("alcohol", "Alcohol"),
+                ("roken", "Roken"),
+            ]
+
+            # ------------------------------------------------------------------
+            # Build data list – validate each score                             
+            # ------------------------------------------------------------------
+            data: list[dict[str, Any]] = []
+            missing_keys: list[str] = []
+            for key, label in domain_label_map:
+                if key not in scores:
+                    missing_keys.append(key)
+                    continue
+
+                score_val = scores[key]
+                if not isinstance(score_val, (int, float)):
+                    raise TypeError(
+                        f"Score for domain '{key}' must be numeric, got {type(score_val).__name__}."
+                    )
+                if not 0 <= score_val <= 6:
+                    raise ValueError(
+                        f"Score for domain '{key}' must be between 0 and 6, got {score_val}."
+                    )
+
+                data.append(
+                    {
+                        "x_value": label,
+                        "y_current": float(score_val),
+                        "y_old": None,  # No previous scores yet
+                        "y_label": "Score (0-6)",
+                    }
+                )
+
+            if missing_keys:
+                raise ValueError(
+                    "Scores dictionary missing values for: " + ", ".join(missing_keys)
+                )
+
+            # ------------------------------------------------------------------
+            # Delegate to generic balloon chart creator                         
+            # ------------------------------------------------------------------
+            return tool_create_zlm_balloon_chart(language=language, data=data)
+
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -840,11 +1150,16 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_add_reminder,
             tool_remove_reminder,
             tool_ask_multiple_choice,
+            tool_get_questionaire_answer,
+            tool_store_memory,
+            tool_calculate_zlm_scores,
             tool_create_bar_chart,
             tool_create_zlm_chart,
             tool_create_line_chart,
             tool_get_steps_data,
             tool_get_date_time,
+            tool_create_zlm_balloon_chart,
+            tool_create_zlm_chart_from_scores,
         ]
 
     async def on_message(

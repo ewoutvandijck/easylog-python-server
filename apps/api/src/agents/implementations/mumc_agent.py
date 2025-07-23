@@ -216,6 +216,14 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
+        def tool_create_zlm_chart_from_memory() -> ChartWidget:
+            """Create a ZLM chart from the most recentmemory.
+
+            Returns:
+                ChartWidget: The ZLM chart.
+            """
+            
+            
         # Visualization tools
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
