@@ -544,10 +544,10 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 data: A list of `ZLMDataRow` objects for the chart. Each item represents a
                       category on the x-axis and its corresponding scores.
                       - `x_value` (str): The name of the category (e.g., "Algemeen").
-                      - `y_current` (float): The current score (0-10).
-                      - `y_old` (float | None): Optional. The previous score the patient had (0-10).
+                      - `y_current` (float): The current score (0-6).
+                      - `y_old` (float | None): Optional. The previous score the patient had (0-6).
                       - `y_label` (str): The label for the y-axis, typically including units
-                                         (e.g., "Score (0-10)"). This is used for the overall
+                                         (e.g., "Score (0-6)"). This is used for the overall
                                          Y-axis label of the chart.
 
             Returns:
