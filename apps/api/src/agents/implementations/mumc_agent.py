@@ -68,7 +68,7 @@ class ZLMQuestionnaireAnswers(BaseModel):
     G16: int = Field(..., ge=0, le=6)
     G17: int = Field(..., ge=0, le=4)
     G18: int = Field(..., ge=0, le=6)
-    G19: int = Field(..., ge=0, le=3)
+    G19: int = Field(..., ge=0, le=6)
     G20: Literal["nooit", "vroeger", "ja"]
     G21: float = Field(..., gt=0)
     G22: float = Field(..., gt=0)
