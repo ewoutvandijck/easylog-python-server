@@ -217,6 +217,7 @@ class ChartWidget(BaseModel):
             "success": "#a8e6a3",  # Pastel Green - RGB(168, 230, 163) - Low burden, good health
             "neutral": "#ffd6a5",  # Pastel Orange - RGB(255, 214, 165) - Moderate burden
             "warning": "#ffb3ba",  # Pastel Red/Pink - RGB(255, 179, 186) - High burden, poor health
+            "old": "#d3d3d3",  # Pastel Gray for previous scores
         }
 
         y_current_key = "y_current"
@@ -305,6 +306,7 @@ class ChartWidget(BaseModel):
                     value=old_y,
                     color=old_color_role,
                 )
+                has_old_values = True
 
         # Configure series
         label_for_current_series = y_axis_label_from_data.split("(")[0].strip()
