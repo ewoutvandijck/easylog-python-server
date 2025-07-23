@@ -419,7 +419,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 ```python
                 # Assuming ZLMDataRow is imported from src.models.chart_widget
                 data = [
-                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-6)"),
                     ZLMDataRow(x_value="Physical pain", y_current=6, y_old=4.5, y_label="Score (0-6)"),
                     ZLMDataRow(x_value="Mental health", y_current=5, y_old=5.2, y_label="Score (0-6)"),
                     ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
