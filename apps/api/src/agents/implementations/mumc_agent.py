@@ -253,7 +253,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # --------------------------------------------------------------
             # 1. Gather & validate answers
             # --------------------------------------------------------------
-            question_codes = [f"g{i}" for i in range(1, 23)]  # g1 … g22 inclusive
+            question_codes = [f"G{i}" for i in range(1, 23)]  # g1 … g22 inclusive
 
             raw_answers: dict[str, str] = {}
             missing: list[str] = []
@@ -291,15 +291,15 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             parsed: dict[str, Any] = {
                 # ints 0-6 unless specified
                 **{
-                    f"g{i}": _to_int(raw_answers[f"g{i}"])
+                    f"G{i}": _to_int(raw_answers[f"G{i}"])
                     for i in range(1, 20)
                     if i != 20
                 },
                 # g20 remains str literal
-                "g20": raw_answers["g20"].strip().lower(),
+                "G20": raw_answers["G20"].strip().lower(),
                 # floats
-                "g21": _to_float(raw_answers["g21"]),
-                "g22": _to_float(raw_answers["g22"]),
+                "G21": _to_float(raw_answers["G21"]),
+                "G22": _to_float(raw_answers["G22"]),
             }
 
             answers = ZLMQuestionnaireAnswers(**parsed)
@@ -314,23 +314,23 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             scores: dict[str, float] = {
                 "longklachten": _avg(
-                    [answers.g12, answers.g13, answers.g15, answers.g16]
+                    [answers.G12, answers.G13, answers.G15, answers.G16]
                 ),
-                "longaanvallen": float(answers.g17),
-                "lichamelijke_beperkingen": _avg([answers.g5, answers.g6, answers.g7]),
-                "vermoeidheid": float(answers.g1),
-                "nachtrust": float(answers.g2),
-                "gevoelens_emoties": _avg([answers.g3, answers.g11, answers.g14]),
-                "seksualiteit": float(answers.g10),
-                "relaties_en_werk": _avg([answers.g8, answers.g9]),
-                "medicijnen": float(answers.g4),
-                "bewegen": float(answers.g18),
-                "alcohol": float(answers.g19),
+                "longaanvallen": float(answers.G17),
+                "lichamelijke_beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
+                "vermoeidheid": float(answers.G1),
+                "nachtrust": float(answers.G2),
+                "gevoelens_emoties": _avg([answers.G3, answers.G11, answers.G14]),
+                "seksualiteit": float(answers.G10),
+                "relaties_en_werk": _avg([answers.G8, answers.G9]),
+                "medicijnen": float(answers.G4),
+                "bewegen": float(answers.G18),
+                "alcohol": float(answers.G19),
             }
 
             # BMI-related score
-            height_m = answers.g22 / 100.0
-            bmi_value = answers.g21 / (height_m**2)
+            height_m = answers.G22 / 100.0
+            bmi_value = answers.G21 / (height_m**2)
             if bmi_value < 16:
                 gewicht_score = 4
             elif bmi_value < 18.5:
@@ -355,7 +355,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             # Roken score
             roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
-            scores["roken"] = float(roken_map[answers.g20])
+            scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
             # 4. Persist memories
