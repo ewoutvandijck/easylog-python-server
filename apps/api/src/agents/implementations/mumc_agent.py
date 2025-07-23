@@ -344,14 +344,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             else:
                 gewicht_score = 6
 
-            # Scale scores that are not already 0-6 to 0-6
-            scores["longklachten"] = scores["longklachten"] * 1.5
-            scores["longaanvallen"] = scores["longaanvallen"] * 1.5
-            # score 0-3 to 0-6
+
             scores["gewicht_bmi"] = float(gewicht_score)
 
-            # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
-            bmi_value = bmi_value * 1.5
+            # Scale scores that are not already 0-6 to 0-6
+            scores["longaanvallen"] = scores["longaanvallen"] * 1.5
+            # score 0-3 to 0-6
 
             # Roken score
             roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
