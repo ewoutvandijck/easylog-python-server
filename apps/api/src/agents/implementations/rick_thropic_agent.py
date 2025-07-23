@@ -1154,7 +1154,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # ------------------------------------------------------------------
             # Delegate to generic balloon chart creator
             # ------------------------------------------------------------------
-            return tool_create_zlm_chart(language=language, data=data)
+            return tool_create_zlm_chart_from_scores(language=language, data=data)
 
         return [
             *easylog_backend_tools.all_tools,

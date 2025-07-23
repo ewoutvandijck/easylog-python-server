@@ -23,10 +23,8 @@ from src.agents.tools.easylog_backend_tools import EasylogBackendTools
 from src.agents.tools.easylog_sql_tools import EasylogSqlTools
 from src.lib.prisma import prisma
 from src.models.chart_widget import (
-    DEFAULT_COLOR_ROLE_MAP,
     ChartWidget,
     Line,
-    TooltipConfig,
     ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
@@ -47,6 +45,33 @@ class QuestionaireQuestionConfig(BaseModel):
         default="",
         description="A unique identifier for this question, used for referencing the answer in prompts or logic. For example, if the question is 'What is your name?', the name could be 'user_name', allowing you to use {questionaire.user_name.answer} in templates.",
     )
+
+
+class ZLMQuestionnaireAnswers(BaseModel):
+    """Validated answers for the Ziektelastmeter COPD questionnaire (G1–G22)."""
+
+    g1: int = Field(..., ge=0, le=6)
+    g2: int = Field(..., ge=0, le=6)
+    g3: int = Field(..., ge=0, le=6)
+    g4: int = Field(..., ge=0, le=6)
+    g5: int = Field(..., ge=0, le=6)
+    g6: int = Field(..., ge=0, le=6)
+    g7: int = Field(..., ge=0, le=6)
+    g8: int = Field(..., ge=0, le=6)
+    g9: int = Field(..., ge=0, le=6)
+    g10: int = Field(..., ge=0, le=6)
+    g11: int = Field(..., ge=0, le=6)
+    g12: int = Field(..., ge=0, le=6)
+    g13: int = Field(..., ge=0, le=6)
+    g14: int = Field(..., ge=0, le=6)
+    g15: int = Field(..., ge=0, le=6)
+    g16: int = Field(..., ge=0, le=6)
+    g17: int = Field(..., ge=0, le=4)
+    g18: int = Field(..., ge=0, le=7)
+    g19: int = Field(..., ge=0, le=3)
+    g20: Literal["nooit", "vroeger", "ja"]
+    g21: float = Field(..., gt=0)
+    g22: float = Field(..., gt=0)
 
 
 class RoleConfig(BaseModel):
@@ -381,7 +406,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             return scores
 
-
         def tool_create_zlm_balloon_chart(
             language: Literal["nl", "en"],
             data: list[ZLMDataRow] | list[dict[str, Any]] | str,
@@ -550,6 +574,146 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 description=description,
                 data=converted_data,
             )
+
+        def tool_create_zlm_chart(
+            language: Literal["nl", "en"],
+            data: list[ZLMDataRow],
+        ) -> ChartWidget:
+            """
+            Creates a ZLM (Ziektelastmeter COPD) balloon chart using a predefined ZLM color scheme.
+            The chart visualizes scores, expecting values in the 0-6 range. Where 0 is good and 6 is the worst
+            The y-axis label is derived from the `y_label` field of the first data item.
+
+            Args:s
+                language: The language for chart title and description ('nl' or 'en').
+                data: A list of `ZLMDataRow` objects for the chart. Each item represents a
+                      category on the x-axis and its corresponding scores.
+                      - `x_value` (str): The name of the category (e.g., "Algemeen").
+                      - `y_current` (float): The current score (0-10).
+                      - `y_old` (float | None): Optional. The previous score the patient had (0-10).
+                      - `y_label` (str): The label for the y-axis, typically including units
+                                         (e.g., "Score (0-10)"). This is used for the overall
+                                         Y-axis label of the chart.
+
+            Returns:
+                A ChartWidget object configured as a balloon chart.
+
+            Raises:
+                ValueError: If the `data` list is empty.
+
+            Example:
+                ```python
+                # Assuming ZLMDataRow is imported from src.models.chart_widget
+                data = [
+                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-6)"),
+                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-6)"),
+                    ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
+                ]
+                chart_widget = tool_create_zlm_chart(language="nl", data=data)
+                ```
+            """
+            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
+
+            title = (
+                "Resultaten ziektelastmeter COPD %"
+                if language == "nl"
+                else "Disease burden results %"
+            )
+            description = (
+                "Uw ziektelastmeter COPD resultaten."
+                if language == "nl"
+                else "Your COPD burden results."
+            )
+
+            # Check that data list is at least 1 or more,.
+            if len(data) < 1:
+                raise ValueError("Data list must be at least 1 or more.")
+
+            # Convert dictionaries to ZLMDataRow objects if needed
+            return ChartWidget.create_balloon_chart(
+                title=title,
+                description=description,
+                data=data,
+            )
+
+        async def tool_create_zlm_chart_from_scores(
+            scores: dict[str, float],
+            language: Literal["nl", "en"] = "nl",
+        ) -> ChartWidget:
+            """Generate a ZLM balloon chart directly from the output of ``tool_calculate_zlm_scores``.
+
+            Parameters
+            ----------
+            scores : dict[str, float]
+                The scores dictionary returned by ``tool_calculate_zlm_scores``.
+            language : Literal["nl", "en"], default "nl"
+                Chart language (affects title/description only).
+
+            Returns
+            -------
+            ChartWidget
+                Configured balloon chart ready for display.
+            """
+
+            # ------------------------------------------------------------------
+            # Expected domain order + labels (closely follows official Dutch terms)
+            # ------------------------------------------------------------------
+            domain_label_map: list[tuple[str, str]] = [
+                ("longklachten", "Long klachten"),
+                ("longaanvallen", "Long aanvallen"),
+                ("lichamelijke_beperkingen", "Lich. Beperking"),
+                ("vermoeidheid", "Vermoeidheid"),
+                ("nachtrust", "Nachtrust"),
+                ("gevoelens_emoties", "Gevoelens/emoties"),
+                ("seksualiteit", "Seksualiteit"),
+                ("relaties_en_werk", "Relaties en werk"),
+                ("medicijnen", "Medicijnen"),
+                ("gewicht_bmi", "Gewicht (BMI)"),
+                ("bewegen", "Bewegen"),
+                ("alcohol", "Alcohol"),
+                ("roken", "Roken"),
+            ]
+
+            # ------------------------------------------------------------------
+            # Build data list – validate each score
+            # ------------------------------------------------------------------
+            # Build chart data as a list of `ZLMDataRow` objects so that it
+            # satisfies the expected type signature of `tool_create_zlm_chart`.
+            data: list[ZLMDataRow] = []
+            missing_keys: list[str] = []
+            for key, label in domain_label_map:
+                if key not in scores:
+                    missing_keys.append(key)
+                    continue
+
+                score_val = scores[key]
+                if not isinstance(score_val, (int, float)):
+                    raise TypeError(
+                        f"Score for domain '{key}' must be numeric, got {type(score_val).__name__}."
+                    )
+                if not 0 <= score_val <= 6:
+                    raise ValueError(
+                        f"Score for domain '{key}' must be between 0 and 6, got {score_val}."
+                    )
+
+                data.append(
+                    ZLMDataRow(
+                        x_value=label,
+                        y_current=float(score_val),
+                        y_old=None,  # No previous scores yet
+                        y_label="Score (0-6)",
+                    )
+                )
+
+            if missing_keys:
+                raise ValueError(
+                    "Scores dictionary missing values for: " + ", ".join(missing_keys)
+                )
+
+            # ------------------------------------------------------------------
+            # Delegate to generic balloon chart creator
+            # ------------------------------------------------------------------
+            return tool_create_zlm_chart(language=language, data=data)
 
         def tool_create_bar_chart(
             title: str,
@@ -1294,8 +1458,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             tool_get_questionaire_answer,
             # Visualization tools
             tool_create_bar_chart,
+            tool_calculate_zlm_scores,
             tool_create_zlm_chart,
-            tool_create_zlm_balloon_chart,
+            tool_create_zlm_chart_from_scores,
             tool_create_line_chart,
             # Interaction tools
             tool_ask_multiple_choice,
