@@ -311,10 +311,10 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             )
 
         # ------------------------------------------------------------------
-        # Questionnaire utilities                                            
+        # Questionnaire utilities
         # ------------------------------------------------------------------
 
-                # Questionnaire tools
+        # Questionnaire tools
         async def tool_answer_questionaire_question(
             question_name: str, answer: str
         ) -> str:
@@ -328,7 +328,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             await self.set_metadata(question_name, answer)
 
             return f"Answer to {question_name} set to {answer}"
-
 
         async def tool_get_questionaire_answer(question_name: str) -> str:
             """Retrieve a previously stored questionnaire answer.
@@ -363,9 +362,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             return f"Memory stored: {memory}"
 
         # ------------------------------------------------------------------
-        # ZLM score calculation                                              
+        # ZLM score calculation
         # ------------------------------------------------------------------
- 
+
         async def tool_calculate_zlm_scores() -> dict[str, float]:
             """Calculate Ziektelastmeter COPD domain scores based on previously
             answered questionnaire values. The questionnaire must be complete before calling this tool.
@@ -378,9 +377,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # --------------------------------------------------------------
             # 1. Gather & validate answers
             # --------------------------------------------------------------
-            question_codes = [
-                f"g{i}" for i in range(1, 23)
-            ]  # g1 … g22 inclusive
+            question_codes = [f"g{i}" for i in range(1, 23)]  # g1 … g22 inclusive
 
             raw_answers: dict[str, str] = {}
             missing: list[str] = []
@@ -397,23 +394,31 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 )
 
             # --------------------------------------------------------------
-            # 2. Parse & validate using Pydantic model                      
+            # 2. Parse & validate using Pydantic model
             # --------------------------------------------------------------
             def _to_int(val: str) -> int:
                 try:
                     return int(val)
                 except Exception as exc:
-                    raise ValueError(f"Expected integer, got '{val}' for question.") from exc
+                    raise ValueError(
+                        f"Expected integer, got '{val}' for question."
+                    ) from exc
 
             def _to_float(val: str) -> float:
                 try:
                     return float(val)
                 except Exception as exc:
-                    raise ValueError(f"Expected float, got '{val}' for question.") from exc
+                    raise ValueError(
+                        f"Expected float, got '{val}' for question."
+                    ) from exc
 
             parsed: dict[str, Any] = {
                 # ints 0-6 unless specified
-                **{f"g{i}": _to_int(raw_answers[f"g{i}"]) for i in range(1, 20) if i != 20},
+                **{
+                    f"g{i}": _to_int(raw_answers[f"g{i}"])
+                    for i in range(1, 20)
+                    if i != 20
+                },
                 # g20 remains str literal
                 "g20": raw_answers["g20"].strip().lower(),
                 # floats
@@ -424,7 +429,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             answers = ZLMQuestionnaireAnswers(**parsed)
 
             # --------------------------------------------------------------
-            # 3. Domain score computation                                  
+            # 3. Domain score computation
             # --------------------------------------------------------------
             from statistics import mean
 
@@ -432,7 +437,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 return float(mean(vals)) if vals else 0.0
 
             scores: dict[str, float] = {
-                "longklachten": _avg([answers.g12, answers.g13, answers.g15, answers.g16]),
+                "longklachten": _avg(
+                    [answers.g12, answers.g13, answers.g15, answers.g16]
+                ),
                 "longaanvallen": float(answers.g17),
                 "lichamelijke_beperkingen": _avg([answers.g5, answers.g6, answers.g7]),
                 "vermoeidheid": float(answers.g1),
@@ -443,10 +450,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 "medicijnen": float(answers.g4),
             }
 
-
             # BMI-related score
             height_m = answers.g22 / 100.0
-            bmi_value = answers.g21 / (height_m ** 2)
+            bmi_value = answers.g21 / (height_m**2)
             if bmi_value < 16:
                 gewicht_score = 4
             elif bmi_value < 18.5:
@@ -466,7 +472,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # score 0-3 to 0-6
             scores["bewegen"] = scores["bewegen"] * 2
             scores["gewicht_bmi"] = float(gewicht_score)
-            
+
             # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
             bmi_value = bmi_value * 1.5
 
@@ -490,7 +496,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             scores["roken"] = float(roken_map[answers.g20])
 
             # --------------------------------------------------------------
-            # 4. Persist memories                                           
+            # 4. Persist memories
             # --------------------------------------------------------------
             label_map = {
                 "longklachten": "Longklachten",
@@ -515,13 +521,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 label = label_map.get(key, key.title())
                 if key == "gewicht_bmi":
                     # Separate BMI memory
-                    mem = (
-                        f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
-                    )
+                    mem = f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
                 else:
-                    mem = (
-                        f"ZLM-Score-{label} {today_str}: Score = {score}"
-                    )
+                    mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
                 await tool_store_memory(mem)
 
             # Additional explicit BMI value memory if not yet stored (handled above)
@@ -599,7 +601,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             timezone: str | None = None,
             aggregation: Literal["hour", "day", None] | None = None,
         ) -> list[dict[str, Any]]:
-            """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!! """
+            """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!!"""
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             # ------------------------------------------------------------------ #
@@ -630,9 +632,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             date_from_dt = _parse_input(date_from)
             date_to_dt = _parse_input(date_to)
-            
+
             extra = ""
-            if (date_from_dt.year < datetime.now().year):
+            if date_from_dt.year < datetime.now().year:
                 raise ValueError("Date from is in the past")
 
             # Expand “whole-day” range (00:00 → 23:59:59.999999)
@@ -641,7 +643,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 and date_from_dt.timetz() == time(0, tzinfo=tz)
                 and date_to_dt.timetz() == time(0, tzinfo=tz)
             ):
-                date_to_dt = date_to_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                date_to_dt = date_to_dt.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
 
             # Convert to **UTC** for querying
             date_from_utc = date_from_dt.astimezone(UTC)
@@ -680,7 +684,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # ------------------------------------------------------------------ #
             def _iso_local(val: str | datetime) -> str:
                 dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
-                if dt_obj.tzinfo is None:              # DB can return naïve UTC
+                if dt_obj.tzinfo is None:  # DB can return naïve UTC
                     dt_obj = dt_obj.replace(tzinfo=UTC)
                 return dt_obj.astimezone(tz).isoformat()
 
@@ -1112,7 +1116,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             ]
 
             # ------------------------------------------------------------------
-            # Build data list – validate each score                             
+            # Build data list – validate each score
             # ------------------------------------------------------------------
             data: list[dict[str, Any]] = []
             missing_keys: list[str] = []
@@ -1146,7 +1150,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 )
 
             # ------------------------------------------------------------------
-            # Delegate to generic balloon chart creator                         
+            # Delegate to generic balloon chart creator
             # ------------------------------------------------------------------
             return tool_create_zlm_balloon_chart(language=language, data=data)
 
@@ -1161,10 +1165,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_add_reminder,
             tool_remove_reminder,
             tool_ask_multiple_choice,
-            tool_answer_questionaire_question
+            tool_answer_questionaire_question,
             tool_get_questionaire_answer,
             tool_store_memory,
-
             tool_create_bar_chart,
             tool_create_zlm_chart,
             tool_create_line_chart,
@@ -1173,7 +1176,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_calculate_zlm_scores,
             tool_create_zlm_chart_from_scores,
             # tool_create_zlm_balloon_chart,
-        
         ]
 
     async def on_message(
