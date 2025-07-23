@@ -74,32 +74,31 @@ class JobEntity(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
 
-
 class ZLMQuestionnaireAnswers(BaseModel):
     """Validated answers for the Ziektelastmeter COPD questionnaire (G1–G22)."""
 
-    g1: int = Field(..., ge=0, le=6)
-    g2: int = Field(..., ge=0, le=6)
-    g3: int = Field(..., ge=0, le=6)
-    g4: int = Field(..., ge=0, le=6)
-    g5: int = Field(..., ge=0, le=6)
-    g6: int = Field(..., ge=0, le=6)
-    g7: int = Field(..., ge=0, le=6)
-    g8: int = Field(..., ge=0, le=6)
-    g9: int = Field(..., ge=0, le=6)
-    g10: int = Field(..., ge=0, le=6)
-    g11: int = Field(..., ge=0, le=6)
-    g12: int = Field(..., ge=0, le=6)
-    g13: int = Field(..., ge=0, le=6)
-    g14: int = Field(..., ge=0, le=6)
-    g15: int = Field(..., ge=0, le=6)
-    g16: int = Field(..., ge=0, le=6)
-    g17: int = Field(..., ge=0, le=4)
-    g18: int = Field(..., ge=0, le=6)
-    g19: int = Field(..., ge=0, le=3)
-    g20: Literal["nooit", "vroeger", "ja"]
-    g21: float = Field(..., gt=0)
-    g22: float = Field(..., gt=0)
+    G1: int = Field(..., ge=0, le=6)
+    G2: int = Field(..., ge=0, le=6)
+    G3: int = Field(..., ge=0, le=6)
+    G4: int = Field(..., ge=0, le=6)
+    G5: int = Field(..., ge=0, le=6)
+    G6: int = Field(..., ge=0, le=6)
+    G7: int = Field(..., ge=0, le=6)
+    G8: int = Field(..., ge=0, le=6)
+    G9: int = Field(..., ge=0, le=6)
+    G10: int = Field(..., ge=0, le=6)
+    G11: int = Field(..., ge=0, le=6)
+    G12: int = Field(..., ge=0, le=6)
+    G13: int = Field(..., ge=0, le=6)
+    G14: int = Field(..., ge=0, le=6)
+    G15: int = Field(..., ge=0, le=6)
+    G16: int = Field(..., ge=0, le=6)
+    G17: int = Field(..., ge=0, le=4)
+    G18: int = Field(..., ge=0, le=6)
+    G19: int = Field(..., ge=0, le=6)
+    G20: Literal["nooit", "vroeger", "ja"]
+    G21: float = Field(..., gt=0)
+    G22: float = Field(..., gt=0)
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +376,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # --------------------------------------------------------------
             # 1. Gather & validate answers
             # --------------------------------------------------------------
-            question_codes = [f"g{i}" for i in range(1, 23)]  # g1 … g22 inclusive
+            question_codes = [f"G{i}" for i in range(1, 23)]  # g1 … g22 inclusive
 
             raw_answers: dict[str, str] = {}
             missing: list[str] = []
@@ -415,15 +414,15 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             parsed: dict[str, Any] = {
                 # ints 0-6 unless specified
                 **{
-                    f"g{i}": _to_int(raw_answers[f"g{i}"])
+                    f"G{i}": _to_int(raw_answers[f"G{i}"])
                     for i in range(1, 20)
                     if i != 20
                 },
                 # g20 remains str literal
-                "g20": raw_answers["g20"].strip().lower(),
+                "G20": raw_answers["G20"].strip().lower(),
                 # floats
-                "g21": _to_float(raw_answers["g21"]),
-                "g22": _to_float(raw_answers["g22"]),
+                "G21": _to_float(raw_answers["G21"]),
+                "G22": _to_float(raw_answers["G22"]),
             }
 
             answers = ZLMQuestionnaireAnswers(**parsed)
@@ -438,23 +437,23 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             scores: dict[str, float] = {
                 "longklachten": _avg(
-                    [answers.g12, answers.g13, answers.g15, answers.g16]
+                    [answers.G12, answers.G13, answers.G15, answers.G16]
                 ),
-                "longaanvallen": float(answers.g17),
-                "lichamelijke_beperkingen": _avg([answers.g5, answers.g6, answers.g7]),
-                "vermoeidheid": float(answers.g1),
-                "nachtrust": float(answers.g2),
-                "gevoelens_emoties": _avg([answers.g3, answers.g11, answers.g14]),
-                "seksualiteit": float(answers.g10),
-                "relaties_en_werk": _avg([answers.g8, answers.g9]),
-                "medicijnen": float(answers.g4),
-                "bewegen": float(answers.g18),
-                "alcohol": float(answers.g19),
+                "longaanvallen": float(answers.G17),
+                "lichamelijke_beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
+                "vermoeidheid": float(answers.G1),
+                "nachtrust": float(answers.G2),
+                "gevoelens_emoties": _avg([answers.G3, answers.G11, answers.G14]),
+                "seksualiteit": float(answers.G10),
+                "relaties_en_werk": _avg([answers.G8, answers.G9]),
+                "medicijnen": float(answers.G4),
+                "bewegen": float(answers.G18),
+                "alcohol": float(answers.G19),
             }
 
             # BMI-related score
-            height_m = answers.g22 / 100.0
-            bmi_value = answers.g21 / (height_m**2)
+            height_m = answers.G22 / 100.0
+            bmi_value = answers.G21 / (height_m**2)
             if bmi_value < 16:
                 gewicht_score = 4
             elif bmi_value < 18.5:
@@ -479,7 +478,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             # Roken score
             roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
-            scores["roken"] = float(roken_map[answers.g20])
+            scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
             # 4. Persist memories
@@ -1063,85 +1062,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_axis_domain_max=y_axis_domain_max,
             )
 
-        async def tool_create_zlm_chart_from_scores(
-            scores: dict[str, float],
-            language: Literal["nl", "en"] = "nl",
-        ) -> ChartWidget:
-            """Generate a ZLM balloon chart directly from the output of ``tool_calculate_zlm_scores``.
-
-            Parameters
-            ----------
-            scores : dict[str, float]
-                The scores dictionary returned by ``tool_calculate_zlm_scores``.
-            language : Literal["nl", "en"], default "nl"
-                Chart language (affects title/description only).
-
-            Returns
-            -------
-            ChartWidget
-                Configured balloon chart ready for display.
-            """
-
-            # ------------------------------------------------------------------
-            # Expected domain order + labels (closely follows official Dutch terms)
-            # ------------------------------------------------------------------
-            domain_label_map: list[tuple[str, str]] = [
-                ("longklachten", "Long klachten"),
-                ("longaanvallen", "Long aanvallen"),
-                ("lichamelijke_beperkingen", "Lich. Beperking"),
-                ("vermoeidheid", "Vermoeidheid"),
-                ("nachtrust", "Nachtrust"),
-                ("gevoelens_emoties", "Gevoelens/emoties"),
-                ("seksualiteit", "Seksualiteit"),
-                ("relaties_en_werk", "Relaties en werk"),
-                ("medicijnen", "Medicijnen"),
-                ("gewicht_bmi", "Gewicht (BMI)"),
-                ("bewegen", "Bewegen"),
-                ("alcohol", "Alcohol"),
-                ("roken", "Roken"),
-            ]
-
-            # ------------------------------------------------------------------
-            # Build data list – validate each score
-            # ------------------------------------------------------------------
-            # Build chart data as a list of `ZLMDataRow` objects so that it
-            # satisfies the expected type signature of `tool_create_zlm_chart`.
-            data: list[ZLMDataRow] = []
-            missing_keys: list[str] = []
-            for key, label in domain_label_map:
-                if key not in scores:
-                    missing_keys.append(key)
-                    continue
-
-                score_val = scores[key]
-                if not isinstance(score_val, (int, float)):
-                    raise TypeError(
-                        f"Score for domain '{key}' must be numeric, got {type(score_val).__name__}."
-                    )
-                if not 0 <= score_val <= 6:
-                    raise ValueError(
-                        f"Score for domain '{key}' must be between 0 and 6, got {score_val}."
-                    )
-
-                data.append(
-                    ZLMDataRow(
-                        x_value=label,
-                        y_current=float(score_val),
-                        y_old=None,  # No previous scores yet
-                        y_label="Score (0-6)",
-                    )
-                )
-
-            if missing_keys:
-                raise ValueError(
-                    "Scores dictionary missing values for: " + ", ".join(missing_keys)
-                )
-
-            # ------------------------------------------------------------------
-            # Delegate to generic balloon chart creator
-            # ------------------------------------------------------------------
-            return tool_create_zlm_chart_from_scores(language=language, data=data)
-
         return [
             *easylog_backend_tools.all_tools,
             *easylog_sql_tools.all_tools,
@@ -1157,13 +1077,11 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_get_questionaire_answer,
             tool_store_memory,
             tool_create_bar_chart,
-            tool_create_zlm_chart,
             tool_create_line_chart,
             tool_get_steps_data,
             tool_get_date_time,
             tool_calculate_zlm_scores,
-            tool_create_zlm_chart_from_scores,
-            # tool_create_zlm_balloon_chart,
+            tool_create_zlm_chart,
         ]
 
     async def on_message(
