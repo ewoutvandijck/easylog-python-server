@@ -314,6 +314,22 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
         # Questionnaire utilities                                            
         # ------------------------------------------------------------------
 
+                # Questionnaire tools
+        async def tool_answer_questionaire_question(
+            question_name: str, answer: str
+        ) -> str:
+            """Answer a question from the questionaire.
+
+            Args:
+                question_name (str): The name of the question to answer.
+                answer (str): The answer to the question.
+            """
+
+            await self.set_metadata(question_name, answer)
+
+            return f"Answer to {question_name} set to {answer}"
+
+
         async def tool_get_questionaire_answer(question_name: str) -> str:
             """Retrieve a previously stored questionnaire answer.
 
@@ -352,12 +368,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
  
         async def tool_calculate_zlm_scores() -> dict[str, float]:
             """Calculate Ziektelastmeter COPD domain scores based on previously
-            answered questionnaire values.
-
-            The answers are fetched via ``tool_get_questionaire_answer``. If any
-            required answer is missing, a ``ValueError`` is raised with a list of
-            the missing question codes so that the LLM can decide to ask the
-            questionnaire first.
+            answered questionnaire values. The questionnaire must be complete before calling this tool.
 
             Upon successful calculation the individual domain scores **and** the
             calculated BMI value are persisted as memories using
@@ -1150,16 +1161,19 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_add_reminder,
             tool_remove_reminder,
             tool_ask_multiple_choice,
+            tool_answer_questionaire_question
             tool_get_questionaire_answer,
             tool_store_memory,
-            tool_calculate_zlm_scores,
+
             tool_create_bar_chart,
             tool_create_zlm_chart,
             tool_create_line_chart,
             tool_get_steps_data,
             tool_get_date_time,
-            tool_create_zlm_balloon_chart,
+            tool_calculate_zlm_scores,
             tool_create_zlm_chart_from_scores,
+            # tool_create_zlm_balloon_chart,
+        
         ]
 
     async def on_message(
