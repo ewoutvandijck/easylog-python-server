@@ -2,6 +2,8 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
+from src.utils.colors import _interpolate_color
+
 # Semantic roles for individual data points
 ColorRole = Literal["success", "warning", "neutral", "info", "primary", "accent", "muted"]
 DEFAULT_COLOR_ROLE_MAP: dict[str, str] = {
@@ -210,17 +212,13 @@ class ChartWidget(BaseModel):
                   Scores must be in the 0-6 range as per ZLM COPD guidelines.
         """
         # ZLM COPD official color role map - Pastel version
+        # @easylog-omneo ewout: Adjust ZLM balloon chart colors here.
         ZLM_CUSTOM_COLOR_ROLE_MAP: dict[str, str] = {
             "success": "#a8e6a3",  # Pastel Green - RGB(168, 230, 163) - Low burden, good health
             "neutral": "#ffd6a5",  # Pastel Orange - RGB(255, 214, 165) - Moderate burden
             "warning": "#ffb3ba",  # Pastel Red/Pink - RGB(255, 179, 186) - High burden, poor health
-            "old": "#d0d0d0",  # Light Gray - RGB(208, 208, 208) - Previous scores
         }
 
-        # Define Literal constants for dictionary keys derived from ZLMDataRow field names
-        # This helps ensure consistency if ZLMDataRow fields are refactored.
-        # MyPy will check direct attribute access (zlm_row.y_current).
-        # These constants make the string key usage more explicit and robust.
         y_current_key = "y_current"
         y_old_key = "y_old"
 
@@ -251,23 +249,38 @@ class ChartWidget(BaseModel):
 
         for zlm_row in zlm_data_rows:
             current_y = zlm_row.y_current
-            current_color_role: str
 
-            # current_y is now a Flutter Y-value (0-10 scale) from tool_create_zlm_balloon_chart
-            # Convert back to percentage for color mapping logic
-            # Higher Y-value = better health (green), lower Y-value = worse health (red)
-            flutter_y_value = current_y  # 0-10 scale value
+            if current_y > 6:
+                raise ValueError("Y value is greater than 6")
 
-            # Official ZLM COPD color mapping based on Flutter Y-values (0-10 scale)
-            # Map to original balloon height logic: 8-10 = Green, 6-8 = Orange, 3.5-6 = Orange, 0-3.5 = Red
-            if flutter_y_value >= 8.0:  # Equivalent to 80%+ balloon height
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["success"]  # Pastel Green
-            elif flutter_y_value >= 6.0:  # Equivalent to 60%+ balloon height
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
-            elif flutter_y_value >= 3.5:  # Equivalent to 35%+ balloon height
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]  # Pastel Orange
-            else:  # flutter_y_value < 3.5 (equivalent to <35% balloon height)
-                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]  # Pastel Red/Pink
+            if current_y < 0:
+                raise ValueError("Y value cannot be less than 0")
+
+            # Normalise score to percentage (0.0-1.0)
+            percentage = current_y / 6.0
+
+            if percentage < 0.4:
+                # 0-40 %: gradient Success → Neutral (reversed scale)
+                t = percentage / 0.4
+                current_color_role = _interpolate_color(
+                    ZLM_CUSTOM_COLOR_ROLE_MAP["success"],
+                    ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"],
+                    t,
+                )
+            elif percentage < 0.6:
+                # 40-60 %: constant Neutral
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"]
+            elif percentage < 0.8:
+                # 60-80 %: gradient Neutral → Warning (reversed scale)
+                t = (percentage - 0.6) / 0.2
+                current_color_role = _interpolate_color(
+                    ZLM_CUSTOM_COLOR_ROLE_MAP["neutral"],
+                    ZLM_CUSTOM_COLOR_ROLE_MAP["warning"],
+                    t,
+                )
+            else:
+                # 80-100 %: constant Warning
+                current_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["warning"]
 
             processed_data_rows.append(
                 ChartDataRow(
@@ -318,8 +331,7 @@ class ChartWidget(BaseModel):
                 )
             )
 
-        # Y-axis configured for Flutter scale (0-10) since tool_create_zlm_balloon_chart now divides by 10
-        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=10, tick_line=True, show=True)
+        y_axis_config = AxisConfig(label=y_axis_label_from_data, domain_min=0, domain_max=6, tick_line=True, show=True)
         x_axis_config = AxisConfig(tick_line=True, show=True)  # Basic X-axis
 
         return cls(

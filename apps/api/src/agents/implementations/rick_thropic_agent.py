@@ -283,16 +283,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 selected_choice=None,
             )
 
+
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
             data: list[ZLMDataRow],
         ) -> ChartWidget:
             """
             Creates a ZLM (Ziektelastmeter COPD) balloon chart using a predefined ZLM color scheme.
-            The chart visualizes scores, expecting values in the 0-10 range. Where 0 is bad and 10 is the best
+            The chart visualizes scores, expecting values in the 0-6 range. Where 0 is good and 6 is the worst
             The y-axis label is derived from the `y_label` field of the first data item.
 
-            Args:
+            Args:s
                 language: The language for chart title and description ('nl' or 'en').
                 data: A list of `ZLMDataRow` objects for the chart. Each item represents a
                       category on the x-axis and its corresponding scores.
@@ -313,8 +314,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 ```python
                 # Assuming ZLMDataRow is imported from src.models.chart_widget
                 data = [
-                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-10)"),
-                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-10)"),
+                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-6)"),
+                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-6)"),
                     ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
                 ]
                 chart_widget = tool_create_zlm_chart(language="nl", data=data)
