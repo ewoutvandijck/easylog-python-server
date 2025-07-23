@@ -95,7 +95,7 @@ class ZLMQuestionnaireAnswers(BaseModel):
     g15: int = Field(..., ge=0, le=6)
     g16: int = Field(..., ge=0, le=6)
     g17: int = Field(..., ge=0, le=4)
-    g18: int = Field(..., ge=0, le=7)
+    g18: int = Field(..., ge=0, le=6)
     g19: int = Field(..., ge=0, le=3)
     g20: Literal["nooit", "vroeger", "ja"]
     g21: float = Field(..., gt=0)
@@ -448,6 +448,8 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 "seksualiteit": float(answers.g10),
                 "relaties_en_werk": _avg([answers.g8, answers.g9]),
                 "medicijnen": float(answers.g4),
+                "bewegen": float(answers.g18),
+                "alcohol": float(answers.g19),
             }
 
             # BMI-related score
@@ -467,29 +469,13 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 gewicht_score = 6
 
             # Scale scores that are not already 0-6 to 0-6
-            # scale longklachten and bewegen from 0-4 to 0-6
             scores["longklachten"] = scores["longklachten"] * 1.5
+            scores["longaanvallen"] = scores["longaanvallen"] * 1.5
             # score 0-3 to 0-6
-            scores["bewegen"] = scores["bewegen"] * 2
             scores["gewicht_bmi"] = float(gewicht_score)
 
             # scale bmi value from 0-4 to 0-6 so its on the same scale as the other scores
             bmi_value = bmi_value * 1.5
-
-            # Bewegen score
-            if answers.g18 == 0:
-                bewegen_score = 6
-            elif 1 <= answers.g18 <= 2:
-                bewegen_score = 4
-            elif 3 <= answers.g18 <= 4:
-                bewegen_score = 2
-            else:
-                bewegen_score = 0
-            scores["bewegen"] = float(bewegen_score)
-
-            # Alcohol score
-            alcohol_map = {0: 0, 1: 2, 2: 4, 3: 6}
-            scores["alcohol"] = float(alcohol_map[answers.g19])
 
             # Roken score
             roken_map = {"nooit": 0, "vroeger": 1, "ja": 6}
