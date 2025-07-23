@@ -74,6 +74,7 @@ class JobEntity(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
 
+
 class ZLMQuestionnaireAnswers(BaseModel):
     """Validated answers for the Ziektelastmeter COPD questionnaire (G1–G22)."""
 
@@ -467,7 +468,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             else:
                 gewicht_score = 6
 
-
             scores["gewicht_bmi"] = float(gewicht_score)
 
             # Scale scores that are not already 0-6 to 0-6
@@ -550,17 +550,11 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 chart_widget = tool_create_zlm_chart(language="nl", data=data)
                 ```
             """
-            # TODO: We should calculate colors for domains based linearly, and include exceptions for relevant domains.
 
             title = (
-                "Resultaten ziektelastmeter COPD %"
+                "Resultaten ziektelastmeter"
                 if language == "nl"
-                else "Disease burden results %"
-            )
-            description = (
-                "Uw ziektelastmeter COPD resultaten."
-                if language == "nl"
-                else "Your COPD burden results."
+                else "Disease burden results"
             )
 
             # Check that data list is at least 1 or more,.
@@ -570,7 +564,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # Convert dictionaries to ZLMDataRow objects if needed
             return ChartWidget.create_balloon_chart(
                 title=title,
-                description=description,
                 data=data,
             )
 
