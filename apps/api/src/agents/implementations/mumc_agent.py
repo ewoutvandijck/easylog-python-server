@@ -1038,7 +1038,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             date_from: str | datetime,
             date_to: str | datetime,
             timezone: str | None = None,
-            aggregation: Literal["hour", "day", None] | None = None,
+            aggregation: Literal["hour", "day", None] | None = "hour",
         ) -> list[dict[str, Any]]:
             """Get the user’s steps in the requested timezone, optionally aggregated. When asked to retrieve specific or relative data, you must have recently queried the tool_get_date_time to ensure your timeline is up to date!!"""
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
