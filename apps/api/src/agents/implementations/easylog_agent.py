@@ -813,112 +813,220 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             return datetime.now().isoformat()
 
         async def tool_get_steps_data(
-            date_from: str | datetime,
-            date_to: str | datetime,
-            aggregation: Literal["hour", "day", None] | None = None,
-        ) -> list[dict[str, Any]]:
-            """Get the steps data for a user with optional aggregation.
-            Make sure to use the tool_get_date_time tool to get the actual current date and time.
+                date_from: str | datetime,
+                date_to: str | datetime,
+                timezone: str | None = None,
+                aggregation: str | None = None,
+            ) -> list[dict[str, Any]]:
+                """Retrieve a user’s step counts with optional time aggregation.
 
-            Args:
-                date_from (str | datetime): The start date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
-                date_to   (str | datetime): The end date/time in ISO 8601 format (YYYY-MM-DD HH:MM:SS) or a datetime object.
-                aggregation (Literal["hour", "day", None], optional):
-                    - "hour":   Return total steps per **hour** within range.
-                    - "day":    Return total steps per **day** within range.
-                    - None (default): Return raw, un-aggregated datapoints.
+                Parameters
+                ----------
+                date_from, date_to : str | datetime
+                    Inclusive ISO-8601 strings **or** ``datetime`` objects that define the
+                    query window in the *local* timezone (see ``timezone``).
 
-            Returns:
-                list[dict[str, Any]]: Depending on aggregation level:
-                    - Raw points:   [{"created_at": "...", "value": 123}, ...]
-                    - Per hour:     [{"bucket": "YYYY-MM-DD HH:00:00", "value": 456}, ...]
-                    - Per day:      [{"bucket": "YYYY-MM-DD", "value": 789}, ...]
-            """
-            external_user_id = self.request_headers.get("x-onesignal-external-user-id")
+                timezone : str | None, default ``"Europe/Amsterdam"``
+                    IANA timezone name used to interpret naïve datetimes **and** for the
+                    timestamps returned by this tool.
 
-            if external_user_id is None:
-                raise ValueError("User ID not provided and not found in agent context.")
+                aggregation : {"quarter", "hour", "day", None}, default ``day``
+                    • ``"quarter"`` → 15-minute buckets  
+                    • ``"hour"``     → hourly totals  
+                    • ``"day"``      → daily totals  
+                    • ``None``/empty → **defaults to daily** (same as ``"day"``)
 
-            user = await prisma.users.find_first(
-                where=usersWhereInput(external_id=external_user_id)
-            )
-            if user is None:
-                raise ValueError("User not found")
+                The granularity increases from *quarter* (smallest) → *hour* → *day*.
 
-            print("Retrieving steps data for user", user.id)
-            date_from = (
-                datetime.fromisoformat(date_from)
-                if isinstance(date_from, str)
-                else date_from
-            )
-            date_to = (
-                datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
-            )
+                Returns
+                -------
+                list[dict[str, Any]]
+                    A list **capped at 300 rows**. Each item contains:
+                    ``created_at`` – ISO timestamp in requested timezone  
+                    ``value`` – summed step count for the bucket (aggregated) **or** the
+                    original ``value`` plus ``date_from``/``date_to`` (raw mode).
 
-            # If both inputs refer to the same calendar date and no explicit time was
-            # provided (i.e. they are at midnight), extend `date_to` to the end of that day
-            if (
-                date_from.date() == date_to.date()
-                and date_from.time() == datetime.min.time()
-                and date_to.time() == datetime.min.time()
-            ):
-                date_to = date_to.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
+                Notes
+                -----
+                • The result set is limited to **max 300 rows** to protect the UI and
+                network usage. If the database returns more rows, only the first 300
+                (ordered chronologically) are returned.  
+                • Always call ``tool_get_date_time`` first when working with relative
+                ranges ("today", "yesterday", …) to ensure your timeline is accurate.
+                """
+
+                from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+                # ------------------------------------------------------------------ #
+                # 0. Normalise / validate aggregation parameter                     #
+                # ------------------------------------------------------------------ #
+                agg_raw = (aggregation or "").strip().lower()
+
+                if agg_raw in {"", "none"}:
+                    aggregation_normalised = "day"
+                elif agg_raw in {"hour", "hourly"}:
+                    aggregation_normalised = "hour"
+                elif agg_raw in {"day", "daily"}:
+                    aggregation_normalised = "day"
+                elif agg_raw in {"quarter", "quarterly", "q", "15m", "15min", "15"}:
+                    aggregation_normalised = "quarter"
+                else:
+                    raise ValueError(
+                        "Invalid aggregation value. Use one of: 'quarter', 'hour', 'day', or None/empty."
+                    )
+
+                aggregation = aggregation_normalised  # overwrite with canonical value
+
+                # ------------------------------------------------------------------ #
+                # 1. Resolve / validate timezone                                     #
+                # ------------------------------------------------------------------ #
+                tz_name = (timezone or "Europe/Amsterdam").strip()
+                if tz_name in {"CET", "CEST"}:
+                    tz_name = "Europe/Amsterdam"
+
+                try:
+                    tz = ZoneInfo(tz_name)
+                except ZoneInfoNotFoundError as exc:
+                    raise ValueError(
+                        f"Invalid timezone '{timezone}'. Please provide a valid IANA name."
+                    ) from exc
+
+                UTC = ZoneInfo("UTC")  # single UTC instance for reuse
+
+                # ------------------------------------------------------------------ #
+                # 2. Parse inputs → timezone-aware datetimes                         #
+                # ------------------------------------------------------------------ #
+                def _parse_input(val: str | datetime) -> datetime:
+                    """ISO string → datetime; naïve → attach local tz."""
+                    dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
+                    if dt_obj.tzinfo is None:  # treat naïve as local
+                        dt_obj = dt_obj.replace(tzinfo=tz)
+                    return dt_obj
+
+                date_from_dt = _parse_input(date_from)
+                date_to_dt = _parse_input(date_to)
+
+                extra = ""
+                if date_from_dt.year < datetime.now().year:
+                    raise ValueError("Date from is in the past")
+
+                # Expand “whole-day” range (00:00 → 23:59:59.999999)
+                if (
+                    date_from_dt.date() == date_to_dt.date()
+                    and date_from_dt.timetz() == time(0, tzinfo=tz)
+                    and date_to_dt.timetz() == time(0, tzinfo=tz)
+                ):
+                    date_to_dt = date_to_dt.replace(
+                        hour=23, minute=59, second=59, microsecond=999999
+                    )
+
+                # Convert to **UTC** for querying
+                date_from_utc = date_from_dt.astimezone(UTC)
+                date_to_utc = date_to_dt.astimezone(UTC)
+
+                # ------------------------------------------------------------------ #
+                # 3. Fetch user id                                                   #
+                # ------------------------------------------------------------------ #
+                external_user_id = self.request_headers.get("x-onesignal-external-user-id")
+                if external_user_id is None:
+                    raise ValueError("User ID not provided and not found in agent context.")
+
+                user = await prisma.users.find_first(
+                    where=usersWhereInput(external_id=external_user_id)
                 )
+                if user is None:
+                    raise ValueError("User not found")
 
-            steps_data = await prisma.health_data_points.find_many(
-                where=health_data_pointsWhereInput(
-                    user_id=user.id,
-                    type=health_data_point_type.steps,
-                    date_from={
-                        "gte": date_from,
-                    },
-                    date_to={
-                        "lte": date_to,
-                    },
-                ),
-                order={"created_at": "asc"},
-            )
-
-            print("No steps data found for user between", date_from, "and", date_to)
-
-            if not steps_data:
-                return []
-
-            if aggregation in {"hour", "day"}:
-                trunc_unit = aggregation
-
-                rows: list[dict[str, Any]] = await prisma.query_raw(
-                    f"""
-                    SELECT
-                        date_trunc('{trunc_unit}', date_from) AS bucket,
-                        SUM(value)::int                     AS total
-                    FROM health_data_points
-                    WHERE user_id = $1::uuid
-                        AND type     = 'steps'
-                        AND date_from >= $2::timestamp
-                        AND date_to   <= $3::timestamp
-                    GROUP BY bucket
-                    ORDER BY bucket
-                    """,
-                    user.id,
-                    date_from,
-                    date_to,
+                # ------------------------------------------------------------------ #
+                # 4. Retrieve raw datapoints                                         #
+                # ------------------------------------------------------------------ #
+                steps_data = await prisma.health_data_points.find_many(
+                    where=health_data_pointsWhereInput(
+                        user_id=user.id,
+                        type=health_data_point_type.steps,
+                        date_from={"gte": date_from_utc},
+                        date_to={"lte": date_to_utc},
+                    ),
+                    order={"created_at": "asc"},
+                    take=300,
                 )
+                if not steps_data:
+                    return []
 
+                # ------------------------------------------------------------------ #
+                # 5. Helper: convert any str/naïve dt → ISO in *local* timezone      #
+                # ------------------------------------------------------------------ #
+                def _iso_local(val: str | datetime) -> str:
+                    dt_obj = datetime.fromisoformat(val) if isinstance(val, str) else val
+                    if dt_obj.tzinfo is None:  # DB can return naïve UTC
+                        dt_obj = dt_obj.replace(tzinfo=UTC)
+                    return dt_obj.astimezone(tz).isoformat()
+
+                # ------------------------------------------------------------------ #
+                # 6. Aggregation                                                     #
+                # ------------------------------------------------------------------ #
+                if aggregation in {"hour", "day"}:
+                    rows: list[dict[str, Any]] = await prisma.query_raw(
+                        f"""
+                        SELECT
+                            date_trunc('{aggregation}', date_from AT TIME ZONE 'UTC') AS bucket,
+                            SUM(value)::int                                          AS total
+                        FROM   health_data_points
+                        WHERE  user_id  = $1::uuid
+                        AND  type     = 'steps'
+                        AND  date_from >= $2::timestamptz
+                        AND  date_to   <= $3::timestamptz
+                        GROUP  BY bucket
+                        ORDER  BY bucket
+                        LIMIT 300
+                        """,
+                        user.id,
+                        date_from_utc,
+                        date_to_utc,
+                    )
+
+                    return [
+                        {
+                            "created_at": _iso_local(row["bucket"]),
+                            "value": row["total"],
+                        }
+                        for row in rows
+                    ]
+
+                # ------------------------------------------------------------------ #
+                # 6b. Quarter-hour aggregation                                       #
+                # ------------------------------------------------------------------ #
+                if aggregation == "quarter":
+                    from collections import defaultdict
+
+                    bucket_totals: dict[str, int] = defaultdict(int)
+
+                    for dp in steps_data:
+                        start_dt = _parse_input(dp.date_from)
+                        local_dt = start_dt.astimezone(tz)
+                        floored_minute = (local_dt.minute // 15) * 15
+                        bucket_dt = local_dt.replace(minute=floored_minute, second=0, microsecond=0)
+                        bucket_key = bucket_dt.isoformat()
+                        bucket_totals[bucket_key] += dp.value
+
+                    sorted_rows = sorted(bucket_totals.items())[:300]
+
+                    return [{"created_at": key, "value": total} for key, total in sorted_rows]
+
+                # ------------------------------------------------------------------ #
+                # 7. Raw datapoints                                                  #
+                # ------------------------------------------------------------------ #
                 return [
-                    {"created_at": row["bucket"], "value": row["total"]} for row in rows
+                    {
+                        "created_at": _iso_local(dp.created_at),
+                        "date_from": _iso_local(dp.date_from),
+                        "date_to": _iso_local(dp.date_to),
+                        "value": dp.value,
+                    }
+                    for dp in steps_data
                 ]
 
-            return [
-                {
-                    "created_at": step.created_at.isoformat(),
-                    "date_from": step.date_from.isoformat(),
-                    "date_to": step.date_to.isoformat(),
-                    "value": step.value,
-                }
-                for step in steps_data
-            ]
+
 
         # Assemble and return the complete tool list
         tools_list = [
