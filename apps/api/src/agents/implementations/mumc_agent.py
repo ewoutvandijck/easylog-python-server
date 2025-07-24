@@ -373,7 +373,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "roken": "Roken",
             }
 
-            today_str = datetime.now().strftime("%d-%m-%Y")
+            today_str = datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%d-%m-%Y")
 
             # Store domain scores
             for key, score in scores.items():
@@ -1022,7 +1022,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "id": response["id"],
                     "title": title,
                     "contents": contents,
-                    "sent_at": datetime.now().isoformat(),
+                    "sent_at": datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat(),
                 }
             )
 
@@ -1032,7 +1032,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
         async def tool_get_date_time() -> str:
             """Get the current date and time in ISO 8601 format YYYY-MM-DD HH:MM:SS."""
-            return datetime.now().isoformat()
+            return datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat()
 
         async def tool_get_steps_data(
             date_from: str | datetime,
@@ -1129,7 +1129,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             date_to_dt = _parse_input(date_to)
 
             extra = ""
-            if date_from_dt.year < datetime.now().year:
+            if date_from_dt.year < datetime.now(pytz.timezone("Europe/Amsterdam")).year:
                 raise ValueError("Date from is in the past")
 
             # Expand “whole-day” range (00:00 → 23:59:59.999999)
@@ -1367,7 +1367,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             "available_roles": "\n".join(
                 [f"- {role.name}" for role in self.config.roles]
             ),
-            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "current_time": datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S"),
             "recurring_tasks": "\n".join(
                 [
                     f"- {task['id']}: {task['cron_expression']} - {task['task']}"
