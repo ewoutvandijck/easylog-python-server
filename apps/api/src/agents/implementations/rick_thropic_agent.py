@@ -567,10 +567,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 data=data,
             )
 
-        async def tool_get_date_time() -> str:
-            """Get the current date and time in ISO 8601 format YYYY-MM-DD HH:MM:SS."""
-            return datetime.now().isoformat()
-
         async def tool_get_steps_data(
             date_from: str | datetime,
             date_to: str | datetime,
@@ -590,9 +586,9 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 timestamps returned by this tool.
 
             aggregation : {"quarter", "hour", "day", None}, default ``day``
-                • ``"quarter"`` → 15-minute buckets  
-                • ``"hour"``     → hourly totals  
-                • ``"day"``      → daily totals  
+                • ``"quarter"`` → 15-minute buckets
+                • ``"hour"``     → hourly totals
+                • ``"day"``      → daily totals
                 • ``None``/empty → **defaults to daily** (same as ``"day"``)
 
             The granularity increases from *quarter* (smallest) → *hour* → *day*.
@@ -601,7 +597,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             -------
             list[dict[str, Any]]
                 A list **capped at 300 rows**. Each item contains:
-                ``created_at`` – ISO timestamp in requested timezone  
+                ``created_at`` – ISO timestamp in requested timezone
                 ``value`` – summed step count for the bucket (aggregated) **or** the
                 original ``value`` plus ``date_from``/``date_to`` (raw mode).
 
@@ -609,9 +605,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             -----
             • The result set is limited to **max 300 rows** to protect the UI and
               network usage. If the database returns more rows, only the first 300
-              (ordered chronologically) are returned.  
-            • Always call ``tool_get_date_time`` first when working with relative
-              ranges ("today", "yesterday", …) to ensure your timeline is accurate.
+              (ordered chronologically) are returned.
             """
 
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -764,13 +758,17 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                     start_dt = _parse_input(dp.date_from)
                     local_dt = start_dt.astimezone(tz)
                     floored_minute = (local_dt.minute // 15) * 15
-                    bucket_dt = local_dt.replace(minute=floored_minute, second=0, microsecond=0)
+                    bucket_dt = local_dt.replace(
+                        minute=floored_minute, second=0, microsecond=0
+                    )
                     bucket_key = bucket_dt.isoformat()
                     bucket_totals[bucket_key] += dp.value
 
                 sorted_rows = sorted(bucket_totals.items())[:300]
 
-                return [{"created_at": key, "value": total} for key, total in sorted_rows]
+                return [
+                    {"created_at": key, "value": total} for key, total in sorted_rows
+                ]
 
             # ------------------------------------------------------------------ #
             # 7. Raw datapoints                                                  #
@@ -1148,7 +1146,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             tool_create_bar_chart,
             tool_create_line_chart,
             tool_get_steps_data,
-            tool_get_date_time,
             tool_calculate_zlm_scores,
             tool_create_zlm_chart,
         ]
