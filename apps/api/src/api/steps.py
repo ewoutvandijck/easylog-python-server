@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from fastapi import APIRouter, HTTPException, Response
 from prisma.enums import health_data_point_type, health_data_unit, health_platform
@@ -63,8 +64,16 @@ async def sync_steps(
 
         batcher = prisma.batch_()
         for step_data in data.data_points:
+            # Generate deterministic source_uuid if missing
+            source_uuid_value = step_data.source_uuid or str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_DNS,
+                    f"{data.user_id}_{step_data.source_name}_{step_data.date_from.isoformat()}_{step_data.date_to.isoformat()}",
+                )
+            )
+
             batcher.health_data_points.upsert(
-                where=_health_data_pointsWhereUnique_source_uuid_Input(source_uuid=step_data.source_uuid),
+                where=_health_data_pointsWhereUnique_source_uuid_Input(source_uuid=source_uuid_value),
                 data=health_data_pointsUpsertInput(
                     create=health_data_pointsCreateInput(
                         user_id=user_id,
@@ -73,7 +82,7 @@ async def sync_steps(
                         unit=health_data_unit(step_data.unit),
                         date_from=step_data.date_from,
                         date_to=step_data.date_to,
-                        source_uuid=step_data.source_uuid,
+                        source_uuid=source_uuid_value,
                         health_platform=health_platform(step_data.health_platform),
                         source_device_id=step_data.source_device_id,
                         source_id=step_data.source_id,

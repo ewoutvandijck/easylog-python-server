@@ -13,7 +13,7 @@ class SyncStepData(BaseModel):
     unit: health_data_unit
     date_from: datetime
     date_to: datetime
-    source_uuid: str
+    source_uuid: str | None = None
     health_platform: health_platform
     source_device_id: str
     source_id: str
