@@ -27,7 +27,7 @@ async def last_synced(
 ) -> LastSyncedResponse:
     user = await prisma.users.find_first(where=usersWhereInput(external_id=user_id))
     if user is None:
-        return LastSyncedResponse(last_synced=datetime.datetime(1970, 1, 1))
+        return LastSyncedResponse(last_synced=datetime.datetime.now() - datetime.timedelta(days=30))
 
     last_synced = await prisma.health_data_points.find_first(
         where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps),
@@ -35,7 +35,7 @@ async def last_synced(
     )
 
     if last_synced is None:
-        return LastSyncedResponse(last_synced=datetime.datetime(1970, 1, 1))
+        return LastSyncedResponse(last_synced=datetime.datetime.now() - datetime.timedelta(days=30))
 
     return LastSyncedResponse(last_synced=last_synced.created_at)
 
