@@ -373,19 +373,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "roken": "Roken",
             }
 
-            today_str = datetime.now(pytz.timezone("Europe/Amsterdam")).strftime("%d-%m-%Y")
+            today_str = datetime.now().strftime("%d-%m-%Y")
 
             # Store domain scores
             for key, score in scores.items():
                 label = label_map.get(key, key.title())
-                if key == "gewicht_bmi":
-                    # Separate BMI memory
-                    mem = f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
-                else:
-                    mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
+                mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
                 await tool_store_memory(mem)
 
-            # Additional explicit BMI value memory if not yet stored (handled above)
+            mem = f"ZLM-BMI-meta_value {today_str} {bmi_value}"
+            await tool_store_memory(mem)
 
             return scores
 
@@ -398,7 +395,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             The chart visualizes scores, expecting values in the 0-6 range. Where 0 is good and 6 is the worst
             The y-axis label is derived from the `y_label` field of the first data item.
 
-            Args:s
+            Args:
                 language: The language for chart title and description ('nl' or 'en').
                 data: A list of `ZLMDataRow` objects for the chart. Each item represents a
                       category on the x-axis and its corresponding scores.
@@ -408,6 +405,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                       - `y_label` (str): The label for the y-axis, typically including units
                                          (e.g., "Score (0-6)"). This is used for the overall
                                          Y-axis label of the chart.
+                      - `meta` (str | None): Optional. Extra information for this data point shown to the user. Add the BMI value here for the BMI score data point.
 
             Returns:
                 A ChartWidget object configured as a balloon chart.
@@ -419,13 +417,14 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 ```python
                 # Assuming ZLMDataRow is imported from src.models.chart_widget
                 data = [
-                    ZLMDataRow(x_value="Physical pain", y_current=6, y_old=4.5, y_label="Score (0-6)"),
-                    ZLMDataRow(x_value="Mental health", y_current=5, y_old=5.2, y_label="Score (0-6)"),
+                    ZLMDataRow(x_value="Physical pain", y_current=7.5, y_old=6.0, y_label="Score (0-6)"),
+                    ZLMDataRow(x_value="Mental health", y_current=8.2, y_old=8.5, y_label="Score (0-6)"),
                     ZLMDataRow(x_value="Social support", y_current=3.0, y_label="Schaal (0-5)"),  # No old value
                 ]
                 chart_widget = tool_create_zlm_chart(language="nl", data=data)
                 ```
             """
+
             title = (
                 "Resultaten ziektelastmeter"
                 if language == "nl"
@@ -1022,7 +1021,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     "id": response["id"],
                     "title": title,
                     "contents": contents,
-                    "sent_at": datetime.now(pytz.timezone("Europe/Amsterdam")).isoformat(),
+                    "sent_at": datetime.now(
+                        pytz.timezone("Europe/Amsterdam")
+                    ).isoformat(),
                 }
             )
 

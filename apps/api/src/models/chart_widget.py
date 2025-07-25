@@ -42,6 +42,7 @@ class ZLMDataRow(BaseModel):
     y_old: float | None = Field(default=None, description="The old value for this row.")
     y_current: float = Field(..., description="The current value for this row.")
     y_label: str = Field(..., description="The label for the y-axis.")
+    meta: str | None = Field(default=None, description="Optional extra information displayed to the user")
 
 
 class ChartDataPointValue(BaseModel):
@@ -50,6 +51,14 @@ class ChartDataPointValue(BaseModel):
     value: float | str
     color: str = Field(
         ..., description="The HEX color string for this data point (e.g., '#RRGGBB').", pattern=r"^#[0-9a-fA-F]{6}$"
+    )
+    # Optional additional metadata that can be displayed in tooltips or detail views (e.g., raw BMI value, units)
+    meta: str | None = Field(
+        default=None,
+        description=(
+            "Optional extra information for this data point. This can be leveraged by front-end components "
+            "to show richer tooltips or contextual details when the point is clicked or hovered."
+        ),
     )
 
 
@@ -238,6 +247,7 @@ class ChartWidget(BaseModel):
                         y_current=item["y_current"],
                         y_old=item.get("y_old"),
                         y_label=item["y_label"],
+                        meta=item["meta"],
                     )
                 )
         else:
@@ -290,6 +300,7 @@ class ChartWidget(BaseModel):
                         y_current_key: ChartDataPointValue(
                             value=current_y,
                             color=current_color_role,
+                            meta=zlm_row.meta,
                         )
                     },
                 )
@@ -305,6 +316,7 @@ class ChartWidget(BaseModel):
                 existing_row.y_values[y_old_key] = ChartDataPointValue(
                     value=old_y,
                     color=old_color_role,
+                    meta=zlm_row.meta,
                 )
                 has_old_values = True
 

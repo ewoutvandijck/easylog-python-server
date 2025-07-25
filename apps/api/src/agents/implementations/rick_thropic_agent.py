@@ -502,14 +502,11 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # Store domain scores
             for key, score in scores.items():
                 label = label_map.get(key, key.title())
-                if key == "gewicht_bmi":
-                    # Separate BMI memory
-                    mem = f"ZLM-Score-BMI {today_str}: BMI = {round(bmi_value, 1)}"
-                else:
-                    mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
+                mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
                 await tool_store_memory(mem)
 
-            # Additional explicit BMI value memory if not yet stored (handled above)
+            mem = f"ZLM-BMI-meta_value {today_str} {bmi_value}"
+            await tool_store_memory(mem)
 
             return scores
 
@@ -522,7 +519,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             The chart visualizes scores, expecting values in the 0-6 range. Where 0 is good and 6 is the worst
             The y-axis label is derived from the `y_label` field of the first data item.
 
-            Args:s
+            Args:
                 language: The language for chart title and description ('nl' or 'en').
                 data: A list of `ZLMDataRow` objects for the chart. Each item represents a
                       category on the x-axis and its corresponding scores.
@@ -532,6 +529,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                       - `y_label` (str): The label for the y-axis, typically including units
                                          (e.g., "Score (0-6)"). This is used for the overall
                                          Y-axis label of the chart.
+                      - `meta` (str | None): Optional. Extra information for this data point shown to the user. Add the BMI value here for the BMI score data point.
 
             Returns:
                 A ChartWidget object configured as a balloon chart.
