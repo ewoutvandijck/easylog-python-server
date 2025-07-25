@@ -31,7 +31,7 @@ async def last_synced(
 
     last_synced = await prisma.health_data_points.find_first(
         where=health_data_pointsWhereInput(user_id=user.id, type=health_data_point_type.steps),
-        order={"created_at": "desc"},
+        order={ "date_to": "desc"},
     )
 
     if last_synced is None:
