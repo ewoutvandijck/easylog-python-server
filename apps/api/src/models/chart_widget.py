@@ -247,7 +247,7 @@ class ChartWidget(BaseModel):
                         y_current=item["y_current"],
                         y_old=item.get("y_old"),
                         y_label=item["y_label"],
-                        meta=item["meta"],
+                        meta=item.get("meta"),
                     )
                 )
         else:
