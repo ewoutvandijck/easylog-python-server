@@ -35,7 +35,6 @@ const ChatProvider = ({
   const [chat] = useState<AIChat>(
     new Chat({
       transport: new DefaultChatTransport(),
-      maxSteps: 5,
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema
