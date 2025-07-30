@@ -9,6 +9,9 @@ import {
   uuid
 } from 'drizzle-orm/pg-core';
 
+import { AgentConfig } from '@/app/_agents/schemas/agentConfigSchema';
+import serverConfig from '@/server.config';
+
 export const timestamps = {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { mode: 'date' })
@@ -124,7 +127,10 @@ export const agents = pgTable('agents', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
-  config: jsonb('config').notNull().default('{}'),
+  config: jsonb('config')
+    .$type<AgentConfig>()
+    .notNull()
+    .default(serverConfig.defaultAgentConfig),
   ...timestamps
 });
 

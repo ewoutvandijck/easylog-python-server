@@ -11,15 +11,15 @@ import useTRPC from '@/lib/trpc/browser';
 
 import documentSearchSchema from '../schemas/documentSearchSchema';
 
-type AIChat = Chat<
-  UIMessage<
-    unknown,
-    {
-      chart: z.infer<typeof internalChartConfigSchema>;
-      'document-search': z.infer<typeof documentSearchSchema>;
-    }
-  >
+type ChatMessage = UIMessage<
+  unknown,
+  {
+    chart: z.infer<typeof internalChartConfigSchema>;
+    'document-search': z.infer<typeof documentSearchSchema>;
+  }
 >;
+
+type AIChat = Chat<ChatMessage>;
 
 interface ChatContextType {
   chat: AIChat;
@@ -49,6 +49,7 @@ const ChatProvider = ({
     new Chat({
       id: dbChat.id,
       transport: new DefaultChatTransport(),
+      messages: dbChat.messages as ChatMessage[],
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema

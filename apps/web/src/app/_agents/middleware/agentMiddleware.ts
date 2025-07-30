@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import db from '@/database/client';
 import { protectedProcedure } from '@/lib/trpc/procedures';
+import isUUID from '@/utils/is-uuid';
 
 const agentMiddleware = protectedProcedure
   .input(
@@ -13,14 +14,7 @@ const agentMiddleware = protectedProcedure
   .use(async ({ next, ctx, input }) => {
     const agent = await db.query.agents.findFirst({
       where: {
-        OR: [
-          {
-            id: input.agentId
-          },
-          {
-            slug: input.agentId
-          }
-        ]
+        [isUUID(input.agentId) ? 'id' : 'slug']: input.agentId
       }
     });
 
