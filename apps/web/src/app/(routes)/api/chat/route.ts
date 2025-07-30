@@ -9,6 +9,7 @@ import {
 } from 'ai';
 import { eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
+import z from 'zod';
 
 import agentConfigSchema from '@/app/_agents/schemas/agentConfigSchema';
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
@@ -110,7 +111,19 @@ export const POST = async (req: NextRequest) => {
             },
             writer
           ),
-          loadDocument: toolLoadDocument()
+          loadDocument: toolLoadDocument(),
+          clearChat: tool({
+            description: 'Clear the chat',
+            inputSchema: z.object({}),
+            execute: async () => {
+              await db.insert(chats).values({
+                agentId: chat.agentId,
+                userId: user.id
+              });
+
+              return 'Chat cleared';
+            }
+          })
         }
       });
 

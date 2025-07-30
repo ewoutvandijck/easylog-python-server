@@ -7,7 +7,7 @@ import {
   UIMessage,
   lastAssistantMessageIsCompleteWithToolCalls
 } from 'ai';
-import { createContext, useState } from 'react';
+import { createContext, useMemo } from 'react';
 import z from 'zod';
 
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
@@ -43,14 +43,14 @@ const ChatProvider = ({
 }: React.PropsWithChildren<ChatProviderProps>) => {
   const api = useTRPC();
 
-  const { data: dbChat } = useSuspenseQuery(
+  const { data: dbChat, refetch } = useSuspenseQuery(
     api.chats.getOrCreate.queryOptions({
       agentId: agentSlug
     })
   );
 
-  const [chat] = useState<AIChat>(
-    new Chat({
+  const chat = useMemo(() => {
+    return new Chat({
       id: dbChat.id,
       transport: new DefaultChatTransport(),
       messages: dbChat.messages as ChatMessage[],
@@ -58,9 +58,14 @@ const ChatProvider = ({
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema
+      },
+      onToolCall: async ({ toolCall }) => {
+        if (toolCall.toolName === 'clearChat') {
+          await refetch();
+        }
       }
-    })
-  );
+    }) as AIChat;
+  }, [dbChat.id, dbChat.messages, refetch]);
 
   return (
     <ChatContext.Provider value={{ chat }}>{children}</ChatContext.Provider>

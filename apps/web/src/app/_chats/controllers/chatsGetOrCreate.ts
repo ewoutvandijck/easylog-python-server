@@ -7,6 +7,9 @@ const chatGetOrCreate = agentMiddleware.query(async ({ ctx }) => {
     where: {
       agentId: ctx.agent.id,
       userId: ctx.user.id
+    },
+    orderBy: {
+      createdAt: 'desc'
     }
   });
 
