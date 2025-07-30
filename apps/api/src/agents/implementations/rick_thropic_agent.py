@@ -21,12 +21,12 @@ from src.agents.tools.knowledge_graph_tools import KnowledgeGraphTools
 from src.lib.prisma import prisma
 from src.models.chart_widget import (
     ChartWidget,
-    Line,
     ZLMDataRow,
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
+from src.agents.tools.parse_horizontal_lines import parse_horizontal_lines
 
 
 class RoleConfig(BaseModel):
@@ -945,78 +945,10 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             # Validate / coerce custom_color_role_map
             # ------------------------------------------------------------------
 
-            # Parse horizontal_lines from dictionaries to Line objects
-            parsed_horizontal_lines: list[Line] | None = None
             if horizontal_lines is not None:
-                import ast
-                import json
-
-                # Step 1 – normalise input to a list of dictionaries
-                normalised_lines: list[dict[str, Any]] = []
-
-                # Helper to convert a single string to dict or list
-                def _parse_str_to_obj(raw: str) -> list[dict[str, Any]]:
-                    raw_s = raw.strip()
-                    try:
-                        obj = json.loads(raw_s)
-                    except json.JSONDecodeError:
-                        obj = ast.literal_eval(raw_s)
-
-                    if isinstance(obj, list):
-                        return obj  # Expect list[dict]
-                    if isinstance(obj, dict):
-                        return [obj]
-                    raise ValueError(
-                        "horizontal_lines string must decode to a dict or list of dicts"
-                    )
-
-                if isinstance(horizontal_lines, str):
-                    normalised_lines.extend(_parse_str_to_obj(horizontal_lines))
-                elif isinstance(horizontal_lines, list):
-                    for idx, item in enumerate(horizontal_lines):
-                        if isinstance(item, dict):
-                            normalised_lines.append(item)
-                        elif isinstance(item, str):
-                            normalised_lines.extend(_parse_str_to_obj(item))
-                        else:
-                            raise ValueError(
-                                f"horizontal_lines[{idx}] must be a dict or string, got {type(item)}"
-                            )
-                else:
-                    raise ValueError("horizontal_lines must be a list, string, or None")
-
-                # Step 2 – validate dictionaries and convert to Line objects
-                parsed_horizontal_lines = []
-                for i, line_dict in enumerate(normalised_lines):
-                    if not isinstance(line_dict, dict):
-                        raise ValueError(
-                            f"horizontal_lines[{i}] must be a dictionary after parsing, got {type(line_dict)}"
-                        )
-
-                    if "value" not in line_dict:
-                        raise ValueError(
-                            f"horizontal_lines[{i}] missing required 'value' field"
-                        )
-
-                    try:
-                        value = float(line_dict["value"])
-                    except (ValueError, TypeError) as e:
-                        raise ValueError(
-                            f"horizontal_lines[{i}] 'value' must be numeric, got {line_dict['value']}"
-                        ) from e
-
-                    label = line_dict.get("label")
-                    color = line_dict.get("color")
-
-                    # Validate color format if provided
-                    if color is not None and not isinstance(color, str):
-                        raise ValueError(
-                            f"horizontal_lines[{i}] 'color' must be a string, got {type(color)}"
-                        )
-
-                    parsed_horizontal_lines.append(
-                        Line(value=value, label=label, color=color)
-                    )
+                parsed_horizontal_lines = parse_horizontal_lines(horizontal_lines)
+            else:
+                parsed_horizontal_lines = None
 
             return ChartWidget.create_bar_chart(
                 title=title,
@@ -1036,8 +968,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             x_key: str,
             y_keys: list[str],
             y_labels: list[str] | None = None,
-            custom_series_colors_palette: list[str] | None = None,
-            horizontal_lines: list[Line] | None = None,
+            horizontal_lines: list[dict[str, Any]] | None = None,
             description: str | None = None,
             height: int = 400,
             y_axis_domain_min: float | None = None,
@@ -1112,6 +1043,10 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                             raise ValueError(
                                 f"Line chart data for y_key '{y_key}' has non-numeric value '{item[y_key]}'. Must be number or null."
                             )
+            if horizontal_lines is not None:
+                parsed_horizontal_lines = parse_horizontal_lines(horizontal_lines)
+            else:
+                parsed_horizontal_lines = None
 
             return ChartWidget.create_line_chart(
                 title=title,
@@ -1121,8 +1056,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 y_labels=y_labels,
                 description=description,
                 height=height,
-                horizontal_lines=horizontal_lines,
-                custom_series_colors_palette=custom_series_colors_palette,
+                horizontal_lines=parsed_horizontal_lines,
                 y_axis_domain_min=y_axis_domain_min,
                 y_axis_domain_max=y_axis_domain_max,
             )
