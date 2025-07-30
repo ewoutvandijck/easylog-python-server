@@ -35,8 +35,10 @@ class Settings(BaseSettings):
 
     SUPABASE_ORIGIN_OVERRIDE: str | None = Field(default=None)
     OPENAI_API_KEY: str
-    ONESIGNAL_API_KEY: str = Field(default="")
-    ONESIGNAL_APP_ID: str = Field(default="")
+    
+    ONESIGNAL_APPERTO_API_KEY: str = Field(default="")
+    ONESIGNAL_HEALTH_API_KEY: str = Field(default="")
+    ONESIGNAL_HEUVEL_API_KEY: str = Field(default="")
 
     ONESIGNAL_APPERTO_APP_ID: str = Field(default="0a64ad5c-7330-4c9a-be23-dd905b3753fc'")
     ONESIGNAL_HEALTH_APP_ID: str = Field(default="137356f1-6558-4910-b51e-a9a4bb31a623")

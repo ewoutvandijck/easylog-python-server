@@ -7,9 +7,9 @@ from src.settings import settings
 
 
 class OneSignalService:
-    def __init__(self):
+    def __init__(self, api_key: str):
         self.configuration = onesignal.Configuration(
-            app_key=settings.ONESIGNAL_API_KEY,
+            app_key=api_key,
         )
 
     async def send_notification(self, notification: Notification | None = None) -> CreateNotificationSuccessResponse:

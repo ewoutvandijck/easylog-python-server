@@ -39,6 +39,7 @@ from src.models.multiple_choice_widget import MultipleChoiceWidget
 from src.models.stream_tool_call import StreamToolCall
 from src.services.one_signal.one_signal_service import OneSignalService
 from src.utils.image_to_base64 import image_to_base64
+from src.settings import settings
 
 TConfig = TypeVar("TConfig", bound=BaseModel)
 
@@ -54,17 +55,19 @@ class BaseAgent(Generic[TConfig]):
 
     _thread: threads | None = None
     _metadata: dict | None = None
+    _onesignal_api_key: str | None = None
 
     def __init__(self, thread_id: str, request_headers: dict, **kwargs: dict[str, Any]) -> None:
         self._raw_config = kwargs
         self.thread_id = thread_id
         self.request_headers = request_headers
-        self.one_signal = OneSignalService()
 
         # Initialize the client
         self.client = openai_client
 
         self.on_init()
+
+        self.one_signal = OneSignalService(settings.ONESIGNAL_APPERTO_API_KEY)
 
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
@@ -102,6 +105,9 @@ class BaseAgent(Generic[TConfig]):
     @abstractmethod
     def on_init(self) -> None:
         pass
+
+    def _set_onesignal_api_key(self, api_key: str) -> None:
+        self._onesignal_api_key = api_key
 
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[TConfig] | None:

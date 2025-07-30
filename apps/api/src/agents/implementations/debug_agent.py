@@ -91,6 +91,9 @@ class DefaultKeyDict(dict):
 
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
+    def on_init(self) -> None:
+        self._set_onesignal_api_key(settings.ONESIGNAL_APPERTO_API_KEY)
+
     def _substitute_double_curly_placeholders(
         self, template_string: str, data_dict: dict[str, Any]
     ) -> str:

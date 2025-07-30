@@ -73,6 +73,9 @@ class RoleConfig(BaseModel):
 
 
 class EasyLogAgentConfig(BaseModel):
+    def on_init(self) -> None:
+        self._set_onesignal_api_key(settings.ONESIGNAL_APPERTO_API_KEY)
+    
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(

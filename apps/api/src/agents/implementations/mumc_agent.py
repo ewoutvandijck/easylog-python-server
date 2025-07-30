@@ -120,6 +120,9 @@ class MUMCAgentConfig(BaseModel):
 
 
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
+    def on_init(self) -> None:
+        self._set_onesignal_api_key(settings.ONESIGNAL_HEALTH_API_KEY)
+
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
@@ -1000,7 +1003,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             if assistant_field_name is None:
                 return "No assistant field name found"
 
-
+            self.logger.info(f"Sending notification to {onesignal_id} with app id {settings.ONESIGNAL_HEALTH_APP_ID}")
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
@@ -1012,8 +1015,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
             self.logger.info(f"Notification: {notification}")
+            self.logger.info(f"Sending notification to {onesignal_id} with api key: {self._onesignal_api_key}")
+            try:
+                response = await self.one_signal.send_notification(notification)
+            except Exception as e:
+                self.logger.error(f"Error sending notification: {e}")
+                return "Error sending notification"
 
-            response = await self.one_signal.send_notification(notification)
             self.logger.info(f"Notification response: {response}")
 
             notifications = await self.get_metadata("notifications", [])
