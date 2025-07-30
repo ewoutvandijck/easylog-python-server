@@ -20,4 +20,4 @@ class OneSignalService:
     async def get_notifications(self):
         with onesignal.ApiClient(self.configuration) as api_client:
             api_instance = default_api.DefaultApi(api_client)
-            return api_instance.get_notifications(settings.ONESIGNAL_APP_ID)
+            return api_instance.get_notifications(settings.ONESIGNAL_APPERTO_APP_ID)

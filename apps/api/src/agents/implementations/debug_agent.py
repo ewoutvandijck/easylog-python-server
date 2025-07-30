@@ -380,7 +380,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=settings.ONESIGNAL_APP_ID,
+                app_id=settings.ONESIGNAL_APPERTO_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},
