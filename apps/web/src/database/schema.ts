@@ -117,8 +117,8 @@ export const documents = pgTable('documents', {
   tags: text('tags').array().notNull().default([]),
   content: jsonb('content'),
   status: documentStatusEnum('status').notNull().default('pending'),
-  agentId: uuid('agent_id')
-    .references(() => agents.id, { onDelete: 'cascade' })
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
   ...timestamps
 });
