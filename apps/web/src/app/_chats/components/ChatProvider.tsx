@@ -2,7 +2,11 @@
 
 import { Chat } from '@ai-sdk/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { DefaultChatTransport, UIMessage } from 'ai';
+import {
+  DefaultChatTransport,
+  UIMessage,
+  lastAssistantMessageIsCompleteWithToolCalls
+} from 'ai';
 import { createContext, useState } from 'react';
 import z from 'zod';
 
@@ -50,6 +54,7 @@ const ChatProvider = ({
       id: dbChat.id,
       transport: new DefaultChatTransport(),
       messages: dbChat.messages as ChatMessage[],
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema
