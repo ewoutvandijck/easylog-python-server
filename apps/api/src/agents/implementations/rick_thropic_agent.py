@@ -857,24 +857,7 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
 
             ## Complete Usage Examples
 
-            ### Basic Sales Chart:
-            chart = tool_create_bar_chart(
-                title="Monthly Sales Performance",
-                data=[
-                    {"month": "Jan", "sales": 15000, "target": 12000},
-                    {"month": "Feb", "sales": 18000, "target": 15000},
-                    {"month": "Mar", "sales": 14000, "target": 16000},
-                ],
-                horizontal_lines=[
-                    {"value": 15000, "label": "Target", "color": "#e8f5e8"},
-                    {"value": 10000, "label": "Minimum", "color": "#ffe4e1"},
-                ],
-                x_key="month",
-                y_keys=["sales", "target"],
-                description="Q1 2024 sales vs targets",
-            )
-
-            ### Advanced Chart with Color Coding:
+            ### Chart with Color Coding:
             chart = tool_create_bar_chart(
                 title="Department Performance Dashboard",
                 data=[
@@ -932,11 +915,6 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
                 ChartWidget: A configured chart widget ready for display in the UI.
                 The widget includes all styling, data, and interactive features.
 
-            Raises:
-                ValueError: If required keys are missing from data objects, or if color roles
-                    are invalid when using built-in color system, or if horizontal_lines
-                    have invalid structure.
-
             Common mistakes:
                 - x_key is not a string
                 - y_keys are not strings
@@ -974,46 +952,115 @@ class RickThropicAgent(BaseAgent[RickThropicAgentConfig]):
             y_axis_domain_min: float | None = None,
             y_axis_domain_max: float | None = None,
         ) -> ChartWidget:
-            """
-            Creates a line chart with customizable line colors and optional horizontal lines.
-            Each line series will have a distinct color.
+            """Create a line chart with time series or continuous data visualization.
 
-            Data Structure for `data` argument:
-            Each item in the `data` list is a dictionary representing a point on the x-axis.
-            For each `y_key` you want to plot, its value in the dictionary MUST be the
-            direct numerical value for that data point (or null for missing data).
+            • Line charts use automatic color assignment for each line series
+            • Data points can have null values for missing data (creates gaps in lines)
+            • Lines connect data points in the order they appear in the data array
 
-            Line Colors:
-            The color of the lines themselves is determined by `custom_series_colors_palette`.
-            If `custom_series_colors_palette` is not provided, a default palette is used.
-            The Nth line (corresponding to the Nth key in `y_keys`) will use the Nth color from this palette.
+            ## Data Structure Requirements
+
+            The `data` parameter expects a list of dictionaries where:
+            - Each dictionary represents one data point on the x-axis
+            - The `x_key` field contains the x-axis value (typically string for dates/categories)
+            - Each `y_key` field contains the numerical value for that data point
+            - Missing data can be represented as `null` or omitted entirely
+
+            ### Simple Time Series Example:
+            data = [
+                {"date": "2024-01-01", "temperature": 22.5, "humidity": 65},
+                {"date": "2024-01-03", "temperature": 21.8, "humidity": null},  # Missing humidity
+            ]
+
+            ## Line Colors
+
+            Line colors are automatically assigned using a default color palette:
+            - First line: Blue (#007bff)
+            - Second line: Green (#28a745) 
+            - Third line: Orange (#fd7e14)
+            - Additional lines continue with varied colors
+
+            **Important:** Do not include color information in the data objects - colors are handled automatically.
+
+            ## Horizontal Lines
+
+            The `horizontal_lines` parameter accepts a list of dictionaries, each defining a reference line:
+            ```python
+            horizontal_lines = [
+                {"value": 20000, "label": "Sales Target", "color": "#e8f5e8"},
+                {"value": 10000},  # Just value, will use default label and color
+            ]
+            ```
+
+            Required fields:
+            - `value` (float): The y-axis value where the line is drawn
+
+            Optional fields:
+            - `label` (str): Text label for the line (defaults to None)
+            - `color` (str): HEX color code (defaults to black)
+
+            ## Complete Usage Examples
+
+            ### Sales Performance Tracking:
+            chart = tool_create_line_chart(
+                title="Quarterly Sales Performance",
+                data=[
+                    {"month": "Q1", "revenue": 125000, "costs": 85000, "profit": 40000},
+                    {"month": "Q2", "revenue": 142000, "costs": 92000, "profit": 50000},
+                    {"month": "Q3", "revenue": 138000, "costs": 88000, "profit": 50000},
+                    {"month": "Q4", "revenue": 156000, "costs": 98000, "profit": 58000},
+                ],
+                x_key="month",
+                y_keys=["revenue", "costs", "profit"],
+                horizontal_lines=[
+                    {"value": 150000, "label": "Revenue Target", "color": "#d1ecf1"},
+                    {"value": 45000, "label": "Profit Goal", "color": "#d4edda"},
+                ],
+                y_axis_domain_min=0,
+                y_axis_domain_max=170000,
+                height=500,
+            )
 
             Args:
-                title (str): Chart title.
-                data (list[dict[str, Any]]): List of data objects as described above.
-                    Example:
-                    [
-                        {{"date": "2024-01-01", "temp": 10, "humidity": 60}},
-                        {{"date": "2024-01-02", "temp": 12, "humidity": 65}},
-                        {{"date": "2024-01-03", "temp": 9, "humidity": null}} // null for missing humidity
-                    ]
-                **Important** Do not add colors in the data object for line charts.
-                x_key (str): Key in data objects for the x-axis (e.g., 'date').
-                y_keys (list[str]): Keys for y-axis values (e.g., ['temp', 'humidity']).
-                y_labels (list[str] | None): Optional labels for y-axis series. If None,
-                                            `y_keys` are used. Must match `y_keys` length.
-                custom_series_colors_palette (list[str] | None): Optional. A list of HEX color strings
-                                     to define the colors for each **line series**.
-                                     Example: ["#007bff", "#28a745"] for two lines.
-                horizontal_lines (list[Line] | None): Optional. List of `Line` objects for horizontal lines.
-                                     See `tool_create_bar_chart` for `Line` model details.
-                                     Example: `[Line(value=10, label="Threshold")]`
-                description (str | None): Optional chart description.
+                title (str): The main title displayed above the chart.
+
+                data (list[dict[str, Any]]): List of data objects. Each object represents one
+                    data point on the x-axis. See examples above for structure.
+
+                x_key (str): The dictionary key that contains the x-axis values
+                    (e.g., "date", "month", "time").
+
+                y_keys (list[str]): List of dictionary keys for the data series to plot as lines.
+                    Each key becomes a separate line series (e.g., ["temperature", "humidity"]).
+
+                y_labels (list[str] | None): Optional custom labels for the y-axis series.
+                    If None, the `y_keys` are used as labels. Must match `y_keys` length.
+
+                horizontal_lines (list[dict[str, Any]] | None): Optional reference lines drawn across
+                    the chart. Each dictionary should contain:
+                    - "value" (float, required): The y-axis value where the line is drawn
+                    - "label" (str, optional): Text label for the line
+                    - "color" (str, optional): HEX color code (e.g., "#000000")
+
+                description (str | None): Optional subtitle/description shown below the title.
+
                 height (int): Chart height in pixels. Defaults to 400.
-                y_axis_domain_min (float | None): Optional. Sets the minimum value for the Y-axis scale.
-                y_axis_domain_max (float | None): Optional. Sets the maximum value for the Y-axis scale.
+                    Recommended range: 300-800 pixels.
+
+                y_axis_domain_min (float | None): Optional minimum value for y-axis scale.
+                    Forces chart to start at this value instead of auto-scaling.
+
+                y_axis_domain_max (float | None): Optional maximum value for y-axis scale.
+                    Forces chart to end at this value instead of auto-scaling.
+
             Returns:
-                A ChartWidget object configured as a line chart.
+                ChartWidget: A configured chart widget ready for display in the UI.
+                The widget includes all styling, data, and interactive features.
+
+            Common mistakes:
+                - Including color information in data objects (not needed for line charts)
+                - Mismatched y_labels and y_keys lengths
+                - Non-numeric values in y_key fields
             """
             if y_labels is not None and len(y_keys) != len(y_labels):
                 raise ValueError(
