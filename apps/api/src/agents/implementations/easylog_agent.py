@@ -30,6 +30,7 @@ from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
+onesignal_api_key = settings.ONESIGNAL_APPERTO_API_KEY
 
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
@@ -74,7 +75,7 @@ class RoleConfig(BaseModel):
 
 class EasyLogAgentConfig(BaseModel):
     def on_init(self) -> None:
-        self._set_onesignal_api_key(settings.ONESIGNAL_APPERTO_API_KEY)
+        self._set_onesignal_api_key(onesignal_api_key)
     
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
@@ -784,7 +785,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=settings.ONESIGNAL_APPERTO_APP_ID,
+                app_id=onesignal_api_key,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},

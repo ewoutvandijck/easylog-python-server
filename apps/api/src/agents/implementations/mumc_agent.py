@@ -31,6 +31,7 @@ from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
+onesignal_api_key = settings.ONESIGNAL_HEALTH_API_KEY
 
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
@@ -121,7 +122,7 @@ class MUMCAgentConfig(BaseModel):
 
 class MUMCAgent(BaseAgent[MUMCAgentConfig]):
     def on_init(self) -> None:
-        self._set_onesignal_api_key(settings.ONESIGNAL_HEALTH_API_KEY)
+        self._set_onesignal_api_key(onesignal_api_key)
 
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -1007,7 +1008,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=settings.ONESIGNAL_HEALTH_APP_ID,
+                app_id=onesignal_api_key,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},
@@ -1015,7 +1016,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             )
 
             self.logger.info(f"Notification: {notification}")
-            self.logger.info(f"Sending notification to {onesignal_id} with api key: {self._onesignal_api_key}")
             try:
                 response = await self.one_signal.send_notification(notification)
             except Exception as e:
