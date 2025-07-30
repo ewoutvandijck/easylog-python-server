@@ -2,11 +2,7 @@
 
 import { Chat } from '@ai-sdk/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import {
-  DefaultChatTransport,
-  UIMessage,
-  lastAssistantMessageIsCompleteWithToolCalls
-} from 'ai';
+import { DefaultChatTransport, UIMessage } from 'ai';
 import { createContext, useMemo } from 'react';
 import z from 'zod';
 
