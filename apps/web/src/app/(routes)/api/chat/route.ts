@@ -10,22 +10,22 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
-import toolCreateMultipleAllocations from '@/app/_chat/tools/easylog-backend/toolCreateMultipleAllocations';
-import toolCreatePlanningPhase from '@/app/_chat/tools/easylog-backend/toolCreatePlanningPhase';
-import toolDeleteAllocation from '@/app/_chat/tools/easylog-backend/toolDeleteAllocation';
-import toolGetDataSources from '@/app/_chat/tools/easylog-backend/toolGetDataSources';
-import toolGetPlanningPhase from '@/app/_chat/tools/easylog-backend/toolGetPlanningPhase';
-import toolGetPlanningPhases from '@/app/_chat/tools/easylog-backend/toolGetPlanningPhases';
-import toolGetPlanningProject from '@/app/_chat/tools/easylog-backend/toolGetPlanningProject';
-import toolGetPlanningProjects from '@/app/_chat/tools/easylog-backend/toolGetPlanningProjects';
-import toolGetProjectsOfResource from '@/app/_chat/tools/easylog-backend/toolGetProjectsOfResource';
-import toolGetResourceGroups from '@/app/_chat/tools/easylog-backend/toolGetResourceGroups';
-import toolGetResources from '@/app/_chat/tools/easylog-backend/toolGetResources';
-import toolUpdatePlanningPhase from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningPhase';
-import toolUpdatePlanningProject from '@/app/_chat/tools/easylog-backend/toolUpdatePlanningProject';
-import toolExecuteSQL from '@/app/_chat/tools/toolExecuteSQL';
-import toolLoadDocument from '@/app/_chat/tools/toolLoadDocument';
-import toolSearchKnowledgeBase from '@/app/_chat/tools/toolSearchKnowledgeBase';
+import toolCreateMultipleAllocations from '@/app/_chats/tools/easylog-backend/toolCreateMultipleAllocations';
+import toolCreatePlanningPhase from '@/app/_chats/tools/easylog-backend/toolCreatePlanningPhase';
+import toolDeleteAllocation from '@/app/_chats/tools/easylog-backend/toolDeleteAllocation';
+import toolGetDataSources from '@/app/_chats/tools/easylog-backend/toolGetDataSources';
+import toolGetPlanningPhase from '@/app/_chats/tools/easylog-backend/toolGetPlanningPhase';
+import toolGetPlanningPhases from '@/app/_chats/tools/easylog-backend/toolGetPlanningPhases';
+import toolGetPlanningProject from '@/app/_chats/tools/easylog-backend/toolGetPlanningProject';
+import toolGetPlanningProjects from '@/app/_chats/tools/easylog-backend/toolGetPlanningProjects';
+import toolGetProjectsOfResource from '@/app/_chats/tools/easylog-backend/toolGetProjectsOfResource';
+import toolGetResourceGroups from '@/app/_chats/tools/easylog-backend/toolGetResourceGroups';
+import toolGetResources from '@/app/_chats/tools/easylog-backend/toolGetResources';
+import toolUpdatePlanningPhase from '@/app/_chats/tools/easylog-backend/toolUpdatePlanningPhase';
+import toolUpdatePlanningProject from '@/app/_chats/tools/easylog-backend/toolUpdatePlanningProject';
+import toolExecuteSQL from '@/app/_chats/tools/toolExecuteSQL';
+import toolLoadDocument from '@/app/_chats/tools/toolLoadDocument';
+import toolSearchKnowledgeBase from '@/app/_chats/tools/toolSearchKnowledgeBase';
 import openrouter from '@/lib/ai-providers/openrouter';
 
 export const maxDuration = 800;
@@ -232,7 +232,13 @@ Always respond in the language used by the user in their message. If the user's 
         }
       });
 
-      writer.merge(result.toUIMessageStream());
+      writer.merge(
+        result.toUIMessageStream({
+          onFinish: () => {
+            console.log('finish');
+          }
+        })
+      );
     }
   });
 

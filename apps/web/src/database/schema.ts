@@ -114,8 +114,29 @@ export const documents = pgTable('documents', {
   tags: text('tags').array().notNull().default([]),
   content: jsonb('content'),
   status: documentStatusEnum('status').notNull().default('pending'),
+  agentId: uuid('agent_id')
+    .references(() => agents.id, { onDelete: 'cascade' })
+    .notNull(),
+  ...timestamps
+});
+
+export const agents = pgTable('agents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  config: jsonb('config').notNull().default('{}'),
+  ...timestamps
+});
+
+export const chats = pgTable('chats', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentId: uuid('agent_id')
+    .references(() => agents.id, { onDelete: 'cascade' })
+    .notNull(),
   userId: uuid('user_id')
     .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
+  /** TODO: come on jappie, we can do better than this */
+  messages: jsonb('messages').notNull().default([]),
   ...timestamps
 });
