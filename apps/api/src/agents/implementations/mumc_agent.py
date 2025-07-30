@@ -1000,10 +1000,11 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             if assistant_field_name is None:
                 return "No assistant field name found"
 
+
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=settings.ONESIGNAL_APP_ID,
+                app_id=settings.ONESIGNAL_HEALTH_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},

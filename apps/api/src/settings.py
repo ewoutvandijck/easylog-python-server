@@ -38,5 +38,9 @@ class Settings(BaseSettings):
     ONESIGNAL_API_KEY: str = Field(default="")
     ONESIGNAL_APP_ID: str = Field(default="")
 
+    ONESIGNAL_APPERTO_APP_ID: str = Field(default="0a64ad5c-7330-4c9a-be23-dd905b3753fc'")
+    ONESIGNAL_HEALTH_APP_ID: str = Field(default="137356f1-6558-4910-b51e-a9a4bb31a623")
+    ONESIGNAL_HEUVEL_APP_ID: str = Field(default="6aafb443-2d4b-4629-9372-2a6d7afae4ee")
+
 
 settings = Settings()  # type: ignore
