@@ -43,8 +43,7 @@ export const POST = async (req: NextRequest) => {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  const { messages, id }: { messages: UIMessage[]; id: string } =
-    await req.json();
+  const { message, id }: { message: UIMessage; id: string } = await req.json();
 
   const chat = await db.query.chats.findFirst({
     where: {
@@ -76,7 +75,10 @@ export const POST = async (req: NextRequest) => {
       const result = streamText({
         model: openrouter(chat.agent.config.model),
         system: promptWithContext,
-        messages: convertToModelMessages(messages),
+        messages: convertToModelMessages([
+          ...(chat.messages as UIMessage[]),
+          message
+        ]),
         tools: {
           createChart: tool({
             description: 'Create a chart',
@@ -137,7 +139,11 @@ export const POST = async (req: NextRequest) => {
       await db
         .update(chats)
         .set({
-          messages: [...messages, responseMessage]
+          messages: [
+            ...(chat.messages as UIMessage[]),
+            message,
+            responseMessage
+          ]
         })
         .where(eq(chats.id, id));
     }

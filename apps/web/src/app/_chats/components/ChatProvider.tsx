@@ -52,9 +52,15 @@ const ChatProvider = ({
   const chat = useMemo(() => {
     return new Chat({
       id: dbChat.id,
-      transport: new DefaultChatTransport(),
+      transport: new DefaultChatTransport({
+        prepareSendMessagesRequest({ messages, id }) {
+          return { body: { message: messages[messages.length - 1], id } };
+        }
+      }),
       messages: dbChat.messages as ChatMessage[],
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+      // sendAutomaticallyWhen: (args) => {
+      //   return lastAssistantMessageIsCompleteWithToolCalls(args);
+      // },
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema
