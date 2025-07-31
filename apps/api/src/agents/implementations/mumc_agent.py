@@ -336,31 +336,31 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # BMI-related score
             height_m = answers.G22 / 100.0
             bmi_value = answers.G21 / (height_m**2)
-            if bmi_value < 18.5:
+            if bmi_value < 18.5:  # Ondergewicht
                 gewicht_score = 6
-            elif bmi_value < 19:
+            elif bmi_value < 19:  # Ondergewicht grens
                 gewicht_score = 5
-            elif bmi_value < 19.5:
+            elif bmi_value < 19.5:  # Ondergewicht grens
                 gewicht_score = 4
-            elif bmi_value < 20:
+            elif bmi_value < 20:  # Ondergewicht grens
                 gewicht_score = 3
-            elif bmi_value < 20.5:
+            elif bmi_value < 20.5:  # Ondergewicht grens
                 gewicht_score = 2
-            elif bmi_value < 21:
+            elif bmi_value < 21:  # Ondergewicht grens
                 gewicht_score = 1
-            elif bmi_value < 25:  # >= 21 en < 25
+            elif bmi_value >= 21 and bmi_value < 25:  # NORMAAL GEWICHT
                 gewicht_score = 0
-            elif bmi_value < 27:  # >= 25 en < 27
+            elif bmi_value >= 25:  # Licht overgewicht
                 gewicht_score = 1
-            elif bmi_value < 29:  # >= 27 en < 29
+            elif bmi_value >= 27:  # Overgewicht
                 gewicht_score = 2
-            elif bmi_value < 31:  # >= 29 en < 31
+            elif bmi_value >= 29:  # Overgewicht
                 gewicht_score = 3
-            elif bmi_value < 33:  # >= 31 en < 33
+            elif bmi_value >= 31:  # Obesitas I
                 gewicht_score = 4
-            elif bmi_value < 35:  # >= 33 en < 35
+            elif bmi_value >= 33:  # Obesitas II
                 gewicht_score = 5
-            else:  # >= 35
+            elif bmi_value >= 35:  # Obesitas III
                 gewicht_score = 6
 
             scores["gewicht_bmi"] = float(gewicht_score)
