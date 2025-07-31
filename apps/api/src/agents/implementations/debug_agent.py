@@ -92,7 +92,10 @@ class DefaultKeyDict(dict):
 
 class DebugAgent(BaseAgent[DebugAgentConfig]):
     def on_init(self) -> None:
-        self._set_onesignal_api_key(onesignal_api_key)
+        self.configure_onesignal(
+            settings.ONESIGNAL_APPERTO_API_KEY,
+            settings.ONESIGNAL_APPERTO_APP_ID,
+        )
 
     def _substitute_double_curly_placeholders(
         self, template_string: str, data_dict: dict[str, Any]
@@ -383,7 +386,7 @@ class DebugAgent(BaseAgent[DebugAgentConfig]):
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=onesignal_api_key,
+                app_id=settings.ONESIGNAL_APPERTO_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},

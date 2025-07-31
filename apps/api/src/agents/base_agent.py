@@ -67,8 +67,6 @@ class BaseAgent(Generic[TConfig]):
 
         self.on_init()
 
-        self.one_signal = OneSignalService(settings.ONESIGNAL_APPERTO_API_KEY)
-
         logger.info(f"Initialized agent: {self.__class__.__name__}")
 
     def __init_subclass__(cls) -> None:
@@ -106,8 +104,12 @@ class BaseAgent(Generic[TConfig]):
     def on_init(self) -> None:
         pass
 
-    def _set_onesignal_api_key(self, api_key: str) -> None:
-        self._onesignal_api_key = api_key
+    # ------------------------------------------------------------------
+    # OneSignal configuration
+    # ------------------------------------------------------------------
+    def configure_onesignal(self, api_key: str, app_id: str) -> None:
+        """Configure a dedicated OneSignal client for this agent instance."""
+        self.one_signal = OneSignalService(api_key, app_id)
 
     @staticmethod
     def super_agent_config() -> SuperAgentConfig[TConfig] | None:

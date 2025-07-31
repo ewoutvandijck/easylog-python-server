@@ -74,8 +74,6 @@ class RoleConfig(BaseModel):
 
 
 class EasyLogAgentConfig(BaseModel):
-    def on_init(self) -> None:
-        self._set_onesignal_api_key(onesignal_api_key)
     
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
@@ -100,6 +98,11 @@ class DefaultKeyDict(dict):
 
 
 class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
+    def on_init(self) -> None:
+        self.configure_onesignal(
+            settings.ONESIGNAL_APPERTO_API_KEY,
+            settings.ONESIGNAL_APPERTO_APP_ID,
+        )
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
@@ -785,7 +788,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
-                app_id=onesignal_api_key,
+                app_id=settings.ONESIGNAL_APPERTO_APP_ID,
                 include_external_user_ids=[onesignal_id],
                 contents={"en": contents},
                 headings={"en": title},
