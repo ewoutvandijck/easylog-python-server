@@ -7,11 +7,11 @@ import openrouterProvider from '@/lib/ai-providers/openrouter';
 import splitArrayBatches from '@/utils/split-array-batches';
 
 interface ToolSearchKnowledgeBaseProps {
-  userId: string;
+  agentId: string;
 }
 
 const getToolSearchKnowledgeBase = (
-  { userId }: ToolSearchKnowledgeBaseProps,
+  { agentId }: ToolSearchKnowledgeBaseProps,
   messageStreamWriter: UIMessageStreamWriter
 ) => {
   return tool({
@@ -40,9 +40,11 @@ const getToolSearchKnowledgeBase = (
           tags: true
         },
         where: {
-          userId
+          agentId
         }
       });
+
+      console.log('dbDocuments', dbDocuments);
 
       const {
         object: { documents }
@@ -60,9 +62,20 @@ const getToolSearchKnowledgeBase = (
         - Whether the document content would help answer the user's query
         - The specificity and usefulness of the information
 
-        Return only the documents that are genuinely helpful for answering the user's question. If no documents are relevant, return an empty array.
+        Return only the documents that are genuinely helpful for answering the user's question.
 
         Note: In the next step, we will gather the unique contents of each document and research the relevant data in it.
+
+        Response in the following JSON format:
+        {
+          "documents": [
+            {
+              "id": "string",
+              "name": "string",
+              "reason": "string"
+            }
+          ]
+        }
         `,
         schema: z.object({
           documents: z.array(
@@ -74,6 +87,8 @@ const getToolSearchKnowledgeBase = (
           )
         })
       });
+
+      console.log('documents', documents);
 
       const relevantInformationObjects: {
         id: string;

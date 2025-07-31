@@ -25,9 +25,7 @@ const ChatInput = () => {
 
   const { chat } = useChatContext();
 
-  const { sendMessage } = useChat({
-    chat
-  });
+  const { sendMessage } = useChat({ chat });
 
   const {
     reset,

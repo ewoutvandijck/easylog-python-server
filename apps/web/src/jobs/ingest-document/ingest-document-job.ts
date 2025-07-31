@@ -70,7 +70,7 @@ export const ingestDocumentJob = schemaTask({
     const {
       object: { summary, tags }
     } = await generateObject({
-      model: openrouterProvider('google/gemini-2.5-pro-preview'),
+      model: openrouterProvider('google/gemini-2.5-flash'),
       prompt: `Act as a professional summarizer. Create a concise and summary of the <text> below, while adhering to the guidelines enclosed in <guidelines> below.
 
       <guidelines>
