@@ -7,12 +7,12 @@ from src.utils.colors import _interpolate_color
 # Semantic roles for individual data points
 ColorRole = Literal["success", "warning", "neutral", "info", "primary", "accent", "muted"]
 DEFAULT_COLOR_ROLE_MAP: dict[str, str] = {
-    "success": "#a8e6a3",  # ZLM Pastel Green - RGB(168, 230, 163) - Low burden, good health
+    "success": "#89BF65",  # Custom Green - RGB(137, 191, 101) - For positive metrics, achievements
     "neutral": "#ffd6a5",  # ZLM Pastel Orange - RGB(255, 214, 165) - Moderate burden
     "warning": "#ffb3ba",  # ZLM Pastel Red/Pink - RGB(255, 179, 186) - High burden, poor health
     "info": "#FFFACD",  # LemonChiffon (Pastel Yellow for informational points)
     "primary": "#DDA0DD",  # Plum (Pastel Purple for primary emphasis)
-    "accent": "#89BF65",  # Custom Green - RGB(137, 191, 101) - For special highlights
+    "accent": "#a8e6a3",  # ZLM Pastel Green - RGB(168, 230, 163) - For special highlights
     "muted": "#d3d3d3",  # ZLM Pastel Gray - For de-emphasized points (matches ZLM "old")
 }
 
