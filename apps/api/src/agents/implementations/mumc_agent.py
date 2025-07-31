@@ -251,7 +251,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             answered questionnaire values. The questionnaire must be complete before calling this tool.
 
             Upon successful calculation the individual domain scores **and** the
-            calculated BMI value are persisted as memories using
+            calculated BMI Value are persisted as memories using
             ``tool_store_memory``.
             """
 
