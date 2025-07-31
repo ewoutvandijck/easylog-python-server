@@ -2,7 +2,11 @@
 
 import { Chat } from '@ai-sdk/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { DefaultChatTransport, UIMessage } from 'ai';
+import {
+  DefaultChatTransport,
+  UIMessage,
+  lastAssistantMessageIsCompleteWithToolCalls
+} from 'ai';
 import { createContext, useMemo } from 'react';
 import z from 'zod';
 
@@ -49,14 +53,17 @@ const ChatProvider = ({
     return new Chat({
       id: dbChat.id,
       transport: new DefaultChatTransport({
+        api: `/api/${agentSlug}/chat`,
         prepareSendMessagesRequest({ messages, id }) {
-          return { body: { message: messages[messages.length - 1], id } };
+          return {
+            body: { message: messages[messages.length - 1], id }
+          };
         }
       }),
       messages: dbChat.messages as ChatMessage[],
-      // sendAutomaticallyWhen: (args) => {
-      //   return lastAssistantMessageIsCompleteWithToolCalls(args);
-      // },
+      sendAutomaticallyWhen: (args) => {
+        return lastAssistantMessageIsCompleteWithToolCalls(args);
+      },
       dataPartSchemas: {
         chart: internalChartConfigSchema,
         'document-search': documentSearchSchema
@@ -67,7 +74,7 @@ const ChatProvider = ({
         }
       }
     }) as AIChat;
-  }, [dbChat.id, dbChat.messages, refetch]);
+  }, [dbChat.id, dbChat.messages, refetch, agentSlug]);
 
   return (
     <ChatContext.Provider value={{ chat }}>{children}</ChatContext.Provider>

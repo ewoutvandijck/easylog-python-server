@@ -45,7 +45,7 @@ const relations = defineRelations(schema, (r) => ({
   agents: {
     documents: r.many.documents({
       from: r.agents.id,
-      to: r.documents.userId
+      to: r.documents.agentId
     }),
     chats: r.many.chats({
       from: r.agents.id,
@@ -54,7 +54,7 @@ const relations = defineRelations(schema, (r) => ({
   },
   documents: {
     agent: r.one.agents({
-      from: r.documents.userId,
+      from: r.documents.agentId,
       to: r.agents.id,
       optional: false
     })

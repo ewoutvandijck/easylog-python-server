@@ -33,10 +33,16 @@ import toolSearchKnowledgeBase from '@/app/_chats/tools/toolSearchKnowledgeBase'
 import db from '@/database/client';
 import { chats } from '@/database/schema';
 import openrouter from '@/lib/ai-providers/openrouter';
+import isUUID from '@/utils/is-uuid';
 
 export const maxDuration = 800;
 
-export const POST = async (req: NextRequest) => {
+export const POST = async (
+  req: NextRequest,
+  { params }: { params: Promise<{ agentSlug: string }> }
+) => {
+  const { agentSlug } = await params;
+
   const user = await getCurrentUser(req.headers);
 
   if (!user) {
@@ -55,7 +61,11 @@ export const POST = async (req: NextRequest) => {
     }
   });
 
-  if (!chat) {
+  if (
+    !chat ||
+    (isUUID(agentSlug) && chat.agentId !== agentSlug) ||
+    (!isUUID(agentSlug) && chat.agent.slug !== agentSlug)
+  ) {
     return new NextResponse('Chat not found', { status: 404 });
   }
 
@@ -70,15 +80,14 @@ export const POST = async (req: NextRequest) => {
     .replaceAll('{{agent.name}}', chat.agent.name)
     .replaceAll('{{now}}', new Date().toISOString());
 
+  const messages = [...(chat.messages as UIMessage[]), message];
+
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
         model: openrouter(chat.agent.config.model),
         system: promptWithContext,
-        messages: convertToModelMessages([
-          ...(chat.messages as UIMessage[]),
-          message
-        ]),
+        messages: convertToModelMessages(messages),
         tools: {
           createChart: tool({
             description: 'Create a chart',
@@ -109,7 +118,7 @@ export const POST = async (req: NextRequest) => {
           executeSql: toolExecuteSQL(),
           searchKnowledgeBase: toolSearchKnowledgeBase(
             {
-              userId: user.id
+              agentId: chat.agentId
             },
             writer
           ),
@@ -129,21 +138,33 @@ export const POST = async (req: NextRequest) => {
         }
       });
 
-      writer.merge(result.toUIMessageStream());
+      writer.merge(result.toUIMessageStream({}));
     },
     generateId: createIdGenerator({
       prefix: 'msg',
       size: 16
     }),
-    onFinish: async ({ responseMessage }) => {
+    originalMessages: messages,
+    onFinish: async ({ messages }) => {
+      // Remove duplicate message ids, keeping only the last occurrence of each id
+      const seenIds = new Set<string>();
+      const dedupedMessages: typeof messages = [];
+
+      // Iterate from end to start to keep the last occurrence
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (!seenIds.has(msg.id)) {
+          seenIds.add(msg.id);
+          dedupedMessages.unshift(msg);
+        }
+      }
+      // Replace messages with dedupedMessages for downstream usage
+      messages = dedupedMessages;
+
       await db
         .update(chats)
         .set({
-          messages: [
-            ...(chat.messages as UIMessage[]),
-            message,
-            responseMessage
-          ]
+          messages
         })
         .where(eq(chats.id, id));
     }
