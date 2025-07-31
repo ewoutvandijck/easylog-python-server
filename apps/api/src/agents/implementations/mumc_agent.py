@@ -33,6 +33,7 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 onesignal_api_key = settings.ONESIGNAL_HEALTH_API_KEY
 
+
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
         default="",
@@ -335,17 +336,31 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # BMI-related score
             height_m = answers.G22 / 100.0
             bmi_value = answers.G21 / (height_m**2)
-            if bmi_value < 16:
+            if bmi_value < 18.5:
+                gewicht_score = 6
+            elif bmi_value < 19:
+                gewicht_score = 5
+            elif bmi_value < 19.5:
                 gewicht_score = 4
-            elif bmi_value < 18.5:
+            elif bmi_value < 20:
+                gewicht_score = 3
+            elif bmi_value < 20.5:
                 gewicht_score = 2
-            elif bmi_value < 25:
+            elif bmi_value < 21:
+                gewicht_score = 1
+            elif bmi_value < 25:  # >= 21 en < 25
                 gewicht_score = 0
-            elif bmi_value < 30:
+            elif bmi_value < 27:  # >= 25 en < 27
+                gewicht_score = 1
+            elif bmi_value < 29:  # >= 27 en < 29
                 gewicht_score = 2
-            elif bmi_value < 35:
+            elif bmi_value < 31:  # >= 29 en < 31
+                gewicht_score = 3
+            elif bmi_value < 33:  # >= 31 en < 33
                 gewicht_score = 4
-            else:
+            elif bmi_value < 35:  # >= 33 en < 35
+                gewicht_score = 5
+            else:  # >= 35
                 gewicht_score = 6
 
             scores["gewicht_bmi"] = float(gewicht_score)
@@ -1004,7 +1019,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             if assistant_field_name is None:
                 return "No assistant field name found"
 
-            self.logger.info(f"Sending notification to {onesignal_id} with app id {settings.ONESIGNAL_HEALTH_APP_ID}")
+            self.logger.info(
+                f"Sending notification to {onesignal_id} with app id {settings.ONESIGNAL_HEALTH_APP_ID}"
+            )
             notification = Notification(
                 target_channel="push",
                 channel_for_external_user_ids="push",
