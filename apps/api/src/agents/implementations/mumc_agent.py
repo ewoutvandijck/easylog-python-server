@@ -522,7 +522,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
 
             ## Horizontal Lines
 
-            The `horizontal_lines` parameter accepts a list of dictionaries, each defining a reference line:
+            The `horizontal_lines` parameter accepts a list of dictionaries, all defining a reference line:
             ```python
             horizontal_lines = [
                 {"value": 100, "label": "Target", "color": "#e8f5e8"},
