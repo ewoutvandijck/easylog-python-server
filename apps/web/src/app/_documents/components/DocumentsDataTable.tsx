@@ -7,14 +7,19 @@ import useTRPC from '@/lib/trpc/browser';
 
 import { documentsTableColumns } from '../table-columns/DocumentsTableColumns';
 
-const DocumentsDataTable = () => {
+interface DocumentsDataTableProps {
+  agentSlug: string;
+}
+
+const DocumentsDataTable = ({ agentSlug }: DocumentsDataTableProps) => {
   const api = useTRPC();
 
   const { data: documentData } = useSuspenseInfiniteQuery(
     api.documents.getMany.infiniteQueryOptions(
       {
         cursor: 0,
-        limit: 100
+        limit: 100,
+        agentId: agentSlug
       },
       {
         getNextPageParam: (lastPage, allPages) => {

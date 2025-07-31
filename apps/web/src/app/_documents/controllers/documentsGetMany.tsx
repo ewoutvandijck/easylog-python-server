@@ -1,11 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import agentMiddleware from '@/app/_agents/middleware/agentMiddleware';
 import db from '@/database/client';
 import { documents } from '@/database/schema';
-import { protectedProcedure } from '@/lib/trpc/procedures';
 
-const documentsGetMany = protectedProcedure
+const documentsGetMany = agentMiddleware
   .input(
     z.object({
       cursor: z.number().default(0),
@@ -21,10 +21,10 @@ const documentsGetMany = protectedProcedure
           createdAt: 'desc'
         },
         where: {
-          userId: ctx.user.id
+          agentId: ctx.agent.id
         }
       }),
-      db.$count(documents, eq(documents.userId, ctx.user.id))
+      db.$count(documents, eq(documents.agentId, ctx.agent.id))
     ]);
 
     return {

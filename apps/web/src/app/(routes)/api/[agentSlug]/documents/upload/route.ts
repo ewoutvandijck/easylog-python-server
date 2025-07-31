@@ -8,8 +8,24 @@ import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import db from '@/database/client';
 import { documents } from '@/database/schema';
 import { ingestDocumentJob } from '@/jobs/ingest-document/ingest-document-job';
+import isUUID from '@/utils/is-uuid';
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ agentSlug: string }> }
+) {
+  const { agentSlug } = await params;
+
+  const agent = await db.query.agents.findFirst({
+    where: {
+      [isUUID(agentSlug) ? 'id' : 'slug']: agentSlug
+    }
+  });
+
+  if (!agent) {
+    return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
+  }
+
   const body = (await request.json()) as HandleUploadBody;
 
   try {
@@ -28,9 +44,9 @@ export async function POST(request: Request) {
           .insert(documents)
           .values({
             name: pathname.split('/').pop() ?? 'unknown',
+            agentId: agent.id,
             type: 'unknown',
-            status: 'pending',
-            userId: user.id
+            status: 'pending'
           })
           .returning();
 

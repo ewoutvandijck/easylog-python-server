@@ -19,9 +19,10 @@ import authBrowserClient from '@/lib/better-auth/browser';
 
 export interface UserDropdownProps {
   user: User;
+  agentId: string;
 }
 
-const UserDropdown = ({ user }: UserDropdownProps) => {
+const UserDropdown = ({ user, agentId }: UserDropdownProps) => {
   const router = useRouter();
 
   return (
@@ -50,7 +51,7 @@ const UserDropdown = ({ user }: UserDropdownProps) => {
 
         <DropdownMenuItem
           onSelect={() => {
-            router.push('/knowledge-base');
+            router.push(`/${agentId}/knowledge-base`);
           }}
         >
           <DropdownMenuContentWrapper iconLeft={IconBook} align="start">
