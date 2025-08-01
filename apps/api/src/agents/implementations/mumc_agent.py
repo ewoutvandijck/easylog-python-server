@@ -29,7 +29,6 @@ from src.models.chart_widget import (
 )
 from src.models.multiple_choice_widget import Choice, MultipleChoiceWidget
 from src.settings import settings
-from src.services.one_signal.one_signal_service import OneSignalService
 from src.utils.function_to_openai_tool import function_to_openai_tool
 
 
@@ -126,8 +125,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             settings.ONESIGNAL_HEALTH_API_KEY,
             settings.ONESIGNAL_HEALTH_APP_ID,
         )
-
-
 
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
@@ -322,16 +319,16 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 return float(mean(vals)) if vals else 0.0
 
             scores: dict[str, float] = {
-                "longklachten": _avg(
+                "long klachten": _avg(
                     [answers.G12, answers.G13, answers.G15, answers.G16]
                 ),
-                "longaanvallen": float(answers.G17),
-                "lichamelijke_beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
+                "long aanvallen": float(answers.G17),
+                "licham. beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
                 "vermoeidheid": float(answers.G1),
                 "nachtrust": float(answers.G2),
-                "gevoelens_emoties": _avg([answers.G3, answers.G11, answers.G14]),
+                "gevoelens emoties": _avg([answers.G3, answers.G11, answers.G14]),
                 "seksualiteit": float(answers.G10),
-                "relaties_en_werk": _avg([answers.G8, answers.G9]),
+                "relaties en werk": _avg([answers.G8, answers.G9]),
                 "medicijnen": float(answers.G4),
                 "bewegen": float(answers.G18),
                 "alcohol": float(answers.G19),
