@@ -319,11 +319,11 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 return float(mean(vals)) if vals else 0.0
 
             scores: dict[str, float] = {
-                "long klachten": _avg(
+                "longklachten": _avg(
                     [answers.G12, answers.G13, answers.G15, answers.G16]
                 ),
-                "long aanvallen": float(answers.G17),
-                "licham. beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
+                "longaanvallen": float(answers.G17),
+                "lichambeperkingen": _avg([answers.G5, answers.G6, answers.G7]),
                 "vermoeidheid": float(answers.G1),
                 "nachtrust": float(answers.G2),
                 "gevoelens emoties": _avg([answers.G3, answers.G11, answers.G14]),
@@ -378,14 +378,14 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # 4. Persist memories
             # --------------------------------------------------------------
             label_map = {
-                "longklachten": "Longklachten",
-                "longaanvallen": "Longaanvallen",
-                "lichamelijke_beperkingen": "Lichamelijke-beperkingen",
+                "longklachten": "Long klachten",
+                "longaanvallen": "Long aanvallen",
+                "lichamelijke_beperkingen": "Licham. beperkinge dn",
                 "vermoeidheid": "Vermoeidheid",
                 "nachtrust": "Nachtrust",
                 "gevoelens_emoties": "Emoties",
                 "seksualiteit": "Seksualiteit",
-                "relaties_en_werk": "Relaties-en-werk",
+                "relaties_en_werk": "Relaties en werk",
                 "medicijnen": "Medicijnen",
                 "gewicht_bmi": "BMI",
                 "bewegen": "Bewegen",
