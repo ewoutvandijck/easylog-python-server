@@ -440,18 +440,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    allOf:
-                      - $ref: '#/components/schemas/resourceResource'
-                      - type: object
-                        properties:
-                          data:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/resourceDataEntry'
-                      - $ref: '#/components/schemas/timestamps'
+                allOf:
+                  - $ref: '#/components/schemas/resourceResource'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/resourceDataEntry'
+                  - $ref: '#/components/schemas/timestamps'
 
   /v2/datasources/allocations:
     post:

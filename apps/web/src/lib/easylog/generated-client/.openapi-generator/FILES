@@ -1,4 +1,3 @@
-.openapi-generator-ignore
 apis/AllocationsApi.ts
 apis/AnnouncementsApi.ts
 apis/AuthenticationApi.ts
@@ -95,7 +94,6 @@ models/V2DatasourcesResourcesGet200ResponseAllOfDataInner.ts
 models/V2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet200Response.ts
 models/V2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet200ResponseDataInner.ts
 models/V2DatasourcesResourcesResourceIdResourceSlugGet200Response.ts
-models/V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData.ts
 models/WorkedDays.ts
 models/index.ts
 runtime.ts

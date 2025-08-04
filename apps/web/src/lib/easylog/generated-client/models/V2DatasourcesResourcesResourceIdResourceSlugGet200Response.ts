@@ -12,13 +12,13 @@
  */
 
 import { mapValues } from '../runtime';
-import type { V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData } from './V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData';
+import type { ResourceDataEntry } from './ResourceDataEntry';
 import {
-  V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataFromJSON,
-  V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataFromJSONTyped,
-  V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataToJSON,
-  V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataToJSONTyped
-} from './V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData';
+  ResourceDataEntryFromJSON,
+  ResourceDataEntryFromJSONTyped,
+  ResourceDataEntryToJSON,
+  ResourceDataEntryToJSONTyped
+} from './ResourceDataEntry';
 
 /**
  * @export
@@ -27,9 +27,43 @@ import {
 export interface V2DatasourcesResourcesResourceIdResourceSlugGet200Response {
   /**
    * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
-   * @type {V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData}
+   * @type {number}
    */
-  data?: V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData;
+  id?: number;
+  /**
+   * Use this field to display to the user
+   *
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {string}
+   */
+  label?: string;
+  /**
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {string}
+   */
+  name?: string;
+  /**
+   * This is the name field slugified
+   *
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {string}
+   */
+  slug?: string;
+  /**
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {Date}
+   */
+  createdAt?: Date;
+  /**
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {Date}
+   */
+  updatedAt?: Date;
+  /**
+   * @memberof V2DatasourcesResourcesResourceIdResourceSlugGet200Response
+   * @type {ResourceDataEntry[]}
+   */
+  data?: Array<ResourceDataEntry>;
 }
 
 /**
@@ -59,12 +93,18 @@ export function V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseFromJS
     return json;
   }
   return {
+    id: json['id'] == null ? undefined : json['id'],
+    label: json['label'] == null ? undefined : json['label'],
+    name: json['name'] == null ? undefined : json['name'],
+    slug: json['slug'] == null ? undefined : json['slug'],
+    createdAt:
+      json['created_at'] == null ? undefined : new Date(json['created_at']),
+    updatedAt:
+      json['updated_at'] == null ? undefined : new Date(json['updated_at']),
     data:
       json['data'] == null
         ? undefined
-        : V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataFromJSON(
-            json['data']
-          )
+        : (json['data'] as Array<any>).map(ResourceDataEntryFromJSON)
   };
 }
 
@@ -86,8 +126,17 @@ export function V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseToJSON
   }
 
   return {
-    data: V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseDataToJSON(
-      value['data']
-    )
+    id: value['id'],
+    label: value['label'],
+    name: value['name'],
+    slug: value['slug'],
+    created_at:
+      value['createdAt'] == null ? undefined : value['createdAt'].toISOString(),
+    updated_at:
+      value['updatedAt'] == null ? undefined : value['updatedAt'].toISOString(),
+    data:
+      value['data'] == null
+        ? undefined
+        : (value['data'] as Array<any>).map(ResourceDataEntryToJSON)
   };
 }

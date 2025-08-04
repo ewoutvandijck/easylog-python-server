@@ -1,5 +1,5 @@
 /* tslint:disable */
-
+/* eslint-disable */
 export * from './AdditionalAllocationData';
 export * from './AllocationTypes';
 export * from './AllocationTypesAllocationTypesInner';
@@ -85,5 +85,4 @@ export * from './V2DatasourcesResourcesGet200ResponseAllOfDataInner';
 export * from './V2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet200Response';
 export * from './V2DatasourcesResourcesResourceIdProjectsDatasourceSlugGet200ResponseDataInner';
 export * from './V2DatasourcesResourcesResourceIdResourceSlugGet200Response';
-export * from './V2DatasourcesResourcesResourceIdResourceSlugGet200ResponseData';
 export * from './WorkedDays';
