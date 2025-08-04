@@ -9,7 +9,7 @@ import getEasylogClient from './utils/getEasylogClient';
 const toolGetResourceGroups = (userId: string) => {
   return tool({
     description:
-      'Retrieve individual resources within a specific resource group. Fixes schema mismatch between API response and client.',
+      'Retrieve all resource groups for a specific resource and group slug.',
     inputSchema: z.object({
       resourceId: z.number().describe('The ID of the resource'),
       resourceSlug: z
@@ -19,7 +19,7 @@ const toolGetResourceGroups = (userId: string) => {
     execute: async ({ resourceId, resourceSlug }) => {
       const client = await getEasylogClient(userId);
 
-      const [apiResponse, error] = await tryCatch(
+      const [resourceGroups, error] = await tryCatch(
         client.planningResources.v2DatasourcesResourcesResourceIdResourceSlugGet(
           {
             resourceId,
@@ -33,15 +33,7 @@ const toolGetResourceGroups = (userId: string) => {
         return `Error getting resource groups: ${error.message}`;
       }
 
-      console.log('raw API response', apiResponse);
-
-      // 🔧 FIX: Schema mismatch - API retourneert 'items' maar client verwacht 'data'
-      // Transform API response van {items: {...}} naar {data: {...}} format
-      const resourceGroups = {
-        data: (apiResponse as any)?.items || apiResponse?.data || {}
-      };
-
-      console.log('transformed resource groups', resourceGroups);
+      console.log('resource groups', resourceGroups);
 
       return JSON.stringify(resourceGroups, null, 2);
     }
