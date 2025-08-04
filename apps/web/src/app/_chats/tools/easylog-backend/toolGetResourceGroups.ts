@@ -38,7 +38,7 @@ const toolGetResourceGroups = (userId: string) => {
       // 🔧 FIX: Schema mismatch - API retourneert 'items' maar client verwacht 'data'
       // Transform API response van {items: {...}} naar {data: {...}} format
       const resourceGroups = {
-        data: (apiResponse as any)?.items || apiResponse?.data || {}
+        data: (apiResponse as { items?: unknown; data?: unknown })?.items || apiResponse?.data || {}
       };
 
       console.log('transformed resource groups', resourceGroups);
