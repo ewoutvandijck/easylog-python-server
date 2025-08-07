@@ -168,11 +168,11 @@
   --color-surface-danger-active: color-mix(in oklch, var(--color-red-100) 95%, black);
   --color-surface-danger-selected: color-mix(in oklch, var(--color-red-100) 95%, black);
 
-  --color-chart-1: color-mix(in oklch, var(--color-fill-brand) 95%, black);
-  --color-chart-2: color-mix(in oklch, var(--color-fill-brand) 90%, black);
-  --color-chart-3: color-mix(in oklch, var(--color-fill-brand) 85%, black);
-  --color-chart-4: color-mix(in oklch, var(--color-fill-brand) 80%, black);
-  --color-chart-5: color-mix(in oklch, var(--color-fill-brand) 75%, black);
+  --color-chart-1: var(--color-blue-600);
+  --color-chart-2: var(--color-green-600);
+  --color-chart-3: var(--color-yellow-600);
+  --color-chart-4: var(--color-red-600);
+  --color-chart-5: var(--color-purple-600);
 
   @keyframes scale-in {
     0%,
@@ -294,6 +294,12 @@
     --color-surface-danger-hover: color-mix(in oklch, var(--color-red-800) 97%, white);
     --color-surface-danger-active: color-mix(in oklch, var(--color-red-800) 95%, white);
     --color-surface-danger-selected: color-mix(in oklch, var(--color-red-800) 95%, white);
+
+    --color-chart-1: var(--color-blue-400);
+    --color-chart-2: var(--color-green-400);
+    --color-chart-3: var(--color-yellow-400);
+    --color-chart-4: var(--color-red-400);
+    --color-chart-5: var(--color-purple-400);
   }
 }
 
