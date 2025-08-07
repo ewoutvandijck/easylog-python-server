@@ -16,6 +16,7 @@ import getCurrentUser from '@/app/_auth/data/getCurrentUser';
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
 import toolCreateMultipleAllocations from '@/app/_chats/tools/easylog-backend/toolCreateMultipleAllocations';
 import toolCreatePlanningPhase from '@/app/_chats/tools/easylog-backend/toolCreatePlanningPhase';
+import toolCreatePlanningProject from '@/app/_chats/tools/easylog-backend/toolCreatePlanningProject';
 import toolDeleteAllocation from '@/app/_chats/tools/easylog-backend/toolDeleteAllocation';
 import toolGetDataSources from '@/app/_chats/tools/easylog-backend/toolGetDataSources';
 import toolGetPlanningPhase from '@/app/_chats/tools/easylog-backend/toolGetPlanningPhase';
@@ -25,6 +26,7 @@ import toolGetPlanningProjects from '@/app/_chats/tools/easylog-backend/toolGetP
 import toolGetProjectsOfResource from '@/app/_chats/tools/easylog-backend/toolGetProjectsOfResource';
 import toolGetResourceGroups from '@/app/_chats/tools/easylog-backend/toolGetResourceGroups';
 import toolGetResources from '@/app/_chats/tools/easylog-backend/toolGetResources';
+import toolUpdateMultipleAllocations from '@/app/_chats/tools/easylog-backend/toolUpdateMultipleAllocations';
 import toolUpdatePlanningPhase from '@/app/_chats/tools/easylog-backend/toolUpdatePlanningPhase';
 import toolUpdatePlanningProject from '@/app/_chats/tools/easylog-backend/toolUpdatePlanningProject';
 import toolExecuteSQL from '@/app/_chats/tools/toolExecuteSQL';
@@ -105,6 +107,7 @@ export const POST = async (
           getDatasources: toolGetDataSources(user.id),
           getPlanningProjects: toolGetPlanningProjects(user.id),
           getPlanningProject: toolGetPlanningProject(user.id),
+          createPlanningProject: toolCreatePlanningProject(user.id),
           updatePlanningProject: toolUpdatePlanningProject(user.id),
           getPlanningPhases: toolGetPlanningPhases(user.id),
           getPlanningPhase: toolGetPlanningPhase(user.id),
@@ -114,6 +117,7 @@ export const POST = async (
           getProjectsOfResource: toolGetProjectsOfResource(user.id),
           getResourceGroups: toolGetResourceGroups(user.id),
           createMultipleAllocations: toolCreateMultipleAllocations(user.id),
+          updateMultipleAllocations: toolUpdateMultipleAllocations(user.id),
           deleteAllocation: toolDeleteAllocation(user.id),
           executeSql: toolExecuteSQL(),
           searchKnowledgeBase: toolSearchKnowledgeBase(
