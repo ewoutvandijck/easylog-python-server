@@ -55,7 +55,7 @@ const getToolSearchKnowledgeBase = (
         User Question: "${userSearchQuery}"
 
         Available Documents:
-        ${dbDocuments.map((document) => `${document.id} (${document.name}): ${document.summary}`).join('\n')}
+        ${dbDocuments.map((document) => `${document.id} (${document.name}): ${document.summary} (${document.tags.join(', ')})`).join('\n')}
 
         Your task is to identify which documents from the list above are most relevant to answering the user's question. Consider:
         - Direct relevance to the question topic

@@ -8,18 +8,23 @@ import { z } from 'zod';
 
 import db from '@/database/client';
 import { documents } from '@/database/schema';
-import openrouterProvider from '@/lib/ai-providers/openrouter';
+import openrouter from '@/lib/ai-providers/openrouter';
 import serverConfig from '@/server.config';
+import tryCatch from '@/utils/try-catch';
 
 import { processPdfJob } from './converters/process-pdf-job';
 import { processXlsxJob } from './converters/process-xlsx-job';
 
 export const ingestDocumentJob = schemaTask({
   id: 'ingest-document',
+  retry: {
+    maxAttempts: 3
+  },
   schema: z.object({
-    documentId: z.string()
+    documentId: z.string(),
+    chunkSize: z.number().optional().default(5000)
   }),
-  run: async ({ documentId }) => {
+  run: async ({ documentId, chunkSize }) => {
     const dbDocument = await db.query.documents.findFirst({
       where: {
         id: documentId
@@ -58,20 +63,27 @@ export const ingestDocumentJob = schemaTask({
             basePath: path.dirname(dbDocument.path)
           })
         : await processXlsxJob.triggerAndWait({
-            downloadUrl: headResponse.downloadUrl
+            downloadUrl: headResponse.downloadUrl,
+            chunkSize
           });
 
     if (!processingResult.ok) {
       throw new AbortTaskRunError('Failed to process document');
     }
 
-    logger.info('Processing result', { processingResult });
+    logger.info('Processing result', {
+      processingResultLength: processingResult.output.length,
+      processingResult: processingResult.output
+    });
 
-    const {
-      object: { summary, tags }
-    } = await generateObject({
-      model: openrouterProvider('google/gemini-2.5-flash'),
-      prompt: `Act as a professional summarizer. Create a concise and summary of the <text> below, while adhering to the guidelines enclosed in <guidelines> below.
+    const maxParts = Math.floor(50_000 / chunkSize);
+
+    const parts = processingResult.output.slice(0, maxParts);
+
+    const [summaryResult, summaryError] = await tryCatch(
+      generateObject({
+        model: openrouter('google/gemini-2.5-flash'),
+        prompt: `Act as a professional summarizer. Create a concise and summary of the <text> below, while adhering to the guidelines enclosed in <guidelines> below.
 
       <guidelines>
         - Ensure that the summary includes relevant details, while avoiding any unnecessary information or repetition. 
@@ -85,11 +97,19 @@ export const ingestDocumentJob = schemaTask({
         ${JSON.stringify(processingResult.output, null, 2)}
       </text>
       `,
-      schema: z.object({
-        summary: z.string(),
-        tags: z.array(z.string())
+        schema: z.object({
+          summary: z.string(),
+          tags: z.array(z.string())
+        })
       })
-    });
+    );
+
+    if (summaryError) {
+      logger.error('Failed to generate summary', { summaryError });
+      throw new AbortTaskRunError('Failed to generate summary');
+    }
+
+    const { summary, tags } = summaryResult.object;
 
     logger.info('Summary', { summary, tags });
 

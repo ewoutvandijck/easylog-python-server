@@ -85,6 +85,9 @@ export const POST = async (
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
+        onError: (error) => {
+          console.dir(error, { depth: null });
+        },
         model: openrouter(chat.agent.config.model),
         system: promptWithContext,
         messages: convertToModelMessages(messages),

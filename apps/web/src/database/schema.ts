@@ -123,6 +123,16 @@ export const documents = pgTable('documents', {
   ...timestamps
 });
 
+export const documentParts = pgTable('document_parts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id')
+    .references(() => documents.id, { onDelete: 'cascade' })
+    .notNull(),
+  content: jsonb('content').notNull(),
+  order: integer('order').notNull(),
+  ...timestamps
+});
+
 export const agents = pgTable('agents', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
