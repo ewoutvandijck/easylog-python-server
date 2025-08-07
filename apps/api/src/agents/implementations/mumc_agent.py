@@ -380,7 +380,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             label_map = {
                 "longklachten": "Long klachten",
                 "longaanvallen": "Long aanvallen",
-                "lichamelijke_beperkingen": "Licham. beperkinge dn",
+                "lichamelijke_beperkingen": "Lichaam. beperking",
                 "vermoeidheid": "Vermoeidheid",
                 "nachtrust": "Nachtrust",
                 "gevoelens_emoties": "Emoties",
