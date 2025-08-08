@@ -247,15 +247,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
-        async def tool_calculate_zlm_scores() -> dict[str, Any]:
+        async def tool_calculate_zlm_scores() -> dict[str, float]:
             """Calculate Ziektelastmeter COPD domain scores based on previously
             answered questionnaire values. The questionnaire must be complete before calling this tool.
 
             Upon successful calculation the individual domain scores **and** the
             calculated BMI Value are persisted as memories using
             ``tool_store_memory``.
-
-            Returns a dictionary with 'current_scores' and optionally 'previous_scores' if available.
             """
 
             # --------------------------------------------------------------
@@ -377,17 +375,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
-            # 4. Retrieve previous ZLM scores from memories
+            # 4. Persist memories
             # --------------------------------------------------------------
             label_map = {
                 "longklachten": "Long klachten",
                 "longaanvallen": "Long aanvallen",
-                "lichambeperkingen": "Lichaam. beperking",
+                "lichamelijke_beperkingen": "Lichaam. beperking",
                 "vermoeidheid": "Vermoeidheid",
                 "nachtrust": "Nachtrust",
-                "gevoelens emoties": "Emoties",
+                "gevoelens_emoties": "Emoties",
                 "seksualiteit": "Seksualiteit",
-                "relaties en werk": "Relaties en werk",
+                "relaties_en_werk": "Relaties en werk",
                 "medicijnen": "Medicijnen",
                 "gewicht_bmi": "BMI",
                 "bewegen": "Bewegen",
@@ -395,72 +393,6 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "roken": "Roken",
             }
 
-            # Retrieve all memories to find previous ZLM scores
-            memories = await self.get_metadata("memories", [])
-            previous_scores = {}
-            previous_bmi = None
-
-            # Parse previous scores from memories
-            for memory in memories:
-                memory_text = memory.get("memory", "")
-                # Check if this is a ZLM score memory
-                if memory_text.startswith("ZLM-Score-"):
-                    # Parse the memory format: "ZLM-Score-{label} {date}: Score = {score}"
-                    import re
-
-                    match = re.match(
-                        r"ZLM-Score-(.*?) (\d{2}-\d{2}-\d{4}): Score = ([\d.]+)",
-                        memory_text,
-                    )
-                    if match:
-                        label = match.group(1)
-                        date = match.group(2)
-                        score = float(match.group(3))
-
-                        # Find the key for this label
-                        key = None
-                        for k, v in label_map.items():
-                            if v == label:
-                                key = k
-                                break
-
-                        if key:
-                            # Store the most recent previous score (excluding today)
-                            today_str = datetime.now().strftime("%d-%m-%Y")
-                            if date != today_str:
-                                if key not in previous_scores or date > previous_scores[
-                                    key
-                                ].get("date", ""):
-                                    previous_scores[key] = {
-                                        "score": score,
-                                        "date": date,
-                                    }
-
-                # Check for previous BMI value
-                elif memory_text.startswith("ZLM-BMI-meta_value"):
-                    match = re.match(
-                        r"ZLM-BMI-meta_value (\d{2}-\d{2}-\d{4}) ([\d.]+)", memory_text
-                    )
-                    if match:
-                        date = match.group(1)
-                        bmi = float(match.group(2))
-                        today_str = datetime.now().strftime("%d-%m-%Y")
-                        if date != today_str:
-                            if previous_bmi is None or date > previous_bmi.get(
-                                "date", ""
-                            ):
-                                previous_bmi = {"value": bmi, "date": date}
-
-            # Extract just the scores from previous_scores
-            previous_scores_values = (
-                {k: v["score"] for k, v in previous_scores.items()}
-                if previous_scores
-                else None
-            )
-
-            # --------------------------------------------------------------
-            # 5. Persist new memories
-            # --------------------------------------------------------------
             today_str = datetime.now().strftime("%d-%m-%Y")
 
             # Store domain scores
@@ -472,16 +404,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             mem = f"ZLM-BMI-meta_value {today_str} {bmi_value}"
             await tool_store_memory(mem)
 
-            # Return both current and previous scores
-            result = {"current_scores": scores, "current_bmi": bmi_value}
-
-            if previous_scores_values:
-                result["previous_scores"] = previous_scores_values
-
-            if previous_bmi:
-                result["previous_bmi"] = previous_bmi["value"]
-
-            return result
+            return scores
 
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
@@ -1227,6 +1150,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             date_from_dt = _parse_input(date_from)
             date_to_dt = _parse_input(date_to)
 
+            extra = ""
             if date_from_dt.year < datetime.now(pytz.timezone("Europe/Amsterdam")).year:
                 raise ValueError("Date from is in the past")
 
