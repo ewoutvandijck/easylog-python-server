@@ -87,7 +87,9 @@ export const POST = async (
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
-        model: openrouter(chat.agent.config.model),
+        model: openrouter(chat.agent.config.model, {
+          reasoning: schema.data.reasoning
+        }),
         system: promptWithContext,
         messages: convertToModelMessages(messages),
         tools: {
