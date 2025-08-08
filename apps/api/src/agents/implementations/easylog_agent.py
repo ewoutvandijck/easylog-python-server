@@ -32,6 +32,7 @@ from src.utils.function_to_openai_tool import function_to_openai_tool
 
 onesignal_api_key = settings.ONESIGNAL_APPERTO_API_KEY
 
+
 class QuestionaireQuestionConfig(BaseModel):
     question: str = Field(
         default="text of the question to present to the user. This should be a clear, direct question that elicits the desired information.",
@@ -56,7 +57,7 @@ class RoleConfig(BaseModel):
         description="The system prompt or persona instructions for this role, defining its behavior and tone.",
     )
     model: str = Field(
-        default="anthropic/claude-sonnet-4",
+        default="openai/gpt-5",
         description="The model identifier to use for this role, e.g., 'anthropic/claude-sonnet-4' or any model from https://openrouter.ai/models.",
     )
     tools_regex: str = Field(
@@ -74,13 +75,12 @@ class RoleConfig(BaseModel):
 
 
 class EasyLogAgentConfig(BaseModel):
-    
     roles: list[RoleConfig] = Field(
         default_factory=lambda: [
             RoleConfig(
                 name="EasyLogAssistant",
                 prompt="Je bent een vriendelijke assistent die helpt met het geven van demos van wat je allemaal kan",
-                model=r"anthropic\/claude-sonnet-4",
+                model=r"openai\/gpt-5",
                 tools_regex=".*",
                 allowed_subjects=None,
                 questionaire=[],
@@ -103,6 +103,7 @@ class EasyLogAgent(BaseAgent[EasyLogAgentConfig]):
             settings.ONESIGNAL_APPERTO_API_KEY,
             settings.ONESIGNAL_APPERTO_APP_ID,
         )
+
     async def get_current_role(self) -> RoleConfig:
         role = await self.get_metadata("current_role", self.config.roles[0].name)
         if role not in [role.name for role in self.config.roles]:
