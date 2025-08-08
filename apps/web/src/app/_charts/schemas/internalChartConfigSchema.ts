@@ -13,13 +13,11 @@ const internalChartConfigSchema = z.object({
     z.object({
       dataKey: z.string(),
       label: z.string(),
-      color: z.enum([
-        'var(--color-chart-1)',
-        'var(--color-chart-2)',
-        'var(--color-chart-3)',
-        'var(--color-chart-4)',
-        'var(--color-chart-5)'
-      ])
+      color: z
+        .string()
+        .describe(
+          'The color of the series, can either be a valid hex or RGB color, e.g. #000000 or rgb(0, 0, 0), or a CSS variable, e.g. var(--color-chart-1). We have 5 colors available: var(--color-chart-1), var(--color-chart-2), var(--color-chart-3), var(--color-chart-4), var(--color-chart-5).'
+        )
     })
   )
 });

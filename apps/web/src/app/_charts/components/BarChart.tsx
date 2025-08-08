@@ -26,6 +26,7 @@ const BarChart = ({ config }: BarChartProps) => {
       label: item.label,
       color: item.color
     };
+
     return acc;
   }, {} as ChartConfig);
 
