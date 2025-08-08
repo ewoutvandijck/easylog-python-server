@@ -1,8 +1,7 @@
 'use client';
 
-import { useChat } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import ChatMessageAssistant from './ChatMessageAssistant';
 import ChatMessageAssistantChart from './ChatMessageAssistantChart';
@@ -13,11 +12,11 @@ import ChatMessageUserTextContent from './ChatMessageUserTextContent';
 import useChatContext from '../hooks/useChatContext';
 
 const ChatHistory = () => {
-  /** TODO: pin scroll to bottom when new message is submitted */
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { chat } = useChatContext();
-  const { status } = useChat({ chat });
+  const { messages, status } = useChatContext();
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -29,6 +28,18 @@ const ChatHistory = () => {
     });
   }, [status]);
 
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    if (isScrolledToBottom) return;
+
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth'
+    });
+
+    setIsScrolledToBottom(true);
+  }, [messages, isScrolledToBottom]);
+
   return (
     <div
       className="relative flex-1 overflow-y-auto p-3 md:p-10"
@@ -36,7 +47,7 @@ const ChatHistory = () => {
     >
       <div className="mx-auto max-w-2xl">
         <AnimatePresence>
-          {chat.messages.map((message) =>
+          {messages.map((message) =>
             message.role === 'user' ? (
               <ChatMessageUser key={message.id}>
                 {message.parts.map(

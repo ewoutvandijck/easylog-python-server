@@ -6,7 +6,8 @@ import serverEnv from '@/server.env';
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['*.ngrok.app', '*.ngrok.dev'],
   experimental: {
-    authInterrupts: true
+    authInterrupts: true,
+    reactCompiler: true
   },
   rewrites: async () => {
     return [

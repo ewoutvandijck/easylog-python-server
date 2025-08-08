@@ -1,6 +1,5 @@
 'use client';
 
-import { useChat } from '@ai-sdk/react';
 import { IconArrowUp } from '@tabler/icons-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
@@ -23,9 +22,7 @@ const schema = z.object({
 const ChatInput = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { chat } = useChatContext();
-
-  const { sendMessage } = useChat({ chat });
+  const { sendMessage } = useChatContext();
 
   const {
     reset,

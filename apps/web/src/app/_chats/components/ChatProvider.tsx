@@ -1,13 +1,13 @@
 'use client';
 
-import { Chat } from '@ai-sdk/react';
+import { UseChatHelpers, useChat } from '@ai-sdk/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import {
   DefaultChatTransport,
   UIMessage,
   lastAssistantMessageIsCompleteWithToolCalls
 } from 'ai';
-import { createContext, useMemo } from 'react';
+import { createContext } from 'react';
 import z from 'zod';
 
 import internalChartConfigSchema from '@/app/_charts/schemas/internalChartConfigSchema';
@@ -23,11 +23,7 @@ type ChatMessage = UIMessage<
   }
 >;
 
-type AIChat = Chat<ChatMessage>;
-
-interface ChatContextType {
-  chat: AIChat;
-}
+interface ChatContextType extends UseChatHelpers<ChatMessage> {}
 
 export const ChatContext = createContext<ChatContextType | undefined>(
   undefined
@@ -49,36 +45,33 @@ const ChatProvider = ({
     })
   );
 
-  const chat = useMemo(() => {
-    return new Chat({
-      id: dbChat.id,
-      transport: new DefaultChatTransport({
-        api: `/api/${agentSlug}/chat`,
-        prepareSendMessagesRequest({ messages, id }) {
-          return {
-            body: { message: messages[messages.length - 1], id }
-          };
-        }
-      }),
-      messages: dbChat.messages as ChatMessage[],
-      sendAutomaticallyWhen: (args) => {
-        return lastAssistantMessageIsCompleteWithToolCalls(args);
-      },
-      dataPartSchemas: {
-        chart: internalChartConfigSchema,
-        'document-search': documentSearchSchema
-      },
-      onToolCall: async ({ toolCall }) => {
-        if (toolCall.toolName === 'clearChat') {
-          await refetch();
-        }
+  const chat = useChat({
+    id: dbChat.id,
+    transport: new DefaultChatTransport({
+      api: `/api/${agentSlug}/chat`,
+      prepareSendMessagesRequest({ messages, id }) {
+        return {
+          body: { message: messages[messages.length - 1], id }
+        };
       }
-    }) as AIChat;
-  }, [dbChat.id, dbChat.messages, refetch, agentSlug]);
+    }),
+    messages: dbChat.messages as ChatMessage[],
+    sendAutomaticallyWhen: (args) => {
+      return lastAssistantMessageIsCompleteWithToolCalls(args);
+    },
+    dataPartSchemas: {
+      chart: internalChartConfigSchema,
+      'document-search': documentSearchSchema
+    },
+    onToolCall: async ({ toolCall }) => {
+      if (toolCall.toolName === 'clearChat') {
+        await refetch();
+      }
+    },
+    experimental_throttle: 50
+  });
 
-  return (
-    <ChatContext.Provider value={{ chat }}>{children}</ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={chat}>{children}</ChatContext.Provider>;
 };
 
 export default ChatProvider;
