@@ -74,6 +74,7 @@ export const POST = async (
   const schema = agentConfigSchema.safeParse(chat.agent.config);
 
   if (!schema.success) {
+    console.error(schema.error);
     return new NextResponse('Invalid agent config', { status: 400 });
   }
 

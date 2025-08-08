@@ -13,10 +13,16 @@ const agentConfigSchema = z.object({
     .min(1)
     .optional()
     .default(serverConfig.defaultAgentConfig.prompt),
-  reasoning: z.object({
-    enabled: z.boolean().optional().default(false),
-    effort: z.enum(['high', 'medium', 'low']).optional().default('medium')
-  })
+  reasoning: z
+    .object({
+      enabled: z.boolean().optional().default(false),
+      effort: z.enum(['high', 'medium', 'low']).optional().default('medium')
+    })
+    .optional()
+    .default({
+      enabled: false,
+      effort: 'medium'
+    })
 });
 
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
