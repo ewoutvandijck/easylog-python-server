@@ -2,7 +2,7 @@
   "id": 3,
   "schema": [
     {
-      "name": "mumc-gpt-13",
+      "name": "mumc-gpt-12",
       "type": "assistant",
       "reasoning": {
         "enabled": true,
