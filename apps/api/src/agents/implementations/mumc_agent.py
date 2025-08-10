@@ -130,7 +130,7 @@ class MUMCAgentConfig(BaseModel):
         ]
     )
     prompt: str = Field(
-        default="You can use the following roles: {available_roles}.\nYou are currently acting as the role: {current_role}.\nYour specific instructions for this role are: {current_role_prompt}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {current_time}.\nRecurring tasks: {recurring_tasks}\nReminders: {reminders}\nMemories: {memories}"
+        default="You can use the following roles: {{available_roles}}.\nYou are currently acting as the role: {{current_role}}.\nYour specific instructions for this role are: {{current_role_prompt}}.\nThis prompt may include details from a questionnaire. Use the provided tools to interact with the questionnaire if needed.\nThe current time is: {{current_time}}.\nRecurring tasks: {{recurring_tasks}}\nReminders: {{reminders}}\nMemories: {{memories}}"
     )
 
 
