@@ -74,6 +74,17 @@ class ZLMQuestionnaireAnswers(BaseModel):
     G22: float = Field(..., gt=0)
 
 
+class RoleReasoningConfig(BaseModel):
+    enabled: bool = Field(
+        default=False,
+        description="Whether to enable reasoning for this role.",
+    )
+    effort: Literal["high", "medium", "low"] = Field(
+        default="medium",
+        description="The effort level for reasoning. Higher effort means more tokens used for reasoning.",
+    )
+
+
 class RoleConfig(BaseModel):
     name: str = Field(
         default="EasyLogAssistant",
@@ -98,6 +109,10 @@ class RoleConfig(BaseModel):
     questionaire: list[QuestionaireQuestionConfig] = Field(
         default_factory=list,
         description="A list of questions (as QuestionaireQuestionConfig) that this role should ask the user, enabling dynamic, role-specific data collection.",
+    )
+    reasoning: RoleReasoningConfig = Field(
+        default=RoleReasoningConfig(),
+        description="The reasoning configuration for this role.",
     )
 
 
@@ -1471,6 +1486,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 *messages,
             ],
             stream=True,
+            extra_body={
+                "reasoning": {
+                    "enabled": role_config.reasoning.enabled,
+                    "effort": role_config.reasoning.effort,
+                }
+            },
             tools=[function_to_openai_tool(tool) for tool in tools_values],
             tool_choice="auto",
         )
