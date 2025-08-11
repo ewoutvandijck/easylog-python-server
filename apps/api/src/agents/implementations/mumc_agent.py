@@ -262,18 +262,13 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
-        async def tool_calculate_zlm_scores() -> dict[str, Any]:
-            """Calculate ZLM scores and return current and optional previous results.
+        async def tool_calculate_zlm_scores() -> dict[str, float]:
+            """Calculate Ziektelastmeter COPD domain scores based on previously
+            answered questionnaire values. The questionnaire must be complete before calling this tool.
 
-            Returns
-            -------
-            dict[str, Any]
-                {
-                  "current_scores": {<domain>: float, ...},
-                  "current_bmi": float,
-                  "previous_scores": {<domain>: float, ...}  # optional
-                  "previous_bmi": float                       # optional
-                }
+            Upon successful calculation the individual domain scores **and** the
+            calculated BMI Value are persisted as memories using
+            ``tool_store_memory``.
             """
 
             # --------------------------------------------------------------
@@ -395,18 +390,17 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
-            # 4. Determine previous scores/BMI from memories (if any)
+            # 4. Persist memories
             # --------------------------------------------------------------
             label_map = {
-                "longklachten": "Longklachten",
-                "longaanvallen": "Longaanvallen",
-                # Let label reflect desired presentation while keys reflect current code keys
-                "lichambeperkingen": "Lichamelijke beperkingen",
+                "longklachten": "Long klachten",
+                "longaanvallen": "Long aanvallen",
+                "lichamelijke_beperkingen": "Lichaam. beperking",
                 "vermoeidheid": "Vermoeidheid",
                 "nachtrust": "Nachtrust",
-                "gevoelens emoties": "Emoties",
+                "gevoelens_emoties": "Emoties",
                 "seksualiteit": "Seksualiteit",
-                "relaties en werk": "Relaties en werk",
+                "relaties_en_werk": "Relaties en werk",
                 "medicijnen": "Medicijnen",
                 "gewicht_bmi": "BMI",
                 "bewegen": "Bewegen",
@@ -414,62 +408,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "roken": "Roken",
             }
 
-            # Build reverse mapping from label text back to current keys (tolerant)
-            def _label_to_key(label: str) -> str | None:
-                l = label.strip().lower().replace(".", "").replace("  ", " ")
-                mapping = {
-                    "longklachten": "longklachten",
-                    "long aanvallen": "longaanvallen",
-                    "longaanvallen": "longaanvallen",
-                    "lichamelijke beperkingen": "lichambeperkingen",
-                    "vermoeidheid": "vermoeidheid",
-                    "nachtrust": "nachtrust",
-                    "emoties": "gevoelens emoties",
-                    "seksualiteit": "seksualiteit",
-                    "relaties en werk": "relaties en werk",
-                    "medicijnen": "medicijnen",
-                    "bmi": "gewicht_bmi",
-                    "bewegen": "bewegen",
-                    "alcohol": "alcohol",
-                    "roken": "roken",
-                }
-                return mapping.get(l)
-
-            memories: list[dict[str, Any]] = await self.get_metadata("memories", [])
             today_str = datetime.now().strftime("%d-%m-%Y")
 
-            previous_scores: dict[str, float] = {}
-            previous_bmi: float | None = None
-
-            score_pattern = re.compile(
-                r"^ZLM-Score-(.+?) (\d{2}-\d{2}-\d{4}): Score = ([0-9]*\.?[0-9]+)$"
-            )
-            bmi_pattern = re.compile(
-                r"^ZLM-BMI-meta_value (\d{2}-\d{2}-\d{4}) ([0-9]*\.?[0-9]+)$"
-            )
-
-            for mem in memories:
-                text = str(mem.get("memory", ""))
-                m = score_pattern.match(text)
-                if m:
-                    label, date_str, value_str = m.groups()
-                    if date_str == today_str:
-                        continue
-                    key = _label_to_key(label)
-                    if key is not None:
-                        previous_scores[key] = float(value_str)
-                    continue
-
-                m2 = bmi_pattern.match(text)
-                if m2:
-                    date_str, bmi_val_str = m2.groups()
-                    if date_str == today_str:
-                        continue
-                    previous_bmi = float(bmi_val_str)
-
-            # --------------------------------------------------------------
-            # 5. Persist current memories
-            # --------------------------------------------------------------
+            # Store domain scores
             for key, score in scores.items():
                 label = label_map.get(key, key.title())
                 mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
@@ -478,19 +419,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             mem = f"ZLM-BMI-meta_value {today_str} {bmi_value}"
             await tool_store_memory(mem)
 
-            # --------------------------------------------------------------
-            # 6. Build return payload
-            # --------------------------------------------------------------
-            result: dict[str, Any] = {
-                "current_scores": scores,
-                "current_bmi": float(bmi_value),
-            }
-            if previous_scores:
-                result["previous_scores"] = previous_scores
-            if previous_bmi is not None:
-                result["previous_bmi"] = float(previous_bmi)
-
-            return result
+            return scores
 
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
