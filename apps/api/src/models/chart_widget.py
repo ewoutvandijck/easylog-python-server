@@ -306,8 +306,8 @@ class ChartWidget(BaseModel):
                 )
             )
 
-            # Add old data point if available
-            if zlm_row.y_old is not None:
+            # Add old data point only when it differs from current
+            if zlm_row.y_old is not None and zlm_row.y_old != zlm_row.y_current:
                 old_y = zlm_row.y_old
                 old_color_role = ZLM_CUSTOM_COLOR_ROLE_MAP["old"]  # Pastel Gray for previous scores
 

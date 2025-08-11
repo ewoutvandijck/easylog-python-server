@@ -393,9 +393,9 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             # 4. Persist memories
             # --------------------------------------------------------------
             label_map = {
-                "longklachten": "Long klachten",
-                "longaanvallen": "Long aanvallen",
-                "lichamelijke_beperkingen": "Lichaam. beperking",
+                "longklachten": "Longklachten",
+                "longaanvallen": "Longaanvallen",
+                "lichamelijke_beperkingen": "Lichamelijke beperkingen",
                 "vermoeidheid": "Vermoeidheid",
                 "nachtrust": "Nachtrust",
                 "gevoelens_emoties": "Emoties",
