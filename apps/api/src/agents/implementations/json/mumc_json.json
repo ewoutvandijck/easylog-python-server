@@ -2,12 +2,8 @@
   "id": 3,
   "schema": [
     {
-      "name": "mumc-gpt-12",
+      "name": "mumc-gpt-13",
       "type": "assistant",
-      "reasoning": {
-        "enabled": true,
-        "effort": "low"
-      },
       "label": "COPD Coach",
       "agentConfig": {
         "agent_class": "MUMCAgent",

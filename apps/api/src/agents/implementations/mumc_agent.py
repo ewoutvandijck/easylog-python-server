@@ -262,13 +262,18 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             """
             return await self.get_metadata(question_name, "[not answered]")
 
-        async def tool_calculate_zlm_scores() -> dict[str, float]:
-            """Calculate Ziektelastmeter COPD domain scores based on previously
-            answered questionnaire values. The questionnaire must be complete before calling this tool.
+        async def tool_calculate_zlm_scores() -> dict[str, Any]:
+            """Calculate ZLM COPD scores and return current and optional previous results.
 
-            Upon successful calculation the individual domain scores **and** the
-            calculated BMI Value are persisted as memories using
-            ``tool_store_memory``.
+            Returns
+            -------
+            dict[str, Any]
+                {
+                  "current_scores": {<domain>: float, ...},
+                  "current_bmi": float,
+                  "previous_scores": {<domain>: float, ...}  # optional
+                  "previous_bmi": float                       # optional
+                }
             """
 
             # --------------------------------------------------------------
@@ -338,12 +343,12 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                     [answers.G12, answers.G13, answers.G15, answers.G16]
                 ),
                 "longaanvallen": float(answers.G17),
-                "lichambeperkingen": _avg([answers.G5, answers.G6, answers.G7]),
+                "lichamelijke_beperkingen": _avg([answers.G5, answers.G6, answers.G7]),
                 "vermoeidheid": float(answers.G1),
                 "nachtrust": float(answers.G2),
-                "gevoelens emoties": _avg([answers.G3, answers.G11, answers.G14]),
+                "gevoelens_emoties": _avg([answers.G3, answers.G11, answers.G14]),
                 "seksualiteit": float(answers.G10),
-                "relaties en werk": _avg([answers.G8, answers.G9]),
+                "relaties_en_werk": _avg([answers.G8, answers.G9]),
                 "medicijnen": float(answers.G4),
                 "bewegen": float(answers.G18),
                 "alcohol": float(answers.G19),
@@ -390,7 +395,7 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             scores["roken"] = float(roken_map[answers.G20])
 
             # --------------------------------------------------------------
-            # 4. Persist memories
+            # 4. Determine previous scores/BMI from memories (if any)
             # --------------------------------------------------------------
             label_map = {
                 "longklachten": "Long klachten",
@@ -408,9 +413,40 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
                 "roken": "Roken",
             }
 
+            reverse_label_map = {v: k for k, v in label_map.items()}
+            memories: list[dict[str, Any]] = await self.get_metadata("memories", [])
             today_str = datetime.now().strftime("%d-%m-%Y")
 
-            # Store domain scores
+            previous_scores: dict[str, float] = {}
+            previous_bmi: float | None = None
+
+            score_pattern = re.compile(
+                r"^ZLM-Score-(.+?) (\d{2}-\d{2}-\d{4}): Score = ([0-9]*\.?[0-9]+)$"
+            )
+            bmi_pattern = re.compile(
+                r"^ZLM-BMI-meta_value (\d{2}-\d{2}-\d{4}) ([0-9]*\.?[0-9]+)$"
+            )
+
+            for mem in memories:
+                text = str(mem.get("memory", ""))
+                m = score_pattern.match(text)
+                if m:
+                    label, date_str, value_str = m.groups()
+                    if date_str != today_str:
+                        key = reverse_label_map.get(label)
+                        if key:
+                            previous_scores[key] = float(value_str)
+                    continue
+
+                m2 = bmi_pattern.match(text)
+                if m2:
+                    date_str, bmi_val_str = m2.groups()
+                    if date_str != today_str:
+                        previous_bmi = float(bmi_val_str)
+
+            # --------------------------------------------------------------
+            # 5. Persist current memories
+            # --------------------------------------------------------------
             for key, score in scores.items():
                 label = label_map.get(key, key.title())
                 mem = f"ZLM-Score-{label} {today_str}: Score = {score}"
@@ -419,7 +455,19 @@ class MUMCAgent(BaseAgent[MUMCAgentConfig]):
             mem = f"ZLM-BMI-meta_value {today_str} {bmi_value}"
             await tool_store_memory(mem)
 
-            return scores
+            # --------------------------------------------------------------
+            # 6. Build return payload
+            # --------------------------------------------------------------
+            result: dict[str, Any] = {
+                "current_scores": scores,
+                "current_bmi": float(bmi_value),
+            }
+            if previous_scores:
+                result["previous_scores"] = previous_scores
+            if previous_bmi is not None:
+                result["previous_bmi"] = float(previous_bmi)
+
+            return result
 
         def tool_create_zlm_chart(
             language: Literal["nl", "en"],
