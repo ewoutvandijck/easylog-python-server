@@ -20,6 +20,9 @@ const schema = z.object({
 });
 
 const ChatInput = () => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { sendMessage } = useChatContext();

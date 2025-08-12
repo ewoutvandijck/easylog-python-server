@@ -1,9 +1,11 @@
+import * as Sentry from '@sentry/nextjs';
 import {
   UIMessage,
   convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
   streamText,
   tool
 } from 'ai';
@@ -142,10 +144,11 @@ export const POST = async (
               return 'Chat cleared';
             }
           })
-        }
+        },
+        stopWhen: stepCountIs(5)
       });
 
-      writer.merge(result.toUIMessageStream({}));
+      writer.merge(result.toUIMessageStream());
     },
     generateId: createIdGenerator({
       prefix: 'msg',
@@ -165,8 +168,16 @@ export const POST = async (
           dedupedMessages.unshift(msg);
         }
       }
-      // Replace messages with dedupedMessages for downstream usage
-      messages = dedupedMessages;
+
+      // Replace messages with dedupedMessages for downstream usage and remove input-streaming parts
+      messages = dedupedMessages.map((message) => {
+        return {
+          ...message,
+          parts: message.parts.filter(
+            (part) => !('state' in part) || part.state !== 'input-streaming'
+          )
+        };
+      });
 
       await db
         .update(chats)
@@ -174,6 +185,10 @@ export const POST = async (
           messages
         })
         .where(eq(chats.id, id));
+    },
+    onError: (error) => {
+      Sentry.captureException(error);
+      return 'An error occurred';
     }
   });
 
