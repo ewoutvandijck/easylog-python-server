@@ -23,11 +23,35 @@ export const processXlsxJob = schemaTask({
       logger.info('Sheet name', { sheetName });
 
       const sheet = workbook.Sheets[sheetName];
+
+      // Method 1: Get headers (first row columns) using header: 1
+      const headers = XLSX.utils.sheet_to_json(sheet, {
+        header: 1
+      })[0] as string[];
+      logger.info('Headers', { headers });
+
+      // Method 2: Alternative approach - get first row using range
+      const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+      const firstRowHeaders: string[] = [];
+
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        const cell = sheet[cellAddress];
+        firstRowHeaders.push(cell?.v?.toString() || `Column${col + 1}`);
+      }
+
+      logger.info('First row headers (alternative method)', {
+        firstRowHeaders
+      });
+
+      // Get data (excluding header row)
       const json = XLSX.utils.sheet_to_json(sheet);
 
       return {
         sheetName,
         sheetIndex: index,
+        headers,
+        firstRowHeaders,
         content: json
       };
     });

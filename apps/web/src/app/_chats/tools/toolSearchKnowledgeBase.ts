@@ -1,10 +1,18 @@
-import { UIMessageStreamWriter, generateObject, generateText, tool } from 'ai';
+import {
+  UIMessageStreamWriter,
+  generateObject,
+  generateText,
+  stepCountIs,
+  tool
+} from 'ai';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import db from '@/database/client';
 import openrouterProvider from '@/lib/ai-providers/openrouter';
 import splitArrayBatches from '@/utils/split-array-batches';
+
+import toolExecuteSQL from './toolExecuteSQL';
 
 interface ToolSearchKnowledgeBaseProps {
   agentId: string;
@@ -140,6 +148,9 @@ const getToolSearchKnowledgeBase = (
 
             const { text } = await generateText({
               model: openrouterProvider('google/gemini-2.5-flash'),
+              tools: {
+                toolExecuteSQL: toolExecuteSQL()
+              },
               messages: [
                 {
                   role: 'system',
@@ -151,7 +162,8 @@ const getToolSearchKnowledgeBase = (
                     dbDocument.content
                   )}`
                 }
-              ]
+              ],
+              stopWhen: stepCountIs(5)
             });
 
             relevantInformationObject.relevantInformation = text;

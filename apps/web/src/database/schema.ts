@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   integer,
   jsonb,
   pgEnum,
@@ -31,6 +32,12 @@ export const documentStatusEnum = pgEnum('document_status_enum', [
   'processing',
   'completed',
   'failed'
+]);
+
+export const fieldTypeEnum = pgEnum('field_type_enum', [
+  'text',
+  'number',
+  'date'
 ]);
 
 export const users = pgTable('users', {
@@ -144,5 +151,31 @@ export const chats = pgTable('chats', {
     .notNull(),
   /** TODO: come on jappie, we can do better than this */
   messages: jsonb('messages').notNull().default([]),
+  ...timestamps
+});
+
+export const fields = pgTable('fields', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  type: fieldTypeEnum('type').notNull(),
+  options: text('options').array().notNull().default([]),
+  documentId: uuid('document_id')
+    .references(() => documents.id, { onDelete: 'cascade' })
+    .notNull(),
+  ...timestamps
+});
+
+export const fieldValues = pgTable('field_values', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fieldId: uuid('field_id')
+    .references(() => fields.id, { onDelete: 'cascade' })
+    .notNull(),
+  rowId: integer('row_id').notNull(),
+  valueString: text('value_string'),
+  valueNumber: doublePrecision('value_number'),
+  valueDate: timestamp('value_date', {
+    mode: 'date',
+    withTimezone: true
+  }),
   ...timestamps
 });
