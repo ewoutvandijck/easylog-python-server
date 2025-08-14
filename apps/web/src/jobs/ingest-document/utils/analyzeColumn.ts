@@ -142,7 +142,10 @@ const analyzeColumn = (
     columnName,
     columnType,
     sampleValues: (uniqueValues.slice(0, 5) as unknown as string[]).map(
-      (value) => value.slice(0, 255)
+      (value) =>
+        value.length > 400
+          ? `${value.slice(0, 200)}...${value.slice(-200)}`
+          : value
     ),
     uniqueValues: uniqueValues.length,
     emptyValues

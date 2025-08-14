@@ -10,6 +10,7 @@ import openrouterProvider from '@/lib/ai-providers/openrouter';
 import serverConfig from '@/server.config';
 import splitArrayBatches from '@/utils/split-array-batches';
 
+import { processPdfJob } from './converters/process-pdf-job';
 import { processXlsxJob } from './converters/process-xlsx-job';
 import analyzeColumn from './utils/analyzeColumn';
 
@@ -22,6 +23,9 @@ export const ingestDocumentJob = schemaTask({
     const dbDocument = await db.query.documents.findFirst({
       where: {
         id: documentId
+      },
+      with: {
+        agent: true
       }
     });
 
@@ -50,14 +54,11 @@ export const ingestDocumentJob = schemaTask({
       contentType
     });
 
-    if (contentType === 'application/pdf') {
-      throw new AbortTaskRunError('PDF processing not supported yet');
-    }
-
     const processingResult =
       contentType === 'application/pdf'
-        ? await processXlsxJob.triggerAndWait({
-            downloadUrl: headResponse.downloadUrl
+        ? await processPdfJob.triggerAndWait({
+            downloadUrl: headResponse.downloadUrl,
+            basePath: dbDocument.path
           })
         : await processXlsxJob.triggerAndWait({
             downloadUrl: headResponse.downloadUrl
@@ -83,28 +84,49 @@ export const ingestDocumentJob = schemaTask({
     const {
       object: { summary, tags }
     } = await generateObject({
-      model: openrouterProvider('google/gemini-2.5-flash'),
-      prompt: `Act as a professional summarizer. Create a concise and summary of the <text> below, while adhering to the guidelines enclosed in <guidelines> below.
+      model: openrouterProvider(dbDocument.agent.config.model),
+      prompt: `You are a professional data analyst and summarizer. Your task is to analyze the provided data structure and create a comprehensive summary with relevant tags.
 
-      <guidelines>
-        - Ensure that the summary includes relevant details, while avoiding any unnecessary information or repetition. 
-        - Rely strictly on the provided text, without including external information.
-        - The length of the summary must be within 1000 characters.
-        - Your summary must always be in English.
-        - Generate tags for unique entities in the text (like people, companies, locations, etc.)
-      </guidelines>
+## TASK
+Analyze the data structure below and provide:
+1. A concise summary (max 1000 characters) describing the data content, structure, and key insights
+2. An array of relevant tags identifying entities, categories, and themes
 
-      <filetype>
-        ${contentType}
-      </filetype>
+## DATA STRUCTURE
+The data represents either:
+- A spreadsheet with multiple parts, each containing columns with different data types (string, number, date, boolean)
+- A PDF document with multiple pages, each containing markdown text and images
 
-      <text>
-        ${JSON.stringify(analysis, null, 2)}
-      </text>
-      `,
+## REQUIREMENTS
+- Summary must be in English and under 1000 characters
+- Summary should describe the overall content, structure, and key patterns
+- For spreadsheets: describe data types, columns, and key insights
+- For PDFs: describe the document type, content themes, and key information
+- Tags should identify: companies, people, locations, dates, categories, document types, and themes
+- Tags must be simple strings (no special characters or spaces)
+- Always return exactly 2 fields: "summary" and "tags"
+
+## EXAMPLE OUTPUT FORMATS
+
+For Spreadsheets:
+{
+  "summary": "This document contains sales data from Q1 2024 with customer information, product details, and transaction amounts. The data includes 3 sheets with customer names, product categories, and financial figures.",
+  "tags": ["sales", "customers", "products", "financial", "Q1-2024", "transactions"]
+}
+
+For PDFs:
+{
+  "summary": "This PDF contains a technical report with 5 pages covering system architecture, performance metrics, and implementation guidelines. Includes diagrams and detailed specifications.",
+  "tags": ["technical-report", "architecture", "performance", "specifications", "diagrams"]
+}
+
+## DATA TO ANALYZE
+${JSON.stringify(analysis, null, 2)}
+
+Remember: Return ONLY the JSON object with "summary" and "tags" fields. Do not include any other text or formatting.`,
       schema: z.object({
-        summary: z.string(),
-        tags: z.string().array()
+        summary: z.string().max(1000),
+        tags: z.array(z.string().min(1)).min(1)
       })
     });
 
@@ -122,37 +144,24 @@ export const ingestDocumentJob = schemaTask({
       .returning();
 
     const insertData = processingResult.output.flatMap((part) => {
-      const analysisMap = new Map(
-        analysis
-          .find((a) => a.partName === part.name)!
-          .analysis.map((a) => [a.columnName, a])
-      );
-
-      return part.data.flatMap((record, rowIndex) => {
-        return part.columns.map((columnName) => {
-          const value = record[columnName];
-          const analysis = analysisMap.get(columnName)!;
-
-          return {
-            documentId,
-            partName: part.name,
-            columnName,
-            columnType: analysis.columnType,
-            rowId: rowIndex,
-            valueString: analysis.columnType === 'string' ? value : undefined,
-            valueNumber: analysis.columnType === 'number' ? value : undefined,
-            valueDate: analysis.columnType === 'date' ? value : undefined,
-            valueBoolean: analysis.columnType === 'boolean' ? value : undefined
-          } as typeof documentData.$inferInsert;
-        });
-      });
+      return part.data.map((record, rowIndex) => ({
+        documentId,
+        partName: part.name,
+        rowId: rowIndex,
+        rowData: record
+      }));
     });
 
     const insertBatches = splitArrayBatches(insertData, 50);
 
     await db.transaction(async (tx) => {
-      for (const batch of insertBatches) {
+      for (const [index, batch] of insertBatches.entries()) {
         try {
+          logger.info('Inserting document data batch', {
+            batchNumber: index + 1,
+            batchLength: batch.length
+          });
+
           await tx.insert(documentData).values(batch);
         } catch (error) {
           logger.error('Error inserting document data', { error, batch });

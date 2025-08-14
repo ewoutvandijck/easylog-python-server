@@ -81,8 +81,9 @@ export const processPdfJob = schemaTask({
         );
 
         return {
-          pageNumber: page.index + 1,
-          markdown
+          name: `Page ${page.index + 1}`,
+          columns: ['markdown'],
+          data: [{ markdown }]
         };
       })
     );

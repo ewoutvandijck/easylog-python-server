@@ -1,6 +1,5 @@
 import {
   boolean,
-  doublePrecision,
   integer,
   jsonb,
   pgEnum,
@@ -162,15 +161,7 @@ export const documentData = pgTable('document_data', {
     .references(() => documents.id, { onDelete: 'cascade' })
     .notNull(),
   partName: text('part_name').notNull(),
-  columnName: text('column_name').notNull(),
-  columnType: fieldTypeEnum('column_type').notNull(),
   rowId: integer('row_id').notNull(),
-  valueString: text('value_string'),
-  valueNumber: doublePrecision('value_number'),
-  valueDate: timestamp('value_date', {
-    mode: 'date',
-    withTimezone: true
-  }),
-  valueBoolean: boolean('value_boolean'),
+  rowData: jsonb('row_data').notNull().default({}),
   ...timestamps
 });

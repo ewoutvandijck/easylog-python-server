@@ -12,6 +12,8 @@ const toolExecuteSQL = () => {
       query: z.string()
     }),
     execute: async (query) => {
+      console.log('Executing SQL query', query.query);
+
       const [result, error] = await tryCatch(easylogDb.execute(query.query));
 
       if (error) {
