@@ -33,6 +33,13 @@ export const documentStatusEnum = pgEnum('document_status_enum', [
   'failed'
 ]);
 
+export const fieldTypeEnum = pgEnum('field_type_enum', [
+  'string',
+  'number',
+  'date',
+  'boolean'
+]);
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name'),
@@ -116,6 +123,7 @@ export const documents = pgTable('documents', {
   summary: text('summary'),
   tags: text('tags').array().notNull().default([]),
   content: jsonb('content'),
+  analysis: jsonb('analysis').notNull().default({}),
   status: documentStatusEnum('status').notNull().default('pending'),
   agentId: uuid('agent_id')
     .references(() => agents.id, { onDelete: 'cascade' })
@@ -144,5 +152,16 @@ export const chats = pgTable('chats', {
     .notNull(),
   /** TODO: come on jappie, we can do better than this */
   messages: jsonb('messages').notNull().default([]),
+  ...timestamps
+});
+
+export const documentData = pgTable('document_data', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id')
+    .references(() => documents.id, { onDelete: 'cascade' })
+    .notNull(),
+  partName: text('part_name').notNull(),
+  rowId: integer('row_id').notNull(),
+  rowData: jsonb('row_data').notNull().default({}),
   ...timestamps
 });
