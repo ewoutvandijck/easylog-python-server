@@ -1,5 +1,3 @@
-import path from 'path';
-
 import { AbortTaskRunError, logger, schemaTask } from '@trigger.dev/sdk';
 import { head } from '@vercel/blob';
 import { generateObject } from 'ai';
@@ -7,12 +5,13 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import db from '@/database/client';
-import { documents } from '@/database/schema';
+import { documentData, documents } from '@/database/schema';
 import openrouterProvider from '@/lib/ai-providers/openrouter';
 import serverConfig from '@/server.config';
+import splitArrayBatches from '@/utils/split-array-batches';
 
-import { processPdfJob } from './converters/process-pdf-job';
 import { processXlsxJob } from './converters/process-xlsx-job';
+import analyzeColumn from './utils/analyzeColumn';
 
 export const ingestDocumentJob = schemaTask({
   id: 'ingest-document',
@@ -51,11 +50,14 @@ export const ingestDocumentJob = schemaTask({
       contentType
     });
 
+    if (contentType === 'application/pdf') {
+      throw new AbortTaskRunError('PDF processing not supported yet');
+    }
+
     const processingResult =
       contentType === 'application/pdf'
-        ? await processPdfJob.triggerAndWait({
-            downloadUrl: headResponse.downloadUrl,
-            basePath: path.dirname(dbDocument.path)
+        ? await processXlsxJob.triggerAndWait({
+            downloadUrl: headResponse.downloadUrl
           })
         : await processXlsxJob.triggerAndWait({
             downloadUrl: headResponse.downloadUrl
@@ -66,6 +68,17 @@ export const ingestDocumentJob = schemaTask({
     }
 
     logger.info('Processing result', { processingResult });
+
+    const analysis = processingResult.output.map((part) => {
+      return {
+        partName: part.name,
+        analysis: part.columns.map((column) => {
+          return analyzeColumn(part.data, column);
+        })
+      };
+    });
+
+    logger.info('Analysis', { analysis });
 
     const {
       object: { summary, tags }
@@ -81,13 +94,17 @@ export const ingestDocumentJob = schemaTask({
         - Generate tags for unique entities in the text (like people, companies, locations, etc.)
       </guidelines>
 
+      <filetype>
+        ${contentType}
+      </filetype>
+
       <text>
-        ${JSON.stringify(processingResult.output, null, 2)}
+        ${JSON.stringify(analysis, null, 2)}
       </text>
       `,
       schema: z.object({
         summary: z.string(),
-        tags: z.array(z.string())
+        tags: z.string().array()
       })
     });
 
@@ -99,10 +116,50 @@ export const ingestDocumentJob = schemaTask({
         type: contentType === 'application/pdf' ? 'pdf' : 'xlsx',
         summary,
         tags,
-        content: processingResult.output
+        analysis
       })
       .where(eq(documents.id, documentId))
       .returning();
+
+    const insertData = processingResult.output.flatMap((part) => {
+      const analysisMap = new Map(
+        analysis
+          .find((a) => a.partName === part.name)!
+          .analysis.map((a) => [a.columnName, a])
+      );
+
+      return part.data.flatMap((record, rowIndex) => {
+        return part.columns.map((columnName) => {
+          const value = record[columnName];
+          const analysis = analysisMap.get(columnName)!;
+
+          return {
+            documentId,
+            partName: part.name,
+            columnName,
+            columnType: analysis.columnType,
+            rowId: rowIndex,
+            valueString: analysis.columnType === 'string' ? value : undefined,
+            valueNumber: analysis.columnType === 'number' ? value : undefined,
+            valueDate: analysis.columnType === 'date' ? value : undefined,
+            valueBoolean: analysis.columnType === 'boolean' ? value : undefined
+          } as typeof documentData.$inferInsert;
+        });
+      });
+    });
+
+    const insertBatches = splitArrayBatches(insertData, 50);
+
+    await db.transaction(async (tx) => {
+      for (const batch of insertBatches) {
+        try {
+          await tx.insert(documentData).values(batch);
+        } catch (error) {
+          logger.error('Error inserting document data', { error, batch });
+          throw error;
+        }
+      }
+    });
 
     logger.info('Document inserted', { document });
   }

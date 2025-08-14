@@ -17,42 +17,33 @@ export const processXlsxJob = schemaTask({
 
     const response = await fetch(downloadUrl);
     const buffer = await response.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
 
-    return workbook.SheetNames.map((sheetName, index) => {
-      logger.info('Sheet name', { sheetName });
-
+    return workbook.SheetNames.map((sheetName) => {
       const sheet = workbook.Sheets[sheetName];
 
-      // Method 1: Get headers (first row columns) using header: 1
-      const headers = XLSX.utils.sheet_to_json(sheet, {
-        header: 1
-      })[0] as string[];
-      logger.info('Headers', { headers });
+      const rawData = XLSX.utils.sheet_to_json(sheet) as Record<
+        string,
+        string | number | boolean | null | undefined
+      >[];
 
-      // Method 2: Alternative approach - get first row using range
-      const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-      const firstRowHeaders: string[] = [];
+      const data = rawData.map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([key, value]) => {
+            if (typeof value === 'string') {
+              const trimmed = value.trim();
+              return [key, trimmed === '' ? null : trimmed];
+            }
 
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
-        const cell = sheet[cellAddress];
-        firstRowHeaders.push(cell?.v?.toString() || `Column${col + 1}`);
-      }
-
-      logger.info('First row headers (alternative method)', {
-        firstRowHeaders
-      });
-
-      // Get data (excluding header row)
-      const json = XLSX.utils.sheet_to_json(sheet);
+            return [key, value];
+          })
+        )
+      ) as Record<string, string | number | boolean | null | undefined>[];
 
       return {
-        sheetName,
-        sheetIndex: index,
-        headers,
-        firstRowHeaders,
-        content: json
+        name: sheetName,
+        columns: Array.from(new Set(data.flatMap((row) => Object.keys(row)))),
+        data
       };
     });
   }

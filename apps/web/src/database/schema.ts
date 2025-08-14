@@ -35,9 +35,10 @@ export const documentStatusEnum = pgEnum('document_status_enum', [
 ]);
 
 export const fieldTypeEnum = pgEnum('field_type_enum', [
-  'text',
+  'string',
   'number',
-  'date'
+  'date',
+  'boolean'
 ]);
 
 export const users = pgTable('users', {
@@ -123,6 +124,7 @@ export const documents = pgTable('documents', {
   summary: text('summary'),
   tags: text('tags').array().notNull().default([]),
   content: jsonb('content'),
+  analysis: jsonb('analysis').notNull().default({}),
   status: documentStatusEnum('status').notNull().default('pending'),
   agentId: uuid('agent_id')
     .references(() => agents.id, { onDelete: 'cascade' })
@@ -154,22 +156,14 @@ export const chats = pgTable('chats', {
   ...timestamps
 });
 
-export const fields = pgTable('fields', {
+export const documentData = pgTable('document_data', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  type: fieldTypeEnum('type').notNull(),
-  options: text('options').array().notNull().default([]),
   documentId: uuid('document_id')
     .references(() => documents.id, { onDelete: 'cascade' })
     .notNull(),
-  ...timestamps
-});
-
-export const fieldValues = pgTable('field_values', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  fieldId: uuid('field_id')
-    .references(() => fields.id, { onDelete: 'cascade' })
-    .notNull(),
+  partName: text('part_name').notNull(),
+  columnName: text('column_name').notNull(),
+  columnType: fieldTypeEnum('column_type').notNull(),
   rowId: integer('row_id').notNull(),
   valueString: text('value_string'),
   valueNumber: doublePrecision('value_number'),
@@ -177,5 +171,6 @@ export const fieldValues = pgTable('field_values', {
     mode: 'date',
     withTimezone: true
   }),
+  valueBoolean: boolean('value_boolean'),
   ...timestamps
 });

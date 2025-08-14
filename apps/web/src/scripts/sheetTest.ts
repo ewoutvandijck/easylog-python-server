@@ -12,15 +12,15 @@ const sheetTest = () => {
     cellDates: true
   });
 
-  workbook.SheetNames.forEach((sheetName) => {
+  const parts = workbook.SheetNames.map((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
 
-    const data = XLSX.utils.sheet_to_json(sheet) as Record<
+    const rawData = XLSX.utils.sheet_to_json(sheet) as Record<
       string,
       string | number | boolean | null | undefined
     >[];
 
-    const cleanedData = data.map((row) =>
+    const data = rawData.map((row) =>
       Object.fromEntries(
         Object.entries(row).map(([key, value]) => {
           if (typeof value === 'string') {
@@ -33,8 +33,23 @@ const sheetTest = () => {
       )
     );
 
-    console.log(analyzeColumn(cleanedData, 'Start'));
+    return {
+      name: sheetName,
+      columns: Array.from(new Set(data.flatMap((row) => Object.keys(row)))),
+      data
+    };
   });
+
+  const analysis = parts.map((part) => {
+    return {
+      name: part.name,
+      analysis: part.columns.map((column) => {
+        return analyzeColumn(part.data, column);
+      })
+    };
+  });
+
+  console.dir(analysis, { depth: null });
 };
 
 sheetTest();
