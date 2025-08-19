@@ -212,6 +212,30 @@ Gewone tekst berichten met Markdown support
 - Pie charts
 - Stacked bar charts
 
+#### Charts – instructies & schema
+
+Gebruik onderstaande JSON-structuur voor charts (door agents of tools aangeleverd):
+
+```json
+{
+  "data": [{ "key": "value" }],
+  "type": "bar|stacked-bar|line|pie",
+  "series": [
+    { "dataKey": "columnName", "label": "Duidelijk label (eenheid)", "color": "var(--color-chart-1)|#HEX|rgb()" }
+  ],
+  "xAxisKey": "categoryColumn"
+}
+```
+
+- **Pie**: gebruik `value` + `category` velden in `data`. Voor elk segment één `series` item. De volgorde van `series[i]` correspondeert met `data[i].category` (legend kleurt/labelt per categorie). Maximaal 7 segmenten.
+- **Bar/Stacked/Line**: gebruik beschrijvende kolomnamen als `dataKey`. Meerdere `series` voor gegroepeerde/gestackte bars of meerdere lijnen. 3–12 datapunten aanbevolen.
+- **Labels**: neem waar zinvol eenheden op in `series.label` (bijv. "Omzet (EUR)"). Zorg voor numerieke waarden bij metrische kolommen.
+- **Kleuren**: gebruik `var(--color-chart-1)` t/m `var(--color-chart-5)` of custom `#hex`/`rgb()`.
+
+Implementatiedetails (frontend):
+- **Pie legend**: legend items worden per categorie (`xAxisKey`) gemapt; `series[i]` → `data[i]`. Onjuiste herhaling van het laatste label is verholpen.
+- **Bar/Stacked** X-as labels: labels worden niet afgekapt; ze worden onder een hoek van ~35° geroteerd om overlap te beperken. Lange labels blijven volledig zichtbaar.
+
 **Document Search**
 Real-time zoeken in knowledge base met progress indicators:
 

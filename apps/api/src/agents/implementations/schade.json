@@ -1,0 +1,288 @@
+{
+    "id": 2,
+    "pqi": {
+        "fieldName": "waarnemingen",
+        "datasourceName": "incidenten-data",
+        "scoreFieldName": "pqiscore",
+        "subjectFieldName": "categorie",
+        "categoryFieldName": "categorie",
+        "scoreLabelFieldName": "pqiLabelKey"
+    },
+    "schema": [
+        {
+            "name": "statusactie",
+            "type": "text",
+            "label": "Status Actie",
+            "hidden": true,
+            "default": "NIEUW"
+        },
+        {
+            "name": "datum",
+            "type": "date",
+            "label": "Datum melding",
+            "hidden": true
+        },
+        {
+            "name": "datum_schade_bekend",
+            "type": "date",
+            "label": "Datum schade bekend",
+            "required": true,
+            "format": "d-m-Y",
+            "reportLabel": "Datum schade bekend"
+        },
+        {
+            "name": "tijdstip_schade_bekend",
+            "type": "time",
+            "format": "H:i",
+            "label": "Tijdstip schade bekend",
+            "required": true,
+            "reportLabel": "Tijdstip schade bekend"
+        },
+        {
+            "name": "project",
+            "type": "text",
+            "label": "Project",
+            "hidden": true
+        },
+        {
+            "name": "projectnummer_schade",
+            "type": "text",
+            "label": "Projectnummer",
+            "required": true,
+            "placeholder": "Vul projectnummer in",
+            "reportLabel": "Projectnummer"
+        },
+        {
+            "name": "plaatsnaam_schade",
+            "type": "text",
+            "label": "Plaatsnaam",
+            "required": true,
+            "placeholder": "Vul plaatsnaam in",
+            "reportLabel": "Plaatsnaam"
+        },
+        {
+            "name": "adres_schade",
+            "type": "text",
+            "label": "Adres",
+            "required": true,
+            "placeholder": "Vul adres in",
+            "reportLabel": "Adres"
+        },
+        {
+            "name": "bu_schade",
+            "type": "radiogroup",
+            "label": "BU",
+            "required": true,
+            "horizontal": true,
+            "reportLabel": "BU",
+            "options": [
+                {
+                    "label": "BU Noord",
+                    "value": "BU Noord"
+                },
+                {
+                    "label": "BU Midden",
+                    "value": "BU Midden"
+                },
+                {
+                    "label": "BU Infra",
+                    "value": "BU Infra"
+                }
+            ]
+        },
+        {
+            "name": "detail_schade_groep",
+            "type": "group",
+            "label": "Detail schade",
+            "elements": [
+                {
+                    "name": "omschrijving_beschadigd_object",
+                    "type": "text",
+                    "label": "Omschrijving beschadigd object",
+                    "required": true,
+                    "placeholder": "Vul omschrijving in",
+                    "reportLabel": "Omschrijving beschadigd object"
+                },
+                {
+                    "name": "object_nummer",
+                    "type": "text",
+                    "label": "Object\/Materieel nummer",
+                    "required": true,
+                    "placeholder": "Vul object\/materieel nummer in",
+                    "reportLabel": "Object\/Materieel nummer"
+                },
+                {
+                    "name": "geregistreerd_onder_naam",
+                    "type": "text",
+                    "label": "Geregistreerd onder naam van",
+                    "required": true,
+                    "placeholder": "Vul naam in",
+                    "reportLabel": "Geregistreerd onder naam van"
+                },
+                {
+                    "name": "locatie_beschadigd_object",
+                    "type": "text",
+                    "label": "Waar bevond het beschadigde object zich?",
+                    "required": true,
+                    "placeholder": "Vul locatie in",
+                    "reportLabel": "Locatie beschadigd object"
+                },
+                {
+                    "name": "oorzaak_schade",
+                    "type": "radiogroup",
+                    "label": "Wat was de oorzaak van de schade?",
+                    "required": true,
+                    "horizontal": false,
+                    "reportLabel": "Oorzaak schade",
+                    "options": [
+                        {
+                            "label": "Ongeval\/Menselijke fout",
+                            "value": "Ongeval"
+                        },
+                        {
+                            "label": "Vandalisme",
+                            "value": "Vandalisme"
+                        },
+                        {
+                            "label": "Technisch defect",
+                            "value": "Technisch"
+                        },
+                        {
+                            "label": "Weersinvloeden",
+                            "value": "Weer"
+                        },
+                        {
+                            "label": "Onbekend",
+                            "value": "Onbekend"
+                        }
+                    ]
+                },
+                {
+                    "name": "schade_ontstaan",
+                    "type": "radiogroup",
+                    "label": "Extra schade ontstaan?",
+                    "required": true,
+                    "horizontal": true,
+                    "reportLabel": "Extra schade ontstaan",
+                    "options": [
+                        {
+                            "label": "Ja",
+                            "value": "Ja"
+                        },
+                        {
+                            "label": "Nee",
+                            "value": "Nee"
+                        }
+                    ]
+                },
+                {
+                    "name": "beschrijving_schade",
+                    "type": "textarea",
+                    "label": "Beschrijf de extra schade",
+                    "required": true,
+                    "placeholder": "Beschrijf de extra schade",
+                    "reportLabel": "Beschrijving extra schade",
+                    "requirements": [
+                        "schade_ontstaan_ja"
+                    ]
+                },
+                {
+                    "name": "foto_schade",
+                    "type": "file",
+                    "label": "Foto toevoegen",
+                    "allowed": "photo",
+                    "reportLabel": "Foto"
+                },
+                {
+                    "name": "filmpje_schade",
+                    "type": "file",
+                    "label": "Filmpje toevoegen",
+                    "allowed": "video",
+                    "reportLabel": "Filmpje"
+                }
+            ]
+        },
+        {
+            "name": "kamtoelichting",
+            "type": "description",
+            "label": "Na het versturen wordt er contact met je opgenomen over het vervolgtraject"
+        }
+    ],
+    "calculations": {
+        "conditions": {
+            "schade_ontstaan_ja": [
+                {
+                    "name": "schade_ontstaan",
+                    "type": "model",
+                    "value": "Ja",
+                    "condition": "="
+                }
+            ]
+        }
+    },
+    "reports": {
+        "schade-list": true,
+        "schade-trends": true,
+        "schade-followup": true,
+        "schade-audit-click": true,
+        "schade-list-export": true,
+        "schade-observations": true
+    },
+    "generated": [
+        {
+            "name": "auditnummer",
+            "format": "Schade: :projectnummer_schade-:generatedDate",
+            "enabled": true
+        }
+    ],
+    "mailReport": [
+        {
+            "to": [
+                {
+                    "slug": "schade-mailing",
+                    "type": "group"
+                },
+                {
+                    "type": "self"
+                }
+            ],
+            "enabled": true,
+            "modularReport": "schade-observations"
+        }
+    ],
+    "integrations": [
+        {
+            "name": "auto-follow-up",
+            "enabled": true,
+            "settings": {
+                "map": {
+                    "statusactie": "statusactie",
+                    "datum": "datum",
+                    "project": "project",
+                    "datum_schade_bekend": "datum_schade_bekend",
+                    "tijdstip_schade_bekend": "tijdstip_schade_bekend",
+                    "projectnummer_schade": "projectnummer_schade",
+                    "plaatsnaam_schade": "plaatsnaam_schade",
+                    "adres_schade": "adres_schade",
+                    "bu_schade": "bu_schade",
+                    "omschrijving_beschadigd_object": "omschrijving_beschadigd_object",
+                    "object_nummer": "object_nummer",
+                    "geregistreerd_onder_naam": "geregistreerd_onder_naam",
+                    "locatie_beschadigd_object": "locatie_beschadigd_object",
+                    "oorzaak_schade": "oorzaak_schade",
+                    "schade_ontstaan": "schade_ontstaan",
+                    "beschrijving_schade": "beschrijving_schade",
+                    "foto_schade": "foto_schade",
+                    "filmpje_schade": "filmpje_schade",
+                    "medewerker": "issuer.name",
+                    "auditnummer": "auditnummer"
+                },
+                "slug": "opvolging-schade"
+            }
+        }
+    ],
+    "mustSpecify": true,
+    "submitLabel": "Melding versturen",
+    "defaultactie": "specify",
+    "completedLabel": "Melding verstuurd:"
+}
