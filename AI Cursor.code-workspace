@@ -18,7 +18,6 @@
 		"typescript.tsdk": "node_modules/typescript/lib",
 		"notebook.formatOnSave.enabled": true,
 		"github.copilot.enable": false,
-		"github.copilot.inlineSuggest.enable": false,
 		"github.copilot.editor.enableAutoCompletions": false
 	}
 }
